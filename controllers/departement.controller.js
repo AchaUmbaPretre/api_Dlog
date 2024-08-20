@@ -1,6 +1,4 @@
 const { db } = require("./../config/database");
-const moment = require('moment'); // Pour obtenir l'année en cours
-
 
 exports.getDepartementCount = (req, res) => {
     const { searchValue } = req.query;
@@ -63,12 +61,10 @@ exports.postDepartement = async (req, res) => {
 
         const { nom_departement, description, responsable, telephone, email } = req.body;
 
-        // Vérifier que les champs requis sont fournis
-        if (!nom_departement || !description || !responsable || !telephone || !email) {
+        if (!nom_departement || !responsable || !telephone || !email) {
             return res.status(400).json({ error: 'Tous les champs requis doivent être fournis.' });
         }
 
-        // Vérifier de l'existence du département
         const [departeCheckResult] = await new Promise((resolve, reject) => {
             db.query(checkDeparteQuery, [nom_departement], (error, results) => {
                 if (error) {
@@ -84,7 +80,6 @@ exports.postDepartement = async (req, res) => {
             return res.status(400).json({ error: 'Un département existe déjà avec ce nom.' });
         }
 
-        // Récupérer le prochain ID auto-incrémenté
         let newId = await new Promise((resolve, reject) => {
             db.query('SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_NAME = "departement"', (error, results) => {
                 if (error) {
@@ -95,14 +90,12 @@ exports.postDepartement = async (req, res) => {
             });
         });
 
-        // Générer un code unique à 4 chiffres
         let code;
         let unique = false;
 
         while (!unique) {
             code = String(newId).padStart(4, '0');
 
-            // Vérifier si le code est unique
             const [codeCheckResult] = await new Promise((resolve, reject) => {
                 db.query(checkCodeQuery, [code], (error, results) => {
                     if (error) {
@@ -139,10 +132,6 @@ exports.postDepartement = async (req, res) => {
     }
 };
 
-
-
-
-
 exports.putDepartement = async (req, res) => {
     const { id_departement } = req.query;
     const { nom_departement, description, code, responsable, telephone, email } = req.body;
@@ -178,7 +167,6 @@ exports.putDepartement = async (req, res) => {
         return res.status(500).json({ error: 'Failed to update department record' });
     }
 }
-
 
 exports.deleteDepartement = (req, res) => {
     const id = req.params.id;
