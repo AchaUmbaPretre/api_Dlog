@@ -23,16 +23,14 @@ exports.getClientCount = (req, res) => {
 }
 
 exports.getClients = (req, res) => {
-    const { page = 1, limit = 10 } = req.query;
-    const offset = (page - 1) * limit;
 
     const q = `
     SELECT 
-        client.*,
+        client.*
     FROM client
     `;
 
-    db.query(q, [parseInt(limit), parseInt(offset)], (error, data) => {
+    db.query(q, (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
@@ -55,15 +53,14 @@ exports.getClientOne = (req, res) => {
 }
 
 exports.postClient = async (req, res) => {
-
     try {
-        const checkClientQuery = 'SELECT COUNT(*) AS count FROM client WHERE nom_client = ?';
-        const insertClientQuery = 'INSERT INTO client(`nom`, `adresse`, `ville`, `pays`, `telephone`, `email`) VALUES(?,?,?,?,?,?)';
+        const checkClientQuery = 'SELECT COUNT(*) AS count FROM client WHERE nom = ?';
+        const insertClientQuery = 'INSERT INTO client(`nom`, `adresse`, `ville`, `pays`, `telephone`, `email`, `id_type_client`) VALUES(?,?,?,?,?,?,?)';
 
-        const { nom_client, telephone, adresse, email } = req.body;
+        const { nom, telephone, adresse, ville, pays, email, id_type_client } = req.body;  // Ajout de `pays` ici
 
         const clientCheckResult = await new Promise((resolve, reject) => {
-            db.query(checkClientQuery, [nom_client], (error, results) => {
+            db.query(checkClientQuery, [nom], (error, results) => {
                 if (error) {
                     reject(error);
                 } else {
@@ -77,7 +74,16 @@ exports.postClient = async (req, res) => {
             return res.status(400).json({ error: 'Le client existe déjà avec ce nom.' });
         }
 
-        await db.query(insertClientQuery, [nom, adresse, ville, pays, adresse, email]);
+        await new Promise((resolve, reject) => {
+            db.query(insertClientQuery, [nom, adresse, ville, pays, telephone, email, id_type_client], (error, results) => {
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(results);
+                }
+            });
+        });
+
         return res.json('Processus réussi');
     } catch (error) {
         console.error(error);
@@ -85,9 +91,9 @@ exports.postClient = async (req, res) => {
     }
 };
 
+
 exports.putClient = async (req, res) => {
     const { id_client } = req.query;
-    const {} = req.body;
 
     if (!id_client || isNaN(id_client)) {
         return res.status(400).json({ error: 'Invalid client ID provided' });
@@ -139,7 +145,7 @@ exports.deleteClient = (req, res) => {
 
 exports.getProvince = (req, res) => {
 
-    const q = `SELECT client.* FROM client
+    const q = `SELECT * FROM provinces
     `;
     db.query(q, (error, data) => {
         if (error) {
