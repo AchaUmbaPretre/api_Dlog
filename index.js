@@ -7,6 +7,7 @@ const authRoutes = require('./routes/auth.routes');
 const clientRoutes = require('./routes/client.routes');
 const departementRoutes = require('./routes/departement.routes');
 const tacheRoutes = require('./routes/tache.routes');
+const userRoutes = require('./routes/user.routes');
 
 
 const app = express();
@@ -21,7 +22,7 @@ if (environment === 'development') {
 }
 
 const corsOptions = {
-  origin: '*', // Autorise toutes les origines, à personnaliser pour plus de sécurité
+  origin: '*',
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   preflightContinue: false,
   optionsSuccessStatus: 204,
@@ -34,15 +35,12 @@ app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.json());
 app.use(express.static('public'));
 
-const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-const imageUrl = proxyUrl + 'https://apifalcon.loginsmart-cd.com/uploads/83fc25b5e1d6c680f9d80c2ce9f56bd3';
-
-
 app.setMaxListeners(0);
 
 const port = process.env.PORT || 8070;
 
 app.use('/api/auth', authRoutes)
+app.use('/api/user', userRoutes)
 app.use('/api/client', clientRoutes)
 app.use('/api/tache', tacheRoutes)
 app.use('/api/departement', departementRoutes)
