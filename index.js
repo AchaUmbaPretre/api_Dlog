@@ -6,6 +6,8 @@ const bodyParser = require('body-parser');
 const authRoutes = require('./routes/auth.routes');
 const clientRoutes = require('./routes/client.routes');
 const departementRoutes = require('./routes/departement.routes');
+const tacheRoutes = require('./routes/tache.routes');
+
 
 const app = express();
 
@@ -40,9 +42,10 @@ app.setMaxListeners(0);
 
 const port = process.env.PORT || 8070;
 
-app.use('/auth', authRoutes)
-app.use('/client', clientRoutes)
-app.use('/departement', departementRoutes)
+app.use('/api/auth', authRoutes)
+app.use('/api/client', clientRoutes)
+app.use('/api/tache', tacheRoutes)
+app.use('/api/departement', departementRoutes)
 
 app.listen(port, () => {
     console.log(

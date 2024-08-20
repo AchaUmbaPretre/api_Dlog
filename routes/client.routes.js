@@ -9,5 +9,10 @@ router.post('/client', clientController.postClient)
 router.put('/client', clientController.putClient)
 
 router.delete('/:id', clientController.deleteClient)
+
+
+//Client
+router.get('/province', clientController.getProvince)
+router.get('/type_client', clientController.getClientType)
  
 module.exports = router;

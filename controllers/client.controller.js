@@ -134,3 +134,29 @@ exports.deleteClient = (req, res) => {
     });
   
   }
+
+
+
+exports.getProvince = (req, res) => {
+
+    const q = `SELECT client.* FROM client
+    `;
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getClientType = (req, res) => {
+
+    const q = `SELECT * FROM type_client
+    `;
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};

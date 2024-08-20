@@ -4,7 +4,7 @@ const router = express.Router();
 
 router.get('/count', departementController.getDepartementCount)
 router.get('/', departementController.getDepartement)
-router.get('/One', departementController.getDepartementOne)
+router.get('/one', departementController.getDepartementOne)
 router.post('/', departementController.postDepartement)
 router.put('/', departementController.putDepartement)
 
