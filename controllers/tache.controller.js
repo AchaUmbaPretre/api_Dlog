@@ -23,16 +23,14 @@ exports.getTacheCount = (req, res) => {
 }
 
 exports.getTache = (req, res) => {
-    const { page = 1, limit = 10 } = req.query;
-    const offset = (page - 1) * limit;
 
     const q = `
     SELECT 
-        tache.*,
+        tache.*
     FROM tache
     `;
 
-    db.query(q, [parseInt(limit), parseInt(offset)], (error, data) => {
+    db.query(q, (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
