@@ -26,8 +26,10 @@ exports.getClients = (req, res) => {
 
     const q = `
     SELECT 
-        client.*
+        client.id_client, client.nom, client.adresse, client.telephone, client.email, provinces.capital, type_client.nom_type
     FROM client
+    INNER JOIN provinces ON client.ville = provinces.id
+    INNER JOIN type_client ON client.id_type_client = type_client.id_type_client
     `;
 
     db.query(q, (error, data) => {

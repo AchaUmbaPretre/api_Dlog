@@ -1,4 +1,6 @@
 const { db } = require("./../config/database");
+const moment = require('moment'); // Pour obtenir l'année en cours
+
 
 exports.getDepartementCount = (req, res) => {
     const { searchValue } = req.query;
@@ -23,16 +25,14 @@ exports.getDepartementCount = (req, res) => {
 }
 
 exports.getDepartement = (req, res) => {
-    const { page = 1, limit = 10 } = req.query;
-    const offset = (page - 1) * limit;
 
     const q = `
     SELECT 
-        client.*,
+        departement.*
     FROM departement
     `;
 
-    db.query(q, [parseInt(limit), parseInt(offset)], (error, data) => {
+    db.query(q, (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
@@ -58,11 +58,17 @@ exports.getDepartementOne = (req, res) => {
 exports.postDepartement = async (req, res) => {
     try {
         const checkDeparteQuery = 'SELECT COUNT(*) AS count FROM departement WHERE nom_departement = ?';
+        const checkCodeQuery = 'SELECT COUNT(*) AS count FROM departement WHERE code = ?';
         const insertDeparteQuery = 'INSERT INTO departement(`nom_departement`, `description`, `code`, `responsable`, `telephone`, `email`) VALUES(?,?,?,?,?,?)';
 
-        const { nom_departement, description, code, responsable, telephone, email } = req.body;
+        const { nom_departement, description, responsable, telephone, email } = req.body;
 
-        // Vérification de l'existence du département
+        // Vérifier que les champs requis sont fournis
+        if (!nom_departement || !description || !responsable || !telephone || !email) {
+            return res.status(400).json({ error: 'Tous les champs requis doivent être fournis.' });
+        }
+
+        // Vérifier de l'existence du département
         const [departeCheckResult] = await new Promise((resolve, reject) => {
             db.query(checkDeparteQuery, [nom_departement], (error, results) => {
                 if (error) {
@@ -78,7 +84,44 @@ exports.postDepartement = async (req, res) => {
             return res.status(400).json({ error: 'Un département existe déjà avec ce nom.' });
         }
 
-        // Insertion du nouveau département
+        // Récupérer le prochain ID auto-incrémenté
+        let newId = await new Promise((resolve, reject) => {
+            db.query('SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_NAME = "departement"', (error, results) => {
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(results[0].AUTO_INCREMENT);
+                }
+            });
+        });
+
+        // Générer un code unique à 4 chiffres
+        let code;
+        let unique = false;
+
+        while (!unique) {
+            code = String(newId).padStart(4, '0');
+
+            // Vérifier si le code est unique
+            const [codeCheckResult] = await new Promise((resolve, reject) => {
+                db.query(checkCodeQuery, [code], (error, results) => {
+                    if (error) {
+                        reject(error);
+                    } else {
+                        resolve(results);
+                    }
+                });
+            });
+
+            if (codeCheckResult.count === 0) {
+                unique = true;
+            } else {
+                // Incrémenter l'ID pour générer un nouveau code
+                newId++;
+            }
+        }
+
+        // Insertion du nouveau département avec le code généré
         await new Promise((resolve, reject) => {
             db.query(insertDeparteQuery, [nom_departement, description, code, responsable, telephone, email], (error, results) => {
                 if (error) {
@@ -95,6 +138,9 @@ exports.postDepartement = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du département." });
     }
 };
+
+
+
 
 
 exports.putDepartement = async (req, res) => {
