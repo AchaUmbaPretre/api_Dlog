@@ -26,7 +26,7 @@ exports.getTache = (req, res) => {
 
     const q = `
     SELECT 
-        tache.*
+        *
     FROM tache
     `;
 
@@ -78,10 +78,10 @@ exports.postTache = async (req, res) => {
 };
 
 exports.putTache = async (req, res) => {
-    const { id_departement } = req.query;
+    const { id_tache } = req.query;
 
-    if (!id_departement || isNaN(id_departement)) {
-        return res.status(400).json({ error: 'Invalid department ID provided' });
+    if (!id_tache || isNaN(id_tache)) {
+        return res.status(400).json({ error: 'Invalid tache ID provided' });
     }
 
     try {
@@ -109,7 +109,8 @@ exports.putTache = async (req, res) => {
             req.body.priorite,
             req.body.id_frequence,
             req.body.id_point_supervision,
-            req.body.responsable_principal
+            req.body.responsable_principal,
+            id_tache
         ];
 
         const [result] = await db.query(q, values);
@@ -118,7 +119,7 @@ exports.putTache = async (req, res) => {
             return res.status(404).json({ error: 'Department record not found' });
         }
 
-        return res.json({ message: 'Department record updated successfully' });
+        return res.json({ message: 'Tache record updated successfully' });
     } catch (err) {
         console.error("Error updating department:", err);
         return res.status(500).json({ error: 'Failed to update department record' });
