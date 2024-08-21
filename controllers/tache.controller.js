@@ -24,10 +24,7 @@ exports.getTacheCount = (req, res) => {
 
 exports.getTache = (req, res) => {
 
-    const q = `
-    SELECT 
-        *
-    FROM tache
+    const q = `SELECT * FROM tache
     `;
 
     db.query(q, (error, data) => {
