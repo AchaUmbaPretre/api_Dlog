@@ -8,6 +8,8 @@ const clientRoutes = require('./routes/client.routes');
 const departementRoutes = require('./routes/departement.routes');
 const tacheRoutes = require('./routes/tache.routes');
 const userRoutes = require('./routes/user.routes');
+const frequenceRoutes = require('./routes/frequence.routes');
+const formatRoutes = require('./routes/format.routes');
 
 
 const app = express();
@@ -44,6 +46,8 @@ app.use('/api/user', userRoutes)
 app.use('/api/client', clientRoutes)
 app.use('/api/tache', tacheRoutes)
 app.use('/api/departement', departementRoutes)
+app.use('/api/frequence', frequenceRoutes)
+app.use('/api/format', formatRoutes)
 
 app.listen(port, () => {
     console.log(
