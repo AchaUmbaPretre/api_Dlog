@@ -24,8 +24,13 @@ exports.getTacheCount = (req, res) => {
 
 exports.getTache = (req, res) => {
 
-    const q = `SELECT * FROM tache
-    `;
+    const q = `SELECT tache.id_tache, tache.description, tache.date_debut, tache.date_fin,tache.nom_tache, typeC.nom_type_statut AS statut, client.nom AS nom_client, frequence.nom AS frequence, utilisateur.nom AS owner, provinces.name AS ville FROM tache
+                    INNER JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+                    INNER JOIN client ON tache.id_client = client.id_client
+                    INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
+                    INNER JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
+                    INNER JOIN provinces ON tache.id_ville = provinces.id
+                    `;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -52,18 +57,20 @@ exports.getTacheOne = (req, res) => {
 
 exports.postTache = async (req, res) => {
     try {
-        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`, `id_frequence`, `id_point_supervision`, `responsable_principal`) VALUES(?,?,?,?,?,?,?,?,?)';
+        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_client`, `id_frequence`, `id_point_supervision`, `responsable_principal`, `id_ville`) VALUES(?,?,?,?,?,?,?,?,?,?,?)';
 
         const values = [
             req.body.nom_tache,
             req.body.description,
-            req.body.statut,
+            req.body.statut || 1,
             req.body.date_debut,
             req.body.date_fin,
             req.body.priorite,
+            req.body.id_client,
             req.body.id_frequence,
             req.body.id_point_supervision,
-            req.body.responsable_principal
+            req.body.responsable_principal,
+            req.body.id_ville
         ];
 
         await db.query(q, values);

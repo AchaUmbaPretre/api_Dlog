@@ -18,8 +18,18 @@ exports.getControle = (req, res) => {
 
     const q = `
     SELECT 
-        *
-    FROM controle_de_base
+        c.id_departement,
+        c.controle_de_base, 
+        d.nom_departement AS departement, 
+        format.nom_format AS format, 
+        client.nom 	AS nom_client, frequence.nom AS frequence, 
+        utilisateur.nom AS responsable 
+    FROM controle_de_base AS c
+        INNER JOIN departement AS d ON c.id_departement = d.id_departement
+        INNER JOIN format ON c.id_format = format.id_format
+        INNER JOIN client ON c.id_client = client.id_client
+        INNER JOIN frequence ON c.id_frequence = frequence.id_frequence
+        INNER JOIN utilisateur ON c.responsable = utilisateur.id_utilisateur
     `;
 
     db.query(q, (error, data) => {
@@ -46,7 +56,7 @@ exports.getControleOne = (req, res) => {
 }
 
 exports.postControle = async (req, res) => {
-    const { id_departement, id_client, id_format, controle_de_base, id_frequence, responsable } = req.body;
+    const { id_departement, id_client, id_format, controle_de_base, id_frequence, responsable } = req.body; 
 
     if (!id_departement || !id_client || !id_format || !controle_de_base || !id_frequence || !responsable) {
         return res.status(400).json({ error: 'Tous les champs sont requis.' });
