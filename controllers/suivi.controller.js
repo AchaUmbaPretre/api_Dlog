@@ -1,0 +1,79 @@
+const { db } = require("./../config/database");
+
+exports.getSuiviCount = (req, res) => {
+    
+    let q = `
+        SELECT 
+            COUNT(id_suivi_controle) AS nbre_suivi
+        FROM suivi_controle_de_base
+        `;
+     
+    db.query(q, (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+}
+
+exports.getSuivi = (req, res) => {
+
+    const q = `
+    SELECT 
+        *
+    FROM suivi_controle_de_base
+    `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getSuiviOne = (req, res) => {
+    const {id_suivi} = req.query;
+
+    const q = `
+        SELECT *
+            FROM suivi_controle_de_base
+        WHERE id_suivi_controle =${id_suivi}
+        `;
+     
+    db.query(q, (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+}
+
+exports.postSuivi = async (req, res) => {
+    try {
+        const q = 'INSERT INTO suivi_controle_de_base(`id_controle`, `status`, `commentaires`, `effectue_par`, `est_termine`) VALUES(?,?,?,?,?)';
+
+        const values = [
+            req.body.id_controle,
+            req.body.status,
+            req.body.commentaires,
+            req.body.effectue_par,
+            req.body.est_termine
+        ];
+
+        await db.query(q, values);
+        return res.status(201).json({ message: 'Suivi ajouté avec succès'});
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout de la tâche :', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+    }
+};
+
+
+exports.deleteSuivi = (req, res) => {
+    const id = req.params.id;
+  
+    const q = "DELETE FROM suivi_controle_de_base WHERE id_suivi_controle = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) return res.send(err);
+      return res.json(data);
+    });
+  
+  }

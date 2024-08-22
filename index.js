@@ -12,7 +12,7 @@ const frequenceRoutes = require('./routes/frequence.routes');
 const formatRoutes = require('./routes/format.routes');
 const controleRoutes = require('./routes/controle.routes');
 const typeRoutes = require('./routes/type.routes');
-
+const suiviRoutes = require('./routes/suivi.routes');
 
 const app = express();
 
@@ -52,6 +52,7 @@ app.use('/api/frequence', frequenceRoutes)
 app.use('/api/format', formatRoutes)
 app.use('/api/controle', controleRoutes)
 app.use('/api/types', typeRoutes)
+app.use('/api/suivi', suiviRoutes)
 
 app.listen(port, () => {
     console.log(
