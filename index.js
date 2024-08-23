@@ -13,6 +13,7 @@ const formatRoutes = require('./routes/format.routes');
 const controleRoutes = require('./routes/controle.routes');
 const typeRoutes = require('./routes/type.routes');
 const suiviRoutes = require('./routes/suivi.routes');
+const budgetRoutes = require('./routes/budget.routes');
 
 const app = express();
 
@@ -53,6 +54,7 @@ app.use('/api/format', formatRoutes)
 app.use('/api/controle', controleRoutes)
 app.use('/api/types', typeRoutes)
 app.use('/api/suivi', suiviRoutes)
+app.use('/api/budget', budgetRoutes)
 
 app.listen(port, () => {
     console.log(
