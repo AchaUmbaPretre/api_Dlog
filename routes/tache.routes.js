@@ -9,5 +9,10 @@ router.post('/', tacheController.postTache)
 router.put('/', tacheController.putTache)
 
 router.delete('/:id', tacheController.deleteTache)
- 
+
+
+//Tache personne
+router.get('/tache_personne', tacheController.getTachePersonne)
+router.post('/tache_personne', tacheController.postTachePersonnne)
+router.delete('/tache_personne', tacheController.deleteTachePersonne)
 module.exports = router;

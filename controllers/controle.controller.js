@@ -71,7 +71,6 @@ exports.postControle = async (req, res) => {
 
     try {
         await db.query(query, [id_departement, id_client, id_format, controle_de_base, id_frequence, responsable]);
-        return res.status(201).json({ message: 'Contrôle ajouté avec succès.' });
     } catch (error) {
         console.error('Erreur lors de l\'ajout de contrôle :', error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du contrôle." });

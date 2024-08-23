@@ -132,11 +132,54 @@ exports.putTache = async (req, res) => {
     }
 }
 
-
 exports.deleteTache = (req, res) => {
     const id = req.params.id;
   
     const q = "DELETE FROM tache WHERE id_tache = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) return res.send(err);
+      return res.json(data);
+    });
+  
+  }
+
+
+  //Tacha personne
+exports.getTachePersonne = (req, res) => {
+
+    const q = `SELECT * FROM tache_personne`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postTachePersonnne = async (req, res) => {
+    try {
+        const q = 'INSERT INTO tache_personne(`id_user`, `id_tache`, `date_assigne`) VALUES(?,?,?)';
+
+        const values = [
+            req.body.id_user ,
+            req.body.id_tache,
+            req.body.date_assigne
+        ];
+
+        await db.query(q, values);
+        return res.status(201).json({ message: 'Tâche personne ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout de la tâche :', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+    }
+};
+
+exports.deleteTachePersonne = (req, res) => {
+    const id = req.params.id;
+  
+    const q = "DELETE FROM tache_personne WHERE id_tache_personne = ?";
   
     db.query(q, [id], (err, data) => {
       if (err) return res.send(err);
