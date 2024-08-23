@@ -20,6 +20,7 @@ exports.getControle = (req, res) => {
     SELECT 
         c.id_departement,
         c.controle_de_base, 
+        c.id_controle,
         d.nom_departement AS departement, 
         format.nom_format AS format, 
         client.nom 	AS nom_client, frequence.nom AS frequence, 

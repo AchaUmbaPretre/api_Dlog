@@ -17,9 +17,10 @@ exports.getSuiviCount = (req, res) => {
 exports.getSuivi = (req, res) => {
 
     const q = `
-    SELECT 
-        *
-    FROM suivi_controle_de_base
+            SELECT d.nom_departement AS nom_departement, s.commentaires, s.date_suivi, type.nom_type_statut AS statut FROM suivi_controle_de_base AS s
+        INNER JOIN controle_de_base AS c ON s.id_controle = c.id_controle
+        INNER JOIN departement AS d ON c.id_departement = d.id_departement
+        INNER JOIN type_statut_suivi AS type ON s.status = type.id_type_statut_suivi
     `;
 
     db.query(q, (error, data) => {
@@ -46,6 +47,7 @@ exports.getSuiviOne = (req, res) => {
 }
 
 exports.postSuivi = async (req, res) => {
+
     try {
         const q = 'INSERT INTO suivi_controle_de_base(`id_controle`, `status`, `commentaires`, `effectue_par`, `est_termine`) VALUES(?,?,?,?,?)';
 

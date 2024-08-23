@@ -24,12 +24,14 @@ exports.getTacheCount = (req, res) => {
 
 exports.getTache = (req, res) => {
 
-    const q = `SELECT tache.id_tache, tache.description, tache.date_debut, tache.date_fin,tache.nom_tache, typeC.nom_type_statut AS statut, client.nom AS nom_client, frequence.nom AS frequence, utilisateur.nom AS owner, provinces.name AS ville FROM tache
+    const q = `SELECT tache.id_tache, tache.description, tache.date_debut, tache.date_fin,tache.nom_tache, typeC.nom_type_statut AS statut, client.nom AS nom_client, frequence.nom AS frequence, utilisateur.nom AS owner, provinces.name AS ville, departement.nom_departement AS departement FROM tache
                     INNER JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
                     INNER JOIN client ON tache.id_client = client.id_client
                     INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
                     INNER JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
                     INNER JOIN provinces ON tache.id_ville = provinces.id
+                    LEFT JOIN controle_de_base ON client.id_client = controle_de_base.id_client
+                    LEFT JOIN departement ON utilisateur.id_utilisateur = departement.responsable
                     `;
 
     db.query(q, (error, data) => {
