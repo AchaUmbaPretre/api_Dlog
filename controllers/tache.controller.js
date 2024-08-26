@@ -24,15 +24,34 @@ exports.getTacheCount = (req, res) => {
 
 exports.getTache = (req, res) => {
 
-    const q = `SELECT tache.id_tache, tache.description, tache.date_debut, tache.date_fin,tache.nom_tache, typeC.nom_type_statut AS statut, client.nom AS nom_client, frequence.nom AS frequence, utilisateur.nom AS owner, provinces.name AS ville, departement.nom_departement AS departement FROM tache
-                    INNER JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
-                    INNER JOIN client ON tache.id_client = client.id_client
-                    INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
-                    INNER JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
-                    INNER JOIN provinces ON tache.id_ville = provinces.id
-                    LEFT JOIN controle_de_base ON client.id_client = controle_de_base.id_client
-                    LEFT JOIN departement ON utilisateur.id_utilisateur = departement.responsable
-                    `;
+    const q = `SELECT 
+    tache.id_tache, 
+    tache.description, 
+    tache.date_debut, 
+    tache.date_fin,
+    tache.nom_tache, 
+    typeC.nom_type_statut AS statut, 
+    client.nom AS nom_client, 
+    frequence.nom AS frequence, 
+    utilisateur.nom AS owner, 
+    provinces.name AS ville, 
+    COALESCE(departement.nom_departement, dp_ac.nom_departement) AS departement, 
+    cb.controle_de_base,
+    cb.id_controle
+FROM 
+    tache
+    INNER JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+    INNER JOIN client ON tache.id_client = client.id_client
+    INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
+    INNER JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
+    INNER JOIN provinces ON tache.id_ville = provinces.id
+    LEFT JOIN controle_de_base ON client.id_client = controle_de_base.id_client
+    LEFT JOIN departement ON utilisateur.id_utilisateur = departement.responsable
+    INNER JOIN controle_de_base AS cb ON tache.id_control = cb.id_controle
+    INNER JOIN departement AS dp_ac ON dp_ac.id_departement = cb.id_departement
+GROUP BY 
+    tache.id_tache;
+`;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -59,7 +78,7 @@ exports.getTacheOne = (req, res) => {
 
 exports.postTache = async (req, res) => {
     try {
-        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_client`, `id_frequence`, `id_point_supervision`, `responsable_principal`, `id_ville`) VALUES(?,?,?,?,?,?,?,?,?,?,?)';
+        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_client`, `id_frequence`,`id_control`, `id_point_supervision`, `responsable_principal`, `id_ville`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)';
 
         const values = [
             req.body.nom_tache,
@@ -70,6 +89,7 @@ exports.postTache = async (req, res) => {
             req.body.priorite,
             req.body.id_client,
             req.body.id_frequence,
+            req.body.id_control,
             req.body.id_point_supervision,
             req.body.responsable_principal,
             req.body.id_ville
@@ -101,6 +121,7 @@ exports.putTache = async (req, res) => {
                 date_fin = ?,
                 priorite = ?,
                 id_frequence = ?,
+                id_control = ?,
                 id_point_supervision = ?,
                 responsable_principal
             WHERE id_departement = ?

@@ -1,4 +1,5 @@
 const { db } = require("./../config/database");
+const util = require('util');
 
 exports.getBudgetCount = (req, res) => {
     
@@ -62,6 +63,37 @@ exports.postBudget = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
+
+const query = util.promisify(db.query).bind(db);
+
+exports.putBudget = async (req, res) => {
+    const { id_budget, quantite_validee } = req.body;
+
+    const queryStr = `
+        UPDATE budget 
+        SET quantite_validee = ?
+        WHERE id_budget = ?
+    `;
+
+    const values = [quantite_validee, id_budget];
+
+    try {
+        const results = await query(queryStr, values);
+
+        if (results.affectedRows === 0) {
+            return res.status(404).json({ error: 'Enregistrement de contrôle non trouvé' });
+        }
+
+        return res.json({ message: 'Quantité validée mise à jour avec succès' });
+    } catch (error) {
+        console.error("Erreur lors de la mise à jour de la quantité validée :", error);
+        return res.status(500).json({ error: 'Échec de la mise à jour de la quantité validée' });
+    }
+};
+
+
+
+
 
 
 exports.deleteBudget = (req, res) => {
