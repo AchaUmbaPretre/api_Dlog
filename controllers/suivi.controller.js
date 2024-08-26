@@ -46,6 +46,35 @@ exports.getSuiviOne = (req, res) => {
     });
 }
 
+exports.getSuiviTacheOne = (req, res) => {
+    const {id_tache} = req.query;
+
+    const q = `
+        SELECT 
+    suivi_tache.*, 
+    CASE 
+        WHEN suivi_tache.est_termine = 0 THEN 'Non' 
+        ELSE 'Oui' 
+    END AS est_termine,
+    utilisateur.nom, 
+    tache.nom_tache
+FROM 
+    suivi_tache
+INNER JOIN 
+    utilisateur ON suivi_tache.effectue_par = utilisateur.id_utilisateur
+INNER JOIN 
+    tache ON suivi_tache.id_tache = tache.id_tache
+WHERE 
+    suivi_tache.id_suivi = ${id_tache};
+
+        `;
+     
+    db.query(q, (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+}
+
 exports.postSuivi = async (req, res) => {
 
     try {

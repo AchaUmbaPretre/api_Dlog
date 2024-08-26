@@ -5,6 +5,7 @@ const router = express.Router();
 router.get('/count', suiviController.getSuiviCount)
 router.get('/', suiviController.getSuivi)
 router.get('/one', suiviController.getSuiviOne)
+router.get('/suiviTacheOne', suiviController.getSuiviTacheOne)
 router.post('/', suiviController.postSuivi)
 router.post('/suiviTache', suiviController.postSuiviTache)
 router.delete('/:id', suiviController.deleteSuivi)
