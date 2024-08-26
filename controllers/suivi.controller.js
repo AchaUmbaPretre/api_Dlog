@@ -67,6 +67,30 @@ exports.postSuivi = async (req, res) => {
     }
 };
 
+exports.postSuiviTache = async (req, res) => {
+    console.log(req.body);
+
+    try {
+        const q = 'INSERT INTO suivi_tache(`id_tache`, `status`, `commentaire`, `pourcentage_avancement`, `effectue_par`, `est_termine`) VALUES(?,?,?,?,?,?)';
+
+        const values = [
+            req.body.id_tache,
+            req.body.status,
+            req.body.commentaire,
+            req.body.pourcentage_avancement,
+            req.body.effectue_par,
+            req.body.est_termine ? 1 : 0 
+        ];
+
+        await db.query(q, values);
+        return res.status(201).json({ message: 'Suivi de tache ajouté avec succès' });
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout de la tâche :', error.message);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+    }
+};
+
+
 
 exports.deleteSuivi = (req, res) => {
     const id = req.params.id;
