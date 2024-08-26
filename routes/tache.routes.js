@@ -5,6 +5,7 @@ const  tacheController = require('./../controllers/tache.controller');
 router.get('/count', tacheController.getTacheCount)
 router.get('/', tacheController.getTache)
 router.get('/One', tacheController.getTacheOne)
+router.get('/controleTacheOne', tacheController.getTacheControleOne)
 router.post('/', tacheController.postTache)
 router.put('/', tacheController.putTache)
 

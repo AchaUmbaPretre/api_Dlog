@@ -37,7 +37,8 @@ exports.getTache = (req, res) => {
     provinces.name AS ville, 
     COALESCE(departement.nom_departement, dp_ac.nom_departement) AS departement, 
     cb.controle_de_base,
-    cb.id_controle
+    cb.id_controle,
+    DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
 FROM 
     tache
     INNER JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
@@ -68,6 +69,47 @@ exports.getTacheOne = (req, res) => {
         SELECT tache.*
             FROM tache 
         WHERE tache.id_tache =${id_tache}
+        `;
+     
+    db.query(q, (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+}
+
+exports.getTacheControleOne = (req, res) => {
+    const {id_controle} = req.query;
+
+    const q = `
+        SELECT 
+    tache.id_tache, 
+    tache.description, 
+    tache.date_debut, 
+    tache.date_fin,
+    tache.nom_tache, 
+    typeC.nom_type_statut AS statut, 
+    client.nom AS nom_client, 
+    frequence.nom AS frequence, 
+    utilisateur.nom AS owner, 
+    provinces.name AS ville, 
+    COALESCE(departement.nom_departement, dp_ac.nom_departement) AS departement, 
+    cb.controle_de_base,
+    cb.id_controle,
+    DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
+FROM 
+    tache
+    INNER JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+    INNER JOIN client ON tache.id_client = client.id_client
+    INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
+    INNER JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
+    INNER JOIN provinces ON tache.id_ville = provinces.id
+    LEFT JOIN controle_de_base ON client.id_client = controle_de_base.id_client
+    LEFT JOIN departement ON utilisateur.id_utilisateur = departement.responsable
+    INNER JOIN controle_de_base AS cb ON tache.id_control = cb.id_controle
+    INNER JOIN departement AS dp_ac ON dp_ac.id_departement = cb.id_departement
+    WHERE cb.id_controle = ${id_controle}
+GROUP BY 
+    tache.id_tache
         `;
      
     db.query(q, (error, data) => {
