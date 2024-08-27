@@ -14,6 +14,8 @@ const controleRoutes = require('./routes/controle.routes');
 const typeRoutes = require('./routes/type.routes');
 const suiviRoutes = require('./routes/suivi.routes');
 const budgetRoutes = require('./routes/budget.routes');
+const projetRoutes = require('./routes/projet.routes');
+const fournisseurRoutes = require('./routes/fournisseur.routes');
 
 const app = express();
 
@@ -55,6 +57,8 @@ app.use('/api/controle', controleRoutes)
 app.use('/api/types', typeRoutes)
 app.use('/api/suivi', suiviRoutes)
 app.use('/api/budget', budgetRoutes)
+app.use('/api/projet', projetRoutes)
+app.use('/api/fournisseur', fournisseurRoutes)
 
 app.listen(port, () => {
     console.log(
