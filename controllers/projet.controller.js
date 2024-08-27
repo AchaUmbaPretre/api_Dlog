@@ -24,7 +24,7 @@ exports.getProjet = (req, res) => {
                 projet.date_debut, 
                 projet.date_fin, 
                 ts.nom_type_statut, 
-                utilisateur.nom, 
+                utilisateur.nom AS responsable, 
                 client.nom 
             FROM 
             projet
@@ -71,15 +71,15 @@ exports.getProjetOne = (req, res) => {
 exports.postProjet = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO projet(`nom_projet`, `description`, `chef_projet `, `date_debut`, `date_fin`, `statut`, `budget`, `client`) VALUES(?,?,?,?,?,?,?,?)';
+        const q = 'INSERT INTO projet(`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`, `client`) VALUES(?,?,?,?,?,?,?,?)';
 
         const values = [
             req.body.nom_projet,
             req.body.description,
             req.body.chef_projet ,
             req.body.date_debut,
-            req.body.date_fin,
-            req.body.statut,
+            req.body.date_fin ,
+            req.body.statut || 1,
             req.body.budget,
             req.body.client 
         ];
