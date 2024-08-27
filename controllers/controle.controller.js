@@ -59,10 +59,12 @@ exports.getControleOne = (req, res) => {
 exports.postControle = async (req, res) => {
     const { id_departement, id_client, id_format, controle_de_base, id_frequence, responsable } = req.body; 
 
+    // Vérifier que tous les champs requis sont présents
     if (!id_departement || !id_client || !id_format || !controle_de_base || !id_frequence || !responsable) {
         return res.status(400).json({ error: 'Tous les champs sont requis.' });
     }
 
+    // Définir la requête d'insertion
     const query = `
         INSERT INTO controle_de_base 
         (id_departement, id_client, id_format, controle_de_base, id_frequence, responsable) 
@@ -70,10 +72,23 @@ exports.postControle = async (req, res) => {
     `;
 
     try {
-        await db.query(query, [id_departement, id_client, id_format, controle_de_base, id_frequence, responsable]);
+        // Utiliser Promise.all pour attendre que toutes les insertions soient terminées
+        await Promise.all(responsable.map((dd) => {
+            return new Promise((resolve, reject) => {
+                db.query(query, [id_departement, id_client, id_format, controle_de_base, id_frequence, dd], (error, results) => {
+                    if (error) {
+                        return reject(error);
+                    }
+                    resolve(results);
+                });
+            });
+        }));
+
+        // Répondre avec succès une fois que toutes les insertions sont terminées
+        res.status(200).json({ message: 'Contrôle ajouté avec succès.' });
     } catch (error) {
         console.error('Erreur lors de l\'ajout de contrôle :', error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du contrôle." });
+        res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du contrôle." });
     }
 };
 

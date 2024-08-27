@@ -120,7 +120,7 @@ GROUP BY
 
 exports.postTache = async (req, res) => {
     try {
-        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_client`, `id_frequence`,`id_control`, `id_point_supervision`, `responsable_principal`, `id_ville`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)';
+        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_client`, `id_frequence`,`id_control`, `id_point_supervision`, `responsable_principal`, `id_ville`, `doc`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)';
 
         const values = [
             req.body.nom_tache,
@@ -134,7 +134,8 @@ exports.postTache = async (req, res) => {
             req.body.id_control,
             req.body.id_point_supervision,
             req.body.responsable_principal,
-            req.body.id_ville
+            req.body.id_ville,
+            req.body.doc
         ];
 
         await db.query(q, values);
