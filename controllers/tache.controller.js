@@ -240,6 +240,27 @@ exports.postTachePersonnne = async (req, res) => {
     }
 };
 
+exports.postTacheDoc = async (req, res) => {
+    const { id_tache, nom_document, type_document } = req.body;
+
+    const chemin_document = req.file.path.replace(/\\/g, '/');
+
+    if (!chemin_document || !nom_document || !type_document || !id_tache) {
+        return res.status(400).json({ message: 'Some required fields are missing' });
+    }
+
+    const query = `INSERT INTO tache_documents (id_tache, nom_document, type_document, chemin_document)
+                   VALUES (?, ?, ?, ?)`;
+
+    db.query(query, [id_tache, nom_document, type_document, chemin_document], (err, result) => {
+      if (err) {
+        console.error('Error inserting document:', err);
+        return res.status(500).json({ message: 'Internal Server Error' });
+      }
+      res.status(200).json({ message: 'Document added successfully', documentId: result.insertId });
+    });
+};
+
 exports.deleteTachePersonne = (req, res) => {
     const id = req.params.id;
   
