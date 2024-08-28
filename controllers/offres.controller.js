@@ -141,8 +141,25 @@ exports.postOffresArticle = async (req, res) => {
 };
 
 exports.postOffresDoc = async (req, res) => {
-    
-}
+    const { id_offre, nom_document, type_document } = req.body;
+
+    const chemin_document = req.file ? req.file.path : null;
+
+    if (!chemin_document || !nom_document || !type_document || !id_offre) {
+        return res.status(400).json({ message: 'Some required fields are missing' });
+    }
+
+    const query = `INSERT INTO documents_offre (id_offre, nom_document, type_document, chemin_document)
+                   VALUES (?, ?, ?, ?)`;
+
+    db.query(query, [id_offre, nom_document, type_document, chemin_document], (err, result) => {
+      if (err) {
+        console.error('Error inserting document:', err);
+        return res.status(500).json({ message: 'Internal Server Error' });
+      }
+      res.status(200).json({ message: 'Document added successfully', documentId: result.insertId });
+    });
+};
 
 exports.deleteOffres = (req, res) => {
     const id = req.params.id;
