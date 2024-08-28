@@ -140,6 +140,9 @@ exports.postOffresArticle = async (req, res) => {
     }
 };
 
+exports.postOffresDoc = async (req, res) => {
+    
+}
 
 exports.deleteOffres = (req, res) => {
     const id = req.params.id;
