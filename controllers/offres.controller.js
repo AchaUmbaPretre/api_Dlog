@@ -18,6 +18,22 @@ exports.getOffre = (req, res) => {
     });
 };
 
+exports.getDetailDoc = (req, res) => {
+    const {id_offre} = req.query;
+    const q = `
+                SELECT documents_offre.*, offres.nom_offre, offres.id_offre FROM documents_offre 
+            INNER JOIN offres ON documents_offre.id_offre = offres.id_offre
+            WHERE offres.id_offre = ${id_offre}
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getOffreDetailOne = (req, res) => {
     const {id_offre} = req.query;
 
@@ -143,7 +159,7 @@ exports.postOffresArticle = async (req, res) => {
 exports.postOffresDoc = async (req, res) => {
     const { id_offre, nom_document, type_document } = req.body;
 
-    const chemin_document = req.file ? req.file.path : null;
+    const chemin_document = req.file.path.replace(/\\/g, '/'); // Chemin du fichier avec les séparateurs corrects
 
     if (!chemin_document || !nom_document || !type_document || !id_offre) {
         return res.status(400).json({ message: 'Some required fields are missing' });

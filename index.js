@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const colors = require('colors');
 const dotenv = require('dotenv');
+const path = require('path');
 const bodyParser = require('body-parser');
 const authRoutes = require('./routes/auth.routes');
 const clientRoutes = require('./routes/client.routes');
@@ -41,7 +42,7 @@ app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.json());
-app.use(express.static('public'));
+app.use('/public', express.static(path.join(__dirname, 'public')));
 
 app.setMaxListeners(0);
 
