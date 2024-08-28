@@ -9,7 +9,7 @@ exports.registerController = async (req, res) => {
     const { username, email, password, role, telephone } = req.body;
   
     try {
-      const query = 'SELECT * FROM users WHERE email = ?';
+      const query = 'SELECT * FROM utilisateur WHERE email = ?';
       const values = [email];
   
       db.query(query, values, async (err, results) => {
@@ -24,7 +24,7 @@ exports.registerController = async (req, res) => {
         const defaultPassword = password || '1234';
         const hashedPassword = await bcrypt.hash(defaultPassword, 10);
   
-        const insertQuery = 'INSERT INTO users (username, email, password, telephone, role) VALUES (?, ?, ?, ?, ?)';
+        const insertQuery = 'INSERT INTO utilisaeur (username, email, mot_de_passe, telephone, role) VALUES (?, ?, ?, ?, ?)';
         const insertValues = [username, email, hashedPassword,telephone, role];
   
         db.query(insertQuery, insertValues, (err, insertResult) => {
@@ -47,7 +47,7 @@ exports.loginController = async (req, res) => {
     const { username, password } = req.body;
   
     try {
-      const query = 'SELECT * FROM users WHERE email = ?';
+      const query = 'SELECT * FROM utilisateur WHERE email = ?';
       const values = [username];
   
       db.query(query, values, async (err, results) => {
