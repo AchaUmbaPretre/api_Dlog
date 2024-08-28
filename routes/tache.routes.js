@@ -21,6 +21,7 @@ const upload = multer({ storage });
 
 router.get('/count', tacheController.getTacheCount)
 router.get('/', tacheController.getTache)
+router.get('/detail_tache_doc', tacheController.getDetailTacheDoc)
 router.get('/One', tacheController.getTacheOne)
 router.get('/controleTacheOne', tacheController.getTacheControleOne)
 router.post('/', tacheController.postTache)

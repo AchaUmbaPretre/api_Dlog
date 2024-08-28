@@ -62,6 +62,22 @@ GROUP BY
     });
 };
 
+exports.getDetailTacheDoc = (req, res) => {
+    const {id_tache} = req.query;
+    const q = `
+                SELECT tache_documents.*, tache.nom_tache, tache.id_tache FROM tache_documents
+            INNER JOIN tache ON tache_documents.id_tache = tache.id_tache
+            WHERE tache_documents.id_tache = ${id_tache}
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getTacheOne = (req, res) => {
     const {id_tache} = req.query;
 
