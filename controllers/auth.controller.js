@@ -7,6 +7,7 @@ dotenv.config();
 
 exports.registerController = async (req, res) => {
     const { username, email, password, role, telephone } = req.body;
+    console.log(req.body)
   
     try {
       const query = 'SELECT * FROM utilisateur WHERE email = ?';
@@ -24,11 +25,12 @@ exports.registerController = async (req, res) => {
         const defaultPassword = password || '1234';
         const hashedPassword = await bcrypt.hash(defaultPassword, 10);
   
-        const insertQuery = 'INSERT INTO utilisaeur (username, email, mot_de_passe, telephone, role) VALUES (?, ?, ?, ?, ?)';
-        const insertValues = [username, email, hashedPassword,telephone, role];
+        const insertQuery = 'INSERT INTO utilisateur (nom,	email, mot_de_passe, role) VALUES (?, ?, ?, ?)';
+        const insertValues = [username, email, hashedPassword,role];
   
         db.query(insertQuery, insertValues, (err, insertResult) => {
           if (err) {
+            console.log(err)
             return res.status(500).json({ error: err.message });
           }
   
@@ -61,7 +63,7 @@ exports.loginController = async (req, res) => {
           return res.status(200).json({ message: 'Utilisateur non trouvé', success: false });
         }
   
-        const passwordMatch = await bcrypt.compare(password, user.password);
+        const passwordMatch = await bcrypt.compare(password, user.mot_de_passe);
   
         if (!passwordMatch) {
           return res.status(200).json({ message: 'Email ou mot de passe invalide', success: false });
@@ -108,7 +110,7 @@ exports.logout = (req, res) => {
     });
   };
   
-  exports.updateUser = async (req, res) => {
+exports.updateUser = async (req, res) => {
     const id = req.params.id
     const { password } = req.query;
   
