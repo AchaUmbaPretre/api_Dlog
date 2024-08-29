@@ -1,4 +1,6 @@
 const { db } = require("./../config/database");
+const bcrypt = require('bcryptjs');
+
 
 exports.getUserCount = (req, res) => {
     
@@ -45,6 +47,45 @@ exports.getUserOne = (req, res) => {
         return res.status(200).json(data);
     });
 }
+
+exports.registerUser = async (req, res) => {
+    const { nom, prenom, email, mot_de_passe, role } = req.body;
+  
+    try {
+      const query = 'SELECT * FROM utilisateur WHERE email = ?';
+      const values = [email];
+  
+      db.query(query, values, async (err, results) => {
+        if (err) {
+          return res.status(500).json({ error: err.message });
+        }
+  
+        if (results.length > 0) {
+          return res.status(200).json({ message: 'Utilisateur existe déjà', success: false });
+        }
+  
+        const defaultPassword = mot_de_passe || '1234';
+        const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+  
+        const insertQuery = 'INSERT INTO utilisateur (nom, prenom, email, mot_de_passe, role) VALUES (?, ?, ?, ?, ?)';
+        const insertValues = [nom, prenom, email, hashedPassword,role];
+  
+        db.query(insertQuery, insertValues, (err, insertResult) => {
+          if (err) {
+            console.log(err)
+            return res.status(500).json({ error: err.message });
+          }
+  
+          res.status(201).json({ message: 'Enregistré avec succès', success: true });
+        });
+      });
+    } catch (err) {
+      res.status(500).json({
+        success: false,
+        message: `Erreur dans le contrôleur de registre : ${err.message}`,
+      });
+    }
+  };
 
 exports.putUser = async (req, res) => {
     const { id } = req.query;
