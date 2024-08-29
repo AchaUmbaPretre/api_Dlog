@@ -26,9 +26,7 @@ router.get('/one', tacheController.getTacheOne)
 router.get('/controleTacheOne', tacheController.getTacheControleOne)
 router.post('/', tacheController.postTache)
 router.put('/', tacheController.putTache)
-
 router.delete('/:id', tacheController.deleteTache)
-
 
 //Tache personne
 router.get('/tache_personne', tacheController.getTachePersonne)
