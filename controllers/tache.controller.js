@@ -48,8 +48,8 @@ FROM
     INNER JOIN provinces ON tache.id_ville = provinces.id
     LEFT JOIN controle_de_base ON client.id_client = controle_de_base.id_client
     LEFT JOIN departement ON utilisateur.id_utilisateur = departement.responsable
-    INNER JOIN controle_de_base AS cb ON tache.id_control = cb.id_controle
-    INNER JOIN departement AS dp_ac ON dp_ac.id_departement = cb.id_departement
+    LEFT JOIN controle_de_base AS cb ON tache.id_control = cb.id_controle
+    LEFT JOIN departement AS dp_ac ON dp_ac.id_departement = cb.id_departement
 GROUP BY 
     tache.id_tache;
 `;
@@ -121,8 +121,8 @@ FROM
     INNER JOIN provinces ON tache.id_ville = provinces.id
     LEFT JOIN controle_de_base ON client.id_client = controle_de_base.id_client
     LEFT JOIN departement ON utilisateur.id_utilisateur = departement.responsable
-    INNER JOIN controle_de_base AS cb ON tache.id_control = cb.id_controle
-    INNER JOIN departement AS dp_ac ON dp_ac.id_departement = cb.id_departement
+    LEFT JOIN controle_de_base AS cb ON tache.id_control = cb.id_controle
+    LEFT JOIN departement AS dp_ac ON dp_ac.id_departement = cb.id_departement
     WHERE cb.id_controle = ${id_controle}
 GROUP BY 
     tache.id_tache
@@ -136,7 +136,7 @@ GROUP BY
 
 exports.postTache = async (req, res) => {
     try {
-        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_departement`,`id_client`, `id_frequence`,`id_control`, `id_point_supervision`, `responsable_principal`, `id_ville`, `doc`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
+        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_departement`,`id_client`, `id_frequence`,`id_control`,`id_projet`, `id_point_supervision`, `responsable_principal`, `id_ville`, `doc`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
 
         const values = [
             req.body.nom_tache,
@@ -149,6 +149,7 @@ exports.postTache = async (req, res) => {
             req.body.id_client,
             req.body.id_frequence,
             req.body.id_control,
+            req.body.id_projet,
             req.body.id_point_supervision,
             req.body.responsable_principal,
             req.body.id_ville,
