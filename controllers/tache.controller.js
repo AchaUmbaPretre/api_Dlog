@@ -7,6 +7,7 @@ exports.getTacheCount = (req, res) => {
         SELECT 
             COUNT(id_tache) AS nbre_tache
         FROM tache
+            WHERE est_supprime = 0
         `;
 
     const params = [];
