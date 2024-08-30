@@ -16,10 +16,9 @@ exports.getBudgetCount = (req, res) => {
 
 exports.getBudget = (req, res) => {
 
-    const q = `SELECT budget.*, 
-                      fournisseur.nom_fournisseur 
-                      FROM budget
-                INNER JOIN fournisseur ON fournisseur.id_fournisseur = budget.fournisseur`;
+    const q = `SELECT budget.*, fournisseur.nom_fournisseur, articles.nom_article FROM budget
+                    INNER JOIN fournisseur ON fournisseur.id_fournisseur = budget.fournisseur
+                    INNER JOIN articles ON budget.article = articles.id_article`;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -33,10 +32,9 @@ exports.getBudgetOne = (req, res) => {
     const { id_budget } = req.query;
 
     const q = `
-            SELECT budget.*, 
-                fournisseur.nom_fournisseur 
-                FROM budget
-            INNER JOIN fournisseur ON fournisseur.id_fournisseur = budget.fournisseur
+            SELECT budget.*, fournisseur.nom_fournisseur, articles.nom_article FROM budget
+                    INNER JOIN fournisseur ON fournisseur.id_fournisseur = budget.fournisseur
+                    INNER JOIN articles ON budget.article = articles.id_article
                 WHERE budget.id_budget =${id_budget}
             `;
      
@@ -48,11 +46,12 @@ exports.getBudgetOne = (req, res) => {
 
 exports.postBudget = async (req, res) => {
     try {
-        const q = 'INSERT INTO budget(`id_tache`, `id_controle`, `article`, `quantite_demande`, `quantite_validee`, `prix_unitaire`, `montant`, `fournisseur`) VALUES( ?, ?, ?, ?, ?, ?, ?, ?)';
+        const q = 'INSERT INTO budget(`id_tache`, `id_controle`,`id_projet`, `article`, `quantite_demande`, `quantite_validee`, `prix_unitaire`, `montant`, `fournisseur`) VALUES( ?, ?, ?, ?, ?, ?, ?, ?)';
 
         const values = [
             req.body.id_tache,
             req.body.id_controle,
+            req.body.id_projet,
             req.body.article,
             req.body.quantite_demande,
             req.body.quantite_validee,
