@@ -10,7 +10,6 @@ router.put('/', clientController.putClient)
 
 router.delete('/:id', clientController.deleteClient)
 
-
 //Client
 router.get('/province', clientController.getProvince)
 router.get('/type_client', clientController.getClientType)
