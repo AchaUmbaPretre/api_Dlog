@@ -16,7 +16,10 @@ exports.getBudgetCount = (req, res) => {
 
 exports.getBudget = (req, res) => {
 
-    const q = `SELECT * FROM budget`;
+    const q = `SELECT budget.*, 
+                      fournisseur.nom_fournisseur 
+                      FROM budget
+                INNER JOIN fournisseur ON fournisseur.id_fournisseur = budget.fournisseur`;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -30,10 +33,12 @@ exports.getBudgetOne = (req, res) => {
     const { id_budget } = req.query;
 
     const q = `
-        SELECT *
-            FROM budget 
-        WHERE budget.id_budget =${id_budget}
-        `;
+            SELECT budget.*, 
+                fournisseur.nom_fournisseur 
+                FROM budget
+            INNER JOIN fournisseur ON fournisseur.id_fournisseur = budget.fournisseur
+                WHERE budget.id_budget =${id_budget}
+            `;
      
     db.query(q, (error, data) => {
         if (error) res.status(500).send(error);
