@@ -61,7 +61,7 @@ exports.postDepartement = async (req, res) => {
 
         const { nom_departement, description, responsable, telephone, email } = req.body;
 
-        if (!nom_departement || !responsable || !telephone || !email) {
+        if (!nom_departement ) {
             return res.status(400).json({ error: 'Tous les champs requis doivent être fournis.' });
         }
 
