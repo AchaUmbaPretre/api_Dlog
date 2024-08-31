@@ -89,7 +89,6 @@ exports.postControle = async (req, res) => {
     }
 };
 
-
 exports.putControle = async (req, res) => {
     const { id_controle, id_departement, id_client, id_format, controle_de_base, id_frequence, responsable } = req.body;
 
