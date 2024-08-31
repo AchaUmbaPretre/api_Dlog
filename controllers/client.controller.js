@@ -28,8 +28,8 @@ exports.getClients = (req, res) => {
     SELECT 
         client.id_client, client.nom, client.adresse, client.telephone, client.email, provinces.capital, type_client.nom_type
     FROM client
-    INNER JOIN provinces ON client.ville = provinces.id
-    INNER JOIN type_client ON client.id_type_client = type_client.id_type_client
+    LEFT JOIN provinces ON client.ville = provinces.id
+    LEFT JOIN type_client ON client.id_type_client = type_client.id_type_client
     `;
 
     db.query(q, (error, data) => {
