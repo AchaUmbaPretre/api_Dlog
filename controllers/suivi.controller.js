@@ -35,9 +35,13 @@ exports.getSuiviOne = (req, res) => {
     const {id_suivi} = req.query;
 
     const q = `
-        SELECT *
-            FROM suivi_controle_de_base
-        WHERE id_suivi_controle =${id_suivi}
+        SELECT sc.id_suivi_controle, sc.id_controle, sc.commentaires, sc.date_suivi, ts.nom_type_statut, u.nom, CASE 
+            WHEN sc.est_termine = 0 THEN 'Non' 
+            ELSE 'Oui' 
+                END AS est_termine FROM suivi_controle_de_base AS sc
+        INNER JOIN utilisateur AS u ON sc.effectue_par = u.id_utilisateur
+        INNER JOIN type_statut_suivi AS ts ON sc.status = ts.id_type_statut_suivi
+                WHERE sc.id_controle =${id_suivi}
         `;
      
     db.query(q, (error, data) => {
