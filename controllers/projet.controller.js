@@ -18,21 +18,24 @@ exports.getProjetCount = (req, res) => {
 exports.getProjet = (req, res) => {
 
     const q = `
-            SELECT 
-                projet.id_projet,
-                projet.nom_projet, 
-                projet.description, 
-                projet.date_debut, 
-                projet.date_fin, 
-                ts.nom_type_statut, 
-                utilisateur.nom AS responsable, 
-                client.nom 
-            FROM 
-            projet
-                INNER JOIN type_statut_suivi AS ts ON ts.id_type_statut_suivi = projet.statut
-                INNER JOIN utilisateur ON projet.chef_projet = utilisateur.id_utilisateur
-                INNER JOIN client ON projet.client = client.id_client
-    `;
+                SELECT 
+                    projet.id_projet,
+                    projet.nom_projet, 
+                    projet.description, 
+                    projet.date_debut, 
+                    projet.date_fin, 
+                    ts.nom_type_statut, 
+                    utilisateur.nom AS responsable, 
+                    client.nom,
+                    budgets.montant
+                FROM 
+                projet
+                    INNER JOIN type_statut_suivi AS ts ON ts.id_type_statut_suivi = projet.statut
+                    INNER JOIN utilisateur ON projet.chef_projet = utilisateur.id_utilisateur
+                    INNER JOIN client ON projet.client = client.id_client
+                    INNER JOIN besoins ON projet.id_projet = besoins.id_projet
+                    INNER JOIN budgets ON besoins.id_besoin = budgets.id_besoin
+            `;
 
     db.query(q, (error, data) => {
         if (error) {
