@@ -34,7 +34,8 @@ exports.getProjet = (req, res) => {
                     INNER JOIN utilisateur ON projet.chef_projet = utilisateur.id_utilisateur
                     INNER JOIN client ON projet.client = client.id_client
                     INNER JOIN besoins ON projet.id_projet = besoins.id_projet
-                    INNER JOIN budgets ON besoins.id_besoin = budgets.id_besoin
+                    LEFT JOIN budgets ON projet.id_projet = budgets.id_projet
+                    GROUP BY projet.id_projet
             `;
 
     db.query(q, (error, data) => {
@@ -107,8 +108,9 @@ exports.getProjetOne = (req, res) => {
                     INNER JOIN utilisateur ON projet.chef_projet = utilisateur.id_utilisateur
                     INNER JOIN client ON projet.client = client.id_client
                     INNER JOIN besoins ON projet.id_projet = besoins.id_projet
-                    INNER JOIN budgets ON besoins.id_besoin = budgets.id_besoin
+                    LEFT JOIN budgets ON projet.id_projet = budgets.id_projet
                 WHERE projet.id_projet = ${id_projet}
+                GROUP BY projet.id_projet
         `;
      
     db.query(q, (error, data) => {
@@ -142,57 +144,71 @@ exports.postProjet = async (req, res) => {
 };
 
 exports.postProjetBesoin = (req, res) => {
+    const besoins = req.body.besoins;
 
     try {
-                    // Requête pour insérer le projet
         const qProjet = 'INSERT INTO projet (`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`, `client`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
-        const qBesoin = 'INSERT INTO besoins (`description`, `id_projet`) VALUES (?, ?)';
-        const qBudget = 'INSERT INTO budgets (`montant`, `id_besoin`) VALUES (?, ?)';
+        const qBesoin = 'INSERT INTO besoins (`description`, `quantite`, `id_projet`) VALUES (?, ?, ?)';
+        const qBudget = 'INSERT INTO budgets (`montant`, `id_projet`) VALUES (?, ?)';
 
-            const valuesProjet = [
-                req.body.nom_projet,
-                req.body.description,
-                req.body.chef_projet,
-                req.body.date_debut,
-                req.body.date_fin,
-                req.body.statut || 1,
+        // Insertion dans la table Projet
+        const valuesProjet = [
+            req.body.nom_projet,
+            req.body.description,
+            req.body.chef_projet,
+            req.body.date_debut,
+            req.body.date_fin,
+            req.body.statut || 1,
+            req.body.budget,
+            req.body.client
+        ];
+
+        db.query(qProjet, valuesProjet, (error, data) => {
+            if (error) {
+                console.error(error);
+                return res.status(500).json(error);
+            }
+
+            const projetId = data.insertId; // Récupérer l'ID du projet inséré
+
+            // Insertion du budget associé au projet
+            const budgetValues = [
                 req.body.budget,
-                req.body.client
+                projetId
             ];
 
-            db.query(qProjet, valuesProjet, (error, data) => {
-                if (error) {
-                    console.log(error);
-                    res.status(500).json(error);
-                  }
-                  else{
-                    const projetId = data.insertId;
-                    db.query(qBesoin, [req.body.description, projetId], (selectError, selectData) =>{
-                        if (selectError) {
-                            console.log(selectError);
-                            res.status(500).json(selectError);
-                          }
-                        else{
-                            const besoinId = selectData.insertId;
-                            db.query(qBudget, [req.body.budget,besoinId], (budgetError,budgetData) => {
-                                if(budgetError){
-                                    onsole.log(selectError);
-                                    res.status(500).json(selectError);
-                                }
-                                else {
-                                    res.json('Processus réussi');
-                                  }
-                            })
+            db.query(qBudget, budgetValues, (budgetError) => {
+                if (budgetError) {
+                    console.error(budgetError);
+                    return res.status(500).json(budgetError);
+                }
 
+                // Boucle sur chaque besoin pour insertion
+                besoins.forEach(besoin => {
+                    const besoinValues = [
+                        besoin.besoin,
+                        besoin.quantite,
+                        projetId
+                    ];
+
+                    db.query(qBesoin, besoinValues, (selectError) => {
+                        if (selectError) {
+                            console.error(selectError);
+                            return res.status(500).json(selectError);
                         }
-                    })
-                  }
-            } )
+                    });
+                });
+
+                res.json('Processus réussi');
+            });
+        });
     } catch (error) {
         console.error('Erreur lors de l\'ajout de la tâche :', error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
+
+
 
 
 

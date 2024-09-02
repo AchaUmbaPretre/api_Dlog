@@ -18,6 +18,7 @@ const budgetRoutes = require('./routes/budget.routes');
 const projetRoutes = require('./routes/projet.routes');
 const fournisseurRoutes = require('./routes/fournisseur.routes');
 const offresRoutes = require('./routes/offres.routes');
+const besoinsRoutes = require('./routes/besoins.routes');
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.use('/api/budget', budgetRoutes)
 app.use('/api/projet', projetRoutes)
 app.use('/api/fournisseur', fournisseurRoutes)
 app.use('/api/offre', offresRoutes)
+app.use('/api/besoin', besoinsRoutes)
 
 app.listen(port, () => {
     console.log(
