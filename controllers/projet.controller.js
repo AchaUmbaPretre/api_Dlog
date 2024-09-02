@@ -1,4 +1,5 @@
 const { db } = require("./../config/database");
+const cheerio = require('cheerio'); // Ajoutez cheerio pour le parsing HTML
 
 exports.getProjetCount = (req, res) => {
     
@@ -133,6 +134,63 @@ exports.postProjet = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
+
+exports.postProjetBesoin = (req, res) => {
+
+    try {
+                    // Requête pour insérer le projet
+        const qProjet = 'INSERT INTO projet (`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`, `client`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+        const qBesoin = 'INSERT INTO besoins (`description`, `id_projet`) VALUES (?, ?)';
+        const qBudget = 'INSERT INTO budgets (`montant`, `id_besoin`) VALUES (?, ?)';
+
+            const valuesProjet = [
+                req.body.nom_projet,
+                req.body.description,
+                req.body.chef_projet,
+                req.body.date_debut,
+                req.body.date_fin,
+                req.body.statut || 1,
+                req.body.budget,
+                req.body.client
+            ];
+
+            db.query(qProjet, valuesProjet, (error, data) => {
+                if (error) {
+                    console.log(error);
+                    res.status(500).json(error);
+                  }
+                  else{
+                    const projetId = data.insertId;
+                    db.query(qBesoin, [req.body.description, projetId], (selectError, selectData) =>{
+                        if (selectError) {
+                            console.log(selectError);
+                            res.status(500).json(selectError);
+                          }
+                        else{
+                            const besoinId = selectData.insertId;
+                            db.query(qBudget, [req.body.budget,besoinId], (budgetError,budgetData) => {
+                                if(budgetError){
+                                    onsole.log(selectError);
+                                    res.status(500).json(selectError);
+                                }
+                                else {
+                                    res.json('Processus réussi');
+                                  }
+                            })
+
+                        }
+                    })
+                  }
+            } )
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout de la tâche :', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+    }
+};
+
+
+
+
 
 exports.postSuiviProjet = async (req, res) => {
 
