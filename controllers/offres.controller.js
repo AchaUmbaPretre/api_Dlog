@@ -94,6 +94,7 @@ exports.postOffres = async (req, res) => {
 
     try {
         const q = 'INSERT INTO offres(`id_fournisseur`, `nom_offre`, `description`) VALUES(?,?,?)';
+        const qOffre_article = 'INSERT INTO offre_article(`id_offre`,`id_article`,`prix`) VALUES(?,?,?)'
 
         const values = [
             req.body.id_fournisseur || 1,
@@ -101,7 +102,22 @@ exports.postOffres = async (req, res) => {
             req.body.description
         ];
 
-        await db.query(q, values);
+        await db.query(q, values, (err, result) =>{
+            if(err){
+                return reject(err);
+            }
+            const insertID = result.insertId;
+
+            for (let article of articles) {
+                const articleValues = [
+                    article.id_article,
+                    article.prix
+                ];
+
+                 db.query(qOffre_article,[insertID, articleValues])
+            }
+
+        });
         return res.status(201).json({ message: 'Offre ajoutée avec succès'});
     } catch (error) {
         console.error('Erreur lors de l\'ajout de l offre :', error);
