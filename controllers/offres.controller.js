@@ -63,31 +63,26 @@ exports.getOffreDetailOne = (req, res) => {
 };
 
 exports.getOffreArticleOne = (req, res) => {
-    const {id_offre} = req.query;
+    const { id_offre } = req.query;
 
-    const q = `
-        SELECT 
-            o.nom_offre,
-            SUM(p.prix_unitaire * op.quantite) AS total
-        FROM 
-            offre_article op
-        JOIN 
-            offres o ON op.id_offre = o.id_offre
-        JOIN 
-            articles p ON op.id_article = p.id_article
-        WHERE 
-            o.id_offre = ${id_offre}
-        GROUP BY 
-            o.nom_offre;
+    // Préparez la requête SQL
+    const query = `
+        SELECT offre_article.id_offre_article, offre_article.id_offre, offre_article.id_article, offre_article.prix, articles.nom_article
+        FROM offre_article 
+        LEFT JOIN articles ON offre_article.id_article = articles.id_article
+        WHERE offre_article.id_offre = ?
     `;
 
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
+    // Exécutez la requête SQL
+    db.query(query, [id_offre || null], (err, results) => {
+        if (err) {
+            console.error("Database query error:", err);
+            return res.status(500).json({ error: "Internal server error" });
         }
-        return res.status(200).json(data);
+        return res.status(200).json(results);
     });
 };
+
 
 exports.postOffres = (req, res) => {
     const articles = req.body.articles;
