@@ -151,7 +151,6 @@ exports.postProjetBesoin = (req, res) => {
         const qBesoin = 'INSERT INTO besoins (`description`, `quantite`, `id_projet`) VALUES (?, ?, ?)';
         const qBudget = 'INSERT INTO budgets (`montant`, `id_projet`) VALUES (?, ?)';
 
-        // Insertion dans la table Projet
         const valuesProjet = [
             req.body.nom_projet,
             req.body.description,
