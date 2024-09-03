@@ -90,40 +90,90 @@ exports.getOffreArticleOne = (req, res) => {
     });
 };
 
-exports.postOffres = async (req, res) => {
+exports.postOffres = (req, res) => {
+    const articles = req.body.articles;
 
-    try {
-        const q = 'INSERT INTO offres(`id_fournisseur`, `nom_offre`, `description`) VALUES(?,?,?)';
-        const qOffre_article = 'INSERT INTO offre_article(`id_offre`,`id_article`,`prix`) VALUES(?,?,?)'
+    const q = 'INSERT INTO offres(`id_fournisseur`, `nom_offre`, `description`) VALUES(?,?,?)';
+    const qOffre_article = 'INSERT INTO offre_article(`id_offre`,`id_article`,`prix`) VALUES(?,?,?)';
 
-        const values = [
-            req.body.id_fournisseur || 1,
-            req.body.nom_offre,
-            req.body.description
-        ];
+    const values = [
+        req.body.id_fournisseur || 1,
+        req.body.nom_offre,
+        req.body.description
+    ];
 
-        await db.query(q, values, (err, result) =>{
-            if(err){
-                return reject(err);
+    // Commencez une connexion à la base de données
+    db.getConnection((err, connection) => {
+        if (err) {
+            console.error('Erreur de connexion :', err);
+            return res.status(500).json({ error: "Une erreur s'est produite lors de la connexion à la base de données." });
+        }
+
+        // Commencez la transaction
+        connection.beginTransaction((err) => {
+            if (err) {
+                console.error('Erreur lors du début de la transaction :', err);
+                connection.release();
+                return res.status(500).json({ error: "Une erreur s'est produite lors du début de la transaction." });
             }
-            const insertID = result.insertId;
 
-            for (let article of articles) {
-                const articleValues = [
-                    article.id_article,
-                    article.prix
-                ];
+            // Insérez l'offre
+            connection.query(q, values, (err, result) => {
+                if (err) {
+                    return connection.rollback(() => {
+                        console.error('Erreur lors de l\'ajout de l\'offre :', err);
+                        connection.release();
+                        res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de l'offre." });
+                    });
+                }
 
-                 db.query(qOffre_article,[insertID, articleValues])
-            }
+                const insertID = result.insertId;
 
+                // Insérez les articles
+                const insertArticleQueries = articles.map(article => {
+                    const articleValues = [
+                        insertID,
+                        article.id_article,
+                        article.prix
+                    ];
+
+                    return new Promise((resolve, reject) => {
+                        connection.query(qOffre_article, articleValues, (err) => {
+                            if (err) {
+                                return reject(err);
+                            }
+                            resolve();
+                        });
+                    });
+                });
+
+                Promise.all(insertArticleQueries)
+                    .then(() => {
+                        connection.commit((err) => {
+                            if (err) {
+                                return connection.rollback(() => {
+                                    console.error('Erreur lors de la validation de la transaction :', err);
+                                    connection.release();
+                                    res.status(500).json({ error: "Une erreur s'est produite lors de la validation de la transaction." });
+                                });
+                            }
+                            connection.release();
+                            res.status(201).json({ message: 'Offre ajoutée avec succès' });
+                        });
+                    })
+                    .catch((error) => {
+                        connection.rollback(() => {
+                            console.error('Erreur lors de l\'ajout des articles :', error);
+                            connection.release();
+                            res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout des articles." });
+                        });
+                    });
+            });
         });
-        return res.status(201).json({ message: 'Offre ajoutée avec succès'});
-    } catch (error) {
-        console.error('Erreur lors de l\'ajout de l offre :', error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
-    }
+    });
 };
+
+
 
 exports.postArticle = async (req, res) => {
     const articles = req.body.articles;
