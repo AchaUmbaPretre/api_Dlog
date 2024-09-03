@@ -41,16 +41,15 @@ exports.getOffreDetailOne = (req, res) => {
             SELECT 
                 o.nom_offre,
                 p.nom_article,
-                p.prix_unitaire,
-                op.quantite,
-                p.prix_unitaire * op.quantite AS montant
-            FROM 
+                op.prix,
+                op.quantite
+                FROM 
                 offre_article op
             JOIN 
                 offres o ON op.id_offre = o.id_offre
             JOIN 
                 articles p ON op.id_article = p.id_article
-            WHERE 
+            WHERE
                 o.id_offre = ${id_offre}
 
     `;
