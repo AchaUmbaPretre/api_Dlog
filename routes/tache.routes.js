@@ -33,4 +33,5 @@ router.get('/tache_personne', tacheController.getTachePersonne)
 router.post('/tache_personne', tacheController.postTachePersonnne)
 router.post('/tache_doc', upload.single('chemin_document'), tacheController.postTacheDoc);
 router.delete('/tache_personne', tacheController.deleteTachePersonne)
+
 module.exports = router;

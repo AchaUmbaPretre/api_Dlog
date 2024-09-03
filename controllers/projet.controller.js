@@ -147,7 +147,7 @@ exports.postProjetBesoin = (req, res) => {
     const besoins = req.body.besoins;
 
     try {
-        const qProjet = 'INSERT INTO projet (`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`, `client`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+        const qProjet = 'INSERT INTO projet (`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`, `client`, `id_batiment`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
         const qBesoin = 'INSERT INTO besoins (`description`, `quantite`, `id_projet`) VALUES (?, ?, ?)';
         const qBudget = 'INSERT INTO budgets (`montant`, `id_projet`) VALUES (?, ?)';
 
@@ -160,7 +160,8 @@ exports.postProjetBesoin = (req, res) => {
             req.body.date_fin,
             req.body.statut || 1,
             req.body.budget,
-            req.body.client
+            req.body.client,
+            req.body.id_batiment
         ];
 
         db.query(qProjet, valuesProjet, (error, data) => {

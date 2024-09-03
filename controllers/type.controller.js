@@ -62,3 +62,37 @@ exports.getArticleOne = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+//Batiment
+
+exports.getBatiment = (req, res) => {
+
+    const q = `
+            SELECT * FROM batiment
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postBatiment = async (req, res) => {
+
+    try {
+        const q = 'INSERT INTO batiment(`nom_batiment`, `ville`) VALUES(?,?)';
+
+        const values = [
+            req.body.nom_batiment,
+            req.body.ville
+        ];
+
+        await db.query(q, values);
+        return res.status(201).json({ message: 'Batiment ajouté avec succès'});
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout du nouveau projet:', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+    }
+};
