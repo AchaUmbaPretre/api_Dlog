@@ -100,8 +100,6 @@ exports.postOffres = (req, res) => {
         req.body.nom_offre,
         req.body.description
     ];
-
-    // Commencez une connexion à la base de données
     db.getConnection((err, connection) => {
         if (err) {
             console.error('Erreur de connexion :', err);
@@ -173,7 +171,6 @@ exports.postOffres = (req, res) => {
 };
 
 
-
 exports.postArticle = async (req, res) => {
     const articles = req.body.articles;
 
@@ -211,7 +208,7 @@ exports.postOffresArticle = async (req, res) => {
 
     try {
         const qInsertArticle = 'INSERT INTO articles(`nom_article`, `prix_unitaire`, `id_categorie`) VALUES(?,?,?)';
-        const qInsertOffreArticle = 'INSERT INTO offre_article(`id_offre`, `id_article`, `quantite`) VALUES(?,?,?)';
+        const qInsertOffreArticle = 'INSERT INTO offre_article(`id_offre`,`id_article`,`prix`) VALUES(?,?,?)';
 
         for (let article of articles) {
             const articleValues = [
