@@ -27,7 +27,8 @@ exports.getProjet = (req, res) => {
                     ts.nom_type_statut, 
                     utilisateur.nom AS responsable, 
                     client.nom,
-                    budgets.montant
+                    budgets.montant,
+                    batiment.nom_batiment
                 FROM 
                 projet
                     INNER JOIN type_statut_suivi AS ts ON ts.id_type_statut_suivi = projet.statut
@@ -35,6 +36,7 @@ exports.getProjet = (req, res) => {
                     INNER JOIN client ON projet.client = client.id_client
                     INNER JOIN besoins ON projet.id_projet = besoins.id_projet
                     LEFT JOIN budgets ON projet.id_projet = budgets.id_projet
+                    LEFT JOIN batiment ON projet.id_batiment = batiment.id_batiment
                     GROUP BY projet.id_projet
             `;
 
@@ -92,7 +94,7 @@ exports.getProjetOne = (req, res) => {
     const {id_projet} = req.query;
 
     const q = `
-                SELECT 
+SELECT 
                     projet.id_projet,
                     projet.nom_projet, 
                     projet.description, 
@@ -101,7 +103,8 @@ exports.getProjetOne = (req, res) => {
                     ts.nom_type_statut, 
                     utilisateur.nom AS responsable, 
                     client.nom,
-                    budgets.montant
+                    budgets.montant,
+                    batiment.nom_batiment
                 FROM 
                 projet
                     INNER JOIN type_statut_suivi AS ts ON ts.id_type_statut_suivi = projet.statut
@@ -109,6 +112,7 @@ exports.getProjetOne = (req, res) => {
                     INNER JOIN client ON projet.client = client.id_client
                     INNER JOIN besoins ON projet.id_projet = besoins.id_projet
                     LEFT JOIN budgets ON projet.id_projet = budgets.id_projet
+                    LEFT JOIN batiment ON projet.id_batiment = batiment.id_batiment
                 WHERE projet.id_projet = ${id_projet}
                 GROUP BY projet.id_projet
         `;
