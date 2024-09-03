@@ -27,11 +27,10 @@ exports.getCategorie = (req, res) => {
 exports.getArticle = (req, res) => {
 
     const q =   `SELECT articles.id_article, 
-                    articles.prix_unitaire, 
                     articles.nom_article, 
-                    offre_article.quantite 
+                    categories.nom_cat
                 FROM articles
-                    INNER JOIN offre_article ON articles.id_article = offre_article.id_article`;
+                    INNER JOIN categories ON articles.id_categorie = categories.id_categorie`;
 
     db.query(q, (error, data) => {
         if (error) {

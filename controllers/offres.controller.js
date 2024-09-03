@@ -109,6 +109,37 @@ exports.postOffres = async (req, res) => {
     }
 };
 
+exports.postArticle = async (req, res) => {
+    const articles = req.body.articles;
+
+    try {
+        const qInsertArticle = 'INSERT INTO articles(`nom_article`, `id_categorie`) VALUES(?,?)';
+
+        for (let article of articles) {
+            const articleValues = [
+                article.nom_article,
+                article.id_categorie
+            ];
+
+            await new Promise((resolve, reject) => {
+                db.query(qInsertArticle, articleValues, (err, result) => {
+                    if (err) {
+                        return reject(err);
+                    }
+                    resolve(); 
+                });
+            });
+        }
+
+        return res.status(201).json({ message: 'Articles ajoutés avec succès' });
+
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout des articles :', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout des articles." });
+    }
+};
+
+
 exports.postOffresArticle = async (req, res) => {
     const articles = req.body.articles;
     const id_offre = req.body.id_offre;
