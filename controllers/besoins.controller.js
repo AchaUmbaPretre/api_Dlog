@@ -18,9 +18,8 @@ exports.getBesoinCount = (req, res) => {
 exports.getBesoin = (req, res) => {
 
     const q = `
-                SELECT 
-                *
-                FROM besoins
+                SELECT besoins.*, projet.nom_projet FROM besoins
+            INNER JOIN projet ON besoins.id_projet = projet.id_projet
             `;
 
     db.query(q, (error, data) => {
