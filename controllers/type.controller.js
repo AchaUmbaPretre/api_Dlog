@@ -80,10 +80,11 @@ exports.getBatiment = (req, res) => {
 exports.postBatiment = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO batiment(`nom_batiment`, `ville`) VALUES(?,?)';
+        const q = 'INSERT INTO batiment(`nom_batiment`, `site`, `ville`) VALUES(?,?,?)';
 
         const values = [
             req.body.nom_batiment,
+            req.body.site,
             req.body.ville
         ];
 
