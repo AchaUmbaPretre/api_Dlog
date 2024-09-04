@@ -30,9 +30,11 @@ exports.getFournisseur = (req, res) => {
 
 
 exports.postFournisseur = async (req, res) => {
+    const { nom_activite } = req.body;
 
     try {
         const q = 'INSERT INTO fournisseur(`nom_fournisseur`, `telephone`, `email`, `adresse`, `ville`, `pays`) VALUES(?,?,?,?,?,?)';
+        const qActivite = 'INSERT INTO activite_fournisseur(`id_fournisseur`, `id_activite`) VALUES(?,?)';
 
         const values = [
             req.body.nom_fournisseur,
@@ -40,16 +42,42 @@ exports.postFournisseur = async (req, res) => {
             req.body.email,
             req.body.adresse,
             req.body.ville,
-            req.body.pays 
+            req.body.pays
         ];
 
-        await db.query(q, values);
-        return res.status(201).json({ message: 'Projet ajouté avec succès'});
+        db.query(q, values, (error, data) => {
+            if (error) {
+                return res.status(500).send(error);
+            }
+
+            const fournisseurId = data.insertId;
+
+            const insertFournisseurQueries = nom_activite.map(item => {
+                return new Promise((resolve, reject) => {
+                    db.query(qActivite, [fournisseurId, item], (error, result) => {
+                        if (error) {
+                            return reject(error);
+                        }
+                        resolve(result);
+                    });
+                });
+            });
+
+            Promise.all(insertFournisseurQueries)
+                .then(() => {
+                    return res.status(201).json({ message: 'Fournisseur et activités ajoutés avec succès' });
+                })
+                .catch(err => {
+                    console.error('Erreur lors de l\'ajout des activités:', err);
+                    return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout des activités." });
+                });
+        });
     } catch (error) {
-        console.error('Erreur lors de l\'ajout du nouveau projet:', error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+        console.error('Erreur lors de l\'ajout du nouveau fournisseur:', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du fournisseur." });
     }
 };
+
 
 
 exports.deleteFournisseur = (req, res) => {

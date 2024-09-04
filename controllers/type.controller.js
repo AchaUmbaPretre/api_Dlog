@@ -130,3 +130,34 @@ exports.postCategorie = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
+
+//Activité
+exports.getActivite = (req, res) => {
+
+    const q = `
+            SELECT * FROM activite
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postActivite = async (req, res) => {
+    try {
+        const q = 'INSERT INTO activite(`nom_activite`) VALUES(?)';
+
+        const values = [
+            req.body.nom_activite
+        ];
+
+        await db.query(q, values);
+        return res.status(201).json({ message: 'Categorie ajoutée avec succès'});
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout du nouveau projet:', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+    }
+};

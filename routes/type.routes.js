@@ -14,4 +14,8 @@ router.post('/batiment', typesController.postBatiment)
 router.get('/categorie', typesController.getCategorie)
 router.post('/categorie', typesController.postCategorie)
 
+//Activite
+router.get('/activite', typesController.getActivite)
+router.post('/activite', typesController.postActivite)
+
 module.exports = router;
