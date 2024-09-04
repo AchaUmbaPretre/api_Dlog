@@ -4,10 +4,11 @@ exports.getOffre = (req, res) => {
 
     const q = `
     SELECT 
-        offres.*, fournisseur.nom_fournisseur
+        offres.*, fournisseur.nom_fournisseur, batiment.nom_batiment
     FROM 
         offres
-    INNER JOIN fournisseur ON offres.id_fournisseur = fournisseur.id_fournisseur
+    LEFT JOIN fournisseur ON offres.id_fournisseur = fournisseur.id_fournisseur
+    LEFT JOIN batiment ON offres.id_batiment = batiment.id_batiment
     `;
 
     db.query(q, (error, data) => {
@@ -87,11 +88,13 @@ exports.getOffreArticleOne = (req, res) => {
 exports.postOffres = (req, res) => {
     const articles = req.body.articles;
 
-    const q = 'INSERT INTO offres(`id_fournisseur`, `nom_offre`, `description`) VALUES(?,?,?)';
+    const q = 'INSERT INTO offres(`id_fournisseur`,`id_projet`, `id_batiment`, `nom_offre`, `description`) VALUES(?,?,?,?,?)';
     const qOffre_article = 'INSERT INTO offre_article(`id_offre`,`id_article`,`prix`) VALUES(?,?,?)';
 
     const values = [
-        req.body.id_fournisseur || 1,
+        req.body.id_fournisseur,
+        req.body.id_projet,
+        req.body.id_batiment,
         req.body.nom_offre,
         req.body.description
     ];

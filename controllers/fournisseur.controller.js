@@ -28,6 +28,24 @@ exports.getFournisseur = (req, res) => {
     });
 };
 
+exports.getFournisseurActivite = (req, res) => {
+
+    const q = `
+            SELECT fournisseur.id_fournisseur, activite.nom_activite, fournisseur.nom_fournisseur, fournisseur.telephone, fournisseur.email, fournisseur.adresse, fournisseur.pays FROM activite_fournisseur
+        LEFT JOIN fournisseur ON activite_fournisseur.id_fournisseur = fournisseur.id_fournisseur
+        LEFT JOIN provinces ON fournisseur.ville = provinces.id
+        LEFT JOIN activite ON activite_fournisseur.id_activite = activite.id_activite
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+
 
 exports.postFournisseur = async (req, res) => {
     const { nom_activite } = req.body;
