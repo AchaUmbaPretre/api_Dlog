@@ -66,7 +66,8 @@ exports.getArticleOne = (req, res) => {
 exports.getBatiment = (req, res) => {
 
     const q = `
-            SELECT * FROM batiment
+            SELECT batiment.*, provinces.name FROM batiment
+                LEFT JOIN provinces ON batiment.ville = provinces.id
             `;
 
     db.query(q, (error, data) => {
