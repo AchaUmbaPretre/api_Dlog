@@ -18,8 +18,9 @@ exports.getBesoinCount = (req, res) => {
 exports.getBesoin = (req, res) => {
 
     const q = `
-                SELECT besoins.*, projet.nom_projet FROM besoins
-            INNER JOIN projet ON besoins.id_projet = projet.id_projet
+                SELECT besoins.*, articles.nom_article, projet.nom_projet FROM besoins
+                    INNER JOIN articles ON besoins.id_article = articles.id_article
+                    INNER JOIN projet ON besoins.id_projet = projet.id_projet
             `;
 
     db.query(q, (error, data) => {
@@ -34,9 +35,9 @@ exports.getBesoinOne = (req, res) => {
     const {id_besoin} = req.query;
 
     const q = `
-                SELECT 
-                *
-                FROM besoins
+                SELECT besoins.*, articles.nom_article, projet.nom_projet FROM besoins
+                    INNER JOIN articles ON besoins.id_article = articles.id_article
+                    INNER JOIN projet ON besoins.id_projet = projet.id_projet
                 WHERE besoins.id_projet = ${id_besoin}
             `;
      
