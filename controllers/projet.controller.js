@@ -152,7 +152,7 @@ exports.postProjetBesoin = (req, res) => {
 
     try {
         const qProjet = 'INSERT INTO projet (`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`, `client`, `id_batiment`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
-        const qBesoin = 'INSERT INTO besoins (`description`, `quantite`, `id_projet`) VALUES (?, ?, ?)';
+        const qBesoin = 'INSERT INTO besoins (`id_article`,`description`, `quantite`, `id_projet`) VALUES (?, ?, ?, ?)';
         const qBudget = 'INSERT INTO budgets (`montant`, `id_projet`) VALUES (?, ?)';
 
         const valuesProjet = [
@@ -190,7 +190,8 @@ exports.postProjetBesoin = (req, res) => {
                 // Boucle sur chaque besoin pour insertion
                 besoins.forEach(besoin => {
                     const besoinValues = [
-                        besoin.besoin,
+                        besoin.id_article,
+                        besoin.description,
                         besoin.quantite,
                         projetId
                     ];
