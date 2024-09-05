@@ -63,7 +63,7 @@ exports.getOffreDetailOne = (req, res) => {
     });
 };
 
-/* exports.getOffreArticleOne = (req, res) => {
+exports.getOffreArticleOne = (req, res) => {
     const { id_offre } = req.query;
 
     // Préparez la requête SQL
@@ -82,8 +82,9 @@ exports.getOffreDetailOne = (req, res) => {
         }
         return res.status(200).json(results);
     });
-}; */
-exports.getOffreArticleOne = (req, res) => {
+};
+
+/* exports.getOffreArticleOne = (req, res) => {
     const { id_offre } = req.query;
 
     // Préparez la requête SQL
@@ -102,7 +103,7 @@ exports.getOffreArticleOne = (req, res) => {
         }
         return res.status(200).json(results);
     });
-};
+}; */
 
 /* exports.postOffres = (req, res) => {
     const articles = req.body.articles;
