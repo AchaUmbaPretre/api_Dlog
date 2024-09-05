@@ -47,7 +47,7 @@ exports.getBudgetOne = (req, res) => {
 
 exports.postBudget = async (req, res) => {
     try {
-        const q = 'INSERT INTO budget(`id_tache`, `id_controle`,`id_projet`, `article`, `quantite_demande`, `quantite_validee`, `prix_unitaire`, `montant`, `id_offre`) VALUES( ?, ?, ?, ?, ?, ?, ?, ?)';
+        const q = 'INSERT INTO budget(`id_tache`, `id_controle`,`id_projet`, `article`, `quantite_demande`, `quantite_validee`, `prix_unitaire`, `montant`, `id_offre`,`montant_valide`) VALUES( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
 
         const values = [
             req.body.id_tache,
@@ -58,11 +58,18 @@ exports.postBudget = async (req, res) => {
             req.body.quantite_validee,
             req.body.prix_unitaire,
             req.body.montant,
-            req.body.id_offre
+            req.body.id_offre,
+            req.body.montant_valide
         ];
-
-        await db.query(q, values);
-        return res.status(201).json({ message: 'Tâche personne ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
+         
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+            }
+            else{
+                return res.status(201).json({ message: 'Tâche personne ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
+            }
+        })
     } catch (error) {
         console.error('Erreur lors de l\'ajout de la tâche :', error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
