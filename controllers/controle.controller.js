@@ -90,7 +90,8 @@ exports.postControle = async (req, res) => {
 };
 
 exports.putControle = async (req, res) => {
-    const { id_controle, id_departement, id_client, id_format, controle_de_base, id_frequence, responsable } = req.body;
+    const {id_controle} = req.query;
+    const { id_departement, id_client, id_format, controle_de_base, id_frequence, responsable } = req.body;
 
     if (!id_controle || isNaN(id_controle)) {
         return res.status(400).json({ error: 'ID de contrôle invalide fourni' });
@@ -115,13 +116,14 @@ exports.putControle = async (req, res) => {
     const values = [id_departement, id_client, id_format, controle_de_base, id_frequence, responsable, id_controle];
 
     try {
-        const [result] = await db.query(query, values);
+        db.query(query, values, (error, data)=>{
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'Enregistrement de contrôle non trouvé' });
-        }
-
-        return res.json({ message: 'Enregistrement de contrôle mis à jour avec succès' });
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Controle record not found' });
+            }
+            return res.json({ message: 'Enregistrement de contrôle mis à jour avec succès' });
+        })
     } catch (error) {
         console.error("Erreur lors de la mise à jour du contrôle :", error);
         return res.status(500).json({ error: 'Échec de la mise à jour de l\'enregistrement de contrôle' });

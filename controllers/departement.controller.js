@@ -39,19 +39,29 @@ exports.getDepartement = (req, res) => {
 };
 
 exports.getDepartementOne = (req, res) => {
-    const {id_departement} = req.query;
+    const { id_departement } = req.query;
 
+    // Assurez-vous que l'id_departement est bien défini et est un nombre
+    if (!id_departement || isNaN(id_departement)) {
+        return res.status(400).json({ error: 'Invalid department ID' });
+    }
+
+    // Utilisez des paramètres pour éviter les injections SQL
     const q = `
         SELECT departement.*
-            FROM departement 
-        WHERE departement.id_departement =${id_departement}
-        `;
-     
-    db.query(q, (error, data) => {
-        if (error) res.status(500).send(error);
+        FROM departement
+        WHERE departement.id_departement = ?
+    `;
+
+    db.query(q, [id_departement], (error, data) => {
+        if (error) {
+            console.error(error); // Utilisez console.error pour les erreurs
+            return res.status(500).json({ error: 'Database query error' });
+        }
         return res.status(200).json(data);
     });
 }
+
 
 exports.postDepartement = async (req, res) => {
     try {
@@ -155,13 +165,13 @@ exports.putDepartement = async (req, res) => {
       
         const values = [nom_departement, description, code, responsable, telephone, email, id_departement];
 
-        const [result] = await db.query(q, values);
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'Department record not found' });
-        }
-
-        return res.json({ message: 'Department record updated successfully' });
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Department record not found' });
+            }
+            return res.json({ message: 'Department record updated successfully' });
+        })
     } catch (err) {
         console.error("Error updating department:", err);
         return res.status(500).json({ error: 'Failed to update department record' });
