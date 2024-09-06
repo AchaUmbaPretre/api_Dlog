@@ -47,7 +47,7 @@ exports.getBudgetOne = (req, res) => {
 
 exports.postBudget = async (req, res) => {
     try {
-        const q = 'INSERT INTO budget(`id_tache`, `id_controle`,`id_projet`, `article`, `quantite_demande`, `quantite_validee`, `prix_unitaire`, `montant`, `id_offre`,`montant_valide`) VALUES( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+        const q = 'INSERT INTO budget(`id_tache`, `id_controle`,`id_projet`, `article`, `quantite_demande`, `quantite_validee`, `prix_unitaire`, `montant`, `id_offre`,`montant_valide`, `user_cr`) VALUES( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
 
         const values = [
             req.body.id_tache,
@@ -59,7 +59,8 @@ exports.postBudget = async (req, res) => {
             req.body.prix_unitaire,
             req.body.montant,
             req.body.id_offre,
-            req.body.montant_valide
+            req.body.montant_valide,
+            req.body.user_cr
         ];
          
         db.query(q, values, (error, data)=>{
