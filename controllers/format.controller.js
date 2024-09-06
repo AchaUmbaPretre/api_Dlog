@@ -17,8 +17,9 @@ exports.getFormat = (req, res) => {
 };
 
 exports.postFormat = async (req, res) => {
+    console.log(req.body)
     try {
-        const q = 'INSERT INTO format(`nom_format`, `description` VALUES(?,?)';
+        const q = 'INSERT INTO format(`nom_format`, `description`) VALUES(?,?)';
 
         const values = [
             req.body.nom_format,

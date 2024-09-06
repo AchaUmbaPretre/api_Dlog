@@ -42,7 +42,7 @@ exports.getTache = (req, res) => {
                     DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
                 FROM 
                     tache
-                    INNER JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+                    LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
                     INNER JOIN client ON tache.id_client = client.id_client
                     INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
                     INNER JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
@@ -75,6 +75,22 @@ exports.getDetailTacheDoc = (req, res) => {
         return res.status(200).json(data);
     });
 };
+exports.getTacheOneV = (req, res) => {
+    const {id_tache} = req.query;
+
+    const q = `
+            SELECT 
+                *
+            FROM 
+                tache
+                WHERE tache.id_tache =${id_tache}
+        `;
+     
+    db.query(q, (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+}
 
 exports.getTacheOne = (req, res) => {
     const {id_tache} = req.query;
@@ -136,7 +152,7 @@ exports.getTacheControleOne = (req, res) => {
     DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
 FROM 
     tache
-    INNER JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+    LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
     INNER JOIN client ON tache.id_client = client.id_client
     INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
     INNER JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
@@ -204,36 +220,41 @@ exports.putTache = async (req, res) => {
                 date_debut = ?,
                 date_fin = ?,
                 priorite = ?,
+                id_departement = ?,
+                id_client = ?,
                 id_frequence = ?,
-                id_control = ?,
-                id_point_supervision = ?,
-                responsable_principal
-            WHERE id_departement = ?
+                responsable_principal = ?,
+                id_demandeur = ?,
+                id_ville = ?
+            WHERE id_tache = ?
         `;
       
         const values = [
             req.body.nom_tache,
             req.body.description,
-            req.body.statut,
+            req.body.statut || 1,
             req.body.date_debut,
             req.body.date_fin,
             req.body.priorite,
+            req.body.id_departement,
+            req.body.id_client,
             req.body.id_frequence,
-            req.body.id_point_supervision,
             req.body.responsable_principal,
+            req.body.id_demandeur,
+            req.body.id_ville,
             id_tache
         ];
 
-        const [result] = await db.query(q, values);
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'Department record not found' });
-        }
-
-        return res.json({ message: 'Tache record updated successfully' });
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Tache record not found' });
+            }
+            return res.json({ message: 'Tache record updated successfully' });
+        })
     } catch (err) {
-        console.error("Error updating department:", err);
-        return res.status(500).json({ error: 'Failed to update department record' });
+        console.error("Error updating tache:", err);
+        return res.status(500).json({ error: 'Failed to update Tache record' });
     }
 }
 
