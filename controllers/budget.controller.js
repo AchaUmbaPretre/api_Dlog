@@ -16,10 +16,13 @@ exports.getBudgetCount = (req, res) => {
 
 exports.getBudget = (req, res) => {
 
-    const q = `SELECT budget.*, offres.nom_offre, fournisseur.nom_fournisseur FROM budget
+    const q = `
+                SELECT budget.id_budget, budget.quantite_demande, budget.quantite_validee, budget.prix_unitaire, budget.montant,budget.montant_valide, budget.date_creation, offres.nom_offre, fournisseur.nom_fournisseur, articles.nom_article, projet.nom_projet FROM budget
                     INNER JOIN offres ON budget.id_offre = offres.id_offre
                     INNER JOIN articles ON budget.article = articles.id_article
-                    INNER JOIN fournisseur ON offres.id_fournisseur = fournisseur.id_fournisseur`;
+                    INNER JOIN fournisseur ON offres.id_fournisseur = fournisseur.id_fournisseur
+                    INNER JOIN projet ON budget.id_projet = projet.id_projet
+                `;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -33,9 +36,11 @@ exports.getBudgetOne = (req, res) => {
     const { id_budget } = req.query;
 
     const q = `
-            SELECT budget.*, fournisseur.nom_fournisseur, articles.nom_article FROM budget
-                    INNER JOIN fournisseur ON fournisseur.id_fournisseur = budget.fournisseur
+            SELECT budget.id_budget, budget.quantite_demande, budget.quantite_validee, budget.prix_unitaire, budget.montant,budget.montant_valide, budget.date_creation, offres.nom_offre, fournisseur.nom_fournisseur, articles.nom_article, projet.nom_projet FROM budget
+                    INNER JOIN offres ON budget.id_offre = offres.id_offre
                     INNER JOIN articles ON budget.article = articles.id_article
+                    INNER JOIN fournisseur ON offres.id_fournisseur = fournisseur.id_fournisseur
+                    INNER JOIN projet ON budget.id_projet = projet.id_projet
                 WHERE budget.id_budget =${id_budget}
             `;
      
