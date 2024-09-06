@@ -31,10 +31,10 @@ exports.getProjet = (req, res) => {
                     batiment.nom_batiment
                 FROM 
                 projet
-                    INNER JOIN type_statut_suivi AS ts ON ts.id_type_statut_suivi = projet.statut
+                    LEFT JOIN type_statut_suivi AS ts ON ts.id_type_statut_suivi = projet.statut
                     INNER JOIN utilisateur ON projet.chef_projet = utilisateur.id_utilisateur
-                    INNER JOIN client ON projet.client = client.id_client
-                    INNER JOIN besoins ON projet.id_projet = besoins.id_projet
+                    LEFT JOIN client ON projet.client = client.id_client
+                    LEFT JOIN besoins ON projet.id_projet = besoins.id_projet
                     LEFT JOIN budgets ON projet.id_projet = budgets.id_projet
                     LEFT JOIN batiment ON projet.id_batiment = batiment.id_batiment
                     GROUP BY projet.id_projet
@@ -90,11 +90,28 @@ GROUP BY
     });
 };
 
+exports.getProjetOneF = (req, res) => {
+    const {id_projet} = req.query;
+
+    const q = `
+                SELECT 
+                    *
+                    FROM 
+                projet
+                WHERE projet.id_projet = ${id_projet}
+        `;
+     
+    db.query(q, (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+}
+
 exports.getProjetOne = (req, res) => {
     const {id_projet} = req.query;
 
     const q = `
-SELECT 
+                SELECT 
                     projet.id_projet,
                     projet.nom_projet, 
                     projet.description, 
@@ -241,6 +258,46 @@ exports.postSuiviProjet = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
+
+exports.putProjet = async (req, res) => {
+    const { id_projet } = req.query;
+    const statut = req.body.statut || 1;
+    const { nom_projet, description, chef_projet, date_debut, date_fin, budget, client, id_batiment } = req.body;
+
+    if (!id_projet || isNaN(id_projet)) {
+        return res.status(400).json({ error: 'ID de projet fourni non valide' });
+    }
+
+    try {
+        const q = `
+            UPDATE projet 
+            SET 
+                nom_projet = ?,
+                description = ?,
+                chef_projet = ?,
+                date_debut = ?,
+                date_fin = ?,
+                statut = ?,
+                budget = ?,
+                client = ?,
+                id_batiment = ?
+            WHERE id_projet = ?
+        `;
+      
+        const values = [nom_projet, description, chef_projet, date_debut, date_fin, statut, budget, client, id_batiment, id_projet];
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Projet record not found' });
+            }
+            return res.json({ message: 'Projet record updated successfully' });
+        })
+    } catch (err) {
+        console.error("Error updating projet:", err);
+        return res.status(500).json({ error: 'Failed to update projet record' });
+    }
+}
 
 exports.deleteProjet = (req, res) => {
     const id = req.params.id;
