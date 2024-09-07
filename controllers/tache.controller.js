@@ -50,6 +50,7 @@ exports.getTache = (req, res) => {
                     LEFT JOIN controle_de_base AS cb ON client.id_client = cb.id_client
                     LEFT JOIN departement ON utilisateur.id_utilisateur = departement.responsable
                     LEFT JOIN departement AS dp_ac ON dp_ac.id_departement = cb.id_departement
+                    WHERE tache.est_supprime = 0
             `;
 
     db.query(q, (error, data) => {
@@ -266,6 +267,20 @@ exports.putTache = async (req, res) => {
         return res.status(500).json({ error: 'Failed to update Tache record' });
     }
 }
+
+exports.deleteUpdateTache = (req, res) => {
+    const {id} = req.query;
+  
+    const q = "UPDATE tache SET est_supprime = 1 WHERE id_tache = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) {
+        console.log(err)
+      }
+      return res.json(data);
+    });
+  
+  }
 
 exports.deleteTache = (req, res) => {
     const id = req.params.id;

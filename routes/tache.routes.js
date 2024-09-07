@@ -27,6 +27,7 @@ router.get('/one', tacheController.getTacheOne)
 router.get('/controleTacheOne', tacheController.getTacheControleOne)
 router.post('/', tacheController.postTache)
 router.put('/', tacheController.putTache)
+router.put('/supprime_put', tacheController.deleteUpdateTache)
 router.delete('/:id', tacheController.deleteTache)
 
 //Tache personne

@@ -22,6 +22,7 @@ exports.getBudget = (req, res) => {
                     INNER JOIN articles ON budget.article = articles.id_article
                     INNER JOIN fournisseur ON offres.id_fournisseur = fournisseur.id_fournisseur
                     INNER JOIN projet ON budget.id_projet = projet.id_projet
+                    WHERE budget.est_supprime = 0
                 `;
 
     db.query(q, (error, data) => {
@@ -39,9 +40,9 @@ exports.getBudgetOne = (req, res) => {
             SELECT budget.id_budget, budget.quantite_demande, budget.quantite_validee, budget.prix_unitaire, budget.montant,budget.montant_valide, budget.date_creation, offres.nom_offre, fournisseur.nom_fournisseur, articles.nom_article, projet.nom_projet FROM budget
                     INNER JOIN offres ON budget.id_offre = offres.id_offre
                     INNER JOIN articles ON budget.article = articles.id_article
-                    INNER JOIN fournisseur ON offres.id_fournisseur = fournisseur.id_fournisseur
+                    LEFT JOIN fournisseur ON offres.id_fournisseur = fournisseur.id_fournisseur
                     INNER JOIN projet ON budget.id_projet = projet.id_projet
-                WHERE budget.id_budget =${id_budget}
+                WHERE budget.est_supprime = 0 AND budget.id_budget =${id_budget}
             `;
      
     db.query(q, (error, data) => {
@@ -53,6 +54,7 @@ exports.getBudgetOne = (req, res) => {
 exports.postBudget = async (req, res) => {
     try {
         const q = 'INSERT INTO budget(`id_tache`, `id_controle`,`id_projet`, `article`, `quantite_demande`, `quantite_validee`, `prix_unitaire`, `montant`, `id_offre`,`montant_valide`, `user_cr`) VALUES( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+        const qProjet = "UPDATE projet SET statut = 7 WHERE id_projet = ?";
 
         const values = [
             req.body.id_tache,
@@ -73,8 +75,12 @@ exports.postBudget = async (req, res) => {
                 console.log(error)
             }
             else{
-                return res.status(201).json({ message: 'Tâche personne ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
-            }
+                db.query(qProjet,[req.body.id_projet], (errorProjet, dataProjet) => {
+                    if(errorProjet) {
+                        console.log(errorProjet)
+                    }
+                    return res.status(201).json({ message: 'Tâche personne ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
+                })            }
         })
     } catch (error) {
         console.error('Erreur lors de l\'ajout de la tâche :', error);
@@ -109,9 +115,22 @@ exports.putBudget = async (req, res) => {
     }
 };
 
+exports.deleteUpdateBudget = (req, res) => {
+    const {id} = req.query;
 
-
-
+    console.log(id)
+  
+    const q = "UPDATE budget SET est_supprime = 1 WHERE id_budget = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) {
+        console.log(err)
+      }
+        
+      return res.json(data);
+    });
+  
+  }
 
 
 exports.deleteBudget = (req, res) => {

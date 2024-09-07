@@ -7,5 +7,6 @@ router.get('/', budgetController.getBudget)
 router.get('/one', budgetController.getBudgetOne)
 router.post('/', budgetController.postBudget)
 router.put('/', budgetController.putBudget)
+router.put('/putSupprime', budgetController.deleteUpdateBudget)
 router.delete('/:id', budgetController.deleteBudget)
 module.exports = router;
