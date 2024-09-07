@@ -43,9 +43,9 @@ exports.getTache = (req, res) => {
                 FROM 
                     tache
                     LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
-                    INNER JOIN client ON tache.id_client = client.id_client
+                    LEFT JOIN client ON tache.id_client = client.id_client
                     INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
-                    INNER JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
+                    LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
                     INNER JOIN provinces ON tache.id_ville = provinces.id
                     LEFT JOIN controle_de_base AS cb ON client.id_client = cb.id_client
                     LEFT JOIN departement ON utilisateur.id_utilisateur = departement.responsable
@@ -110,17 +110,19 @@ exports.getTacheOne = (req, res) => {
                 COALESCE(departement.nom_departement, dp_ac.nom_departement) AS departement, 
                 cb.controle_de_base,
                 cb.id_controle,
-                DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
+                DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour,
+                demandeur.nom AS demandeur
             FROM 
                 tache
                 INNER JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
-                INNER JOIN client ON tache.id_client = client.id_client
+                LEFT JOIN client ON tache.id_client = client.id_client
                 INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
-                INNER JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
+                LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
                 INNER JOIN provinces ON tache.id_ville = provinces.id
                 LEFT JOIN controle_de_base AS cb ON client.id_client = cb.id_client
                 LEFT JOIN departement ON utilisateur.id_utilisateur = departement.responsable
                 LEFT JOIN departement AS dp_ac ON dp_ac.id_departement = cb.id_departement
+                LEFT JOIN utilisateur AS demandeur ON tache.id_demandeur = utilisateur.id_utilisateur
 
                 WHERE tache.id_tache =${id_tache}
         `;
@@ -153,7 +155,7 @@ exports.getTacheControleOne = (req, res) => {
 FROM 
     tache
     LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
-    INNER JOIN client ON tache.id_client = client.id_client
+    LEFT JOIN client ON tache.id_client = client.id_client
     INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
     INNER JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
     INNER JOIN provinces ON tache.id_ville = provinces.id
@@ -173,6 +175,7 @@ GROUP BY
 }
 
 exports.postTache = async (req, res) => {
+
     try {
         const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_departement`,`id_client`, `id_frequence`,`id_control`,`id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`, `id_ville`, `doc`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
 
@@ -195,8 +198,14 @@ exports.postTache = async (req, res) => {
             req.body.doc
         ];
 
-        await db.query(q, values);
-        return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+            }
+            else{
+                return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
+            }
+        })
     } catch (error) {
         console.error('Erreur lors de l\'ajout de la tâche :', error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
