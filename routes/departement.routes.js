@@ -7,7 +7,7 @@ router.get('/', departementController.getDepartement)
 router.get('/one', departementController.getDepartementOne)
 router.post('/', departementController.postDepartement)
 router.put('/', departementController.putDepartement)
-
+router.put('/supprime_put', departementController.deleteUpdatedDepartement)
 router.delete('/:id', departementController.deleteDepartement)
  
 module.exports = router;

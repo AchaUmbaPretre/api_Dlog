@@ -31,6 +31,7 @@ exports.getControle = (req, res) => {
         INNER JOIN client ON c.id_client = client.id_client
         INNER JOIN frequence ON c.id_frequence = frequence.id_frequence
         INNER JOIN utilisateur ON c.responsable = utilisateur.id_utilisateur
+        WHERE c.est_supprime = 0
     `;
 
     db.query(q, (error, data) => {
@@ -130,6 +131,20 @@ exports.putControle = async (req, res) => {
     }
 };
 
+
+exports.deleteUpdatedControle = (req, res) => {
+    const {id} = req.query;
+  
+    const q = "UPDATE controle_de_base SET est_supprime = 1 WHERE id_controle = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) {
+        console.log(err)
+      }
+        
+      return res.json(data);
+    });
+  }
 
 exports.deleteControle = (req, res) => {
     const id = req.params.id;

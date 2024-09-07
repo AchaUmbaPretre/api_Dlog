@@ -7,6 +7,7 @@ exports.getDepartementCount = (req, res) => {
         SELECT 
             COUNT(id_client) AS nbre_client
         FROM departement
+            WHERE departement.est_supprime = 0
         `;
 
     const params = [];
@@ -29,6 +30,7 @@ exports.getDepartement = (req, res) => {
         departement.*, utilisateur.nom
     FROM departement
     INNER JOIN utilisateur ON utilisateur.id_utilisateur = departement.responsable
+    WHERE departement.est_supprime = 0
     `;
 
     db.query(q, (error, data) => {
@@ -178,6 +180,20 @@ exports.putDepartement = async (req, res) => {
         return res.status(500).json({ error: 'Failed to update department record' });
     }
 }
+
+exports.deleteUpdatedDepartement = (req, res) => {
+    const {id} = req.query;
+  
+    const q = "UPDATE departement SET est_supprime = 1 WHERE id_departement = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) {
+        console.log(err)
+      }
+        
+      return res.json(data);
+    });
+  }
 
 exports.deleteDepartement = (req, res) => {
     const id = req.params.id;

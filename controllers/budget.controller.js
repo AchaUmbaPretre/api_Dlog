@@ -117,8 +117,6 @@ exports.putBudget = async (req, res) => {
 
 exports.deleteUpdateBudget = (req, res) => {
     const {id} = req.query;
-
-    console.log(id)
   
     const q = "UPDATE budget SET est_supprime = 1 WHERE id_budget = ?";
   
@@ -129,7 +127,6 @@ exports.deleteUpdateBudget = (req, res) => {
         
       return res.json(data);
     });
-  
   }
 
 
