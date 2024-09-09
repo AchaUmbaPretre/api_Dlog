@@ -1,4 +1,7 @@
+const util = require('util'); // Importer util
 const { db } = require("./../config/database");
+
+const query = util.promisify(db.query).bind(db);
 
 exports.getControleCount = (req, res) => {
     
@@ -17,21 +20,25 @@ exports.getControleCount = (req, res) => {
 exports.getControle = (req, res) => {
 
     const q = `
-    SELECT 
-        c.id_departement,
-        c.controle_de_base, 
-        c.id_controle,
-        d.nom_departement AS departement, 
-        format.nom_format AS format, 
-        client.nom 	AS nom_client, frequence.nom AS frequence, 
-        utilisateur.nom AS responsable 
-    FROM controle_de_base AS c
-        INNER JOIN departement AS d ON c.id_departement = d.id_departement
-        INNER JOIN format ON c.id_format = format.id_format
-        INNER JOIN client ON c.id_client = client.id_client
-        INNER JOIN frequence ON c.id_frequence = frequence.id_frequence
-        INNER JOIN utilisateur ON c.responsable = utilisateur.id_utilisateur
-        WHERE c.est_supprime = 0
+            SELECT 
+            c.id_departement,
+            c.controle_de_base, 
+            c.id_controle,
+            d.nom_departement AS departement, 
+            format.nom_format AS format, 
+            client.nom AS nom_client, 
+            frequence.nom AS frequence, 
+            utilisateur.nom AS responsable 
+        FROM controle_de_base AS c
+            INNER JOIN departement AS d ON c.id_departement = d.id_departement
+            INNER JOIN format ON c.id_format = format.id_format
+            INNER JOIN controle_client AS cl ON c.id_controle = cl.id_controle
+            INNER JOIN client ON cl.id_client = client.id_client
+            INNER JOIN frequence ON c.id_frequence = frequence.id_frequence
+            INNER JOIN controle_responsable AS cr ON c.id_controle = cr.id_controle
+            LEFT JOIN utilisateur ON cr.id_responsable = utilisateur.id_utilisateur
+        WHERE c.est_supprime = 0;
+
     `;
 
     db.query(q, (error, data) => {
@@ -46,9 +53,11 @@ exports.getControleOne = (req, res) => {
     const {id_controle} = req.query;
 
     const q = `
-        SELECT *
-            FROM controle_de_base 
-        WHERE est_supprime = 0 AND id_controle =${id_controle}
+        SELECT c.*, cl.id_client, utilisateur.id_utilisateur AS responsable FROM controle_de_base AS c
+INNER JOIN controle_client AS cl ON c.id_controle = cl.id_controle
+INNER JOIN controle_responsable AS cr ON c.id_controle = cr.id_controle
+LEFT JOIN utilisateur ON cr.id_responsable = utilisateur.id_utilisateur
+        WHERE c.est_supprime = 0 AND c.id_controle =${id_controle}
         `;
      
     db.query(q, (error, data) => {
@@ -58,37 +67,52 @@ exports.getControleOne = (req, res) => {
 }
 
 exports.postControle = async (req, res) => {
-    const { id_departement, id_client, id_format, controle_de_base, id_frequence, responsable } = req.body; 
+    const { id_departement, id_format, controle_de_base, id_frequence, id_client, responsable } = req.body;
 
-    if (!id_departement || !id_client || !id_format || !controle_de_base || !id_frequence || !responsable) {
-        return res.status(400).json({ error: 'Tous les champs sont requis.' });
+    if (!id_departement || !id_format || !controle_de_base || !id_frequence || !id_client || id_client.length === 0 || !responsable || responsable.length === 0) {
+        return res.status(400).json({ error: 'Tous les champs sont requis. Il doit y avoir au moins un client et un responsable.' });
     }
 
-    const query = `
+    const controleQuery = `
         INSERT INTO controle_de_base 
-        (id_departement, id_client, id_format, controle_de_base, id_frequence, responsable) 
-        VALUES (?, ?, ?, ?, ?, ?)
+        (id_departement, id_format, controle_de_base, id_frequence) 
+        VALUES (?, ?, ?, ?)
+    `;
+
+    const clientQuery = `
+        INSERT INTO controle_client 
+        (id_controle, id_client) 
+        VALUES (?, ?)
+    `;
+
+    const responsableQuery = `
+        INSERT INTO controle_responsable 
+        (id_controle, id_responsable) 
+        VALUES (?, ?)
     `;
 
     try {
+        // Insérer le contrôle de base
+        const result = await query(controleQuery, [id_departement, id_format, controle_de_base, id_frequence]);
+        const controleId = result.insertId; // Récupérer l'ID du contrôle ajouté
 
-        await Promise.all(responsable.map((dd) => {
-            return new Promise((resolve, reject) => {
-                db.query(query, [id_departement, id_client, id_format, controle_de_base, id_frequence, dd], (error, results) => {
-                    if (error) {
-                        return reject(error);
-                    }
-                    resolve(results);
-                });
-            });
+        // Insérer les clients associés au contrôle
+        await Promise.all(id_client.map((clientId) => {
+            return query(clientQuery, [controleId, clientId]);
         }));
 
-        res.status(200).json({ message: 'Contrôle ajouté avec succès.' });
+        // Insérer les responsables associés au contrôle
+        await Promise.all(responsable.map((responsable) => {
+            return query(responsableQuery, [controleId, responsable]);
+        }));
+
+        res.status(200).json({ message: 'Contrôle ajouté avec succès avec plusieurs clients et responsables.' });
     } catch (error) {
-        console.error('Erreur lors de l\'ajout de contrôle :', error);
+        console.error('Erreur lors de l\'ajout du contrôle :', error);
         res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du contrôle." });
     }
 };
+
 
 exports.putControle = async (req, res) => {
     const {id_controle} = req.query;
