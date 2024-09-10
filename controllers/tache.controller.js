@@ -47,10 +47,12 @@ exports.getTache = (req, res) => {
                     INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
                     LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
                     INNER JOIN provinces ON tache.id_ville = provinces.id
-                    LEFT JOIN controle_de_base AS cb ON client.id_client = cb.id_client
+                    INNER JOIN controle_client AS cc ON client.id_client = cc.id_client
+                    INNER JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
                     LEFT JOIN departement ON utilisateur.id_utilisateur = departement.responsable
                     LEFT JOIN departement AS dp_ac ON dp_ac.id_departement = cb.id_departement
                     WHERE tache.est_supprime = 0
+                    GROUP BY tache.id_tache
             `;
 
     db.query(q, (error, data) => {
@@ -160,7 +162,7 @@ FROM
     INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
     INNER JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
     INNER JOIN provinces ON tache.id_ville = provinces.id
-    LEFT JOIN controle_de_base ON client.id_client = controle_de_base.id_client
+    LEFT JOIN controle_client ON client.id_client = controle_client.id_client
     LEFT JOIN departement ON utilisateur.id_utilisateur = departement.responsable
     LEFT JOIN controle_de_base AS cb ON tache.id_control = cb.id_controle
     LEFT JOIN departement AS dp_ac ON dp_ac.id_departement = cb.id_departement
