@@ -115,7 +115,6 @@ exports.getCategorie = (req, res) => {
 
 exports.postCategorie = async (req, res) => {
 
-    console.log(req.body)
     try {
         const q = 'INSERT INTO categories(`nom_cat`) VALUES(?)';
 
