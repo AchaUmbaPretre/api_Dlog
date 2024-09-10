@@ -125,16 +125,16 @@ exports.getProjetOne = (req, res) => {
                 FROM 
                 projet
                     INNER JOIN type_statut_suivi AS ts ON ts.id_type_statut_suivi = projet.statut
-                    INNER JOIN utilisateur ON projet.chef_projet = utilisateur.id_utilisateur
-                    INNER JOIN client ON projet.client = client.id_client
+                    LEFT JOIN utilisateur ON projet.chef_projet = utilisateur.id_utilisateur
+                    LEFT JOIN client ON projet.client = client.id_client
                     INNER JOIN besoins ON projet.id_projet = besoins.id_projet
                     LEFT JOIN budgets ON projet.id_projet = budgets.id_projet
                     LEFT JOIN batiment ON projet.id_batiment = batiment.id_batiment
-                WHERE projet.id_projet = ${id_projet}
+                WHERE projet.id_projet = ?
                 GROUP BY projet.id_projet
         `;
      
-    db.query(q, (error, data) => {
+    db.query(q, [id_projet], (error, data) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
