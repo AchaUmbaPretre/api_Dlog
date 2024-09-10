@@ -10,6 +10,7 @@ router.get('/projetTache', projetController.getProjetTache)
 router.post('/', projetController.postProjetBesoin)
 
 router.put('/', projetController.putProjet)
+router.put('/est_supprime', projetController.deletePutProjet)
 router.delete('/:id', projetController.deleteProjet)
 
 //Suivi projet
