@@ -68,21 +68,21 @@ exports.getProjetTache = (req, res) => {
     DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
 FROM 
     tache
-    INNER JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
-    INNER JOIN client ON tache.id_client = client.id_client
+    LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+    LEFT JOIN client ON tache.id_client = client.id_client
     INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
     INNER JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
     INNER JOIN provinces ON tache.id_ville = provinces.id
-    LEFT JOIN controle_de_base ON client.id_client = controle_de_base.id_client
+    LEFT JOIN controle_client ON client.id_client = controle_client.id_client
     LEFT JOIN departement ON utilisateur.id_utilisateur = departement.responsable
     LEFT JOIN controle_de_base AS cb ON tache.id_control = cb.id_controle
     LEFT JOIN departement AS dp_ac ON dp_ac.id_departement = cb.id_departement
-    WHERE tache.id_projet = ${id_projet}
+    WHERE cb.id_controle = ?
 GROUP BY 
-    tache.id_tache;
+    tache.id_tache
 `;
 
-    db.query(q, (error, data) => {
+    db.query(q,[id_projet], (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
@@ -165,7 +165,12 @@ exports.postProjet = async (req, res) => {
 };
 
 exports.postProjetBesoin = (req, res) => {
+
     const besoins = req.body.besoins;
+
+    if (!Array.isArray(besoins)) {
+        return res.status(400).json({ error: "Le format des besoins est incorrect. Il doit s'agir d'un tableau." });
+    }
 
     try {
         const qProjet = 'INSERT INTO projet (`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`, `client`, `id_batiment`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
