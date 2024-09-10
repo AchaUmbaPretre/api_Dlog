@@ -144,17 +144,15 @@ exports.postSuiviTache = async (req, res) => {
             req.body.est_termine ? 1 : 0
         ];
 
-        // Insertion du suivi de tâche
         const insertSuiviTache = new Promise((resolve, reject) => {
             db.query(q, values, (error, data) => {
                 if (error) {
-                    return reject(error); // En cas d'erreur, on rejette
+                    return reject(error);
                 }
                 resolve(data);
             });
         });
 
-        // Mise à jour du statut de la tâche
         const updateTacheStatut = new Promise((resolve, reject) => {
             db.query(qTache, [req.body.status, req.body.id_tache], (error, data) => {
                 if (error) {
