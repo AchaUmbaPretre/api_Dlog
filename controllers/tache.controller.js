@@ -78,6 +78,7 @@ exports.getDetailTacheDoc = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
 exports.getTacheOneV = (req, res) => {
     const {id_tache} = req.query;
 
@@ -122,15 +123,16 @@ exports.getTacheOne = (req, res) => {
                 INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
                 LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
                 INNER JOIN provinces ON tache.id_ville = provinces.id
-                LEFT JOIN controle_de_base AS cb ON client.id_client = cb.id_client
+                INNER JOIN controle_client AS cc ON client.id_client = cc.id_client
+                LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
                 LEFT JOIN departement ON utilisateur.id_utilisateur = departement.responsable
                 LEFT JOIN departement AS dp_ac ON dp_ac.id_departement = cb.id_departement
                 LEFT JOIN utilisateur AS demandeur ON tache.id_demandeur = utilisateur.id_utilisateur
-
-                WHERE tache.id_tache =${id_tache}
+                WHERE tache.id_tache = ?
+                GROUP BY tache.id_tache
         `;
      
-    db.query(q, (error, data) => {
+    db.query(q,[id_tache], (error, data) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
