@@ -32,7 +32,7 @@ exports.getProjet = (req, res) => {
                 FROM 
                 projet
                     LEFT JOIN type_statut_suivi AS ts ON ts.id_type_statut_suivi = projet.statut
-                    INNER JOIN utilisateur ON projet.chef_projet = utilisateur.id_utilisateur
+                    LEFT JOIN utilisateur ON projet.chef_projet = utilisateur.id_utilisateur
                     LEFT JOIN client ON projet.client = client.id_client
                     LEFT JOIN besoins ON projet.id_projet = besoins.id_projet
                     LEFT JOIN budgets ON projet.id_projet = budgets.id_projet
