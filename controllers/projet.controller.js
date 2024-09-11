@@ -1,5 +1,4 @@
 const { db } = require("./../config/database");
-const cheerio = require('cheerio'); // Ajoutez cheerio pour le parsing HTML
 
 exports.getProjetCount = (req, res) => {
     
@@ -125,10 +124,10 @@ exports.getProjetOne = (req, res) => {
                     batiment.nom_batiment
                 FROM 
                 projet
-                    INNER JOIN type_statut_suivi AS ts ON ts.id_type_statut_suivi = projet.statut
+                    LEFT JOIN type_statut_suivi AS ts ON ts.id_type_statut_suivi = projet.statut
                     LEFT JOIN utilisateur ON projet.chef_projet = utilisateur.id_utilisateur
                     LEFT JOIN client ON projet.client = client.id_client
-                    INNER JOIN besoins ON projet.id_projet = besoins.id_projet
+                    LEFT JOIN besoins ON projet.id_projet = besoins.id_projet
                     LEFT JOIN budgets ON projet.id_projet = budgets.id_projet
                     LEFT JOIN batiment ON projet.id_batiment = batiment.id_batiment
                 WHERE projet.id_projet = ?
@@ -166,16 +165,11 @@ exports.postProjet = async (req, res) => {
 };
 
 exports.postProjetBesoin = (req, res) => {
-
-    const besoins = req.body.besoins;
-
-    if (!Array.isArray(besoins)) {
-        return res.status(400).json({ error: "Le format des besoins est incorrect. Il doit s'agir d'un tableau." });
-    }
+    const besoins = req.body.besoins || []; // Initialiser à un tableau vide si undefined
 
     try {
         const qProjet = 'INSERT INTO projet (`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`, `client`, `id_batiment`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
-        const qBesoin = 'INSERT INTO besoins (`id_article`,`description`, `quantite`, `id_projet`) VALUES (?, ?, ?, ?)';
+        const qBesoin = 'INSERT INTO besoins (`id_article`, `description`, `quantite`, `id_projet`) VALUES (?, ?, ?, ?)';
         const qBudget = 'INSERT INTO budgets (`montant`, `id_projet`) VALUES (?, ?)';
 
         const valuesProjet = [
@@ -190,6 +184,7 @@ exports.postProjetBesoin = (req, res) => {
             req.body.id_batiment
         ];
 
+        // Insertion du projet
         db.query(qProjet, valuesProjet, (error, data) => {
             if (error) {
                 console.error(error);
@@ -199,10 +194,7 @@ exports.postProjetBesoin = (req, res) => {
             const projetId = data.insertId; // Récupérer l'ID du projet inséré
 
             // Insertion du budget associé au projet
-            const budgetValues = [
-                req.body.budget,
-                projetId
-            ];
+            const budgetValues = [req.body.budget, projetId];
 
             db.query(qBudget, budgetValues, (budgetError) => {
                 if (budgetError) {
@@ -210,22 +202,28 @@ exports.postProjetBesoin = (req, res) => {
                     return res.status(500).json(budgetError);
                 }
 
-                // Boucle sur chaque besoin pour insertion
-                besoins.forEach(besoin => {
-                    const besoinValues = [
-                        besoin.id_article,
-                        besoin.description,
-                        besoin.quantite,
-                        projetId
-                    ];
+                // Si des besoins ont été fournis et que le tableau n'est pas vide
+                if (besoins.length > 0) {
+                    // Boucle sur chaque besoin pour insertion
+                    besoins.forEach(besoin => {
+                        // Vérifier si le besoin est valide avant d'insérer
+                        if (besoin.id_article && besoin.description && besoin.quantite) {
+                            const besoinValues = [
+                                besoin.id_article,
+                                besoin.description,
+                                besoin.quantite,
+                                projetId
+                            ];
 
-                    db.query(qBesoin, besoinValues, (selectError) => {
-                        if (selectError) {
-                            console.error(selectError);
-                            return res.status(500).json(selectError);
+                            db.query(qBesoin, besoinValues, (selectError) => {
+                                if (selectError) {
+                                    console.error(selectError);
+                                    return res.status(500).json(selectError);
+                                }
+                            });
                         }
                     });
-                });
+                }
 
                 res.json('Processus réussi');
             });
@@ -235,6 +233,9 @@ exports.postProjetBesoin = (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
+
+
+
 
 
 
