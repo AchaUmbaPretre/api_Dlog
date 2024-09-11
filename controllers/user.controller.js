@@ -34,19 +34,26 @@ exports.getUsers = (req, res) => {
 };
 
 exports.getUserOne = (req, res) => {
-    const {id_user} = req.query;
+    const { id_user } = req.query;
 
     const q = `
-        SELECT utilisateur.*
-            FROM utilisateur 
-        WHERE utilsateur.id_utilisateur =${id_user}
-        `;
+        SELECT 
+            utilisateur.nom,
+            utilisateur.prenom,
+            utilisateur.email,
+            utilisateur.role
+        FROM utilisateur 
+            WHERE utilisateur.id_utilisateur = ?
+    `;
      
-    db.query(q, (error, data) => {
-        if (error) res.status(500).send(error);
+    db.query(q, [id_user], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
         return res.status(200).json(data);
     });
 }
+
 
 exports.registerUser = async (req, res) => {
     const { nom, prenom, email, mot_de_passe, role } = req.body;
@@ -105,18 +112,18 @@ exports.putUser = async (req, res) => {
             WHERE id_utilisateur = ?
         `;
       
-        const values = [nom, prenom, email];
+        const values = [nom, prenom, email, id];
 
-        const [result] = await db.query(q, values);
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'Utilisateur record not found' });
-        }
-
-        return res.json({ message: 'Utiisateur record updated successfully' });
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'user record not found' });
+            }
+            return res.json({ message: 'User record updated successfully' });
+        })
     } catch (err) {
-        console.error("Error updating department:", err);
-        return res.status(500).json({ error: 'Failed to update department record' });
+        console.error("Error updating user :", err);
+        return res.status(500).json({ error: 'Failed to update user record' });
     }
 }
 
