@@ -50,15 +50,24 @@ exports.getBesoinOne = (req, res) => {
 exports.postBesoins = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO besoins(`description`, `quantite`) VALUES(?, ?)';
+        const q = 'INSERT INTO besoins(`id_article`,`description`, `quantite`, `priorite`, `id_projet`) VALUES(?,?,?,?,?)';
 
         const values = [
+            req.body.id_article,
             req.body.description,
-            req.body.quantite 
+            req.body.quantite,
+            req.body.priorite,
+            req.body.id_projet
         ];
 
-        await db.query(q, values);
-        return res.status(201).json({ message: 'Besoins ajouté avec succès'});
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Besoin record not found' });
+            }
+
+            return res.status(201).json({ message: 'Besoins ajouté avec succès'});
+        })
     } catch (error) {
         console.error('Erreur lors de l\'ajout du nouveau projet:', error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
