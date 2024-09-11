@@ -37,6 +37,7 @@ exports.getProjet = (req, res) => {
                     LEFT JOIN besoins ON projet.id_projet = besoins.id_projet
                     LEFT JOIN budgets ON projet.id_projet = budgets.id_projet
                     LEFT JOIN batiment ON projet.id_batiment = batiment.id_batiment
+                    WHERE projet.est_supprime = 0
                     GROUP BY projet.id_projet
             `;
 

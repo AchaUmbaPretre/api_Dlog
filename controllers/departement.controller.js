@@ -27,7 +27,13 @@ exports.getDepartement = (req, res) => {
 
     const q = `
     SELECT 
-        departement.*, utilisateur.nom
+        departement.id_departement, 
+        departement.nom_departement,
+        departement.code,
+        departement.responsable,
+        departement.telephone,
+        departement.email,
+        utilisateur.nom
     FROM departement
     INNER JOIN utilisateur ON utilisateur.id_utilisateur = departement.responsable
     WHERE departement.est_supprime = 0
