@@ -105,7 +105,7 @@ exports.getProjetOneF = (req, res) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
-}
+};
 
 exports.getProjetOne = (req, res) => {
     const {id_projet} = req.query;
