@@ -165,7 +165,7 @@ exports.postProjet = async (req, res) => {
 };
 
 exports.postProjetBesoin = (req, res) => {
-    const besoins = req.body.besoins || []; // Initialiser à un tableau vide si undefined
+    const besoins = req.body.besoins || [];
 
     try {
         const qProjet = 'INSERT INTO projet (`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`, `client`, `id_batiment`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
@@ -233,14 +233,6 @@ exports.postProjetBesoin = (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
-
-
-
-
-
-
-
-
 
 
 exports.postSuiviProjet = async (req, res) => {
