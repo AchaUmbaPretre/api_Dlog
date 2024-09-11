@@ -143,6 +143,7 @@ exports.getProjetOne = (req, res) => {
 exports.postProjet = async (req, res) => {
 
     try {
+        
         const q = 'INSERT INTO projet(`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`, `client`) VALUES(?,?,?,?,?,?,?,?)';
 
         const values = [
@@ -166,73 +167,95 @@ exports.postProjet = async (req, res) => {
 
 exports.postProjetBesoin = (req, res) => {
     const besoins = req.body.besoins || [];
+    const clients = req.body.client || [];
+    const batiments = req.body.id_batiment || [];
 
-    try {
-        const qProjet = 'INSERT INTO projet (`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`, `client`, `id_batiment`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
-        const qBesoin = 'INSERT INTO besoins (`id_article`, `description`, `quantite`, `id_projet`) VALUES (?, ?, ?, ?)';
-        const qBudget = 'INSERT INTO budgets (`montant`, `id_projet`) VALUES (?, ?)';
+    const qProjet = 'INSERT INTO projet (`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`) VALUES (?, ?, ?, ?, ?, ?, ?)';
+    const qBesoin = 'INSERT INTO besoins (`id_article`, `description`, `quantite`, `id_projet`) VALUES (?, ?, ?, ?)';
+    const qBudget = 'INSERT INTO budgets (`montant`, `id_projet`) VALUES (?, ?)';
+    const qProjet_client = 'INSERT INTO projet_client(`id_projet`,`id_client`) VALUES(?,?)';
+    const qProjet_batiment = 'INSERT INTO projet_batiment(`id_projet`,`id_batiment`) VALUES(?,?)';
 
-        const valuesProjet = [
-            req.body.nom_projet,
-            req.body.description,
-            req.body.chef_projet,
-            req.body.date_debut,
-            req.body.date_fin,
-            req.body.statut || 1,
-            req.body.budget,
-            req.body.client,
-            req.body.id_batiment
-        ];
+    const valuesProjet = [
+        req.body.nom_projet,
+        req.body.description,
+        req.body.chef_projet,
+        req.body.date_debut,
+        req.body.date_fin,
+        req.body.statut || 1,
+        req.body.budget,
+        req.body.client
+    ];
 
-        // Insertion du projet
-        db.query(qProjet, valuesProjet, (error, data) => {
-            if (error) {
-                console.error(error);
-                return res.status(500).json(error);
+    // Insertion du projet
+    db.query(qProjet, valuesProjet, (error, data) => {
+        if (error) {
+            console.error(error);
+            return res.status(500).json(error);
+        }
+
+        const projetId = data.insertId; // Récupérer l'ID du projet inséré
+
+        // Insertion du budget associé au projet
+        db.query(qBudget, [req.body.budget, projetId], (budgetError) => {
+            if (budgetError) {
+                console.error(budgetError);
+                return res.status(500).json(budgetError);
             }
 
-            const projetId = data.insertId; // Récupérer l'ID du projet inséré
+            // Insertion des besoins
+            if (besoins.length > 0) {
+                besoins.forEach(besoin => {
+                    if (besoin.id_article && besoin.description && besoin.quantite) {
+                        const besoinValues = [
+                            besoin.id_article,
+                            besoin.description,
+                            besoin.quantite,
+                            projetId
+                        ];
+                        db.query(qBesoin, besoinValues, (besoinError) => {
+                            if (besoinError) {
+                                console.error(besoinError);
+                                return res.status(500).json(besoinError);
+                            }
+                        });
+                    }
+                });
+            }
 
-            // Insertion du budget associé au projet
-            const budgetValues = [req.body.budget, projetId];
-
-            db.query(qBudget, budgetValues, (budgetError) => {
-                if (budgetError) {
-                    console.error(budgetError);
-                    return res.status(500).json(budgetError);
-                }
-
-                // Si des besoins ont été fournis et que le tableau n'est pas vide
-                if (besoins.length > 0) {
-                    // Boucle sur chaque besoin pour insertion
-                    besoins.forEach(besoin => {
-                        // Vérifier si le besoin est valide avant d'insérer
-                        if (besoin.id_article && besoin.description && besoin.quantite) {
-                            const besoinValues = [
-                                besoin.id_article,
-                                besoin.description,
-                                besoin.quantite,
-                                projetId
-                            ];
-
-                            db.query(qBesoin, besoinValues, (selectError) => {
-                                if (selectError) {
-                                    console.error(selectError);
-                                    return res.status(500).json(selectError);
-                                }
-                            });
+            // Insertion des clients associés au projet
+            if (clients.length > 0) {
+                clients.forEach(clientId => {
+                    const clientValues = [projetId, clientId];
+                    db.query(qProjet_client, clientValues, (clientError) => {
+                        if (clientError) {
+                            console.error(clientError);
+                            return res.status(500).json(clientError);
                         }
                     });
-                }
+                });
+            }
 
-                res.json('Processus réussi');
-            });
+            // Insertion des bâtiments associés au projet
+            if (batiments.length > 0) {
+                batiments.forEach(batimentId => {
+                    const batimentValues = [projetId, batimentId];
+                    db.query(qProjet_batiment, batimentValues, (batimentError) => {
+                        if (batimentError) {
+                            console.error(batimentError);
+                            return res.status(500).json(batimentError);
+                        }
+                    });
+                });
+            }
+
+            // Réponse de succès après toutes les insertions
+            res.json('Processus réussi');
         });
-    } catch (error) {
-        console.error('Erreur lors de l\'ajout de la tâche :', error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
-    }
+    });
 };
+
+
 
 exports.postSuiviProjet = async (req, res) => {
 
