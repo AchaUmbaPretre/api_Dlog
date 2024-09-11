@@ -4,7 +4,12 @@ exports.getOffre = (req, res) => {
 
     const q = `
     SELECT 
-        offres.*, fournisseur.nom_fournisseur, batiment.nom_batiment
+        offres.id_offre, 
+        offres.nom_offre,
+        offres.description,
+        offres.date_creation,
+        fournisseur.nom_fournisseur, 
+        batiment.nom_batiment
     FROM 
         offres
     LEFT JOIN fournisseur ON offres.id_fournisseur = fournisseur.id_fournisseur
