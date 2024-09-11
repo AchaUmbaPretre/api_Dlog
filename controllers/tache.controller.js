@@ -26,31 +26,31 @@ exports.getTacheCount = (req, res) => {
 exports.getTache = (req, res) => {
 
         const q = `SELECT 
-                    tache.id_tache, 
-                    tache.description, 
-                    tache.date_debut, 
-                    tache.date_fin,
-                    tache.nom_tache, 
-                    typeC.nom_type_statut AS statut, 
-                    client.nom AS nom_client, 
-                    frequence.nom AS frequence, 
-                    utilisateur.nom AS owner, 
-                    provinces.name AS ville, 
-                    COALESCE(departement.nom_departement, dp_ac.nom_departement) AS departement, 
-                    cb.controle_de_base,
-                    cb.id_controle,
-                    DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
-                FROM 
+                        tache.id_tache, 
+                        tache.description, 
+                        tache.date_debut, 
+                        tache.date_fin,
+                        tache.nom_tache, 
+                        typeC.nom_type_statut AS statut, 
+                        client.nom AS nom_client, 
+                        frequence.nom AS frequence, 
+                        utilisateur.nom AS owner, 
+                        provinces.name AS ville, 
+                        COALESCE(departement.nom_departement, dp_ac.nom_departement) AS departement, 
+                        cb.controle_de_base,
+                        cb.id_controle,
+                        DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
+                    FROM 
                     tache
-                    LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
-                    LEFT JOIN client ON tache.id_client = client.id_client
-                    INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
-                    LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
-                    INNER JOIN provinces ON tache.id_ville = provinces.id
-                    INNER JOIN controle_client AS cc ON client.id_client = cc.id_client
-                    INNER JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
-                    LEFT JOIN departement ON utilisateur.id_utilisateur = departement.responsable
-                    LEFT JOIN departement AS dp_ac ON dp_ac.id_departement = cb.id_departement
+                        LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+                        LEFT JOIN client ON tache.id_client = client.id_client
+                        INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
+                        LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
+                        INNER JOIN provinces ON tache.id_ville = provinces.id
+                        INNER JOIN controle_client AS cc ON client.id_client = cc.id_client
+                        INNER JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
+                        LEFT JOIN departement ON utilisateur.id_utilisateur = departement.responsable
+                        LEFT JOIN departement AS dp_ac ON dp_ac.id_departement = cb.id_departement
                     WHERE tache.est_supprime = 0
                     GROUP BY tache.id_tache
             `;
