@@ -242,6 +242,7 @@ exports.putTache = async (req, res) => {
                 id_frequence = ?,
                 responsable_principal = ?,
                 id_demandeur = ?,
+                id_batiment = ?,
                 id_ville = ?
             WHERE id_tache = ?
         `;
@@ -258,6 +259,7 @@ exports.putTache = async (req, res) => {
             req.body.id_frequence,
             req.body.responsable_principal,
             req.body.id_demandeur,
+            req.body.id_batiment,
             req.body.id_ville,
             id_tache
         ];

@@ -54,7 +54,6 @@ exports.getUserOne = (req, res) => {
     });
 }
 
-
 exports.registerUser = async (req, res) => {
     const { nom, prenom, email, mot_de_passe, role } = req.body;
   
