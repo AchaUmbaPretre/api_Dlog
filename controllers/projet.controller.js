@@ -32,10 +32,12 @@ exports.getProjet = (req, res) => {
                 projet
                     LEFT JOIN type_statut_suivi AS ts ON ts.id_type_statut_suivi = projet.statut
                     LEFT JOIN utilisateur ON projet.chef_projet = utilisateur.id_utilisateur
-                    LEFT JOIN client ON projet.client = client.id_client
+                    LEFT JOIN projet_client ON projet.id_projet = projet_client.id_projet
+                    LEFT JOIN client ON projet_client.id_client = client.id_client
                     LEFT JOIN besoins ON projet.id_projet = besoins.id_projet
                     LEFT JOIN budgets ON projet.id_projet = budgets.id_projet
-                    LEFT JOIN batiment ON projet.id_batiment = batiment.id_batiment
+                    LEFT JOIN projet_batiment ON projet.id_projet = projet_batiment.id_projet
+                    LEFT JOIN batiment ON projet_batiment.id_batiment = batiment.id_batiment
                     WHERE projet.est_supprime = 0
                     GROUP BY projet.id_projet
             `;
