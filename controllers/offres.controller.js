@@ -26,7 +26,7 @@ exports.getOffre = (req, res) => {
 
 exports.getOffreDoc = (req, res) => {
     const q = `
-                SELECT documents_offre.*, offres.nom_offre, offres.id_offre FROM documents_offre 
+                SELECT documents_offre.*, offres.nom_offre, offres.id_offre, offres.nom_offre FROM documents_offre 
             INNER JOIN offres ON documents_offre.id_offre = offres.id_offre
             `;
 

@@ -69,7 +69,7 @@ ORDER BY
 
 exports.getTacheDoc = (req, res) => {
     const q = `
-                SELECT tache_documents.*, tache.nom_tache, tache.id_tache FROM tache_documents
+                SELECT tache_documents.*, tache.nom_tache, tache.id_tache, tache.nom_tache FROM tache_documents
             INNER JOIN tache ON tache_documents.id_tache = tache.id_tache
             `;
 
