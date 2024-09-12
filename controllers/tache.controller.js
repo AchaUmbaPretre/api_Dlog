@@ -36,7 +36,7 @@ exports.getTache = (req, res) => {
     frequence.nom AS frequence, 
     utilisateur.nom AS owner, 
     provinces.name AS ville, 
-    departement.nom_departement AS departement,  -- Récupération directe du département via tache.id_departement
+    departement.nom_departement AS departement,
     cb.controle_de_base,
     cb.id_controle,
     DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
@@ -129,27 +129,23 @@ exports.getTacheOne = (req, res) => {
                 frequence.nom AS frequence, 
                 utilisateur.nom AS owner, 
                 provinces.name AS ville, 
-                COALESCE(departement.nom_departement, dp_ac.nom_departement) AS departement, 
+                departement.nom_departement AS departement,
                 cb.controle_de_base,
                 cb.id_controle,
-                DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour,
-                demandeur.nom AS demandeur,
-                batiment.nom_batiment
+                DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
             FROM 
                 tache
-                INNER JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
-                LEFT JOIN client ON tache.id_client = client.id_client
-                INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
-                LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
-                INNER JOIN provinces ON tache.id_ville = provinces.id
-                INNER JOIN controle_client AS cc ON client.id_client = cc.id_client
-                LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
-                LEFT JOIN departement ON utilisateur.id_utilisateur = departement.responsable
-                LEFT JOIN departement AS dp_ac ON dp_ac.id_departement = cb.id_departement
-                LEFT JOIN utilisateur AS demandeur ON tache.id_demandeur = utilisateur.id_utilisateur
-                LEFT JOIN batiment ON tache.id_batiment = batiment.id_batiment
-                WHERE tache.id_tache = ?
-                GROUP BY tache.id_tache
+            LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+            LEFT JOIN client ON tache.id_client = client.id_client
+            INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
+            LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
+            LEFT JOIN provinces ON tache.id_ville = provinces.id
+            LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
+            LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
+            LEFT JOIN departement ON tache.id_departement = departement.id_departement  -- Utilisation de tache.id_departement
+                WHERE 
+            tache.id_tache = ?
+            GROUP BY tache.id_tache
         `;
      
     db.query(q,[id_tache], (error, data) => {
