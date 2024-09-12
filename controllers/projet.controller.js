@@ -79,7 +79,7 @@ FROM
     LEFT JOIN departement ON utilisateur.id_utilisateur = departement.responsable
     LEFT JOIN controle_de_base AS cb ON tache.id_control = cb.id_controle
     LEFT JOIN departement AS dp_ac ON dp_ac.id_departement = cb.id_departement
-    WHERE cb.id_controle = ?
+    WHERE tache.id_projet = ?
 GROUP BY 
     tache.id_tache
 `;
