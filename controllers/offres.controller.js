@@ -24,6 +24,20 @@ exports.getOffre = (req, res) => {
     });
 };
 
+exports.getOffreDoc = (req, res) => {
+    const q = `
+                SELECT documents_offre.*, offres.nom_offre, offres.id_offre FROM documents_offre 
+            INNER JOIN offres ON documents_offre.id_offre = offres.id_offre
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getDetailDoc = (req, res) => {
     const {id_offre} = req.query;
     const q = `

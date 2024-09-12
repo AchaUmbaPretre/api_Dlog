@@ -20,6 +20,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 router.get('/', offreController.getOffre)
+router.get('/offre_doc', offreController.getOffreDoc)
 router.get('/detailOffre', offreController.getDetailDoc)
 router.get('/detail', offreController.getOffreDetailOne)
 router.get('/one_offre', offreController.getOffreArticleOne)
