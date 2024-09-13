@@ -91,24 +91,24 @@ exports.postBudget = async (req, res) => {
 const query = util.promisify(db.query).bind(db);
 
 exports.putBudget = async (req, res) => {
-    const { id_budget, quantite_validee } = req.body;
+    const { id_projet, montant } = req.body;
 
     const queryStr = `
         UPDATE budget 
-        SET quantite_validee = ?
-        WHERE id_budget = ?
+        SET montant = ?
+        WHERE id_projet = ?
     `;
 
-    const values = [quantite_validee, id_budget];
+    const values = [montant, id_projet];
 
     try {
         const results = await query(queryStr, values);
 
         if (results.affectedRows === 0) {
-            return res.status(404).json({ error: 'Enregistrement de contrôle non trouvé' });
+            return res.status(404).json({ error: 'Modification de budget non effectuée' });
         }
 
-        return res.json({ message: 'Quantité validée mise à jour avec succès' });
+        return res.json({ message: 'Budget mise à jour avec succès' });
     } catch (error) {
         console.error("Erreur lors de la mise à jour de la quantité validée :", error);
         return res.status(500).json({ error: 'Échec de la mise à jour de la quantité validée' });
