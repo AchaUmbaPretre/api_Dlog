@@ -18,7 +18,7 @@ exports.getBesoinCount = (req, res) => {
 exports.getBesoin = (req, res) => {
 
     const q = `
-                SELECT besoins.description, besoins.quantite, articles.nom_article, projet.nom_projet, client.nom FROM besoins
+                SELECT besoins.description, besoins.quantite, articles.nom_article, projet.nom_projet, projet.id_projet, client.nom FROM besoins
                     LEFT JOIN articles ON besoins.id_article = articles.id_article
                     LEFT JOIN projet ON besoins.id_projet = projet.id_projet
                     LEFT JOIN client ON projet.client =client.id_client

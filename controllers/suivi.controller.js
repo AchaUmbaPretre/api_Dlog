@@ -175,7 +175,6 @@ exports.postSuiviTache = async (req, res) => {
     }
 };
 
-
 exports.deleteSuivi = (req, res) => {
     const id = req.params.id;
   
