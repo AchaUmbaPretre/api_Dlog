@@ -400,8 +400,7 @@ exports.putTacheDoc = async (req, res) => {
     if (!id_tache_document || isNaN(id_tache_document)) {
         return res.status(400).json({ error: 'Invalid tache ID provided' });
     }
-
-    // Validation des données du corps de la requête
+    
     const { nom_document, type_document } = req.body;
     if (!nom_document || !type_document) {
         return res.status(400).json({ error: 'Nom du document et type de document sont requis' });
