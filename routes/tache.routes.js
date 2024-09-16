@@ -33,8 +33,10 @@ router.delete('/:id', tacheController.deleteTache)
 
 //Tache personne
 router.get('/tache_personne', tacheController.getTachePersonne)
+router.get('/tache_doc/one', tacheController.getTacheDocOne)
 router.post('/tache_personne', tacheController.postTachePersonnne)
 router.post('/tache_doc', upload.single('chemin_document'), tacheController.postTacheDoc);
 router.delete('/tache_personne', tacheController.deleteTachePersonne)
+router.put('/tache_doc', upload.single('chemin_document'),tacheController.putTacheDoc);
 
 module.exports = router;

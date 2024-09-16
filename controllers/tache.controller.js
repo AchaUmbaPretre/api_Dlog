@@ -348,6 +348,18 @@ exports.postTachePersonnne = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
+exports.getTacheDocOne = (req, res) => {
+    const {id_tache_document} = req.query;
+
+    const q = `SELECT * FROM tache_documents WHERE id_tache_document = ?`;
+
+    db.query(q,[id_tache_document], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
 
 exports.postTacheDoc = async (req, res) => {
     const { id_tache, nom_document, type_document } = req.body;
@@ -381,3 +393,49 @@ exports.deleteTachePersonne = (req, res) => {
     });
   
   }
+  
+exports.putTacheDoc = async (req, res) => {
+    const { id_tache_document } = req.query;
+
+    if (!id_tache_document || isNaN(id_tache_document)) {
+        return res.status(400).json({ error: 'Invalid tache ID provided' });
+    }
+
+    // Validation des données du corps de la requête
+    const { nom_document, type_document } = req.body;
+    if (!nom_document || !type_document) {
+        return res.status(400).json({ error: 'Nom du document et type de document sont requis' });
+    }
+
+    try {
+        const q = `
+            UPDATE tache_documents
+            SET 
+                nom_document = ?,
+                type_document = ?
+            WHERE id_tache_document = ?
+        `;
+      
+        const values = [
+            nom_document,
+            type_document,
+            id_tache_document
+        ];
+
+        db.query(q, values, (error, results) => {
+            if (error) {
+                console.error("Error executing query:", error);
+                return res.status(500).json({ error: 'Failed to update Tache record' });
+            }
+
+            if (results.affectedRows === 0) {
+                return res.status(404).json({ error: 'Tache record not found' });
+            }
+
+            return res.json({ message: 'Tache record updated successfully' });
+        });
+    } catch (err) {
+        console.error("Error updating tache:", err);
+        return res.status(500).json({ error: 'Failed to update Tache record' });
+    }
+};
