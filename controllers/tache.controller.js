@@ -31,6 +31,7 @@ exports.getTache = (req, res) => {
     tache.date_debut, 
     tache.date_fin,
     tache.nom_tache, 
+    tache.id_tache_parente,
     typeC.nom_type_statut AS statut, 
     client.nom AS nom_client, 
     frequence.nom AS frequence, 
@@ -198,7 +199,7 @@ GROUP BY
 exports.postTache = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_departement`,`id_client`, `id_frequence`,`id_control`,`id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`,`id_batiment`, `id_ville`, `doc`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
+        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_tache_parente`, `id_departement`,`id_client`, `id_frequence`,`id_control`,`id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`,`id_batiment`, `id_ville`, `doc`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
 
         const values = [
             req.body.nom_tache,
@@ -207,6 +208,7 @@ exports.postTache = async (req, res) => {
             req.body.date_debut,
             req.body.date_fin,
             req.body.priorite,
+            req.body.id_tache_parente,
             req.body.id_departement,
             req.body.id_client,
             req.body.id_frequence,
