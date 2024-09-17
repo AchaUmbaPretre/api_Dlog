@@ -301,8 +301,7 @@ exports.putTachePriorite = async (req, res) => {
         return res.status(400).json({ error: 'Invalid tache ID provided' });
     }
 
-    // Assuming the `priorite` is incorrectly being sent as { '1': '' }
-    const priorite = Object.keys(req.body)[0]; // This will extract '1'
+    const priorite = Object.keys(req.body)[0];
 
     if (!priorite) {
         return res.status(400).json({ error: 'No priorite value provided' });
@@ -317,7 +316,7 @@ exports.putTachePriorite = async (req, res) => {
         `;
 
         const values = [
-            priorite,   // Use the extracted `priorite` value
+            priorite,
             id_tache
         ];
 
