@@ -89,20 +89,12 @@ exports.putFrequence = (req, res) => {
         const q = `
             UPDATE frequence 
             SET 
-                nom = ?,
-                intervalle = ?,
-                unite = ?,
-                date_debut = ?,
-                date_fin = ?
+                nom = ?
             WHERE id_frequence = ?
         `;
       
         const values = [
             req.body.nom,
-            req.body.intervalle,
-            req.body.unite,
-            req.body.date_debut,
-            req.body.date_fin,
             id_frequence
         ];
 
