@@ -324,18 +324,18 @@ exports.putTachePriorite = async (req, res) => {
         db.query(q, values, (error, results) => {
             if (error) {
                 console.error("Error executing query:", error);
-                return res.status(500).json({ error: 'Failed to update Tache record' });
+                return res.status(500).json({ error: 'Failed to update Priority record' });
             }
 
             if (results.affectedRows === 0) {
-                return res.status(404).json({ error: 'Tache record not found' });
+                return res.status(404).json({ error: 'Priority record not found' });
             }
 
-            return res.json({ message: 'Tache record updated successfully' });
+            return res.json({ message: 'Priority record updated successfully' });
         });
     } catch (err) {
-        console.error("Error updating tache:", err);
-        return res.status(500).json({ error: 'Failed to update Tache record' });
+        console.error("Error updating priority:", err);
+        return res.status(500).json({ error: 'Failed to update Priority record' });
     }
 };
 
