@@ -294,6 +294,52 @@ exports.putTache = async (req, res) => {
     }
 }
 
+exports.putTachePriorite = async (req, res) => {
+    const { id_tache } = req.query;
+
+    if (!id_tache || isNaN(id_tache)) {
+        return res.status(400).json({ error: 'Invalid tache ID provided' });
+    }
+
+    // Assuming the `priorite` is incorrectly being sent as { '1': '' }
+    const priorite = Object.keys(req.body)[0]; // This will extract '1'
+
+    if (!priorite) {
+        return res.status(400).json({ error: 'No priorite value provided' });
+    }
+
+    try {
+        const q = `
+            UPDATE tache
+            SET 
+                priorite = ?
+            WHERE id_tache = ?
+        `;
+
+        const values = [
+            priorite,   // Use the extracted `priorite` value
+            id_tache
+        ];
+
+        db.query(q, values, (error, results) => {
+            if (error) {
+                console.error("Error executing query:", error);
+                return res.status(500).json({ error: 'Failed to update Tache record' });
+            }
+
+            if (results.affectedRows === 0) {
+                return res.status(404).json({ error: 'Tache record not found' });
+            }
+
+            return res.json({ message: 'Tache record updated successfully' });
+        });
+    } catch (err) {
+        console.error("Error updating tache:", err);
+        return res.status(500).json({ error: 'Failed to update Tache record' });
+    }
+};
+
+
 exports.deleteUpdateTache = (req, res) => {
     const {id} = req.query;
   
