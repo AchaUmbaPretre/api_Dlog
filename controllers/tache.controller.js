@@ -31,6 +31,7 @@ exports.getTache = (req, res) => {
     tache.date_debut, 
     tache.date_fin,
     tache.nom_tache, 
+    tache.priorite,
     tache.id_tache_parente,
     typeC.nom_type_statut AS statut, 
     client.nom AS nom_client, 

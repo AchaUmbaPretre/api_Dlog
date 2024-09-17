@@ -77,3 +77,60 @@ exports.deleteFrequence = (req, res) => {
     });
   
   }
+
+  exports.putFrequence = (req, res) => {
+    const {id_frequence} = req.query;
+    if (!id_frequence || isNaN(id_frequence)) {
+        return res.status(400).json({ error: 'Invalid Frequence ID provided' });
+    }
+
+
+    try {
+        const q = `
+            UPDATE tache 
+            SET 
+                nom_tache = ?,
+                description = ?,
+                statut = ?,
+                date_debut = ?,
+                date_fin = ?,
+                priorite = ?,
+                id_departement = ?,
+                id_client = ?,
+                id_frequence = ?,
+                responsable_principal = ?,
+                id_demandeur = ?,
+                id_batiment = ?,
+                id_ville = ?
+            WHERE id_tache = ?
+        `;
+      
+        const values = [
+            req.body.nom_tache,
+            req.body.description,
+            req.body.statut || 1,
+            req.body.date_debut,
+            req.body.date_fin,
+            req.body.priorite,
+            req.body.id_departement,
+            req.body.id_client,
+            req.body.id_frequence,
+            req.body.responsable_principal,
+            req.body.id_demandeur,
+            req.body.id_batiment,
+            req.body.id_ville,
+            id_tache
+        ];
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Tache record not found' });
+            }
+            return res.json({ message: 'Tache record updated successfully' });
+        })
+    } catch (err) {
+        console.error("Error updating tache:", err);
+        return res.status(500).json({ error: 'Failed to update Tache record' });
+    }
+  }
