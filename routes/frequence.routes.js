@@ -7,5 +7,6 @@ router.get('/', frequenceController.getFrequence)
 router.get('/one', frequenceController.getFrequenceOne)
 router.post('/', frequenceController.postFrequence)
 router.delete('/:id', frequenceController.deleteFrequence)
+router.put('/', frequenceController.putFrequence)
  
 module.exports = router;

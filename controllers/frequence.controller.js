@@ -78,7 +78,7 @@ exports.deleteFrequence = (req, res) => {
   
   }
 
-  exports.putFrequence = (req, res) => {
+exports.putFrequence = (req, res) => {
     const {id_frequence} = req.query;
     if (!id_frequence || isNaN(id_frequence)) {
         return res.status(400).json({ error: 'Invalid Frequence ID provided' });
@@ -87,39 +87,23 @@ exports.deleteFrequence = (req, res) => {
 
     try {
         const q = `
-            UPDATE tache 
+            UPDATE frequence 
             SET 
-                nom_tache = ?,
-                description = ?,
-                statut = ?,
+                nom = ?,
+                intervalle = ?,
+                unite = ?,
                 date_debut = ?,
-                date_fin = ?,
-                priorite = ?,
-                id_departement = ?,
-                id_client = ?,
-                id_frequence = ?,
-                responsable_principal = ?,
-                id_demandeur = ?,
-                id_batiment = ?,
-                id_ville = ?
-            WHERE id_tache = ?
+                date_fin = ?
+            WHERE id_frequence = ?
         `;
       
         const values = [
-            req.body.nom_tache,
-            req.body.description,
-            req.body.statut || 1,
+            req.body.nom,
+            req.body.intervalle,
+            req.body.unite,
             req.body.date_debut,
             req.body.date_fin,
-            req.body.priorite,
-            req.body.id_departement,
-            req.body.id_client,
-            req.body.id_frequence,
-            req.body.responsable_principal,
-            req.body.id_demandeur,
-            req.body.id_batiment,
-            req.body.id_ville,
-            id_tache
+            id_frequence
         ];
 
         db.query(q, values, (error, data)=>{
