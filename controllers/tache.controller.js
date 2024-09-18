@@ -59,16 +59,16 @@ exports.getTache = (req, res) => {
 
     // Ajout de conditions dynamiques pour les filtres
     if (departement) {
-        query += ` AND tache.id_departement = ${db.escape(departement)}`;
+        query += ` AND tache.id_departement IN (${departement.map(d => db.escape(d)).join(',')})`;
     }
     if (client) {
         query += ` AND tache.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
     }
     if (statut) {
-        query += ` AND tache.statut = ${db.escape(statut)}`;
+        query += ` AND tache.statut IN (${statut.map(s => db.escape(s)).join(',')})`;
     }
     if (priorite) {
-        query += ` AND tache.priorite = ${db.escape(priorite)}`;
+        query += ` AND tache.priorite IN (${priorite.map(p => db.escape(p)).join(',')})`;
     }
     if (dateRange && dateRange.length === 2) {
         query += ` AND tache.date_debut >= ${db.escape(dateRange[0])} AND tache.date_fin <= ${db.escape(dateRange[1])}`;
