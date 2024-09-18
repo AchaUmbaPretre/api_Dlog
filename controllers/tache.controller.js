@@ -73,16 +73,16 @@ exports.getAllTache = (req, res) => {
     const { id_tache } = req.query;
 
     // Transformer la chaîne "10,9" en un tableau [10, 9]
-    const tacheIds = id_tache.split(',').map(Number); // Convertir chaque élément en nombre
+    const tacheIds = id_tache.split(',').map(Number);
 
     const q = `SELECT 
-            tache.id_tache, 
-            tache.description, 
-            tache.date_debut, 
-            tache.date_fin,
-            tache.nom_tache, 
-            tache.priorite,
-            tache.id_tache_parente,
+            t1.id_tache, 
+            t1.nom_tache, 
+            t1.description, 
+            t1.date_debut, 
+            t1.date_fin,
+            t1.priorite,
+            t1.id_tache_parente,
             typeC.nom_type_statut AS statut, 
             client.nom AS nom_client, 
             frequence.nom AS frequence, 
@@ -91,23 +91,30 @@ exports.getAllTache = (req, res) => {
             departement.nom_departement AS departement,
             cb.controle_de_base,
             cb.id_controle,
-            DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
+            DATEDIFF(t1.date_fin, t1.date_debut) AS nbre_jour,
+            t2.nom_tache AS sous_tache,
+            t2.description AS sous_tache_description,
+            t2.statut AS sous_tache_statut,
+            t2.date_debut AS sous_tache_dateDebut,
+            t2.date_fin AS sous_tache_dateFin,
+            suivi_tache.commentaire AS suivi_commentaire,
+            suivi_tache.pourcentage_avancement AS suivi_pourcentage_avancement
             FROM 
-            tache
-            LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
-            LEFT JOIN client ON tache.id_client = client.id_client
-            INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
-            LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
-            LEFT JOIN provinces ON tache.id_ville = provinces.id
+            tache t1
+            LEFT JOIN type_statut_suivi AS typeC ON t1.statut = typeC.id_type_statut_suivi
+            LEFT JOIN client ON t1.id_client = client.id_client
+            INNER JOIN frequence ON t1.id_frequence = frequence.id_frequence
+            LEFT JOIN utilisateur ON t1.responsable_principal = utilisateur.id_utilisateur
+            LEFT JOIN provinces ON t1.id_ville = provinces.id
             LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
             LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
-            LEFT JOIN departement ON tache.id_departement = departement.id_departement  
+            LEFT JOIN departement ON t1.id_departement = departement.id_departement  
+            LEFT JOIN tache t2 ON t1.id_tache = t2.id_tache_parente 
+            LEFT JOIN suivi_tache ON t1.id_tache = suivi_tache.id_tache
             WHERE 
-            tache.est_supprime = 0 AND tache.id_tache IN (?)
-            GROUP BY 
-            tache.id_tache
+            t1.est_supprime = 0 AND t1.id_tache IN (?)
             ORDER BY 
-            tache.date_creation DESC;
+            t1.date_creation DESC;
         `;
 
     db.query(q, [tacheIds], (error, data) => {
@@ -117,6 +124,7 @@ exports.getAllTache = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
 
 
 exports.getTacheDoc = (req, res) => {
