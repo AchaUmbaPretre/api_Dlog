@@ -69,6 +69,56 @@ ORDER BY
     });
 };
 
+exports.getAllTache = (req, res) => {
+    const { id_tache } = req.query;
+
+    // Transformer la chaîne "10,9" en un tableau [10, 9]
+    const tacheIds = id_tache.split(',').map(Number); // Convertir chaque élément en nombre
+
+    const q = `SELECT 
+            tache.id_tache, 
+            tache.description, 
+            tache.date_debut, 
+            tache.date_fin,
+            tache.nom_tache, 
+            tache.priorite,
+            tache.id_tache_parente,
+            typeC.nom_type_statut AS statut, 
+            client.nom AS nom_client, 
+            frequence.nom AS frequence, 
+            utilisateur.nom AS owner, 
+            provinces.name AS ville, 
+            departement.nom_departement AS departement,
+            cb.controle_de_base,
+            cb.id_controle,
+            DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
+            FROM 
+            tache
+            LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+            LEFT JOIN client ON tache.id_client = client.id_client
+            INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
+            LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
+            LEFT JOIN provinces ON tache.id_ville = provinces.id
+            LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
+            LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
+            LEFT JOIN departement ON tache.id_departement = departement.id_departement  
+            WHERE 
+            tache.est_supprime = 0 AND tache.id_tache IN (?)
+            GROUP BY 
+            tache.id_tache
+            ORDER BY 
+            tache.date_creation DESC;
+        `;
+
+    db.query(q, [tacheIds], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+
 exports.getTacheDoc = (req, res) => {
     const q = `
                 SELECT tache_documents.*, tache.nom_tache, tache.id_tache, tache.nom_tache FROM tache_documents
