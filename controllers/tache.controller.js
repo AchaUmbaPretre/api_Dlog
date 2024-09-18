@@ -96,6 +96,7 @@ exports.getAllTache = (req, res) => {
                 ts1.nom_type_statut AS sous_tache_statut,
                 t2.date_debut AS sous_tache_dateDebut,
                 t2.date_fin AS sous_tache_dateFin,
+                suivi_tache.id_suivi,
                 suivi_tache.commentaire AS suivi_commentaire,
                 suivi_tache.pourcentage_avancement AS suivi_pourcentage_avancement
             FROM 
