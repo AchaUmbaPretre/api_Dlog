@@ -25,43 +25,61 @@ exports.getTacheCount = (req, res) => {
 
 exports.getTache = (req, res) => {
 
-        const q = `SELECT 
-    tache.id_tache, 
-    tache.description, 
-    tache.date_debut, 
-    tache.date_fin,
-    tache.nom_tache, 
-    tache.priorite,
-    tache.id_tache_parente,
-    typeC.nom_type_statut AS statut, 
-    client.nom AS nom_client, 
-    frequence.nom AS frequence, 
-    utilisateur.nom AS owner, 
-    provinces.name AS ville, 
-    departement.nom_departement AS departement,
-    cb.controle_de_base,
-    cb.id_controle,
-    DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
-FROM 
-    tache
-LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
-LEFT JOIN client ON tache.id_client = client.id_client
-INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
-LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
-LEFT JOIN provinces ON tache.id_ville = provinces.id
-LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
-LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
-LEFT JOIN departement ON tache.id_departement = departement.id_departement  -- Utilisation de tache.id_departement
-WHERE 
-    tache.est_supprime = 0
-GROUP BY 
-    tache.id_tache
-ORDER BY 
-    tache.date_creation DESC;
+    const { departement, client, statut, priorite, dateRange, owners } = req.body;
 
-            `;
+    let query = `SELECT 
+        tache.id_tache, 
+        tache.description, 
+        tache.date_debut, 
+        tache.date_fin,
+        tache.nom_tache, 
+        tache.priorite,
+        tache.id_tache_parente,
+        typeC.nom_type_statut AS statut, 
+        client.nom AS nom_client, 
+        frequence.nom AS frequence, 
+        utilisateur.nom AS owner, 
+        provinces.name AS ville, 
+        departement.nom_departement AS departement,
+        cb.controle_de_base,
+        cb.id_controle,
+        DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
+    FROM 
+        tache
+    LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+    LEFT JOIN client ON tache.id_client = client.id_client
+    INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
+    LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
+    LEFT JOIN provinces ON tache.id_ville = provinces.id
+    LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
+    LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
+    LEFT JOIN departement ON tache.id_departement = departement.id_departement
+    WHERE 
+        tache.est_supprime = 0 `;
 
-    db.query(q, (error, data) => {
+    // Ajout de conditions dynamiques pour les filtres
+    if (departement) {
+        query += ` AND tache.id_departement = ${db.escape(departement)}`;
+    }
+    if (client) {
+        query += ` AND tache.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
+    }
+    if (statut) {
+        query += ` AND tache.statut = ${db.escape(statut)}`;
+    }
+    if (priorite) {
+        query += ` AND tache.priorite = ${db.escape(priorite)}`;
+    }
+    if (dateRange && dateRange.length === 2) {
+        query += ` AND tache.date_debut >= ${db.escape(dateRange[0])} AND tache.date_fin <= ${db.escape(dateRange[1])}`;
+    }
+    if (owners) {
+        query += ` AND tache.responsable_principal IN (${owners.map(o => db.escape(o)).join(',')})`;
+    }
+
+    query += ` GROUP BY tache.id_tache ORDER BY tache.date_creation DESC;`;
+
+    db.query(query, (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
