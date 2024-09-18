@@ -72,7 +72,6 @@ ORDER BY
 exports.getAllTache = (req, res) => {
     const { id_tache } = req.query;
 
-    // Transformer la chaîne "10,9" en un tableau [10, 9]
     const tacheIds = id_tache.split(',').map(Number);
 
     const q = `SELECT 
@@ -94,7 +93,7 @@ exports.getAllTache = (req, res) => {
                 DATEDIFF(t1.date_fin, t1.date_debut) AS nbre_jour,
                 t2.nom_tache AS sous_tache,
                 t2.description AS sous_tache_description,
-                t2.statut AS sous_tache_statut,
+                ts1.nom_type_statut AS sous_tache_statut,
                 t2.date_debut AS sous_tache_dateDebut,
                 t2.date_fin AS sous_tache_dateFin,
                 suivi_tache.commentaire AS suivi_commentaire,
@@ -111,10 +110,14 @@ exports.getAllTache = (req, res) => {
                 LEFT JOIN departement ON t1.id_departement = departement.id_departement  
                 LEFT JOIN tache t2 ON t1.id_tache = t2.id_tache_parente 
                 LEFT JOIN suivi_tache ON t1.id_tache = suivi_tache.id_tache
+                LEFT JOIN type_statut_suivi ts1 ON t2.statut = ts1.id_type_statut_suivi
             WHERE 
                 t1.est_supprime = 0 AND t1.id_tache IN (?)
+            GROUP BY 
+                    t1.id_tache,t2.id_tache
             ORDER BY 
                 t1.date_creation DESC;
+
         `;
 
     db.query(q, [tacheIds], (error, data) => {
@@ -124,7 +127,6 @@ exports.getAllTache = (req, res) => {
         return res.status(200).json(data);
     });
 };
-
 
 
 exports.getTacheDoc = (req, res) => {
