@@ -23,7 +23,7 @@ exports.getTacheCount = (req, res) => {
     });
 }
 
-exports.getTache = (req, res) => {
+/* exports.getTache = (req, res) => {
 
     const { departement, client, statut, priorite, dateRange, owners } = req.body;
 
@@ -85,7 +85,146 @@ exports.getTache = (req, res) => {
         }
         return res.status(200).json(data);
     });
+}; */
+
+exports.getTache = (req, res) => {
+
+    const { departement, client, statut, priorite, dateRange, owners } = req.body;
+
+    let query = `SELECT 
+        tache.id_tache, 
+        tache.description, 
+        tache.date_debut, 
+        tache.date_fin,
+        tache.nom_tache, 
+        tache.priorite,
+        tache.id_tache_parente,
+        typeC.nom_type_statut AS statut, 
+        client.nom AS nom_client, 
+        frequence.nom AS frequence, 
+        utilisateur.nom AS owner, 
+        provinces.name AS ville, 
+        departement.nom_departement AS departement,
+        cb.controle_de_base,
+        cb.id_controle,
+        DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
+    FROM 
+        tache
+    LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+    LEFT JOIN client ON tache.id_client = client.id_client
+    INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
+    LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
+    LEFT JOIN provinces ON tache.id_ville = provinces.id
+    LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
+    LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
+    LEFT JOIN departement ON tache.id_departement = departement.id_departement
+    WHERE 
+        tache.est_supprime = 0 `;
+
+    // Ajout de conditions dynamiques pour les filtres
+    if (departement) {
+        query += ` AND tache.id_departement IN (${departement.map(d => db.escape(d)).join(',')})`;
+    }
+    if (client) {
+        query += ` AND tache.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
+    }
+    if (statut) {
+        query += ` AND tache.statut IN (${statut.map(s => db.escape(s)).join(',')})`;
+    }
+    if (priorite) {
+        query += ` AND tache.priorite IN (${priorite.map(p => db.escape(p)).join(',')})`;
+    }
+    if (dateRange && dateRange.length === 2) {
+        query += ` AND tache.date_debut >= ${db.escape(dateRange[0])} AND tache.date_fin <= ${db.escape(dateRange[1])}`;
+    }
+    if (owners) {
+        query += ` AND tache.responsable_principal IN (${owners.map(o => db.escape(o)).join(',')})`;
+    }
+
+    // Requête pour obtenir les statistiques des tâches
+    let statsQuery = `
+        SELECT 
+            typeC.nom_type_statut AS statut,
+            COUNT(*) AS nombre_taches
+        FROM 
+            tache
+        LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+        WHERE 
+            tache.est_supprime = 0 `;
+
+    if (departement) {
+        statsQuery += ` AND tache.id_departement IN (${departement.map(d => db.escape(d)).join(',')})`;
+    }
+    if (client) {
+        statsQuery += ` AND tache.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
+    }
+    if (statut) {
+        statsQuery += ` AND tache.statut IN (${statut.map(s => db.escape(s)).join(',')})`;
+    }
+    if (priorite) {
+        statsQuery += ` AND tache.priorite IN (${priorite.map(p => db.escape(p)).join(',')})`;
+    }
+    if (dateRange && dateRange.length === 2) {
+        statsQuery += ` AND tache.date_debut >= ${db.escape(dateRange[0])} AND tache.date_fin <= ${db.escape(dateRange[1])}`;
+    }
+    if (owners) {
+        statsQuery += ` AND tache.responsable_principal IN (${owners.map(o => db.escape(o)).join(',')})`;
+    }
+
+    statsQuery += ` GROUP BY typeC.nom_type_statut;`;
+
+    // Requête pour obtenir le total des tâches trouvées
+    let totalQuery = `
+        SELECT 
+            COUNT(*) AS total_taches
+        FROM 
+            tache
+        WHERE 
+            tache.est_supprime = 0 `;
+
+    if (departement) {
+        totalQuery += ` AND tache.id_departement IN (${departement.map(d => db.escape(d)).join(',')})`;
+    }
+    if (client) {
+        totalQuery += ` AND tache.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
+    }
+    if (statut) {
+        totalQuery += ` AND tache.statut IN (${statut.map(s => db.escape(s)).join(',')})`;
+    }
+    if (priorite) {
+        totalQuery += ` AND tache.priorite IN (${priorite.map(p => db.escape(p)).join(',')})`;
+    }
+    if (dateRange && dateRange.length === 2) {
+        totalQuery += ` AND tache.date_debut >= ${db.escape(dateRange[0])} AND tache.date_fin <= ${db.escape(dateRange[1])}`;
+    }
+    if (owners) {
+        totalQuery += ` AND tache.responsable_principal IN (${owners.map(o => db.escape(o)).join(',')})`;
+    }
+
+    // Exécution des trois requêtes en parallèle
+    db.query(query, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        db.query(statsQuery, (statsError, statsData) => {
+            if (statsError) {
+                return res.status(500).send(statsError);
+            }
+            db.query(totalQuery, (totalError, totalData) => {
+                if (totalError) {
+                    return res.status(500).send(totalError);
+                }
+                // Retourner les résultats combinés
+                return res.status(200).json({
+                    total_taches: totalData[0]?.total_taches || 0,
+                    taches: data,
+                    statistiques: statsData
+                });
+            });
+        });
+    });
 };
+
 
 exports.getAllTache = (req, res) => {
     const { id_tache } = req.query;
