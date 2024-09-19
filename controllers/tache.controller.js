@@ -222,7 +222,6 @@ exports.getTache = (req, res) => {
     });
 };
 
-
 exports.getAllTache = (req, res) => {
     const { id_tache } = req.query;
 
@@ -282,7 +281,6 @@ exports.getAllTache = (req, res) => {
         return res.status(200).json(data);
     });
 };
-
 
 exports.getTacheDoc = (req, res) => {
     const q = `
@@ -578,7 +576,6 @@ exports.deleteTache = (req, res) => {
     });
   
   }
-
 
   //Tacha personne
 exports.getTachePersonne = (req, res) => {
