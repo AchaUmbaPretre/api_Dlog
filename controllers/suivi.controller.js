@@ -187,6 +187,19 @@ exports.deleteSuivi = (req, res) => {
   
   }
 
+exports.getDocGeneral = (req, res) => {
+    const q = `
+                SELECT documents.* FROM documents
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.postDocGeneral = async (req, res) => {
     const { nom_document, type_document } = req.body;
 
