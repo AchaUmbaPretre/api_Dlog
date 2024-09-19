@@ -203,20 +203,32 @@ exports.getDocGeneral = (req, res) => {
 exports.postDocGeneral = async (req, res) => {
     const { nom_document, type_document } = req.body;
 
-    const chemin_document = req.file.path.replace(/\\/g, '/');
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ message: 'Aucun fichier téléchargé' });
+    }
 
     if (!chemin_document || !nom_document || !type_document) {
         return res.status(400).json({ message: 'Some required fields are missing' });
     }
 
-    const query = `INSERT INTO documents(nom_document, type_document, chemin_document)
-                   VALUES (?, ?, ?)`;
+    const documents = req.files.map(file => ({
+        chemin_document: file.path.replace(/\\/g, '/'),
+        nom_document,
+        type_document
+    }));
 
-    db.query(query, [nom_document, type_document, chemin_document], (err, result) => {
-      if (err) {
-        console.error('Error inserting document:', err);
-        return res.status(500).json({ message: 'Internal Server Error' });
-      }
-      res.status(200).json({ message: 'Document added successfully', documentId: result.insertId });
+    documents.forEach((doc) => {
+        const query = `INSERT INTO documents (nom_document, type_document, chemin_document)
+                       VALUES (?, ?, ?)`;
+
+        db.query(query, [doc.id_tache, doc.nom_document, doc.type_document, doc.chemin_document], (err, result) => {
+            if (err) {
+                console.error('Erreur lors de l\'insertion du document:', err);
+                return res.status(500).json({ message: 'Erreur interne du serveur' });
+            }
+        });
     });
+
+    res.status(200).json({ message: 'Documents ajoutés avec succès' });
+
 };

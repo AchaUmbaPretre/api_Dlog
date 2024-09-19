@@ -28,6 +28,6 @@ router.post('/suiviTache', suiviController.postSuiviTache)
 router.delete('/:id', suiviController.deleteSuivi)
 
 router.get('/doc', suiviController.getDocGeneral)
-router.post('/doc',upload.single('chemin_document'), suiviController.postDocGeneral)
+router.post('/doc',upload.array('chemin_document', 10), suiviController.postDocGeneral)
  
 module.exports = router;

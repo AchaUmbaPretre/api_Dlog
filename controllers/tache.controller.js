@@ -623,23 +623,33 @@ exports.getTacheDocOne = (req, res) => {
 exports.postTacheDoc = async (req, res) => {
     const { id_tache, nom_document, type_document } = req.body;
 
-    const chemin_document = req.file.path.replace(/\\/g, '/');
-
-    if (!chemin_document || !nom_document || !type_document || !id_tache) {
-        return res.status(400).json({ message: 'Some required fields are missing' });
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ message: 'Aucun fichier téléchargé' });
     }
 
-    const query = `INSERT INTO tache_documents (id_tache, nom_document, type_document, chemin_document)
-                   VALUES (?, ?, ?, ?)`;
+    const documents = req.files.map(file => ({
+        chemin_document: file.path.replace(/\\/g, '/'),
+        id_tache,
+        nom_document,
+        type_document
+    }));
 
-    db.query(query, [id_tache, nom_document, type_document, chemin_document], (err, result) => {
-      if (err) {
-        console.error('Error inserting document:', err);
-        return res.status(500).json({ message: 'Internal Server Error' });
-      }
-      res.status(200).json({ message: 'Document added successfully', documentId: result.insertId });
+    // Insertion de chaque fichier dans la base de données
+    documents.forEach((doc) => {
+        const query = `INSERT INTO tache_documents (id_tache, nom_document, type_document, chemin_document)
+                       VALUES (?, ?, ?, ?)`;
+
+        db.query(query, [doc.id_tache, doc.nom_document, doc.type_document, doc.chemin_document], (err, result) => {
+            if (err) {
+                console.error('Erreur lors de l\'insertion du document:', err);
+                return res.status(500).json({ message: 'Erreur interne du serveur' });
+            }
+        });
     });
+
+    res.status(200).json({ message: 'Documents ajoutés avec succès' });
 };
+
 
 exports.deleteTachePersonne = (req, res) => {
     const id = req.params.id;
