@@ -141,7 +141,6 @@ exports.getTache = (req, res) => {
         query += ` AND tache.responsable_principal IN (${owners.map(o => db.escape(o)).join(',')})`;
     }
 
-    // Requête pour obtenir les statistiques des tâches
     let statsQuery = `
         SELECT 
             typeC.nom_type_statut AS statut,
@@ -201,7 +200,6 @@ exports.getTache = (req, res) => {
         totalQuery += ` AND tache.responsable_principal IN (${owners.map(o => db.escape(o)).join(',')})`;
     }
 
-    // Exécution des trois requêtes en parallèle
     db.query(query, (error, data) => {
         if (error) {
             return res.status(500).send(error);
@@ -214,7 +212,6 @@ exports.getTache = (req, res) => {
                 if (totalError) {
                     return res.status(500).send(totalError);
                 }
-                // Retourner les résultats combinés
                 return res.status(200).json({
                     total_taches: totalData[0]?.total_taches || 0,
                     taches: data,
