@@ -1,11 +1,12 @@
 const { db } = require("./../config/database");
 const util = require('util');
+const query = util.promisify(db.query).bind(db);
 
 exports.getBudgetCount = (req, res) => {
     
     let q = `
-    SELECT COUNT(id_budget) AS nbre_budget
-    FROM budget 
+        SELECT COUNT(id_budget) AS nbre_budget
+        FROM budget 
     `;
      
     db.query(q, params, (error, data) => {
@@ -87,8 +88,6 @@ exports.postBudget = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
-
-const query = util.promisify(db.query).bind(db);
 
 exports.putBudget = async (req, res) => {
     const { id_projet, montant } = req.body;
