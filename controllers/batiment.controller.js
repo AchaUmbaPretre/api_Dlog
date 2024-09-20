@@ -57,8 +57,22 @@ exports.getBatimentPlans = (req, res) => {
     });
 };
 
-exports.postBatimentPlans = async (req, res) => {
 
+exports.getBatimentPlansOne = (req, res) => {
+    const {id_batiment} = req.query;
+    const q = `
+                SELECT * FROM batiment_plans WHERE id_batiment = ?
+            `;
+
+    db.query(q, [id_batiment], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postBatimentPlans = async (req, res) => {
     const { id_batiment, nom_document, type_document } = req.body;
 
     if (!req.files || req.files.length === 0) {
@@ -72,19 +86,29 @@ exports.postBatimentPlans = async (req, res) => {
         type_document
     }));
 
-    documents.forEach((doc) => {
-        const query = 'INSERT INTO batiment_plans(`id_batiment`, `nom_document`, `type_document`, `chemin_document`) VALUES(?,?,?,?,?,?,?,?)';
+    try {
+        await Promise.all(
+            documents.map((doc) => {
+                return new Promise((resolve, reject) => {
+                    const query = 'INSERT INTO batiment_plans(`id_batiment`, `nom_document`, `type_document`, `chemin_document`) VALUES(?,?,?,?)';
+                    db.query(query, [doc.id_batiment, doc.nom_document, doc.type_document, doc.chemin_document], (err, result) => {
+                        if (err) {
+                            console.error('Erreur lors de l\'insertion du document:', err);
+                            reject(err); // Rejeter la promesse en cas d'erreur
+                        } else {
+                            resolve(result); 
+                        }
+                    });
+                });
+            })
+        );
 
-        db.query(query, [doc.id_batiment, doc.nom_document, doc.type_document, doc.chemin_document], (err, result) => {
-            if (err) {
-                console.error('Erreur lors de l\'insertion du document:', err);
-                return res.status(500).json({ message: 'Erreur interne du serveur' });
-            }
-        });
-    });
-
-    res.status(200).json({ message: 'Documents ajoutés avec succès' });
+        res.status(200).json({ message: 'Documents ajoutés avec succès' });
+    } catch (error) {
+        res.status(500).json({ message: 'Erreur interne du serveur', error });
+    }
 };
+
 
 exports.getMaintenance = (req, res) => {
 
