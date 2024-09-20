@@ -114,3 +114,32 @@ exports.postMaintenance = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
+
+
+exports.getTypeEquipement = (req, res) => {
+
+    const q = `
+                SELECT * FROM type_equipement
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getStatutEquipement = (req, res) => {
+
+    const q = `
+                SELECT * FROM statut_equipement
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
