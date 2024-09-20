@@ -57,7 +57,6 @@ exports.getBatimentPlans = (req, res) => {
     });
 };
 
-
 exports.getBatimentPlansOne = (req, res) => {
     const {id_batiment} = req.query;
     const q = `
