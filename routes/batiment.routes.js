@@ -1,4 +1,5 @@
 const express = require("express");
+const batimentController = require('./../controllers/batiment.controller')
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
@@ -16,3 +17,8 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
+
+//equipement
+router.get('/equipement', batimentController.getEquipement)
+router.post('/equipement', batimentController.postEquipement)
+
