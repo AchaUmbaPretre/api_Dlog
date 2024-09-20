@@ -98,23 +98,19 @@ exports.getMaintenance = (req, res) => {
 exports.postMaintenance = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO maintenance_logs(`id_equipement`, `maintenance_date`, `description`, `num_serie`, `installation_date`, `maintenance_date`, `location`, `status`) VALUES(?,?,?,?,?,?,?,?)';
+        const q = 'INSERT INTO maintenance_logs(`id_equipement`, `maintenance_date`, `description`, `status`) VALUES(?,?,?,?)';
 
         const values = [
             req.body.id_equipement,
             req.body.maintenance_date,
-            req.body.model,
-            req.body.num_serie,
-            req.body.installation_date,
-            req.body.maintenance_date,
-            req.body.location,
+            req.body.description,
             req.body.status
         ];
 
         await db.query(q, values);
-        return res.status(201).json({ message: 'Suivi de tache ajouté avec succès' });
+        return res.status(201).json({ message: 'Maintenance ajouté avec succès' });
     } catch (error) {
-        console.error('Erreur lors de l\'ajout de la tâche :', error.message);
+        console.error('Erreur lors de l\'ajout de maintenance :', error.message);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
