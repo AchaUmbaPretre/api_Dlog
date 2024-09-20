@@ -29,3 +29,5 @@ router.post('/plans', batimentController.postBatimentPlans)
 //Maintenance
 router.get('maintenance', batimentController.getMaintenance)
 router.post('maintenance', batimentController.postMaintenance)
+
+module.exports = router;
