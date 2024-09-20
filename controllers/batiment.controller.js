@@ -61,7 +61,11 @@ exports.getBatimentPlans = (req, res) => {
 exports.getBatimentPlansOne = (req, res) => {
     const {id_batiment} = req.query;
     const q = `
-                SELECT * FROM batiment_plans WHERE id_batiment = ?
+                SELECT batiment_plans.nom_document, batiment_plans.type_document, batiment_plans.chemin_document, batiment_plans.date_ajout, batiment.nom_batiment 
+                    FROM 
+                batiment_plans 
+                    INNER JOIN batiment ON batiment_plans.id_batiment = batiment.id_batiment
+                    WHERE batiment_plans.id_batiment = ?
             `;
 
     db.query(q, [id_batiment], (error, data) => {
