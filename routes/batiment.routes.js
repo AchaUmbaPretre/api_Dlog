@@ -22,3 +22,10 @@ const upload = multer({ storage });
 router.get('/equipement', batimentController.getEquipement)
 router.post('/equipement', batimentController.postEquipement)
 
+//BatimentPlans
+router.get('/plans', batimentController.getBatimentPlans)
+router.post('/plans', batimentController.postBatimentPlans)
+
+//Maintenance
+router.get('maintenance', batimentController.getMaintenance)
+router.post('maintenance', batimentController.postMaintenance)
