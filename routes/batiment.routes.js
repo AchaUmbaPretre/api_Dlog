@@ -27,12 +27,12 @@ router.get('/plans', batimentController.getBatimentPlans)
 router.post('/plans', batimentController.postBatimentPlans)
 
 //Maintenance
-router.get('maintenance', batimentController.getMaintenance)
-router.post('maintenance', batimentController.postMaintenance)
+router.get('/maintenance', batimentController.getMaintenance)
+router.post('/maintenance', batimentController.postMaintenance)
 
 
 //TYPE D'EQUIPEMENT
-router.get('type_equipement', batimentController.getTypeEquipement)
-router.get('statut_equipement', batimentController.getStatutEquipement)
+router.get('/type_equipement', batimentController.getTypeEquipement)
+router.get('/statut_equipement', batimentController.getStatutEquipement)
 
 module.exports = router;
