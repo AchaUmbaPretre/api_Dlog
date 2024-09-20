@@ -30,8 +30,13 @@ exports.postEquipement = async (req, res) => {
             req.body.status
         ];
 
-        await db.query(q, values);
-        return res.status(201).json({ message: 'Suivi de tache ajouté avec succès' });
+
+        db.query(q, values, (error, data)=> {
+            if(error) {
+                console.log(error)
+            }
+            return res.status(201).json({ message: 'Equipement ajouté avec succès' });
+        })
     } catch (error) {
         console.error('Erreur lors de l\'ajout de la tâche :', error.message);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
