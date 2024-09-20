@@ -24,7 +24,7 @@ router.post('/equipement', batimentController.postEquipement)
 
 //BatimentPlans
 router.get('/plans', batimentController.getBatimentPlans)
-router.post('/plans', batimentController.postBatimentPlans)
+router.post('/plans', upload.array('chemin_document', 10), batimentController.postBatimentPlans)
 
 //Maintenance
 router.get('/maintenance', batimentController.getMaintenance)
