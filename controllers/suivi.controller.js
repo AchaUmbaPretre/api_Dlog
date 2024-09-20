@@ -207,8 +207,8 @@ exports.postDocGeneral = async (req, res) => {
         return res.status(400).json({ message: 'Aucun fichier téléchargé' });
     }
 
-    if (!chemin_document || !nom_document || !type_document) {
-        return res.status(400).json({ message: 'Some required fields are missing' });
+    if (!nom_document || !type_document) {
+        return res.status(400).json({ message: 'Des champs obligatoires sont manquants' });
     }
 
     const documents = req.files.map(file => ({
@@ -217,18 +217,24 @@ exports.postDocGeneral = async (req, res) => {
         type_document
     }));
 
-    documents.forEach((doc) => {
-        const query = `INSERT INTO documents (nom_document, type_document, chemin_document)
-                       VALUES (?, ?, ?)`;
+    // Utiliser une transaction ou un moyen de s'assurer que toutes les insertions sont effectuées
+    try {
+        documents.forEach((doc) => {
+            const query = `INSERT INTO documents (nom_document, type_document, chemin_document)
+                           VALUES (?, ?, ?)`;
 
-        db.query(query, [doc.id_tache, doc.nom_document, doc.type_document, doc.chemin_document], (err, result) => {
-            if (err) {
-                console.error('Erreur lors de l\'insertion du document:', err);
-                return res.status(500).json({ message: 'Erreur interne du serveur' });
-            }
+            db.query(query, [doc.nom_document, doc.type_document, doc.chemin_document], (err, result) => {
+                if (err) {
+                    console.error('Erreur lors de l\'insertion du document:', err);
+                    throw err; // Lancer une erreur pour capturer cette erreur dans le catch
+                }
+            });
         });
-    });
 
-    res.status(200).json({ message: 'Documents ajoutés avec succès' });
+        res.status(200).json({ message: 'Documents ajoutés avec succès' });
 
+    } catch (error) {
+        console.error('Erreur lors de l\'insertion des documents:', error);
+        res.status(500).json({ message: 'Erreur interne du serveur' });
+    }
 };
