@@ -66,7 +66,7 @@ LEFT JOIN utilisateur ON cr.id_responsable = utilisateur.id_utilisateur
     });
 }
 
- exports.postControle = async (req, res) => {
+exports.postControle = async (req, res) => {
     const { id_departement, id_format, controle_de_base, id_frequence, id_client, responsable } = req.body;
 
     if (!id_departement || !id_format || !controle_de_base || !id_frequence || !id_client || id_client.length === 0 || !responsable || responsable.length === 0) {
@@ -94,7 +94,7 @@ LEFT JOIN utilisateur ON cr.id_responsable = utilisateur.id_utilisateur
     try {
         // Insérer le contrôle de base
         const result = await query(controleQuery, [id_departement, id_format, controle_de_base, id_frequence]);
-        const controleId = result.insertId; // Récupérer l'ID du contrôle ajouté
+        const controleId = result.insertId;
 
         // Insérer les clients associés au contrôle
         await Promise.all(id_client.map((clientId) => {
@@ -167,8 +167,6 @@ exports.putControle = async (req, res) => {
         res.status(500).json({ error: "Une erreur s'est produite lors de la mise à jour du contrôle." });
     }
 };
-
-
 
 /* exports.putControle = async (req, res) => {
     const {id_controle} = req.query;
