@@ -30,4 +30,9 @@ router.post('/plans', batimentController.postBatimentPlans)
 router.get('maintenance', batimentController.getMaintenance)
 router.post('maintenance', batimentController.postMaintenance)
 
+
+//TYPE D'EQUIPEMENT
+router.get('type_equipement', batimentController.getTypeEquipement)
+router.get('statut_equipement', batimentController.getStatutEquipement)
+
 module.exports = router;

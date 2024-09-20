@@ -17,11 +17,11 @@ exports.getEquipement = (req, res) => {
 exports.postEquipement = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO equipments(`id_batiment`, `id_type_batiment`, `model`, `num_serie`, `installation_date`, `maintenance_date`, `location`, `status`) VALUES(?,?,?,?,?,?,?,?)';
+        const q = 'INSERT INTO equipments(`id_batiment`, `id_type_equipement`, `model`, `num_serie`, `installation_date`, `maintenance_date`, `location`, `status`) VALUES(?,?,?,?,?,?,?,?)';
 
         const values = [
             req.body.id_batiment,
-            req.body.id_type_batiment,
+            req.body.id_type_equipement,
             req.body.model,
             req.body.num_serie,
             req.body.installation_date,
