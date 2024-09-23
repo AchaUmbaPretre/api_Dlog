@@ -14,6 +14,21 @@ exports.getEquipement = (req, res) => {
     });
 };
 
+exports.getEquipementOne = (req, res) => {
+    const {id} = req.query;
+
+    const q = `
+                SELECT * FROM equipments WHERE equipments.id_batiment=?
+            `;
+
+    db.query(q,[id],(error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.postEquipement = async (req, res) => {
 
     try {
