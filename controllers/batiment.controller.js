@@ -18,7 +18,14 @@ exports.getEquipementOne = (req, res) => {
     const {id} = req.query;
 
     const q = `
-                SELECT * FROM equipments WHERE equipments.id_batiment=?
+            SELECT equipments.model, equipments.num_serie, 
+                equipments.id_equipement, equipments.installation_date, 
+                equipments.maintenance_date, equipments.date_prochaine_maintenance, equipments.location, batiment.nom_batiment, statut_equipement.nom_statut, articles.nom_article FROM equipments 
+                INNER JOIN batiment ON equipments.id_batiment = batiment.id_batiment
+                INNER JOIN statut_equipement ON equipments.status = statut_equipement.id_statut_equipement
+                INNER JOIN articles ON equipments.id_type_equipement = articles.id_article
+            WHERE 
+                equipments.id_batiment= ?
             `;
 
     db.query(q,[id],(error, data) => {
@@ -32,7 +39,7 @@ exports.getEquipementOne = (req, res) => {
 exports.postEquipement = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO equipments(`id_batiment`, `id_type_equipement`, `model`, `num_serie`, `installation_date`, `maintenance_date`, `location`, `status`) VALUES(?,?,?,?,?,?,?,?)';
+        const q = 'INSERT INTO equipments(`id_batiment`, `id_type_equipement`, `model`, `num_serie`, `installation_date`, `maintenance_date`,`date_prochaine_maintenance`, `location`, `status`) VALUES(?,?,?,?,?,?,?,?,?)';
 
         const values = [
             req.body.id_batiment,
@@ -41,6 +48,7 @@ exports.postEquipement = async (req, res) => {
             req.body.num_serie,
             req.body.installation_date,
             req.body.maintenance_date,
+            req.body.date_prochaine_maintenance,
             req.body.location,
             req.body.status
         ];
