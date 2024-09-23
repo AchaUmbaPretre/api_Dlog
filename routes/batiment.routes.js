@@ -30,6 +30,7 @@ router.post('/plans', upload.array('chemin_document', 10), batimentController.po
 
 //Maintenance
 router.get('/maintenance', batimentController.getMaintenance)
+router.get('/maintenance/one', batimentController.getMaintenanceOne)
 router.post('/maintenance', batimentController.postMaintenance)
 
 

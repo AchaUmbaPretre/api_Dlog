@@ -150,6 +150,21 @@ exports.getMaintenance = (req, res) => {
     });
 };
 
+exports.getMaintenanceOne = (req, res) => {
+    const {id} = req.query;
+
+    const q = `
+                SELECT * FROM maintenance_logs WHERE maintenance_logs.id_equipement = ?
+            `;
+
+    db.query(q,[id], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.postMaintenance = async (req, res) => {
 
     try {
