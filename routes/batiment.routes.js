@@ -37,5 +37,7 @@ router.post('/maintenance', batimentController.postMaintenance)
 //TYPE D'EQUIPEMENT
 router.get('/type_equipement', batimentController.getTypeEquipement)
 router.get('/statut_equipement', batimentController.getStatutEquipement)
+router.get('/statut_maintenance', batimentController.getStatutMaintenance)
+
 
 module.exports = router;

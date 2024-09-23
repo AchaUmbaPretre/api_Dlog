@@ -168,13 +168,14 @@ exports.getMaintenanceOne = (req, res) => {
 exports.postMaintenance = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO maintenance_logs(`id_equipement`, `maintenance_date`, `description`, `status`) VALUES(?,?,?,?)';
+        const q = 'INSERT INTO maintenance_logs(`id_equipement`, `maintenance_date`, `description`, `status`, `id_technicien`) VALUES(?,?,?,?,?)';
 
         const values = [
             req.body.id_equipement,
             req.body.maintenance_date,
             req.body.description,
-            req.body.status
+            req.body.status,
+            req.body.id_technicien
         ];
 
         await db.query(q, values);
@@ -204,6 +205,20 @@ exports.getStatutEquipement = (req, res) => {
 
     const q = `
                 SELECT * FROM statut_equipement
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getStatutMaintenance= (req, res) => {
+
+    const q = `
+                SELECT * FROM statut_maintenance
             `;
 
     db.query(q, (error, data) => {
