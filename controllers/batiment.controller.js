@@ -154,7 +154,12 @@ exports.getMaintenanceOne = (req, res) => {
     const {id} = req.query;
 
     const q = `
-                SELECT * FROM maintenance_logs WHERE maintenance_logs.id_equipement = ?
+                SELECT maintenance_logs.id_maintenance, maintenance_logs.maintenance_date, maintenance_logs.description, articles.nom_article, statut_maintenance.nom_statut_maintenance FROM maintenance_logs 
+                    LEFT JOIN equipments ON maintenance_logs.id_equipement = equipments.id_equipement
+                    LEFT JOIN articles ON equipments.id_type_equipement = articles.id_article
+                    LEFT JOIN statut_maintenance ON maintenance_logs.status = statut_maintenance.id_statut_maintenance
+                    WHERE 
+                    maintenance_logs.id_equipement = ?
             `;
 
     db.query(q,[id], (error, data) => {
