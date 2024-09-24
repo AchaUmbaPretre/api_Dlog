@@ -45,7 +45,9 @@ router.get('/stock/one', batimentController.getStockEquipementOne)
 router.post('/stock', batimentController.postStockEquipement)
 router.put('/stock', batimentController.putStockEquipement)
 
-
+//Tableau de bord
+router.get('/rapport', batimentController.getRapport)
+router.get('/rapport/one', batimentController.getRapportOne)
 
 
 module.exports = router;
