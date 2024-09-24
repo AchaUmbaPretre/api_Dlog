@@ -238,7 +238,8 @@ exports.getStockEquipement = (req, res) => {
 
     const q = `
                 SELECT stocks_equipements.quantite, 
-                    stocks_equipements.seuil_alerte, 
+                    stocks_equipements.seuil_alerte,
+                    stocks_equipements.id_stock, 
                     articles.nom_article 
                 FROM stocks_equipements
                     INNER JOIN articles ON stocks_equipements.id_type_equipement = articles.id_article
