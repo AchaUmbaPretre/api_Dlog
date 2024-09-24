@@ -361,7 +361,7 @@ exports.getRapport = (req, res) => {
 exports.getRapportOne = (req, res) => {
     const {id} = req.query;
 
-    const q = `
+    let q = `
             SELECT 
                 e.id_equipement AS equipment_id,
                 articles.nom_article,
@@ -378,6 +378,26 @@ exports.getRapportOne = (req, res) => {
             ORDER BY 
                 e.date_prochaine_maintenance ASC;
 
+            `;
+
+    db.query(q,[id], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getTableauBord = (req, res) => {
+    const {id} = req.query;
+
+    let q = `
+           SELECT 
+                COUNT(e.id_equipement) AS nbre_equipement,
+                SUM(CASE WHEN e.status = 1 THEN 1 ELSE 0 END) AS nbre_operationnel,
+                SUM(CASE WHEN e.status = 2 THEN 1 ELSE 0 END) AS nbre_entretien,
+                SUM(CASE WHEN e.status = 3 THEN 1 ELSE 0 END) AS nbre_enpanne
+            FROM equipments e;
             `;
 
     db.query(q,[id], (error, data) => {
