@@ -40,6 +40,9 @@ router.get('/statut_equipement', batimentController.getStatutEquipement)
 router.get('/statut_maintenance', batimentController.getStatutMaintenance)
 
 //stocks_equipements
+router.get('/stock', batimentController.getStockEquipement)
+router.get('/stock/one', batimentController.getStockEquipementOne)
+router.post('/stock', batimentController.postStockEquipement)
 
 
 

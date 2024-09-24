@@ -8,6 +8,7 @@ router.get('/articleOne', typesController.getArticleOne)
 
 //Batiment
 router.get('/batiment', typesController.getBatiment)
+router.get('/batiment/one', typesController.getBatimentOne)
 router.post('/batiment', typesController.postBatiment)
 
 //Categorie

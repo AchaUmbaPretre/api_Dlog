@@ -78,6 +78,23 @@ exports.getBatiment = (req, res) => {
     });
 };
 
+exports.getBatimentOne = (req, res) => {
+    const {id} = req.query;
+
+    const q = `
+            SELECT batiment.*, provinces.name FROM batiment
+                LEFT JOIN provinces ON batiment.ville = provinces.id
+                WHERE batiement.id_batiment = ?
+            `;
+
+    db.query(q,[id], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.postBatiment = async (req, res) => {
 
     try {
