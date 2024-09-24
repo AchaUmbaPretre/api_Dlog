@@ -237,7 +237,11 @@ exports.getStatutMaintenance= (req, res) => {
 exports.getStockEquipement = (req, res) => {
 
     const q = `
-                SELECT * FROM stocks_equipements
+                SELECT stocks_equipements.quantite, 
+                    stocks_equipements.seuil_alerte, 
+                    articles.nom_article 
+                FROM stocks_equipements
+                    INNER JOIN articles ON stocks_equipements.id_type_equipement = articles.id_article
             `;
 
     db.query(q, (error, data) => {
