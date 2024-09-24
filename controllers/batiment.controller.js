@@ -388,7 +388,7 @@ exports.getRapportOne = (req, res) => {
     });
 };
 
-exports.getTableauBord = (req, res) => {
+exports.getTableauBordOne = (req, res) => {
     const {id} = req.query;
 
     let q = `
