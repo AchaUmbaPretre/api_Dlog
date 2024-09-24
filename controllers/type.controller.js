@@ -84,7 +84,7 @@ exports.getBatimentOne = (req, res) => {
     const q = `
             SELECT batiment.*, provinces.name FROM batiment
                 LEFT JOIN provinces ON batiment.ville = provinces.id
-                WHERE batiement.id_batiment = ?
+                WHERE batiment.id_batiment = ?
             `;
 
     db.query(q,[id], (error, data) => {
