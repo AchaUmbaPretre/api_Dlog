@@ -153,12 +153,12 @@ exports.getMaintenanceOne = (req, res) => {
     const {id} = req.query;
 
     const q = `
-                SELECT maintenance_logs.id_maintenance, maintenance_logs.maintenance_date, maintenance_logs.description, articles.nom_article, statut_maintenance.nom_statut_maintenance FROM maintenance_logs 
+                SELECT maintenance_logs.id_maintenance, maintenance_logs.maintenance_date, maintenance_logs.description, articles.nom_article, statut_equipement.nom_statut FROM maintenance_logs 
                     LEFT JOIN equipments ON maintenance_logs.id_equipement = equipments.id_equipement
                     LEFT JOIN articles ON equipments.id_type_equipement = articles.id_article
-                    LEFT JOIN statut_maintenance ON maintenance_logs.status = statut_maintenance.id_statut_maintenance
+                    LEFT JOIN statut_equipement ON maintenance_logs.status = statut_equipement.id_statut_equipement
                     WHERE 
-                    maintenance_logs.id_equipement = ?
+                maintenance_logs.id_equipement = ?
             `;
 
     db.query(q,[id], (error, data) => {
@@ -170,25 +170,28 @@ exports.getMaintenanceOne = (req, res) => {
 };
 
 exports.postMaintenance = async (req, res) => {
+    const { id_equipement, maintenance_date, description, status, id_technicien } = req.body;
 
     try {
+        const qEquipement = 'UPDATE equipments SET status = ? WHERE id_equipement = ?';
         const q = 'INSERT INTO maintenance_logs(`id_equipement`, `maintenance_date`, `description`, `status`, `id_technicien`) VALUES(?,?,?,?,?)';
 
-        const values = [
-            req.body.id_equipement,
-            req.body.maintenance_date,
-            req.body.description,
-            req.body.status,
-            req.body.id_technicien
-        ];
-
+        // Exécution de la requête pour insérer dans maintenance_logs
+        const values = [id_equipement, maintenance_date, description, status, id_technicien];
         await db.query(q, values);
-        return res.status(201).json({ message: 'Maintenance ajouté avec succès' });
+
+        // Mise à jour du statut de l'équipement après insertion
+        await db.query(qEquipement, [status, id_equipement]);
+
+        // Réponse de succès
+        return res.status(201).json({ message: 'Maintenance ajoutée avec succès' });
+
     } catch (error) {
         console.error('Erreur lors de l\'ajout de maintenance :', error.message);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
+
 
 exports.getTypeEquipement = (req, res) => {
 
@@ -323,3 +326,64 @@ exports.putStockEquipement = async (req, res) => {
         return res.status(500).json({ error: 'Failed to update Tache record' });
     }
 }
+
+
+//Tableau de bord
+exports.getRapport = (req, res) => {
+
+    const q = `
+            SELECT 
+                e.id_equipement AS equipment_id,
+                articles.nom_article,
+                e.status,
+                e.date_prochaine_maintenance,
+                statut_equipement.nom_statut,
+                e.id_batiment
+            FROM 
+                equipments e
+                INNER JOIN articles ON e.id_type_equipement = articles.id_article
+                INNER JOIN statut_equipement ON e.status = statut_equipement.id_statut_equipement
+            WHERE 
+                e.date_prochaine_maintenance >= CURDATE()
+            ORDER BY 
+                e.date_prochaine_maintenance ASC;
+
+            `;
+
+    db.query(q,(error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getRapportOne = (req, res) => {
+    const {id} = req.query;
+
+    const q = `
+            SELECT 
+                e.id_equipement AS equipment_id,
+                articles.nom_article,
+                e.status,
+                e.date_prochaine_maintenance,
+                statut_equipement.nom_statut,
+                e.id_batiment
+            FROM 
+                equipments e
+                INNER JOIN articles ON e.id_type_equipement = articles.id_article
+                INNER JOIN statut_equipement ON e.status = statut_equipement.id_statut_equipement
+            WHERE 
+                e.date_prochaine_maintenance >= CURDATE() AND e.id_batiment = ?
+            ORDER BY 
+                e.date_prochaine_maintenance ASC;
+
+            `;
+
+    db.query(q,[id], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
