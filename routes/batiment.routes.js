@@ -39,5 +39,9 @@ router.get('/type_equipement', batimentController.getTypeEquipement)
 router.get('/statut_equipement', batimentController.getStatutEquipement)
 router.get('/statut_maintenance', batimentController.getStatutMaintenance)
 
+//stocks_equipements
+
+
+
 
 module.exports = router;

@@ -135,7 +135,6 @@ exports.postBatimentPlans = async (req, res) => {
     }
 };
 
-
 exports.getMaintenance = (req, res) => {
 
     const q = `
@@ -191,7 +190,6 @@ exports.postMaintenance = async (req, res) => {
     }
 };
 
-
 exports.getTypeEquipement = (req, res) => {
 
     const q = `
@@ -232,4 +230,56 @@ exports.getStatutMaintenance= (req, res) => {
         }
         return res.status(200).json(data);
     });
+};
+
+
+// Stocks des équipements
+exports.getStockEquipement = (req, res) => {
+
+    const q = `
+                SELECT * FROM stocks_equipements
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getStockEquipementOne = (req, res) => {
+    const {id} = req.query;
+
+    const q = `
+                SELECT * FROM stocks_equipements
+                    WHERE 
+                    id_stock = ?
+            `;
+
+    db.query(q,[id], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postStockEquipement = async (req, res) => {
+
+    try {
+        const q = 'INSERT INTO stocks_equipements(`id_type_equipement`, `quantite`, `seuil_alerte`) VALUES(?,?,?)';
+
+        const values = [
+            req.body.id_type_equipement,
+            req.body.quantite,
+            req.body.seuil_alerte
+        ];
+
+        await db.query(q, values);
+        return res.status(201).json({ message: 'Maintenance ajouté avec succès' });
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout de maintenance :', error.message);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+    }
 };
