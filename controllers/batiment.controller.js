@@ -287,3 +287,38 @@ exports.postStockEquipement = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
+
+exports.putStockEquipement = async (req, res) => {
+    const { id } = req.query;
+
+    if (!id || isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid equipement ID provided' });
+    }
+
+    try {
+        const q = `
+            UPDATE stocks_equipements 
+            SET 
+                id_type_equipement = ?,
+                quantite = ?,
+            WHERE id_stock = ?
+        `;
+      
+        const values = [
+            req.body.id_type_equipement,
+            req.body.quantite,
+            id
+        ];
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Stocks equipements  record not found' });
+            }
+            return res.json({ message: 'stocks equipements  record updated successfully' });
+        })
+    } catch (err) {
+        console.error("Error updating tache:", err);
+        return res.status(500).json({ error: 'Failed to update Tache record' });
+    }
+}
