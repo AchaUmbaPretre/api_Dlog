@@ -368,11 +368,14 @@ exports.getRapportOne = (req, res) => {
                 e.status,
                 e.date_prochaine_maintenance,
                 statut_equipement.nom_statut,
-                e.id_batiment
+                e.id_batiment,
+                batiment.nom_batiment
+                
             FROM 
                 equipments e
                 INNER JOIN articles ON e.id_type_equipement = articles.id_article
                 INNER JOIN statut_equipement ON e.status = statut_equipement.id_statut_equipement
+                INNER JOIN batiment ON e.id_batiment = batiment.id_batiment
             WHERE 
                 e.date_prochaine_maintenance >= CURDATE() AND e.id_batiment = ?
             ORDER BY 
@@ -388,6 +391,27 @@ exports.getRapportOne = (req, res) => {
     });
 };
 
+exports.getTableauBord = (req, res) => {
+
+    let q = `
+           SELECT 
+                COUNT(e.id_equipement) AS nbre_equipement,
+                SUM(CASE WHEN e.status = 1 THEN 1 ELSE 0 END) AS nbre_operationnel,
+                SUM(CASE WHEN e.status = 2 THEN 1 ELSE 0 END) AS nbre_entretien,
+                SUM(CASE WHEN e.status = 3 THEN 1 ELSE 0 END) AS nbre_enpanne,
+                batiment.nom_batiment
+            FROM equipments e
+            INNER JOIN batiment ON e.id_batiment = batiment.id_batiment
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getTableauBordOne = (req, res) => {
     const {id} = req.query;
 
@@ -396,8 +420,11 @@ exports.getTableauBordOne = (req, res) => {
                 COUNT(e.id_equipement) AS nbre_equipement,
                 SUM(CASE WHEN e.status = 1 THEN 1 ELSE 0 END) AS nbre_operationnel,
                 SUM(CASE WHEN e.status = 2 THEN 1 ELSE 0 END) AS nbre_entretien,
-                SUM(CASE WHEN e.status = 3 THEN 1 ELSE 0 END) AS nbre_enpanne
-            FROM equipments e;
+                SUM(CASE WHEN e.status = 3 THEN 1 ELSE 0 END) AS nbre_enpanne,
+                batiment.nom_batiment
+            FROM equipments e
+            INNER JOIN batiment ON e.id_batiment = batiment.id_batiment
+            WHERE e.id_batiment = ?
             `;
 
     db.query(q,[id], (error, data) => {
