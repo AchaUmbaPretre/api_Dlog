@@ -28,6 +28,9 @@ router.get('/plans', batimentController.getBatimentPlans)
 router.get('/plans/one', batimentController.getBatimentPlansOne)
 router.post('/plans', upload.array('chemin_document', 10), batimentController.postBatimentPlans)
 
+//Batiment Doc
+
+
 //Maintenance
 router.get('/maintenance', batimentController.getMaintenance)
 router.get('/maintenance/one', batimentController.getMaintenanceOne)

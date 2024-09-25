@@ -135,6 +135,95 @@ exports.postBatimentPlans = async (req, res) => {
     }
 };
 
+//Doc
+exports.getBatimentDocOne = (req, res) => {
+    const {id_document} = req.query;
+
+    const q = `SELECT * FROM documents_batiment WHERE id_document = ?`;
+
+    db.query(q,[id_document], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postBatimentDoc = async (req, res) => {
+    const { id_batiment, nom_document, type_document } = req.body;
+
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ message: 'Aucun fichier téléchargé' });
+    }
+
+    const documents = req.files.map(file => ({
+        chemin_document: file.path.replace(/\\/g, '/'),
+        id_batiment,
+        nom_document,
+        type_document
+    }));
+
+    documents.forEach((doc) => {
+        const query = `INSERT INTO documents_batiment (id_batiment, nom_document, type_document, chemin_document)
+                       VALUES (?, ?, ?, ?)`;
+
+        db.query(query, [doc.id_batiment, doc.nom_document, doc.type_document, doc.chemin_document], (err, result) => {
+            if (err) {
+                console.error('Erreur lors de l\'insertion du document:', err);
+                return res.status(500).json({ message: 'Erreur interne du serveur' });
+            }
+        });
+    });
+
+    res.status(200).json({ message: 'Documents ajoutés avec succès' });
+};
+
+exports.putBatimentDoc = async (req, res) => {
+    const { id_document } = req.query;
+
+    if (!id_document || isNaN(id_document)) {
+        return res.status(400).json({ error: 'Invalid tache ID provided' });
+    }
+    
+    const { nom_document, type_document } = req.body;
+    if (!nom_document || !type_document) {
+        return res.status(400).json({ error: 'Nom du document et type de document sont requis' });
+    }
+
+    try {
+        const q = `
+            UPDATE documents_batiment
+            SET 
+                nom_document = ?,
+                type_document = ?
+            WHERE id_document = ?
+        `;
+      
+        const values = [
+            nom_document,
+            type_document,
+            id_tache_document
+        ];
+
+        db.query(q, values, (error, results) => {
+            if (error) {
+                console.error("Error executing query:", error);
+                return res.status(500).json({ error: 'Failed to update Tache record' });
+            }
+
+            if (results.affectedRows === 0) {
+                return res.status(404).json({ error: 'Tache record not found' });
+            }
+
+            return res.json({ message: 'Tache record updated successfully' });
+        });
+    } catch (err) {
+        console.error("Error updating tache:", err);
+        return res.status(500).json({ error: 'Failed to update Tache record' });
+    }
+};
+
+
 exports.getMaintenance = (req, res) => {
 
     const q = `

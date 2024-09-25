@@ -607,6 +607,7 @@ exports.postTachePersonnne = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
+
 exports.getTacheDocOne = (req, res) => {
     const {id_tache_document} = req.query;
 
