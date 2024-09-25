@@ -171,6 +171,7 @@ exports.getTache = (req, res) => {
     }
 
     statsQuery += ` GROUP BY typeC.nom_type_statut;`;
+    statsQuery += ` ORDER BY tache.date_debut DESC;`;
 
     // Requête pour obtenir le total des tâches trouvées
     let totalQuery = `
@@ -411,6 +412,46 @@ GROUP BY
 }
 
 exports.postTache = async (req, res) => {
+
+    try {
+        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_tache_parente`, `id_departement`,`id_client`, `id_frequence`,`id_control`,`id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`,`id_batiment`, `id_ville`, `doc`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
+
+        const values = [
+            req.body.nom_tache,
+            req.body.description,
+            req.body.statut || 1,
+            req.body.date_debut,
+            req.body.date_fin,
+            req.body.priorite,
+            req.body.id_tache_parente,
+            req.body.id_departement,
+            req.body.id_client,
+            req.body.id_frequence,
+            req.body.id_control,
+            req.body.id_projet,
+            req.body.id_point_supervision,
+            req.body.responsable_principal,
+            req.body.id_demandeur,
+            req.body.id_batiment,
+            req.body.id_ville,
+            req.body.doc
+        ];
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+            }
+            else{
+                return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
+            }
+        })
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout de la tâche :', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+    }
+};
+
+exports.postTacheExcel = async (req, res) => {
 
     try {
         const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_tache_parente`, `id_departement`,`id_client`, `id_frequence`,`id_control`,`id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`,`id_batiment`, `id_ville`, `doc`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
