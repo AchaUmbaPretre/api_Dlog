@@ -136,6 +136,19 @@ exports.postBatimentPlans = async (req, res) => {
 };
 
 //Doc
+exports.getBatimentDocOne1 = (req, res) => {
+    const {id_document} = req.query;
+
+    const q = `SELECT * FROM documents_batiment WHERE id_document = ?`;
+
+    db.query(q,[id_document], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getBatimentDocOne = (req, res) => {
     const {id_batiment} = req.query;
 
@@ -202,7 +215,7 @@ exports.putBatimentDoc = async (req, res) => {
         const values = [
             nom_document,
             type_document,
-            id_tache_document
+            id_document
         ];
 
         db.query(q, values, (error, results) => {
