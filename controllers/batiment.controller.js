@@ -135,7 +135,7 @@ exports.postBatimentPlans = async (req, res) => {
     }
 };
 
-//Doc
+//DOC BATIMENT
 exports.getBatimentDocOne1 = (req, res) => {
     const {id_document} = req.query;
 
