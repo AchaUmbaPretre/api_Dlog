@@ -137,11 +137,11 @@ exports.postBatimentPlans = async (req, res) => {
 
 //Doc
 exports.getBatimentDocOne = (req, res) => {
-    const {id_document} = req.query;
+    const {id_batiment} = req.query;
 
-    const q = `SELECT * FROM documents_batiment WHERE id_document = ?`;
+    const q = `SELECT * FROM documents_batiment WHERE id_batiment = ?`;
 
-    db.query(q,[id_document], (error, data) => {
+    db.query(q,[id_batiment], (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
