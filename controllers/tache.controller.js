@@ -1,4 +1,8 @@
+const xlsx = require('xlsx');
+const fs = require('fs');
+const path = require('path');
 const { db } = require("./../config/database");
+
 
 exports.getTacheCount = (req, res) => {
     const { searchValue } = req.query;
@@ -452,42 +456,57 @@ exports.postTache = async (req, res) => {
 };
 
 exports.postTacheExcel = async (req, res) => {
-
     try {
-        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_tache_parente`, `id_departement`,`id_client`, `id_frequence`,`id_control`,`id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`,`id_batiment`, `id_ville`, `doc`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
 
-        const values = [
-            req.body.nom_tache,
-            req.body.description,
-            req.body.statut || 1,
-            req.body.date_debut,
-            req.body.date_fin,
-            req.body.priorite,
-            req.body.id_tache_parente,
-            req.body.id_departement,
-            req.body.id_client,
-            req.body.id_frequence,
-            req.body.id_control,
-            req.body.id_projet,
-            req.body.id_point_supervision,
-            req.body.responsable_principal,
-            req.body.id_demandeur,
-            req.body.id_batiment,
-            req.body.id_ville,
-            req.body.doc
-        ];
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ error: 'Aucun fichier téléchargé' });
+        }
 
-        db.query(q, values, (error, data)=>{
-            if(error){
-                console.log(error)
-            }
-            else{
-                return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
-            }
-        })
+        const filePath = req.files[0].path; // Récupérer le chemin du fichier téléchargé
+        const workbook = xlsx.readFile(filePath);
+        const sheetName = workbook.SheetNames[0]; // Lire la première feuille
+        const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        // Boucler sur chaque ligne de données du fichier Excel et insérer dans la base de données
+        const query = `INSERT INTO tache(nom_tache, description, statut, date_debut, date_fin, priorite, id_tache_parente, id_departement, id_client, id_frequence, id_control, id_projet, id_point_supervision, responsable_principal, id_demandeur, id_batiment, id_ville, doc) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+
+        sheetData.forEach((row) => {
+            const values = [
+                row['nom_tache'],
+                row['description'],
+                row['statut'] || 1,
+                row['date_debut'],
+                row['date_fin'],
+                row['priorite'],
+                row['id_tache_parente'],
+                row['id_departement'],
+                row['id_client'],
+                row['id_frequence'],
+                row['id_control'],
+                row['id_projet'],
+                row['id_point_supervision'],
+                row['responsable_principal'],
+                row['id_demandeur'],
+                row['id_batiment'],
+                row['id_ville'],
+                row['doc']
+            ];
+
+            // Insérer les données dans la base MySQL
+            db.query(query, values, (error, data) => {
+                if (error) {
+                    console.error('Erreur lors de l\'insertion dans la base de données:', error);
+                }
+            });
+        });
+
+        // Supprimer le fichier temporaire après traitement
+        fs.unlinkSync(filePath);
+
+        return res.status(201).json({ message: 'Tâches ajoutées avec succès à partir du fichier Excel' });
     } catch (error) {
-        console.error('Erreur lors de l\'ajout de la tâche :', error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+        console.error('Erreur lors de l\'importation des tâches :', error);
+        return res.status(500).json({ error: 'Une erreur est survenue lors de l\'importation des tâches.' });
     }
 };
 
