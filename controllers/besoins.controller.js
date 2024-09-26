@@ -76,6 +76,33 @@ exports.postBesoins = async (req, res) => {
     }
 };
 
+exports.postBesoinsClient = async (req, res) => {
+
+    try {
+        const q = 'INSERT INTO besoin_client(`id_besoin`,`id_client`,`quantite`, `id_batiment`) VALUES(?,?,?)';
+
+        const values = [
+            req.body.id_besoin,
+            req.body.id_client,
+            req.body.quantite,
+            req.body.id_batiment,
+            req.body.ville
+        ];
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Besoin record not found' });
+            }
+
+            return res.status(201).json({ message: 'Besoins ajouté avec succès'});
+        })
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout du nouveau projet:', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+    }
+};
+
 
 exports.deleteBesoins = (req, res) => {
     const id = req.params.id;

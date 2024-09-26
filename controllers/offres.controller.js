@@ -1,4 +1,7 @@
 const { db } = require("./../config/database");
+const xlsx = require('xlsx');
+const fs = require('fs');
+const path = require('path');
 
 exports.getOffre = (req, res) => {
 
@@ -332,6 +335,54 @@ exports.postArticle = async (req, res) => {
             });
         }
 
+        return res.status(201).json({ message: 'Articles ajoutés avec succès' });
+
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout des articles :', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout des articles." });
+    }
+};
+
+exports.postArticleExcel = async (req, res) => {
+    const articles = req.body.articles; // This line may not be necessary based on the provided code
+
+    try {
+        // Check if files were uploaded
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ error: 'Aucun fichier téléchargé' });
+        }
+
+        // Get the path of the uploaded file
+        const filePath = req.files[0].path; 
+
+        // Read the Excel file
+        const workbook = xlsx.readFile(filePath);
+        const sheetName = workbook.SheetNames[0]; // Get the first sheet
+        const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        // SQL query for inserting articles
+        const qInsertArticle = 'INSERT INTO articles(`nom_article`, `id_categorie`) VALUES(?,?)';
+
+        // Iterate over each row in the sheet data
+        for (let row of sheetData) {
+            const articleValues = [
+                row['nom_article'],    // Ensure the headers in the Excel match this key
+                row['id_categorie']     // Same here
+            ];
+
+            // Using Promises for database queries to handle async properly
+            await new Promise((resolve, reject) => {
+                db.query(qInsertArticle, articleValues, (err, result) => {
+                    if (err) {
+                        console.error('Erreur lors de l\'insertion de l\'article:', err);
+                        return reject(err); // Reject if there's an error
+                    }
+                    resolve(); // Resolve if insertion is successful
+                });
+            });
+        }
+
+        // Return success response
         return res.status(201).json({ message: 'Articles ajoutés avec succès' });
 
     } catch (error) {
