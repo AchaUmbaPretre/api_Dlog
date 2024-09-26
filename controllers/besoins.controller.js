@@ -79,7 +79,7 @@ exports.postBesoins = async (req, res) => {
 exports.postBesoinsClient = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO besoin_client(`id_besoin`,`id_client`,`quantite`, `id_batiment`) VALUES(?,?,?)';
+        const q = 'INSERT INTO besoin_client(`id_besoin`,`id_client`,`quantite`, `id_batiment`) VALUES(?,?,?,?)';
 
         const values = [
             req.body.id_besoin,
