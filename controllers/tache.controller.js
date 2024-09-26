@@ -175,7 +175,6 @@ exports.getTache = (req, res) => {
     }
 
     statsQuery += ` GROUP BY typeC.nom_type_statut;`;
-    statsQuery += ` ORDER BY tache.date_debut DESC;`;
 
     // Requête pour obtenir le total des tâches trouvées
     let totalQuery = `

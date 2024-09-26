@@ -35,8 +35,6 @@ router.post('/doc', upload.array('chemin_document', 10), batimentController.post
 router.put('/doc', upload.single('chemin_document'),batimentController.putBatimentDoc);
 
 
-
-
 //Maintenance
 router.get('/maintenance', batimentController.getMaintenance)
 router.get('/maintenance/one', batimentController.getMaintenanceOne)
