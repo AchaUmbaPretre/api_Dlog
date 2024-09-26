@@ -76,6 +76,43 @@ exports.postBesoins = async (req, res) => {
     }
 };
 
+
+exports.deleteBesoins = (req, res) => {
+    const id = req.params.id;
+  
+    const q = "DELETE FROM besoins WHERE id_besoin = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) return res.send(err);
+      return res.json(data);
+    });
+  
+  }
+
+  //Besoin client
+
+exports.getBesoinClientOne = (req, res) => {
+    const {id_projet} = req.query;
+
+    const q = `
+                SELECT bc.id_besoin_client, bc.id_besoin,bc.quantite,
+                    articles.nom_article,
+                    projet.nom_projet,
+                    projet.description,
+                    client.nom
+                FROM besoin_client AS bc
+                    INNER JOIN besoins ON bc.id_besoin = besoins.id_besoin
+                    INNER JOIN articles ON besoins.id_article = articles.id_article
+                    INNER JOIN Projet ON besoins.id_projet = projet.id_projet
+                    INNER JOIN client ON bc.id_client = client.id_client
+                WHERE besoins.id_projet = ${id_projet}
+            `;
+     
+    db.query(q, (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+}
 exports.postBesoinsClient = async (req, res) => {
 
     try {
@@ -102,16 +139,3 @@ exports.postBesoinsClient = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
-
-
-exports.deleteBesoins = (req, res) => {
-    const id = req.params.id;
-  
-    const q = "DELETE FROM besoins WHERE id_besoin = ?";
-  
-    db.query(q, [id], (err, data) => {
-      if (err) return res.send(err);
-      return res.json(data);
-    });
-  
-  }
