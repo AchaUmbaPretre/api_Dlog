@@ -51,11 +51,12 @@ exports.getBesoinOne = (req, res) => {
 exports.postBesoins = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO besoins(`id_article`,`description`, `quantite`, `priorite`, `id_projet`) VALUES(?,?,?,?,?)';
+        const q = 'INSERT INTO besoins(`id_article`,`description`,`id_client`, `quantite`, `priorite`, `id_projet`) VALUES(?,?,?,?,?,?)';
 
         const values = [
             req.body.id_article,
             req.body.description,
+            req.body.id_client,
             req.body.quantite,
             req.body.priorite,
             req.body.id_projet

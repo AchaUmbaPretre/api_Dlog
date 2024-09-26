@@ -98,13 +98,18 @@ exports.getBatimentOne = (req, res) => {
 exports.postBatiment = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO batiment(`nom_batiment`, `site`, `ville`, `longueur`, `largeur`, `hauteur`, `surface_sol`, `surface_murs`, `metres_lineaires`) VALUES(?,?,?)';
+        const q = 'INSERT INTO batiment(`nom_batiment`, `site`, `ville`, `longueur`, `largeur`, `hauteur`, `surface_sol`, `surface_murs`, `metres_lineaires`) VALUES(?,?,?,?,?,?,?,?,?)';
 
         const values = [
             req.body.nom_batiment,
             req.body.site,
             req.body.ville,
-            
+            req.body.longueur,
+            req.body.largeur,
+            req.body.hauteur,
+            req.body.surface_sol,
+            req.body.surface_murs,
+            req.body.metres_lineaires
         ];
 
         await db.query(q, values);
