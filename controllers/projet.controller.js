@@ -123,16 +123,19 @@ exports.getProjetOne = (req, res) => {
                     utilisateur.nom AS responsable, 
                     client.nom,
                     budgets.montant,
-                    batiment.nom_batiment
+                    batiment.nom_batiment,
+                    DATEDIFF(projet.date_fin, projet.date_debut) AS nbre_jour
                 FROM 
                 projet
                     LEFT JOIN type_statut_suivi AS ts ON ts.id_type_statut_suivi = projet.statut
                     LEFT JOIN utilisateur ON projet.chef_projet = utilisateur.id_utilisateur
-                    LEFT JOIN client ON projet.client = client.id_client
+                    LEFT JOIN projet_client ON projet.id_projet = projet_client.id_projet
+                    LEFT JOIN client ON projet_client.id_client = client.id_client
                     LEFT JOIN besoins ON projet.id_projet = besoins.id_projet
                     LEFT JOIN budgets ON projet.id_projet = budgets.id_projet
-                    LEFT JOIN batiment ON projet.id_batiment = batiment.id_batiment
-                WHERE projet.id_projet = ?
+                    LEFT JOIN projet_batiment ON projet.id_projet = projet_batiment.id_projet
+                    LEFT JOIN batiment ON projet_batiment.id_batiment = batiment.id_batiment
+                    WHERE projet.est_supprime = 0 AND projet.id_projet = ?
                 GROUP BY projet.id_projet
         `;
      

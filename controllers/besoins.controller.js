@@ -48,10 +48,10 @@ exports.getBesoinOne = (req, res) => {
     });
 }
 
-exports.postBesoins = async (req, res) => {
+exports.postBesoins = (req, res) => {
 
     try {
-        const q = 'INSERT INTO besoins(`id_article`,`description`,`id_client`, `quantite`, `priorite`, `id_projet`) VALUES(?,?,?,?,?,?)';
+        const q = 'INSERT INTO besoins(`id_article`,`description`,`id_client`, `quantite`, `priorite`, `id_projet`, `id_batiment`, `personne`) VALUES(?,?,?,?,?,?,?,?)';
 
         const values = [
             req.body.id_article,
@@ -59,7 +59,9 @@ exports.postBesoins = async (req, res) => {
             req.body.id_client,
             req.body.quantite,
             req.body.priorite,
-            req.body.id_projet
+            req.body.id_projet,
+            req.body.id_batiment,
+            req.body.personne
         ];
 
         db.query(q, values, (error, data)=>{
