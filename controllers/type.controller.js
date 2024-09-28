@@ -183,3 +183,28 @@ exports.postActivite = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
+
+
+exports.getCorpsMetier = (req, res) => {
+
+    const q = `SELECT * FROM corpsmetier`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getCatTache = (req, res) => {
+
+    const q = `SELECT * FROM categorietache`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};

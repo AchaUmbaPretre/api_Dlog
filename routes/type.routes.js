@@ -19,4 +19,9 @@ router.post('/categorie', typesController.postCategorie)
 router.get('/activite', typesController.getActivite)
 router.post('/activite', typesController.postActivite)
 
+//Categorie tache
+router.get('/corps_metier',typesController.getCorpsMetier)
+router.get('/cat_tache',typesController.getCatTache)
+
+
 module.exports = router;
