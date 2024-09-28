@@ -79,7 +79,6 @@ exports.getSuiviTacheOne = (req, res) => {
     });
 }
 
-
 /* exports.getSuiviTacheOneV = (req, res) => {
     const {id_tache} = req.query;
 
