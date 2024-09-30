@@ -611,10 +611,11 @@ exports.getBinsOne = (req, res) => {
 
 exports.postBins = (req, res) => {
     const { id_entrepot, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut} = req.body;
-    const q = 'INSERT INTO bins (id_entrepot, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut ) VALUES (?,?,?,?,?,?,?,?)';
+    const q = 'INSERT INTO bins (id_entrepot, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut ) VALUES (?,?,?,?,?,?,?,?,?)';
     
     db.query(q, [id_entrepot, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut], (err, result) => {
         if (err) {
+            console.log(err)
             return res.status(500).send('Erreur lors de la création de bins');
         }
         res.status(201).send('Bins créé');
