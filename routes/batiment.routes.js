@@ -67,5 +67,10 @@ router.get('/bins', batimentController.getBins)
 router.get('/bins/one', batimentController.getBinsOne)
 router.post('/bins', batimentController.postBins)
 
+//Maintenance Bins
+router.get('/maintenance_bins', batimentController.getMaintenanceBin)
+router.get('/maintenance_bins/one', batimentController.getMaintenanceBinOne)
+router.post('/maintenance_bins', batimentController.postMaintenanceBin)
+
 
 module.exports = router;

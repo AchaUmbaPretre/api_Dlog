@@ -651,7 +651,7 @@ exports.getMaintenanceBinOne = (req, res) => {
     });
 };
 
-exports.postMaintenanceBinOne = (req, res) => {
+exports.postMaintenanceBin = (req, res) => {
     const { id_bin, description} = req.body;
     const q = 'INSERT INTO bins (id_bin, description) VALUES (?,?)';
     
