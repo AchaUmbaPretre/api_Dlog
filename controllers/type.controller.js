@@ -208,3 +208,27 @@ exports.getCatTache = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+exports.typeStockageBins = (req, res) => {
+
+    const q = `SELECT * FROM type_stockage_bins`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.statut_bins = (req, res) => {
+
+    const q = `SELECT * FROM statut_bins`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
