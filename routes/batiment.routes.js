@@ -63,7 +63,7 @@ router.get('/entrepot/one', batimentController.getEntrepotOne)
 router.post('/entrepot', batimentController.postEntrepot)
 
 //BINS
-router.get('/bins', batimentController.getBins)
+router.get('/', batimentController.getBins)
 router.get('/bins/one', batimentController.getBinsOne)
 router.post('/bins', batimentController.postBins)
 

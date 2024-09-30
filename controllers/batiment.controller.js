@@ -595,7 +595,7 @@ exports.getBins = (req, res) => {
 };
 
 exports.getBinsOne = (req, res) => {
-    const {	id_entrepot} = req.query;
+    const {	id_entrepot } = req.query;
 
     const q = `
                 SELECT * FROM bins WHERE id_entrepot = ?
