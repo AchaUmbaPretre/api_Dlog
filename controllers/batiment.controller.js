@@ -536,3 +536,87 @@ exports.getTableauBordOne = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+//Entrepot
+exports.getEntrepot = (req, res) => {
+
+    const q = `
+                SELECT * FROM entrepots
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getEntrepotOne = (req, res) => {
+    const {id_batiment} = req.query;
+
+    const q = `
+                SELECT * FROM entrepots WHERE id_batiment = ?
+            `;
+
+    db.query(q,[id_batiment], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postEntrepot = (req, res) => {
+    const { nom, description, id_batiment } = req.body;
+    const sql = 'INSERT INTO entrepots (nom, description, id_batiment) VALUES (?, ?, ?)';
+    
+    db.query(sql, [nom, description, id_batiment], (err, result) => {
+        if (err) {
+            return res.status(500).send('Erreur lors de la création de l entrepôt');
+        }
+        res.status(201).send('Entrepôt créé');
+    });
+};
+
+//BINS
+exports.getBins = (req, res) => {
+
+    const q = `
+                SELECT * FROM bins
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getBinsOne = (req, res) => {
+    const {	id_entrepot} = req.query;
+
+    const q = `
+                SELECT * FROM bins WHERE id_entrepot = ?
+            `;
+
+    db.query(q,[id_entrepot], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postBins = (req, res) => {
+    const { id_entrepot, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut} = req.body;
+    const q = 'INSERT INTO bins (id_entrepot, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut ) VALUES (?,?,?,?,?,?,?,?)';
+    
+    db.query(q, [id_entrepot, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut], (err, result) => {
+        if (err) {
+            return res.status(500).send('Erreur lors de la création de bins');
+        }
+        res.status(201).send('Bins créé');
+    });
+};
