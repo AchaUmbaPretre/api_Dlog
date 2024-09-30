@@ -39,9 +39,11 @@ exports.getEquipementOne = (req, res) => {
 exports.postEquipement = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO equipments(`id_batiment`, `id_type_equipement`, `model`, `num_serie`, `installation_date`, `maintenance_date`,`date_prochaine_maintenance`, `location`, `status`) VALUES(?,?,?,?,?,?,?,?,?)';
+        const q = 'INSERT INTO equipments(`id_bureau`,`id_bin`,`id_batiment`, `id_type_equipement`, `model`, `num_serie`, `installation_date`, `maintenance_date`,`date_prochaine_maintenance`, `location`, `status`) VALUES(?,?,?,?,?,?,?,?,?,?,?)';
 
         const values = [
+            req.body.id_bureau,
+            req.body.id_bin,
             req.body.id_batiment,
             req.body.id_type_equipement,
             req.body.model,
