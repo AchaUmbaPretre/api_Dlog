@@ -695,13 +695,16 @@ exports.getBureauxOne = (req, res) => {
 };
 
 exports.postBureaux = (req, res) => {
-    const { id_batiment, nom, longueur, largeur, hauteur, nombre_postes} = req.body;
-    const q = 'INSERT INTO bureaux (id_batiment, nom, longueur, largeur, hauteur, nombre_postes) VALUES (?,?,?,?,?,?)';
-    
-    db.query(q, [id_batiment, nom, longueur, largeur, hauteur, nombre_postes], (err, result) => {
-        if (err) {
-            return res.status(500).send('Erreur lors de la création du bureau');
-        }
-        res.status(201).send('Bureau créé');
+    const { id_batiment, nom, longueur, largeur, hauteur, nombre_postes } = req.body;
+  
+    const query = 'INSERT INTO bureaux (id_batiment, nom, longueur, largeur, hauteur, nombre_postes) VALUES (?, ?, ?, ?, ?, ?)';
+    const values = [id_batiment, nom, longueur, largeur, hauteur, nombre_postes];
+  
+    db.query(query, values, (err, result) => {
+      if (err) {
+        console.error('Erreur lors de l\'insertion:', err);
+        return res.status(500).send('Erreur serveur');
+      }
+      res.status(200).send('Bureau ajouté avec succès');
     });
-};
+  };
