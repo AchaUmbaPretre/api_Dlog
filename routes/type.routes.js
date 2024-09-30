@@ -23,5 +23,9 @@ router.post('/activite', typesController.postActivite)
 router.get('/corps_metier',typesController.getCorpsMetier)
 router.get('/cat_tache',typesController.getCatTache)
 
+//Statut Bin
+router.get('/type_bin',typesController.typeStockageBins)
+router.get('/statut_bin',typesController.statut_bins)
+
 
 module.exports = router;
