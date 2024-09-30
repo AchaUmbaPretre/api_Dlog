@@ -57,4 +57,15 @@ router.get('/rapport', batimentController.getRapport)
 router.get('/rapport/one', batimentController.getRapportOne)
 router.get('/tableau_bord/one', batimentController.getTableauBordOne)
 
+//Entrepot
+router.get('/entrepot', batimentController.getEntrepot)
+router.get('/entrepot/one', batimentController.getEntrepotOne)
+router.post('/entrepot', batimentController.postEntrepot)
+
+//BINS
+router.get('/bins', batimentController.getBins)
+router.get('/bins/one', batimentController.getBinsOne)
+router.post('/bins', batimentController.postBins)
+
+
 module.exports = router;
