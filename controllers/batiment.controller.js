@@ -620,3 +620,45 @@ exports.postBins = (req, res) => {
         res.status(201).send('Bins créé');
     });
 };
+
+//Maintenance Bins
+exports.getMaintenanceBin = (req, res) => {
+
+    const q = `
+                SELECT * FROM maintenances_bins
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getMaintenanceBinOne = (req, res) => {
+    const {id_bin} = req.query;
+
+    const q = `
+                SELECT * FROM maintenances_bins WHERE id_bin = ?
+            `;
+
+    db.query(q,[id_bin], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postMaintenanceBinOne = (req, res) => {
+    const { id_bin, description} = req.body;
+    const q = 'INSERT INTO bins (id_bin, description) VALUES (?,?)';
+    
+    db.query(q, [id_bin, description], (err, result) => {
+        if (err) {
+            return res.status(500).send('Erreur lors de la création de bins');
+        }
+        res.status(201).send('Bins créé');
+    });
+};
