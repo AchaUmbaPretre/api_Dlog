@@ -663,3 +663,45 @@ exports.postMaintenanceBin = (req, res) => {
         res.status(201).send('Bins créé');
     });
 };
+
+//Bureaux
+exports.getBureaux = (req, res) => {
+
+    const q = `
+                SELECT * FROM bureaux
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getBureauxOne = (req, res) => {
+    const {id_batiment} = req.query;
+
+    const q = `
+                SELECT * FROM bureaux WHERE id_batiment = ?
+            `;
+
+    db.query(q,[id_batiment], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postBureaux = (req, res) => {
+    const { id_batiment, nom, longueur, largeur, hauteur, nombre_postes} = req.body;
+    const q = 'INSERT INTO bureaux (id_batiment, nom, longueur, largeur, hauteur, nombre_postes) VALUES (?,?,?,?,?,?)';
+    
+    db.query(q, [id_batiment, nom, longueur, largeur, hauteur, nombre_postes], (err, result) => {
+        if (err) {
+            return res.status(500).send('Erreur lors de la création du bureau');
+        }
+        res.status(201).send('Bureau créé');
+    });
+};
