@@ -123,8 +123,9 @@ exports.postBatiment = async (req, res) => {
 exports.putBatiment = async (req, res) => {
     const { id_batiment } = req.query;
 
+    // Validation de l'ID du bâtiment
     if (!id_batiment || isNaN(id_batiment)) {
-        return res.status(400).json({ error: 'Invalid Batiment ID provided' });
+        return res.status(400).json({ error: 'ID de bâtiment invalide' });
     }
 
     try {
@@ -142,7 +143,7 @@ exports.putBatiment = async (req, res) => {
                 metres_lineaires = ?
             WHERE id_batiment = ?
         `;
-      
+
         const values = [
             req.body.nom_batiment,
             req.body.site,
@@ -156,18 +157,25 @@ exports.putBatiment = async (req, res) => {
             id_batiment
         ];
 
-        db.query(q, values, (error, data)=>{
-            if(error){
-                console.log(error)
-                return res.status(404).json({ error: 'Tache record not found' });
+        // Exécution de la requête avec gestion des erreurs
+        db.query(q, values, (error, result) => {
+            if (error) {
+                console.error("Erreur lors de la mise à jour du bâtiment :", error);
+                return res.status(500).json({ error: 'Erreur interne lors de la mise à jour du bâtiment' });
             }
-            return res.json({ message: 'Tache record updated successfully' });
-        })
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ error: 'Bâtiment non trouvé' });
+            }
+
+            return res.json({ message: 'Bâtiment mis à jour avec succès' });
+        });
     } catch (err) {
-        console.error("Error updating tache:", err);
-        return res.status(500).json({ error: 'Failed to update Tache record' });
+        console.error("Erreur lors de la mise à jour du bâtiment :", err);
+        return res.status(500).json({ error: 'Erreur interne lors de la mise à jour du bâtiment' });
     }
-}
+};
+
 
 
 //Categorie
