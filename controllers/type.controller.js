@@ -181,7 +181,6 @@ exports.putBatiment = async (req, res) => {
 };
 
 
-
 //Categorie
 exports.getCategorie = (req, res) => {
 
