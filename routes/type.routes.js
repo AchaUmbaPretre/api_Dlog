@@ -10,6 +10,7 @@ router.get('/articleOne', typesController.getArticleOne)
 router.get('/batiment', typesController.getBatiment)
 router.get('/batiment/one', typesController.getBatimentOne)
 router.post('/batiment', typesController.postBatiment)
+router.put('/batiment', typesController.putBatiment)
 
 //Categorie
 router.get('/categorie', typesController.getCategorie)

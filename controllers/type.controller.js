@@ -120,6 +120,55 @@ exports.postBatiment = async (req, res) => {
     }
 };
 
+exports.putBatiment = async (req, res) => {
+    const { id_batiment } = req.query;
+
+    if (!id_batiment || isNaN(id_batiment)) {
+        return res.status(400).json({ error: 'Invalid Batiment ID provided' });
+    }
+
+    try {
+        const q = `
+            UPDATE batiment 
+            SET 
+                nom_batiment = ?,
+                site = ?,
+                ville = ?,
+                longueur = ?,
+                largeur = ?,
+                hauteur = ?,
+                surface_sol = ?,
+                surface_murs = ?,
+                metres_lineaires = ?
+            WHERE id_batiment = ?
+        `;
+      
+        const values = [
+            req.body.nom_batiment,
+            req.body.site,
+            req.body.ville,
+            req.body.longueur,
+            req.body.largeur,
+            req.body.hauteur,
+            req.body.surface_sol,
+            req.body.surface_murs,
+            req.body.metres_lineaires,
+            id_batiment
+        ];
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Tache record not found' });
+            }
+            return res.json({ message: 'Tache record updated successfully' });
+        })
+    } catch (err) {
+        console.error("Error updating tache:", err);
+        return res.status(500).json({ error: 'Failed to update Tache record' });
+    }
+}
+
 
 //Categorie
 exports.getCategorie = (req, res) => {
