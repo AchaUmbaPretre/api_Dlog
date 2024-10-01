@@ -592,16 +592,16 @@ exports.postEntrepot = (req, res) => {
 exports.getBins = (req, res) => {
 
     const q = `
-        SELECT 
-            bins.id, bins.id_batiment, bins.nom, bins.superficie, 
-            bins.longueur, bins.largeur, bins.hauteur, bins.capacite, 
-            statut_bins.nom_statut_bins AS statut, type_stockage_bins.nom_stockage AS type_stockage,
-            batiment.nom_batiment
-        FROM 
-            bins
-        INNER JOIN statut_bins ON bins.statut = statut_bins.id_statut_bins
-        INNER JOIN type_stockage_bins ON bins.type_stockage = type_stockage_bins.id_type_stockage_bins
-        INNER JOIN batiment ON bins.id_batiment = batiment.id_batiment
+                SELECT bins.id, bins.id_entrepot, bins.nom, bins.superficie, 
+                    bins.longueur, bins.largeur, bins.hauteur, 
+                    bins.capacite, statut_bins.nom_statut_bins AS statut, 
+                    type_stockage_bins.nom_stockage AS type_stockage,
+                    batiment.nom_batiment
+                FROM bins
+                    INNER JOIN statut_bins ON bins.statut = statut_bins.id_statut_bins
+                    INNER JOIN type_stockage_bins ON bins.type_stockage = type_stockage_bins.id_type_stockage_bins
+                    INNER JOIN entrepots ON bins.id_entrepot = entrepots.id
+                    INNER JOIN batiment ON entrepots.id_batiment = batiment.id_batiment
             `;
 
     db.query(q, (error, data) => {
