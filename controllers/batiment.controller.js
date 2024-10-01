@@ -145,6 +145,18 @@ exports.postBatimentPlans = async (req, res) => {
 };
 
 //DOC BATIMENT
+exports.getBatimentDoc = (req, res) => {
+
+    const q = `SELECT * FROM documents_batiment`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getBatimentDocOne1 = (req, res) => {
     const {id_document} = req.query;
 
