@@ -98,7 +98,7 @@ exports.getBatimentOne = (req, res) => {
 exports.postBatiment = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO batiment(`nom_batiment`, `site`, `ville`, `longueur`, `largeur`, `hauteur`, `surface_sol`, `surface_murs`, `metres_lineaires`) VALUES(?,?,?,?,?,?,?,?,?)';
+        const q = 'INSERT INTO batiment(`nom_batiment`, `site`, `ville`, `longueur`, `largeur`, `hauteur`, `surface_sol`, `surface_murs`, `metres_lineaires`, `type_batiment`) VALUES(?,?,?,?,?,?,?,?,?,?)';
 
         const values = [
             req.body.nom_batiment,
@@ -109,7 +109,8 @@ exports.postBatiment = async (req, res) => {
             req.body.hauteur,
             req.body.surface_sol,
             req.body.surface_murs,
-            req.body.metres_lineaires
+            req.body.metres_lineaires,
+            req.body.type_batiment
         ];
 
         await db.query(q, values);
@@ -140,7 +141,9 @@ exports.putBatiment = async (req, res) => {
                 hauteur = ?,
                 surface_sol = ?,
                 surface_murs = ?,
-                metres_lineaires = ?
+                metres_lineaires = ?,
+                type_batiment = ?
+
             WHERE id_batiment = ?
         `;
 
@@ -154,6 +157,7 @@ exports.putBatiment = async (req, res) => {
             req.body.surface_sol,
             req.body.surface_murs,
             req.body.metres_lineaires,
+            req.body.type_batiment,
             id_batiment
         ];
 
