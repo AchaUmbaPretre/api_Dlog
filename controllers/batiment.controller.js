@@ -613,20 +613,20 @@ exports.getBins = (req, res) => {
 };
 
 exports.getBinsOne = (req, res) => {
-    const {	id_batiment } = req.query;
+    const {	id_entrepot } = req.query;
 
     const q = `
-                SELECT bins.id, bins.id_batiment, bins.nom, bins.superficie, 
+                SELECT bins.id, bins.id_entrepot, bins.nom, bins.superficie, 
                     bins.longueur, bins.largeur, bins.hauteur, 
                     bins.capacite, statut_bins.nom_statut_bins AS statut, 
                     type_stockage_bins.nom_stockage AS type_stockage 
                 FROM bins
                     INNER JOIN statut_bins ON bins.statut = statut_bins.id_statut_bins
                     INNER JOIN type_stockage_bins ON bins.type_stockage = type_stockage_bins.id_type_stockage_bins
-                WHERE id_batiment = ?
+                WHERE bins.id_entrepot = ?
             `;
 
-    db.query(q,[id_batiment], (error, data) => {
+    db.query(q,[id_entrepot], (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
@@ -635,10 +635,10 @@ exports.getBinsOne = (req, res) => {
 };
 
 exports.postBins = (req, res) => {
-    const { id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut} = req.body;
-    const q = 'INSERT INTO bins (id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut ) VALUES (?,?,?,?,?,?,?,?,?)';
+    const { id_entrepot, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut} = req.body;
+    const q = 'INSERT INTO bins (id_entrepot, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut ) VALUES (?,?,?,?,?,?,?,?,?)';
     
-    db.query(q, [id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut], (err, result) => {
+    db.query(q, [id_entrepot, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut], (err, result) => {
         if (err) {
             console.log(err)
             return res.status(500).send('Erreur lors de la création de bins');
