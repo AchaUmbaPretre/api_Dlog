@@ -215,7 +215,7 @@ exports.getOffreArticleOne = (req, res) => {
 exports.postOffres = (req, res) => {
     const articles = req.body.articles;
 
-    const q = 'INSERT INTO offres(`id_fournisseur`,`id_projet`, `id_batiment`, `nom_offre`, `description`) VALUES(?,?,?,?,?)';
+    const q = 'INSERT INTO offres(`id_fournisseur`,`id_projet`, `id_batiment`, `nom_offre`, `description`,`id_cat_tache`) VALUES(?,?,?,?,?,?)';
     const qOffre_article = 'INSERT INTO offre_article(`id_offre`,`id_article`,`prix`, `quantite`) VALUES(?,?,?,?)';
     const qBesoin_offre = 'INSERT INTO besoin_offre(`id_besoin`,`id_offre`,`prix`, `quantite`) VALUES(?,?,?,?)';
 
