@@ -50,6 +50,23 @@ exports.getSuiviOne = (req, res) => {
     });
 }
 
+exports.getSuiviAllNbre = (req, res) => {
+    const {id_tache} = req.query
+    let q = `
+        SELECT 
+                COUNT(suivi_tache.id_suivi) AS nbre_tracking,
+                COUNT(tache_documents.id_tache_document) AS nbre_doc
+        FROM suivi_tache
+            LEFT JOIN tache_documents ON suivi_tache.id_tache = tache_documents.id_tache
+        WHERE suivi_tache.id_tache = ?
+        `;
+     
+    db.query(q,[id_tache], (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+}
+
 exports.getSuiviTacheOne = (req, res) => {
     const {id_tache} = req.query;
 
