@@ -313,7 +313,6 @@ exports.postOffres = (req, res) => {
     });
 };
 
-
 exports.postArticle = async (req, res) => {
     const articles = req.body.articles;
 
