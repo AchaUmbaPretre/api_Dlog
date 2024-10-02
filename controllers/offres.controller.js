@@ -224,7 +224,8 @@ exports.postOffres = (req, res) => {
         req.body.id_projet,
         req.body.id_batiment,
         req.body.nom_offre,
-        req.body.description
+        req.body.description,
+        req.body.id_cat_tache
     ];
 
     db.getConnection((err, connection) => {
