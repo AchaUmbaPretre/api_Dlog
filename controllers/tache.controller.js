@@ -111,7 +111,9 @@ exports.getTache = (req, res) => {
         departement.nom_departement AS departement,
         cb.controle_de_base,
         cb.id_controle,
-        DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
+        DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour,
+        ct.nom_cat_tache,
+        cm.nom_corps_metier
     FROM 
         tache
     LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
@@ -122,6 +124,8 @@ exports.getTache = (req, res) => {
     LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
     LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
     LEFT JOIN departement ON tache.id_departement = departement.id_departement
+    LEFT JOIN categorietache AS ct ON tache.id_cat_tache = ct.id_cat_tache
+    LEFT JOIN corpsmetier AS cm ON tache.id_corps_metier = cm.id_corps_metier
     WHERE 
         tache.est_supprime = 0 `;
 
