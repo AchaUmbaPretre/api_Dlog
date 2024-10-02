@@ -29,5 +29,7 @@ router.delete('/:id', suiviController.deleteSuivi)
 
 router.get('/doc', suiviController.getDocGeneral)
 router.post('/doc',upload.array('chemin_document', 10), suiviController.postDocGeneral)
- 
+
+router.get('/tracking_all_one', suiviController.getSuiviAllNbre)
+
 module.exports = router;

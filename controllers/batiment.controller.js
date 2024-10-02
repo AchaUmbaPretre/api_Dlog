@@ -562,7 +562,8 @@ exports.getTableauBordOne = (req, res) => {
 exports.getEntrepot = (req, res) => {
 
     const q = `
-                SELECT * FROM entrepots
+                SELECT entrepots.id, entrepots.nom, entrepots.description, batiment.nom_batiment FROM entrepots
+INNER JOIN batiment ON entrepots.id_batiment = batiment.id_batiment
             `;
 
     db.query(q, (error, data) => {
