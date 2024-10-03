@@ -694,6 +694,28 @@ exports.getBinsOne = (req, res) => {
     });
 };
 
+exports.getBinsOneV = (req, res) => {
+    const {	id } = req.query;
+
+    const q = `
+                SELECT bins.id, bins.id_entrepot, bins.nom, bins.superficie, 
+                    bins.longueur, bins.largeur, bins.hauteur, 
+                    bins.capacite, statut_bins.nom_statut_bins AS statut, 
+                    type_stockage_bins.nom_stockage AS type_stockage 
+                FROM bins
+                    INNER JOIN statut_bins ON bins.statut = statut_bins.id_statut_bins
+                    INNER JOIN type_stockage_bins ON bins.type_stockage = type_stockage_bins.id_type_stockage_bins
+                WHERE bins.id = ?
+            `;
+
+    db.query(q,[id_entrepot], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.postBins = (req, res) => {
     const { id_entrepot, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut} = req.body;
     const q = 'INSERT INTO bins (id_entrepot, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut ) VALUES (?,?,?,?,?,?,?,?,?)';

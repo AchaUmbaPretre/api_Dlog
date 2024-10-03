@@ -67,6 +67,7 @@ router.put('/entrepot_put', batimentController.putEntrepot)
 //BINS
 router.get('/bins', batimentController.getBins)
 router.get('/bins/one', batimentController.getBinsOne)
+router.get('/bins/oneV', batimentController.getBinsOneV)
 router.post('/bins', batimentController.postBins)
 
 //Maintenance Bins
