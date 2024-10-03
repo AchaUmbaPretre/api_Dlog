@@ -729,6 +729,44 @@ exports.postBins = (req, res) => {
     });
 };
 
+exports.putBins = async (req, res) => {
+    const { id } = req.query;
+    const { nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut} = req.body;
+
+    if (!id || isNaN(id)) {
+        return res.status(400).json({ error: 'ID de bins fourni non valide' });
+    }
+
+    try {
+        const q = `
+            UPDATE bins 
+            SET 
+                nom = ?,
+                superficie = ?,
+                longueur = ?,
+                largeur = ?,
+                hauteur = ?,
+                capacite = ?,
+                type_stockage = ?,
+                statut = ?
+            WHERE id = ?
+        `;
+      
+        const values = [nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut]
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Bins record not found' });
+            }
+            return res.json({ message: 'Bins record updated successfully' });
+        })
+    } catch (err) {
+        console.error("Error updating bins:", err);
+        return res.status(500).json({ error: 'Failed to update bins record' });
+    }
+}
+
 //Maintenance Bins
 exports.getMaintenanceBin = (req, res) => {
 
