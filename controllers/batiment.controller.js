@@ -698,17 +698,12 @@ exports.getBinsOneV = (req, res) => {
     const {	id } = req.query;
 
     const q = `
-                SELECT bins.id, bins.id_entrepot, bins.nom, bins.superficie, 
-                    bins.longueur, bins.largeur, bins.hauteur, 
-                    bins.capacite, statut_bins.nom_statut_bins AS statut, 
-                    type_stockage_bins.nom_stockage AS type_stockage 
+                SELECT * 
                 FROM bins
-                    INNER JOIN statut_bins ON bins.statut = statut_bins.id_statut_bins
-                    INNER JOIN type_stockage_bins ON bins.type_stockage = type_stockage_bins.id_type_stockage_bins
                 WHERE bins.id = ?
             `;
 
-    db.query(q,[id_entrepot], (error, data) => {
+    db.query(q,[id], (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
@@ -752,7 +747,7 @@ exports.putBins = async (req, res) => {
             WHERE id = ?
         `;
       
-        const values = [nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut]
+        const values = [nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut, id]
 
         db.query(q, values, (error, data)=>{
             if(error){
