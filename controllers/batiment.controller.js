@@ -601,6 +601,38 @@ exports.postEntrepot = (req, res) => {
     });
 };
 
+exports.putEntrepot = async (req, res) => {
+    const { id_entrepot } = req.query;
+    const { nom, description} = req.body;
+
+    if (!id_entrepot || isNaN(id_entrepot)) {
+        return res.status(400).json({ error: 'ID de entrepot fourni non valide' });
+    }
+
+    try {
+        const q = `
+            UPDATE projet 
+            SET 
+                nom = ?,
+                description = ?,
+            WHERE id_entrepot = ?
+        `;
+      
+        const values = [ nom, description];
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Entrepot record not found' });
+            }
+            return res.json({ message: 'Entrepot record updated successfully' });
+        })
+    } catch (err) {
+        console.error("Error updating entrepot:", err);
+        return res.status(500).json({ error: 'Failed to update entrepot record' });
+    }
+}
+
 //BINS
 exports.getBins = (req, res) => {
 
