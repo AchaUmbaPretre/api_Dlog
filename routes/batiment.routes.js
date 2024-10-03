@@ -61,8 +61,9 @@ router.get('/tableau_bord/one', batimentController.getTableauBordOne)
 //Entrepot
 router.get('/entrepot', batimentController.getEntrepot)
 router.get('/entrepot/one', batimentController.getEntrepotOne)
+router.get('/entrepot/oneV', batimentController.getEntrepotOneV)
 router.post('/entrepot', batimentController.postEntrepot)
-
+router.put('/entrepot_put', batimentController.putEntrepot)
 //BINS
 router.get('/bins', batimentController.getBins)
 router.get('/bins/one', batimentController.getBinsOne)

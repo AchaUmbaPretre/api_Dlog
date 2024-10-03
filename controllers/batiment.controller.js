@@ -589,6 +589,21 @@ exports.getEntrepotOne = (req, res) => {
     });
 };
 
+exports.getEntrepotOneV = (req, res) => {
+    const {id} = req.query;
+
+    const q = `
+                SELECT * FROM entrepots WHERE id = ?
+            `;
+
+    db.query(q,[id], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.postEntrepot = (req, res) => {
     const { nom, description, id_batiment } = req.body;
     const sql = 'INSERT INTO entrepots (nom, description, id_batiment) VALUES (?, ?, ?)';
@@ -611,14 +626,14 @@ exports.putEntrepot = async (req, res) => {
 
     try {
         const q = `
-            UPDATE projet 
+            UPDATE entrepots 
             SET 
                 nom = ?,
-                description = ?,
-            WHERE id_entrepot = ?
+                description = ?
+            WHERE id = ?
         `;
       
-        const values = [ nom, description];
+        const values = [ nom, description, id_entrepot];
 
         db.query(q, values, (error, data)=>{
             if(error){
