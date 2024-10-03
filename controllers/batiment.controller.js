@@ -91,6 +91,45 @@ exports.postEquipement = async (req, res) => {
     }
 };
 
+exports.putEquipement = async (req, res) => {
+    const { id_equipement  } = req.query;
+    const { model, num_serie, installation_date, maintenance_date, date_prochaine_maintenance, location, status} = req.body;
+
+    if (!id || isNaN(id)) {
+        return res.status(400).json({ error: 'ID de bins fourni non valide' });
+    }
+
+    try {
+        const q = `
+            UPDATE equipments 
+            SET 
+                model = ?,
+                num_serie = ?,
+                installation_date = ?,
+                maintenance_date = ?,
+                date_prochaine_maintenance = ?,
+                location = ?,
+                type_stockage = ?,
+                status = ?
+            WHERE id_equipement  = ?
+        `;
+      
+        const values = [ model, num_serie, installation_date, maintenance_date, date_prochaine_maintenance, location, status, id_equipement ]
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Bins record not found' });
+            }
+            return res.json({ message: 'Bins record updated successfully' });
+        })
+    } catch (err) {
+        console.error("Error updating bins:", err);
+        return res.status(500).json({ error: 'Failed to update bins record' });
+    }
+}
+
+//Plan
 exports.getBatimentPlans = (req, res) => {
 
     const q = `
