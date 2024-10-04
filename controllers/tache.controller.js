@@ -1095,4 +1095,41 @@ exports.postTag = async (req, res) => {
         }
     };
     
+
+    exports.getSearch = async (req, res) => {
+        const searchTerm = req.query.term;
+    
+        try {
+            // Exécution des deux requêtes en parallèle
+            const [projects, tasks] = await Promise.all([
+                db.query(`
+                    SELECT * FROM projet
+                    WHERE id_projet IN (
+                        SELECT id_projet FROM projet_tag
+                        WHERE id_tag IN (
+                            SELECT id_tag FROM tags WHERE nom_tag LIKE ?
+                        )
+                    )
+                `, [`%${searchTerm}%`]),
+    
+                db.query(`
+                    SELECT * FROM tache
+                    WHERE id_tache IN (
+                        SELECT id_tache FROM tache_tags
+                        WHERE id_tag IN (
+                            SELECT id_tag FROM tags WHERE nom_tag LIKE ?
+                        )
+                    )
+                `, [`%${searchTerm}%`])
+            ]);
+    
+            res.json({
+                projects,
+                tasks,
+            });
+        } catch (error) {
+            console.error('Erreur lors de la recherche:', error);
+            res.status(500).json({ error: 'Erreur de serveur' });
+        }
+    };
     

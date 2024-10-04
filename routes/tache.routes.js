@@ -45,4 +45,7 @@ router.put('/tache_doc', upload.single('chemin_document'),tacheController.putTac
 //Tag
 router.post('/post_tag', tacheController.postTag)
 
+//Search
+router.get('/get_search', tacheController.getSearch)
+
 module.exports = router;
