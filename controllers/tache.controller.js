@@ -716,7 +716,6 @@ exports.postTacheDoc = async (req, res) => {
     res.status(200).json({ message: 'Documents ajoutés avec succès' });
 };
 
-
 exports.deleteTachePersonne = (req, res) => {
     const id = req.params.id;
   
@@ -773,3 +772,49 @@ exports.putTacheDoc = async (req, res) => {
         return res.status(500).json({ error: 'Failed to update Tache record' });
     }
 };
+
+//Tag
+exports.getTag = async (req, res) => {
+
+    const query = 'SELECT * FROM tags';
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).send(err);
+    }
+    res.json(results);
+  })
+}
+
+exports.getTagOne = async (req, res) => {
+    const tagName = req.body;
+
+    const query =  `
+                    SELECT t.* 
+                        FROM tache t
+                    JOIN tache_tags tt ON t.id_tache = tt.id_tache
+                    JOIN tags tg ON tt.id_tag = tg.id_tag
+                        WHERE tg.nom_tag = ?;
+                    `;
+
+  db.query(query,[tagName],(err, results) => {
+    if (err) {
+      return res.status(500).send(err);
+    }
+    res.json(results);
+  })
+}
+
+exports.postTag = async (req, res) => {
+    const id_tache = req.params.id;
+    const tags = req.body.tags;
+
+    const query = 'INSERT INTO tache_tags (id_tache, id_tag) VALUES ?';
+    const values = tags.map(tagId => [id_tache, tagId]);
+
+    db.query(query, [values], (err) => {
+        if (err) {
+          return res.status(500).send(err);
+        }
+        res.status(200).send('Tags associés avec succès');
+      });
+}
