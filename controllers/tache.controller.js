@@ -91,7 +91,7 @@ exports.getTacheCount = (req, res) => {
     });
 }; */
 
-exports.getTache = (req, res) => {
+/* exports.getTache = (req, res) => {
 
     const { departement, client, statut, priorite, dateRange, owners } = req.body;
 
@@ -126,6 +126,149 @@ exports.getTache = (req, res) => {
     LEFT JOIN departement ON tache.id_departement = departement.id_departement
     LEFT JOIN categorietache AS ct ON tache.id_cat_tache = ct.id_cat_tache
     LEFT JOIN corpsmetier AS cm ON tache.id_corps_metier = cm.id_corps_metier
+    WHERE 
+        tache.est_supprime = 0 `;
+
+    // Ajout de conditions dynamiques pour les filtres
+    if (departement) {
+        query += ` AND tache.id_departement IN (${departement.map(d => db.escape(d)).join(',')})`;
+    }
+    if (client) {
+        query += ` AND tache.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
+    }
+    if (statut) {
+        query += ` AND tache.statut IN (${statut.map(s => db.escape(s)).join(',')})`;
+    }
+    if (priorite) {
+        query += ` AND tache.priorite IN (${priorite.map(p => db.escape(p)).join(',')})`;
+    }
+    if (dateRange && dateRange.length === 2) {
+        query += ` AND tache.date_debut >= ${db.escape(dateRange[0])} AND tache.date_fin <= ${db.escape(dateRange[1])}`;
+    }
+    if (owners) {
+        query += ` AND tache.responsable_principal IN (${owners.map(o => db.escape(o)).join(',')})`;
+    }
+
+    let statsQuery = `
+        SELECT 
+            typeC.nom_type_statut AS statut,
+            COUNT(*) AS nombre_taches
+        FROM 
+            tache
+        LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+        WHERE 
+            tache.est_supprime = 0 `;
+
+    if (departement) {
+        statsQuery += ` AND tache.id_departement IN (${departement.map(d => db.escape(d)).join(',')})`;
+    }
+    if (client) {
+        statsQuery += ` AND tache.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
+    }
+    if (statut) {
+        statsQuery += ` AND tache.statut IN (${statut.map(s => db.escape(s)).join(',')})`;
+    }
+    if (priorite) {
+        statsQuery += ` AND tache.priorite IN (${priorite.map(p => db.escape(p)).join(',')})`;
+    }
+    if (dateRange && dateRange.length === 2) {
+        statsQuery += ` AND tache.date_debut >= ${db.escape(dateRange[0])} AND tache.date_fin <= ${db.escape(dateRange[1])}`;
+    }
+    if (owners) {
+        statsQuery += ` AND tache.responsable_principal IN (${owners.map(o => db.escape(o)).join(',')})`;
+    }
+
+    statsQuery += ` GROUP BY typeC.nom_type_statut;`;
+
+    // Requête pour obtenir le total des tâches trouvées
+    let totalQuery = `
+        SELECT 
+            COUNT(*) AS total_taches
+        FROM 
+            tache
+        WHERE 
+            tache.est_supprime = 0 `;
+
+    if (departement) {
+        totalQuery += ` AND tache.id_departement IN (${departement.map(d => db.escape(d)).join(',')})`;
+    }
+    if (client) {
+        totalQuery += ` AND tache.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
+    }
+    if (statut) {
+        totalQuery += ` AND tache.statut IN (${statut.map(s => db.escape(s)).join(',')})`;
+    }
+    if (priorite) {
+        totalQuery += ` AND tache.priorite IN (${priorite.map(p => db.escape(p)).join(',')})`;
+    }
+    if (dateRange && dateRange.length === 2) {
+        totalQuery += ` AND tache.date_debut >= ${db.escape(dateRange[0])} AND tache.date_fin <= ${db.escape(dateRange[1])}`;
+    }
+    if (owners) {
+        totalQuery += ` AND tache.responsable_principal IN (${owners.map(o => db.escape(o)).join(',')})`;
+    }
+
+    db.query(query, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        db.query(statsQuery, (statsError, statsData) => {
+            if (statsError) {
+                return res.status(500).send(statsError);
+            }
+            db.query(totalQuery, (totalError, totalData) => {
+                if (totalError) {
+                    return res.status(500).send(totalError);
+                }
+                return res.status(200).json({
+                    total_taches: totalData[0]?.total_taches || 0,
+                    taches: data,
+                    statistiques: statsData
+                });
+            });
+        });
+    });
+}; */
+
+exports.getTache = (req, res) => {
+
+    const { departement, client, statut, priorite, dateRange, owners } = req.body;
+
+    let query = `SELECT 
+        tache.id_tache, 
+        tache.description, 
+        tache.date_debut, 
+        tache.date_fin,
+        tache.nom_tache, 
+        tache.priorite,
+        tache.id_tache_parente,
+        typeC.nom_type_statut AS statut, 
+        client.nom AS nom_client, 
+        frequence.nom AS frequence, 
+        utilisateur.nom AS owner, 
+        provinces.name AS ville, 
+        departement.nom_departement AS departement,
+        cb.controle_de_base,
+        cb.id_controle,
+        DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour,
+        ct.nom_cat_tache,
+        cm.nom_corps_metier,
+        tg.id_tag        
+
+    FROM 
+        tache
+    LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+    LEFT JOIN client ON tache.id_client = client.id_client
+    INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
+    LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
+    LEFT JOIN provinces ON tache.id_ville = provinces.id
+    LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
+    LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
+    LEFT JOIN departement ON tache.id_departement = departement.id_departement
+    LEFT JOIN categorietache AS ct ON tache.id_cat_tache = ct.id_cat_tache
+    LEFT JOIN corpsmetier AS cm ON tache.id_corps_metier = cm.id_corps_metier
+    LEFT JOIN tache_tags tt ON tache.id_tache = tt.id_tache
+    LEFT JOIN tags tg ON tt.id_tag = tg.id_tag
     WHERE 
         tache.est_supprime = 0 `;
 
@@ -418,7 +561,7 @@ GROUP BY
     });
 }
 
-exports.postTache = async (req, res) => {
+/* exports.postTache = async (req, res) => {
 
     try {
         const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_tache_parente`, `id_departement`,`id_client`, `id_frequence`,`id_control`,`id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`,`id_batiment`, `id_ville`,`id_cat_tache`,`id_corps_metier`, `doc`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
@@ -458,7 +601,93 @@ exports.postTache = async (req, res) => {
         console.error('Erreur lors de l\'ajout de la tâche :', error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
+}; */
+
+
+exports.postTache = async (req, res) => {
+    const tags = req.body.tags;
+
+    try {
+        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`, `id_tache_parente`, `id_departement`, `id_client`, `id_frequence`, `id_control`, `id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`, `id_batiment`, `id_ville`, `id_cat_tache`, `id_corps_metier`, `doc`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
+        const qTag = 'INSERT INTO tags(`nom_tag`) VALUES(?)';
+        const qTagTache = 'INSERT INTO tache_tags(`id_tache`, `id_tag`) VALUES(?, ?)';
+
+        const values = [
+            req.body.nom_tache,
+            req.body.description,
+            req.body.statut || 1,
+            req.body.date_debut,
+            req.body.date_fin,
+            req.body.priorite,
+            req.body.id_tache_parente,
+            req.body.id_departement,
+            req.body.id_client,
+            req.body.id_frequence,
+            req.body.id_control,
+            req.body.id_projet,
+            req.body.id_point_supervision,
+            req.body.responsable_principal,
+            req.body.id_demandeur,
+            req.body.id_batiment,
+            req.body.id_ville,
+            req.body.id_cat_tache,
+            req.body.id_corps_metier,
+            req.body.doc
+        ];
+
+        // Insertion de la tâche
+        db.query(q, values, (error, data) => {
+            if (error) {
+                console.log(error);
+                return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+            }
+
+            const idTache = data.insertId;
+
+            // Si des tags sont fournis, insérer chaque tag et associer avec la tâche
+            if (Array.isArray(tags) && tags.length > 0) {
+                const tagInsertions = tags.map(tag => {
+                    return new Promise((resolve, reject) => {
+                        db.query(qTag, [tag], (err, tagData) => {
+                            if (err) {
+                                console.log(err);
+                                reject(err);
+                            } else {
+                                const idTag = tagData.insertId;
+                                // Associer le tag à la tâche
+                                db.query(qTagTache, [idTache, idTag], (errTagTache) => {
+                                    if (errTagTache) {
+                                        console.log(errTagTache);
+                                        reject(errTagTache);
+                                    } else {
+                                        resolve();
+                                    }
+                                });
+                            }
+                        });
+                    });
+                });
+
+                // Attendre que toutes les insertions de tags soient terminées
+                Promise.all(tagInsertions)
+                    .then(() => {
+                        return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
+                    })
+                    .catch(err => {
+                        console.log(err);
+                        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout des tags." });
+                    });
+            } else {
+                // Pas de tags, juste retourner la réponse
+                return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
+            }
+        });
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout de la tâche :', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+    }
 };
+
 
 exports.postTacheExcel = async (req, res) => {
     try {
