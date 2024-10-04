@@ -1035,7 +1035,7 @@ exports.getTagOne = async (req, res) => {
   })
 }
 
-exports.postTag = async (req, res) => {
+/* exports.postTag = async (req, res) => {
     const id_tache = req.params.id;
     const tags = req.body.tags;
 
@@ -1060,4 +1060,39 @@ exports.postTag = async (req, res) => {
         console.error('Erreur lors de l\'insertion des tags :', err);
         res.status(500).send('Erreur lors de l\'association des tags');
     }
-}
+} */
+
+exports.postTag = async (req, res) => {
+        const { id_tache } = req.query;
+        const tags = req.body.nom_tag;
+    
+        const qTag = 'INSERT INTO tags(`nom_tag`) VALUES(?)';
+        const query = 'INSERT INTO tache_tags (id_tache, id_tag) VALUES (?, ?)';
+    
+        try {
+            const id_tag = await new Promise((resolve, reject) => {
+                db.query(qTag, [tags], (err, data) => {
+                    if (err) {
+                        return reject(err);
+                    }
+                    resolve(data.insertId);
+                });
+            });
+    
+            await new Promise((resolve, reject) => {
+                db.query(query, [id_tache, id_tag], (err, data) => {
+                    if (err) {
+                        return reject(err);
+                    }
+                    resolve(data);
+                });
+            });
+    
+            res.status(200).send('Tags associés avec succès');
+        } catch (err) {
+            console.error('Erreur lors de l\'insertion des tags :', err);
+            res.status(500).send('Erreur lors de l\'association des tags');
+        }
+    };
+    
+    
