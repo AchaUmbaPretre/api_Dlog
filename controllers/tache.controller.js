@@ -253,7 +253,7 @@ exports.getTache = (req, res) => {
         DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour,
         ct.nom_cat_tache,
         cm.nom_corps_metier,
-        tg.id_tag        
+        tg.nom_tag          
 
     FROM 
         tache
@@ -291,6 +291,8 @@ exports.getTache = (req, res) => {
     if (owners) {
         query += ` AND tache.responsable_principal IN (${owners.map(o => db.escape(o)).join(',')})`;
     }
+
+    query += ` ORDER BY tache.date_creation DESC`;
 
     let statsQuery = `
         SELECT 
