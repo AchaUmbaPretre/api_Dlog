@@ -793,7 +793,7 @@ exports.getTagOne = async (req, res) => {
                         FROM tache t
                     JOIN tache_tags tt ON t.id_tache = tt.id_tache
                     JOIN tags tg ON tt.id_tag = tg.id_tag
-                        WHERE tg.nom_tag = ?;
+                        WHERE tg.nom_tag = ?
                     `;
 
   db.query(query,[tagName],(err, results) => {
