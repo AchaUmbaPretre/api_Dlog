@@ -808,13 +808,25 @@ exports.postTag = async (req, res) => {
     const id_tache = req.params.id;
     const tags = req.body.tags;
 
+    if (!Array.isArray(tags) || tags.length === 0) {
+        return res.status(400).send('Aucun tag fourni');
+    }
+
     const query = 'INSERT INTO tache_tags (id_tache, id_tag) VALUES ?';
     const values = tags.map(tagId => [id_tache, tagId]);
 
-    db.query(query, [values], (err) => {
-        if (err) {
-          return res.status(500).send(err);
-        }
+    try {
+        await new Promise((resolve, reject) => {
+            db.query(query, [values], (err) => {
+                if (err) {
+                    return reject(err);
+                }
+                resolve();
+            });
+        });
         res.status(200).send('Tags associés avec succès');
-      });
+    } catch (err) {
+        console.error('Erreur lors de l\'insertion des tags :', err);
+        res.status(500).send('Erreur lors de l\'association des tags');
+    }
 }
