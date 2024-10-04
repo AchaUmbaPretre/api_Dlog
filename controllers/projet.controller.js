@@ -146,7 +146,6 @@ exports.getProjetOne = (req, res) => {
 }
 
 exports.postProjet = async (req, res) => {
-
     try {
         
         const q = 'INSERT INTO projet(`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`, `client`) VALUES(?,?,?,?,?,?,?,?)';
