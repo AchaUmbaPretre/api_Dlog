@@ -1096,11 +1096,13 @@ exports.postTag = async (req, res) => {
     };
     
 
-    exports.getSearch = async (req, res) => {
+/* exports.getSearch = async (req, res) => {
         const searchTerm = req.query.term;
     
         try {
-            // Exécution des deux requêtes en parallèle
+            console.log(`Recherche avec le terme: ${searchTerm}`);
+    
+            // Exécution des deux requêtes en parallèle avec Promise.all
             const [projects, tasks] = await Promise.all([
                 db.query(`
                     SELECT * FROM projet
@@ -1123,13 +1125,64 @@ exports.postTag = async (req, res) => {
                 `, [`%${searchTerm}%`])
             ]);
     
+            // Log des résultats des requêtes
+            console.log('Résultats des projets:', projects);
+            console.log('Résultats des tâches:', tasks);
+    
+            // Vérifier si nous avons des données dans l'élément [0] attendu
+            const projectResults = projects[0] || []; // S'assurer que ce n'est pas undefined
+            const taskResults = tasks[0] || []; // S'assurer que ce n'est pas undefined
+    
+            // Log des résultats formatés
+            console.log('Projets filtrés:', projectResults);
+            console.log('Tâches filtrées:', taskResults);
+    
+            // Envoyer les résultats comme réponse
             res.json({
-                projects,
-                tasks,
+                projects: projectResults,
+                tasks: taskResults,
             });
         } catch (error) {
             console.error('Erreur lors de la recherche:', error);
             res.status(500).json({ error: 'Erreur de serveur' });
         }
-    };
+    }; */
+    
+exports.getSearch = async (req, res) => {
+    const searchText = req.query.term;
+
+    console.log(searchText)
+
+  if (!searchText) {
+    return res.status(400).json({ message: 'Le mot clé de recherche est requis' });
+  }
+
+  // Requête SQL pour rechercher dans les tables tache et projet
+  const query = `
+    SELECT 'tache' AS type, id_tache AS id, nom_tache AS nom, description
+    FROM tache
+    WHERE nom_tache LIKE ? OR description LIKE ?
+    UNION
+    SELECT 'projet' AS type, id_projet AS id, nom_projet AS nom, description
+    FROM projet
+    WHERE nom_projet LIKE ? OR description LIKE ?
+    UNION
+    SELECT 'controle_de_base' AS type, id_controle AS id, controle_de_base AS nom
+    FROM controle_de_base
+    WHERE controle_de_base LIKE ?
+  `;
+
+  const searchPattern = `%${searchText}%`;
+
+  db.query(query, [searchPattern, searchPattern, searchPattern, searchPattern], (err, results) => {
+    if (err) {
+      console.error('Erreur lors de la recherche: ', err);
+      return res.status(500).json({ message: 'Erreur interne du serveur' });
+    }
+
+    res.json(results);
+  });
+}
+    
+    
     
