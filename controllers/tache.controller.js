@@ -1149,42 +1149,52 @@ exports.postTag = async (req, res) => {
     }; */
     
 exports.getSearch = async (req, res) => {
-    const searchText = req.query.term;
-
-  if (!searchText) {
-    return res.status(400).json({ message: 'Le mot clé de recherche est requis' });
-  }
-
-  // Requête SQL pour rechercher dans les tables tache et projet
-  const query = `
-    SELECT 'tache' AS type, id_tache AS id, nom_tache AS nom, description
-    FROM tache
-    WHERE nom_tache LIKE ? OR description LIKE ?
-    UNION
-    SELECT 'projet' AS type, id_projet AS id, nom_projet AS nom, description
-    FROM projet
-    WHERE nom_projet LIKE ? OR description LIKE ?
-    UNION
-    SELECT 'controle_de_base' AS type, id_controle AS id, controle_de_base AS nom
-    FROM controle_de_base
-    WHERE controle_de_base LIKE ?
-    UNION
-    SELECT 'offres' AS type, id_offre AS id, nom_offre AS nom, description
-    FROM offres
-    WHERE nom_offre LIKE ? OR description LIKE ?
-  `;
-
-  const searchPattern = `%${searchText}%`;
-
-  db.query(query, [searchPattern, searchPattern, searchPattern, searchPattern], (err, results) => {
-    if (err) {
-      console.error('Erreur lors de la recherche: ', err);
-      return res.status(500).json({ message: 'Erreur interne du serveur' });
-    }
-
-    res.json(results);
-  });
-}
+        const searchText = req.query.term;
+      
+        if (!searchText) {
+          return res.status(400).json({ message: 'Le mot clé de recherche est requis' });
+        }
+      
+        // Requête SQL pour rechercher dans les tables tache, projet, controle_de_base et offres
+        const query = `
+          SELECT 'tache' AS type, id_tache AS id, nom_tache AS nom, description
+          FROM tache
+          WHERE nom_tache LIKE ? OR description LIKE ?
+          UNION
+          SELECT 'projet' AS type, id_projet AS id, nom_projet AS nom, description
+          FROM projet
+          WHERE nom_projet LIKE ? OR description LIKE ?
+          UNION
+          SELECT 'controle_de_base' AS type, id_controle AS id, controle_de_base AS nom, NULL AS description
+          FROM controle_de_base
+          WHERE controle_de_base LIKE ?
+          UNION
+          SELECT 'offres' AS type, id_offre AS id, nom_offre AS nom, description
+          FROM offres
+          WHERE nom_offre LIKE ? OR description LIKE ?
+        `;
+      
+        const searchPattern = `%${searchText}%`;
+      
+        db.query(query, [
+          searchPattern, // Pour tache
+          searchPattern, // Pour tache description
+          searchPattern, // Pour projet
+          searchPattern, // Pour projet description
+          searchPattern, // Pour controle_de_base
+          searchPattern, // Pour offres
+          searchPattern  // Pour offres description
+        ], (err, results) => {
+          if (err) {
+            console.error('Erreur lors de la recherche: ', err);
+            return res.status(500).json({ message: 'Erreur interne du serveur. Veuillez réessayer plus tard.' });
+          }
+      
+          res.json(results);
+        });
+      }
+      
+      
     
     
     
