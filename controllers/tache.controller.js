@@ -1151,8 +1151,6 @@ exports.postTag = async (req, res) => {
 exports.getSearch = async (req, res) => {
     const searchText = req.query.term;
 
-    console.log(searchText)
-
   if (!searchText) {
     return res.status(400).json({ message: 'Le mot clé de recherche est requis' });
   }
@@ -1170,6 +1168,10 @@ exports.getSearch = async (req, res) => {
     SELECT 'controle_de_base' AS type, id_controle AS id, controle_de_base AS nom
     FROM controle_de_base
     WHERE controle_de_base LIKE ?
+    UNION
+    SELECT 'offres' AS type, id_offre AS id, nom_offre AS nom, description
+    FROM offres
+    WHERE nom_offre LIKE ? OR description LIKE ?
   `;
 
   const searchPattern = `%${searchText}%`;
