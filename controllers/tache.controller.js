@@ -1095,7 +1095,6 @@ exports.postTag = async (req, res) => {
         }
     };
     
-
 /* exports.getSearch = async (req, res) => {
         const searchTerm = req.query.term;
     
