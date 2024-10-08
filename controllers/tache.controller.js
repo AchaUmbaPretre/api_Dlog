@@ -563,7 +563,7 @@ GROUP BY
     });
 }
 
-/* exports.postTache = async (req, res) => {
+exports.postTache = async (req, res) => {
 
     try {
         const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_tache_parente`, `id_departement`,`id_client`, `id_frequence`,`id_control`,`id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`,`id_batiment`, `id_ville`,`id_cat_tache`,`id_corps_metier`, `doc`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
@@ -603,10 +603,9 @@ GROUP BY
         console.error('Erreur lors de l\'ajout de la tâche :', error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
-}; */
+};
 
-
-exports.postTache = async (req, res) => {
+/* exports.postTache = async (req, res) => {
     const tags = req.body.tags;
 
     try {
@@ -688,7 +687,7 @@ exports.postTache = async (req, res) => {
         console.error('Erreur lors de l\'ajout de la tâche :', error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
-};
+}; */
 
 
 exports.postTacheExcel = async (req, res) => {
