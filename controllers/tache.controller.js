@@ -802,6 +802,39 @@ exports.putTache = async (req, res) => {
     }
 }
 
+exports.putTacheDesc = async (req, res) => {
+    const { id_tache } = req.query;
+
+    if (!id_tache || isNaN(id_tache)) {
+        return res.status(400).json({ error: 'Invalid tache ID provided' });
+    }
+
+    try {
+        const q = `
+            UPDATE tache 
+            SET 
+                description = ?
+            WHERE id_tache = ?
+        `;
+      
+        const values = [
+            req.body.description,
+            id_tache
+        ];
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Tache record not found' });
+            }
+            return res.json({ message: 'Tache record updated successfully' });
+        })
+    } catch (err) {
+        console.error("Error updating tache:", err);
+        return res.status(500).json({ error: 'Failed to update Tache record' });
+    }
+}
+
 exports.putTachePriorite = async (req, res) => {
     const { id_tache } = req.query;
 
