@@ -22,8 +22,9 @@ router.post('/activite', typesController.postActivite)
 
 //Categorie corps metier
 router.get('/corps_metier',typesController.getCorpsMetier)
+router.get('/corps_metier/one',typesController.getCorpsMetierOne)
+router.post('/corps_metier',typesController.postCorpsMetier)
 router.put('/corps_metier_update', typesController.putCorpsMetier)
-
 router.get('/cat_tache',typesController.getCatTache)
 
 //Statut Bin

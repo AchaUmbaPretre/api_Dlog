@@ -257,6 +257,36 @@ exports.getCorpsMetier = (req, res) => {
     });
 };
 
+exports.getCorpsMetierOne = (req, res) => {
+    const {id_corps} = req.query;
+
+    const q = `SELECT * FROM corpsmetier WHERE 	id_corps_metier = ?`;
+
+    db.query(q,[id_corps], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postCorpsMetier = async (req, res) => {
+
+    try {
+        const q = 'INSERT INTO corpsmetier(`nom_corps_metier`) VALUES(?)';
+
+        const values = [
+            req.body.nom_corps_metier
+        ];
+
+        await db.query(q, values);
+        return res.status(201).json({ message: 'corps de metier ajouté avec succès' });
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout du corps metier:', error.message);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+    }
+};
+
 exports.putCorpsMetier = async (req, res) => {
     const { id_corps } = req.query;
 
