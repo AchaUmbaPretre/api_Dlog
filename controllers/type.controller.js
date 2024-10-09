@@ -257,6 +257,39 @@ exports.getCorpsMetier = (req, res) => {
     });
 };
 
+exports.putCorpsMetier = async (req, res) => {
+    const { id_corps } = req.query;
+
+    if (!id_corps || isNaN(id_corps)) {
+        return res.status(400).json({ error: 'Invalid corps ID provided' });
+    }
+
+    try {
+        const q = `
+            UPDATE corpsmetier 
+            SET 
+                nom_corps_metier = ?
+            WHERE id_corps_metier = ?
+        `;
+      
+        const values = [
+            req.body.nom_corps_metier,
+            id_corps
+        ];
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Corps record not found' });
+            }
+            return res.json({ message: 'Corps record updated successfully' });
+        })
+    } catch (err) {
+        console.error("Error updating corps:", err);
+        return res.status(500).json({ error: 'Failed to update Tache record' });
+    }
+}
+
 exports.getCatTache = (req, res) => {
 
     const q = `SELECT * FROM categorietache`;

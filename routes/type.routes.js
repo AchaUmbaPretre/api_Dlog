@@ -20,8 +20,10 @@ router.post('/categorie', typesController.postCategorie)
 router.get('/activite', typesController.getActivite)
 router.post('/activite', typesController.postActivite)
 
-//Categorie tache
+//Categorie corps metier
 router.get('/corps_metier',typesController.getCorpsMetier)
+router.put('/corps_metier_update', typesController.putCorpsMetier)
+
 router.get('/cat_tache',typesController.getCatTache)
 
 //Statut Bin
