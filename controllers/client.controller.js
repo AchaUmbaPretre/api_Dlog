@@ -28,8 +28,9 @@ exports.getClients = (req, res) => {
     SELECT 
         client.id_client, client.nom, client.adresse, client.telephone, client.email, provinces.capital, type_client.nom_type
     FROM client
-    LEFT JOIN provinces ON client.ville = provinces.id
-    LEFT JOIN type_client ON client.id_type_client = type_client.id_type_client
+        LEFT JOIN provinces ON client.ville = provinces.id
+        LEFT JOIN type_client ON client.id_type_client = type_client.id_type_client
+    WHERE client.est_supprime = 0
     `;
 
     db.query(q, (error, data) => {
@@ -96,6 +97,7 @@ exports.postClient = async (req, res) => {
 
 exports.putClient = async (req, res) => {
     const { id_client } = req.query;
+    const { nom, adresse, ville, pays, email, id_type_client } = req.body;
 
     if (!id_client || isNaN(id_client)) {
         return res.status(400).json({ error: 'Invalid client ID provided' });
@@ -110,26 +112,44 @@ exports.putClient = async (req, res) => {
                 adresse = ?,
                 ville = ?,
                 pays = ?,
-                adresse = ?,
-                email = ?
+                email = ?,
+                id_type_client = ?
             WHERE id_client = ?
         `;
       
-        const values = [nom, adresse, ville, pays, adresse, email,id_client];
+        const values = [nom, adresse, ville, pays, email,id_type_client, id_client];
 
-        const result = await db.query(q, values);
+        db.query(q, values, (error, result) => {
+            if (error) {
+                console.error("Erreur lors de la mise à jour de client :", error);
+                return res.status(500).json({ error: 'Erreur interne lors de la mise à jour de client' });
+            }
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'Client record not found' });
-        }
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ error: 'Client non trouvé' });
+            }
 
-        // Return success response
-        return res.json({ message: 'Client record updated successfully' });
+            return res.json({ message: 'Client mis à jour avec succès' });
+        });
     } catch (err) {
         console.error("Error updating client:", err);
         return res.status(500).json({ error: 'Failed to update client record' });
     }
 }
+
+exports.deleteUpdatedClient = (req, res) => {
+    const { id } = req.query;
+  
+    const q = "UPDATE client SET est_supprime = 1 WHERE id_client = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) {
+        console.log(err)
+      }
+        
+      return res.json(data);
+    });
+  }
 
 exports.deleteClient = (req, res) => {
     const id = req.params.id;

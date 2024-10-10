@@ -6,6 +6,7 @@ router.get('/count', clientController.getClientCount)
 router.get('/', clientController.getClients)
 router.get('/clientOne', clientController.getClientOne)
 router.post('/', clientController.postClient)
+router.put('/est_supprime', clientController.deleteUpdatedClient)
 router.put('/', clientController.putClient)
 
 router.delete('/:id', clientController.deleteClient)
