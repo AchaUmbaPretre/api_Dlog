@@ -26,7 +26,7 @@ router.get('/suiviTacheOneV', suiviController.getSuiviTacheOneV)
 router.post('/', suiviController.postSuivi)
 router.post('/suiviTache', suiviController.postSuiviTache)
 router.delete('/:id', suiviController.deleteSuivi)
-
+router.put('/est_supprime', suiviController.deleteUpdatedSuiviTache)
 router.get('/doc', suiviController.getDocGeneral)
 router.post('/doc',upload.array('chemin_document', 10), suiviController.postDocGeneral)
 

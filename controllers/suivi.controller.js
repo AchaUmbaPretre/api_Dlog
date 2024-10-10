@@ -93,6 +93,7 @@ exports.getSuiviTacheOne = (req, res) => {
             tache ON suivi_tache.id_tache = tache.id_tache
         INNER JOIN 
             type_statut_suivi ON suivi_tache.status = type_statut_suivi.id_type_statut_suivi
+            WHERE suivi_tache.est_supprime = 0
         `;
      
     db.query(q, (error, data) => {
@@ -157,7 +158,7 @@ exports.getSuiviTacheOneV = (req, res) => {
                 tache ON suivi_tache.id_tache = tache.id_tache
             INNER JOIN 
                 type_statut_suivi ON suivi_tache.status = type_statut_suivi.id_type_statut_suivi
-            WHERE suivi_tache.id_tache = ?
+            WHERE suivi_tache.id_tache = ? AND suivi_tache.est_supprime = 0
         `;
     
         db.query(q, [id_tache], (error, data) => {
@@ -232,6 +233,20 @@ exports.postSuiviTache = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
+
+exports.deleteUpdatedSuiviTache = (req, res) => {
+    const { id } = req.query;
+  
+    const q = "UPDATE suivi_tache SET est_supprime = 1 WHERE id_suivi = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) {
+        console.log(err)
+      }
+        
+      return res.json(data);
+    });
+  }
 
 exports.deleteSuivi = (req, res) => {
     const id = req.params.id;
