@@ -68,6 +68,7 @@ exports.getBatiment = (req, res) => {
     const q = `
             SELECT batiment.*, provinces.name FROM batiment
                 LEFT JOIN provinces ON batiment.ville = provinces.id
+                WHERE batiment.est_supprime = 0
             `;
 
     db.query(q, (error, data) => {
@@ -179,6 +180,20 @@ exports.putBatiment = async (req, res) => {
         return res.status(500).json({ error: 'Erreur interne lors de la mise à jour du bâtiment' });
     }
 };
+
+exports.deleteUpdatedBatiment = (req, res) => {
+    const { id } = req.query;
+  
+    const q = "UPDATE batiment SET est_supprime = 1 WHERE id_batiment = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) {
+        console.log(err)
+      }
+        
+      return res.json(data);
+    });
+  }
 
 
 //Categorie

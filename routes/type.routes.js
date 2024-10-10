@@ -11,6 +11,7 @@ router.get('/batiment', typesController.getBatiment)
 router.get('/batiment/one', typesController.getBatimentOne)
 router.post('/batiment', typesController.postBatiment)
 router.put('/batiment/update', typesController.putBatiment)
+router.put('/batiment/update_delete', typesController.deleteUpdatedBatiment)
 
 //Categorie
 router.get('/categorie', typesController.getCategorie)
