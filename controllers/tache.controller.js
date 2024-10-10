@@ -3,6 +3,22 @@ const fs = require('fs');
 const path = require('path');
 const { db } = require("./../config/database");
 
+exports.getTacheChart = (req, res) => {
+    const q = `SELECT 
+            typeC.nom_type_statut AS statut,
+            COUNT(*) AS nombre_taches
+        FROM 
+            tache
+        LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+        WHERE 
+            tache.est_supprime = 0 
+        GROUP BY typeC.nom_type_statut`
+
+        db.query(q, (error, data) => {
+                if (error) res.status(500).send(error);
+                return res.status(200).json(data);
+            });
+}
 
 exports.getTacheCount = (req, res) => {
     const { searchValue } = req.query;
