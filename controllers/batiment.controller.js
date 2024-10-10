@@ -778,6 +778,21 @@ exports.postBins = (req, res) => {
     });
 };
 
+exports.deleteUpdatedBins = (req, res) => {
+    const { id } = req.query;
+  
+    const q = "UPDATE bins SET est_supprime = 1 WHERE id = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) {
+        console.log(err)
+      }
+        
+      return res.json(data);
+    });
+  }
+
+
 exports.putBins = async (req, res) => {
     const { id } = req.query;
     const { nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut} = req.body;
