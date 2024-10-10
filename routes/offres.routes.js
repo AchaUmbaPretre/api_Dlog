@@ -29,6 +29,7 @@ router.post('/articles', offreController.postArticle)
 router.post('/article_excel', upload.array('chemin_document', 10), offreController.postArticleExcel);
 router.post('/doc', upload.single('chemin_document'), offreController.postOffresDoc);
 router.post('/', offreController.postOffres)
+router.put('/est_supprime', offreController.deleteUpdatedOffres)
 router.delete('/:id', offreController.deleteOffres)
  
 module.exports = router;

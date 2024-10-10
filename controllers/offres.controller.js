@@ -17,6 +17,7 @@ exports.getOffre = (req, res) => {
         offres
     LEFT JOIN fournisseur ON offres.id_fournisseur = fournisseur.id_fournisseur
     LEFT JOIN batiment ON offres.id_batiment = batiment.id_batiment
+    WHERE offres.est_supprime = 0
     `;
 
     db.query(q, (error, data) => {
@@ -458,6 +459,20 @@ exports.postOffresDoc = async (req, res) => {
       res.status(200).json({ message: 'Document added successfully', documentId: result.insertId });
     });
 };
+
+exports.deleteUpdatedOffres = (req, res) => {
+    const { id } = req.query;
+  
+    const q = "UPDATE offres SET est_supprime = 1 WHERE id_offre = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) {
+        console.log(err)
+      }
+        
+      return res.json(data);
+    });
+  }
 
 exports.deleteOffres = (req, res) => {
     const id = req.params.id;
