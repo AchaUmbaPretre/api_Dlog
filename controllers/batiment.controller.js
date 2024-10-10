@@ -6,10 +6,10 @@ exports.getEquipement = (req, res) => {
                 SELECT equipments.model, equipments.num_serie, 
                     equipments.id_equipement, equipments.installation_date, 
                     equipments.maintenance_date, equipments.date_prochaine_maintenance, bins.nom AS location, batiment.nom_batiment, statut_equipement.nom_statut, articles.nom_article FROM equipments 
-                    INNER JOIN batiment ON equipments.id_batiment = batiment.id_batiment
-                    INNER JOIN statut_equipement ON equipments.status = statut_equipement.id_statut_equipement
-                    INNER JOIN articles ON equipments.id_type_equipement = articles.id_article
-                    INNER JOIN bins ON equipments.id_bin = bins.id
+                    LEFT JOIN batiment ON equipments.id_batiment = batiment.id_batiment
+                    LEFT JOIN statut_equipement ON equipments.status = statut_equipement.id_statut_equipement
+                    LEFT JOIN articles ON equipments.id_type_equipement = articles.id_article
+                    LEFT JOIN bins ON equipments.id_bin = bins.id
             `;
 
     db.query(q, (error, data) => {
