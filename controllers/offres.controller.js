@@ -474,6 +474,20 @@ exports.deleteUpdatedOffres = (req, res) => {
     });
   }
 
+exports.deleteUpdatedArticle = (req, res) => {
+    const { id } = req.query;
+  
+    const q = "UPDATE articles SET est_supprime = 1 WHERE id_article = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) {
+        console.log(err)
+      }
+        
+      return res.json(data);
+    });
+  }
+
 exports.deleteOffres = (req, res) => {
     const id = req.params.id;
   
