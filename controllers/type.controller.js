@@ -30,7 +30,9 @@ exports.getArticle = (req, res) => {
                     articles.nom_article, 
                     categories.nom_cat
                 FROM articles
-                    INNER JOIN categories ON articles.id_categorie = categories.id_categorie`;
+                    INNER JOIN categories ON articles.id_categorie = categories.id_categorie
+                WHERE articles.est_supprime = 0
+                    `;
 
     db.query(q, (error, data) => {
         if (error) {
