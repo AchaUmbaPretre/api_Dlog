@@ -497,7 +497,7 @@ exports.getTacheOneV = (req, res) => {
     });
 }
 
-exports.getTacheOne = (req, res) => {
+/* exports.getTacheOne = (req, res) => {
     const {id_tache} = req.query;
 
     const q = `
@@ -529,13 +529,98 @@ exports.getTacheOne = (req, res) => {
                 WHERE 
             tache.id_tache = ?
             GROUP BY tache.id_tache
-        `;
-     
+        `;                        
     db.query(q,[id_tache], (error, data) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
-}
+} */
+
+exports.getTacheOne = (req, res) => {
+    const { id_tache } = req.query;
+    
+        if (!id_tache) {
+            return res.status(400).json({ error: "L'ID de la tâche est requis." });
+        }
+    
+        const q = `
+            SELECT 
+                tache.id_tache, 
+                tache.description, 
+                tache.date_debut, 
+                tache.date_fin,
+                tache.nom_tache, 
+                typeC.nom_type_statut AS statut, 
+                client.nom AS nom_client, 
+                frequence.nom AS frequence, 
+                utilisateur.nom AS owner, 
+                provinces.name AS ville, 
+                departement.nom_departement AS departement,
+                cb.controle_de_base,
+                cb.id_controle,
+                DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
+            FROM 
+                tache
+            LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+            LEFT JOIN client ON tache.id_client = client.id_client
+            INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
+            LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
+            LEFT JOIN provinces ON tache.id_ville = provinces.id
+            LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
+            LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
+            LEFT JOIN departement ON tache.id_departement = departement.id_departement
+            WHERE 
+                tache.id_tache = ?
+            GROUP BY tache.id_tache
+        `;
+    
+        const qCat = `
+                SELECT categorie_tache.id_categorie_tache, categorie_tache.id_tache, categorietache.nom_cat_tache, categorie_tache.cout
+                    FROM categorie_tache
+                INNER JOIN categorietache ON categorie_tache.id_cat = categorietache.id_cat_tache
+                WHERE categorie_tache.id_tache = ?
+        `;
+    
+        const countTache = `
+            SELECT SUM(cout) AS cout_total
+            FROM categorie_tache
+            WHERE id_tache = ?
+        `;
+    
+        db.query(q, [id_tache], (error, data) => {
+            if (error) {
+                return res.status(500).json({ error: "Erreur lors de la récupération de la tâche", details: error });
+            }
+    
+            // Vérification si des données existent
+            if (data.length === 0) {
+                return res.status(404).json({ message: "Tâche non trouvée" });
+            }
+    
+            // Récupération des catégories de dépenses associées
+            db.query(qCat, [id_tache], (errorCat, categories) => {
+                if (errorCat) {
+                    return res.status(500).json({ error: "Erreur lors de la récupération des catégories de dépenses", details: errorCat });
+                }
+    
+                // Calcul du coût total des dépenses pour la tâche
+                db.query(countTache, [id_tache], (errorCount, countResult) => {
+                    if (errorCount) {
+                        return res.status(500).json({ error: "Erreur lors du calcul du coût total", details: errorCount });
+                    }
+    
+                    const cout_total = countResult[0]?.cout_total || 0;
+    
+                    return res.status(200).json({
+                        tache: data,   // Informations sur la tâche
+                        categories,       // Catégories de dépenses
+                        cout_total        // Coût total des dépenses
+                    });
+                });
+            });
+        });
+    };
+    
 
 exports.getTacheControleOne = (req, res) => {
     const {id_controle} = req.query;
