@@ -27,6 +27,9 @@ router.get('/corps_metier/one',typesController.getCorpsMetierOne)
 router.post('/corps_metier',typesController.postCorpsMetier)
 router.put('/corps_metier_update', typesController.putCorpsMetier)
 router.get('/cat_tache',typesController.getCatTache)
+router.get('/cat_tache/one',typesController.getCatTacheOne)
+router.post('/cat_tache/post',typesController.postCatTache)
+router.put('/cat_tache_put',typesController.putCatTache)
 
 //Statut Bin
 router.get('/type_bin',typesController.typeStockageBins)

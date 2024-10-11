@@ -349,6 +349,69 @@ exports.getCatTache = (req, res) => {
     });
 };
 
+exports.getCatTacheOne = (req, res) => {
+    const {id} = req.query;
+
+    const q = `SELECT * FROM categorietache WHERE id_cat_tache = ?`;
+
+    db.query(q,[id], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postCatTache = async (req, res) => {
+
+    try {
+        const q = 'INSERT INTO categorietache(`nom_cat_tache`) VALUES(?)';
+
+        const values = [
+            req.body.nom_cat_tache
+        ];
+
+        await db.query(q, values);
+        return res.status(201).json({ message: 'categoriea ete ajouté avec succès'});
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout de nouvelle categorie:', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+    }
+};
+
+exports.putCatTache = async (req, res) => {
+    const { id } = req.query;
+
+    if (!id || isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid corps ID provided' });
+    }
+
+    try {
+        const q = `
+            UPDATE categorietache 
+            SET 
+                nom_cat_tache = ?
+            WHERE id_cat_tache = ?
+        `;
+      
+        const values = [
+            req.body.nom_cat_tache,
+            id
+        ];
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Corps record not found' });
+            }
+            return res.json({ message: 'Corps record updated successfully' });
+        })
+    } catch (err) {
+        console.error("Error updating corps:", err);
+        return res.status(500).json({ error: 'Failed to update Tache record' });
+    }
+}
+
 exports.typeStockageBins = (req, res) => {
 
     const q = `SELECT * FROM type_stockage_bins`;
