@@ -1409,7 +1409,94 @@ exports.getSearch = async (req, res) => {
         });
       }
       
-      
-    
-    
-    
+//Tache projet
+exports.postTacheProjet = (req, res) => {
+    const besoins = req.body.besoins || [];
+    const clients = req.body.client || [];
+    const batiments = req.body.id_batiment || [];
+
+    const qProjet = 'INSERT INTO projet (`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`, `est_supprime`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+    const qBesoin = 'INSERT INTO besoins (`id_article`, `description`, `quantite`, `id_projet`) VALUES (?, ?, ?, ?)';
+    const qBudget = 'INSERT INTO budgets (`montant`, `id_projet`) VALUES (?, ?)';
+    const qProjet_client = 'INSERT INTO projet_client(`id_projet`,`id_client`) VALUES(?,?)';
+    const qProjet_batiment = 'INSERT INTO projet_batiment(`id_projet`,`id_batiment`) VALUES(?,?)';
+    const qUpdateTache = 'UPDATE tache SET id_projet = ? WHERE id_tache = ?'; // Met à jour la tâche avec l'ID du projet
+
+    const valuesProjet = [
+        req.body.nom_projet,
+        req.body.description,
+        req.body.chef_projet,
+        req.body.date_debut,
+        req.body.date_fin,
+        req.body.statut || 1,
+        req.body.budget    
+    ];
+
+    db.query(qProjet, valuesProjet, (error, data) => {
+        if (error) {
+            console.error(error);
+            return res.status(500).json({ error: 'Erreur lors de la création du projet' });
+        }
+
+        const projetId = data.insertId;
+
+        db.query(qBudget, [req.body.budget, projetId], (budgetError) => {
+            if (budgetError) {
+                console.error(budgetError);
+                return res.status(500).json({ error: 'Erreur lors de l\'insertion du budget' });
+            }
+
+            if (besoins.length > 0) {
+                besoins.forEach(besoin => {
+                    if (besoin.id_article && besoin.description && besoin.quantite) {
+                        const besoinValues = [
+                            besoin.id_article,
+                            besoin.description,
+                            besoin.quantite,
+                            projetId
+                        ];
+                        db.query(qBesoin, besoinValues, (besoinError) => {
+                            if (besoinError) {
+                                console.error(besoinError);
+                                return res.status(500).json({ error: 'Erreur lors de l\'insertion des besoins' });
+                            }
+                        });
+                    }
+                });
+            }
+
+            if (clients.length > 0) {
+                clients.forEach(clientId => {
+                    const clientValues = [projetId, clientId];
+                    db.query(qProjet_client, clientValues, (clientError) => {
+                        if (clientError) {
+                            console.error(clientError);
+                            return res.status(500).json({ error: 'Erreur lors de l\'insertion des clients' });
+                        }
+                    });
+                });
+            }
+
+            if (batiments.length > 0) {
+                batiments.forEach(batimentId => {
+                    const batimentValues = [projetId, batimentId];
+                    db.query(qProjet_batiment, batimentValues, (batimentError) => {
+                        if (batimentError) {
+                            console.error(batimentError);
+                            return res.status(500).json({ error: 'Erreur lors de l\'insertion des bâtiments' });
+                        }
+                    });
+                });
+            }
+
+            db.query(qUpdateTache, [projetId, req.body.id_tache], (updateError) => {
+                if (updateError) {
+                    console.error(updateError);
+                    return res.status(500).json({ error: 'Erreur lors de la mise à jour de la tâche' });
+                }
+
+                res.json('Processus réussi');
+            });
+        });
+    });
+};
