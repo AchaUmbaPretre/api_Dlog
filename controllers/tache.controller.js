@@ -1415,7 +1415,7 @@ exports.postTacheProjet = (req, res) => {
     const clients = req.body.client || [];
     const batiments = req.body.id_batiment || [];
 
-    const qProjet = 'INSERT INTO projet (`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`, `est_supprime`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+    const qProjet = 'INSERT INTO projet (`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`) VALUES (?, ?, ?, ?, ?, ?, ?)';
     const qBesoin = 'INSERT INTO besoins (`id_article`, `description`, `quantite`, `id_projet`) VALUES (?, ?, ?, ?)';
     const qBudget = 'INSERT INTO budgets (`montant`, `id_projet`) VALUES (?, ?)';
     const qProjet_client = 'INSERT INTO projet_client(`id_projet`,`id_client`) VALUES(?,?)';
