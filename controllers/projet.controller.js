@@ -392,7 +392,10 @@ exports.getProjetDoc = (req, res) => {
 exports.getProjetDocOne = (req, res) => {
     const {	id_document } = req.query;
 
-    const q = `SELECT * FROM document_projet WHERE id_document = ?`;
+    const q = `SELECT * 
+                    FROM 
+                document_projet 
+                WHERE id_document = ?`;
 
     db.query(q,[id_document], (error, data) => {
         if (error) {
