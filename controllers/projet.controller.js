@@ -423,7 +423,7 @@ exports.getDetailProjetDoc = (req, res) => {
 };
 
 exports.postProjetDoc = async (req, res) => {
-    const { id_projet, nom_document, type_document } = req.body;
+    const { id_projet, nom_document, type_document, ref } = req.body;
 
     if (!req.files || req.files.length === 0) {
         return res.status(400).json({ message: 'Aucun fichier téléchargé' });
@@ -433,15 +433,16 @@ exports.postProjetDoc = async (req, res) => {
         chemin_document: file.path.replace(/\\/g, '/'),
         id_projet,
         nom_document,
-        type_document
+        type_document,
+        ref
     }));
 
     // Insertion de chaque fichier dans la base de données
     documents.forEach((doc) => {
-        const query = `INSERT INTO document_projet (id_projet, nom_document, type_document, chemin_document)
-                       VALUES (?, ?, ?, ?)`;
+        const query = `INSERT INTO document_projet (id_projet, nom_document, type_document, ref, chemin_document)
+                       VALUES (?, ?, ?, ?, ?)`;
 
-        db.query(query, [doc.id_projet, doc.nom_document, doc.type_document, doc.chemin_document], (err, result) => {
+        db.query(query, [doc.id_projet, doc.nom_document, doc.type_document, doc.ref, doc.chemin_document], (err, result) => {
             if (err) {
                 console.error('Erreur lors de l\'insertion du document:', err);
                 return res.status(500).json({ message: 'Erreur interne du serveur' });
@@ -459,7 +460,7 @@ exports.putProjetDoc = async (req, res) => {
         return res.status(400).json({ error: 'Invalid document ID provided' });
     }
     
-    const { nom_document, type_document } = req.body;
+    const { nom_document, type_document, ref } = req.body;
     if (!nom_document || !type_document) {
         return res.status(400).json({ error: 'Nom du document et type de document sont requis' });
     }
@@ -469,13 +470,15 @@ exports.putProjetDoc = async (req, res) => {
             UPDATE document_projet
                 SET 
                     nom_document = ?,
-                    type_document = ?
+                    type_document = ?,
+                    ref = ?
                 WHERE id_document = ?
         `;
       
         const values = [
             nom_document,
             type_document,
+            ref,
             id_document
         ];
 
