@@ -121,40 +121,82 @@ exports.getProjetOneF = (req, res) => {
 };
 
 exports.getProjetOne = (req, res) => {
-    const {id_projet} = req.query;
+    const { id_projet } = req.query;
 
     const q = `
-                SELECT 
-                    projet.id_projet,
-                    projet.nom_projet, 
-                    projet.description, 
-                    projet.date_debut, 
-                    projet.date_fin, 
-                    ts.nom_type_statut, 
-                    utilisateur.nom AS responsable, 
-                    client.nom,
-                    budgets.montant,
-                    batiment.nom_batiment,
-                    DATEDIFF(projet.date_fin, projet.date_debut) AS nbre_jour
-                FROM 
-                projet
-                    LEFT JOIN type_statut_suivi AS ts ON ts.id_type_statut_suivi = projet.statut
-                    LEFT JOIN utilisateur ON projet.chef_projet = utilisateur.id_utilisateur
-                    LEFT JOIN projet_client ON projet.id_projet = projet_client.id_projet
-                    LEFT JOIN client ON projet_client.id_client = client.id_client
-                    LEFT JOIN besoins ON projet.id_projet = besoins.id_projet
-                    LEFT JOIN budgets ON projet.id_projet = budgets.id_projet
-                    LEFT JOIN projet_batiment ON projet.id_projet = projet_batiment.id_projet
-                    LEFT JOIN batiment ON projet_batiment.id_batiment = batiment.id_batiment
-                    WHERE projet.est_supprime = 0 AND projet.id_projet = ?
-                GROUP BY projet.id_projet
-        `;
-     
+        SELECT 
+            projet.id_projet,
+            projet.nom_projet, 
+            projet.description, 
+            projet.date_debut, 
+            projet.date_fin, 
+            ts.nom_type_statut, 
+            utilisateur.nom AS responsable, 
+            client.nom AS nom_client,
+            budgets.montant,
+            batiment.nom_batiment,
+            DATEDIFF(projet.date_fin, projet.date_debut) AS nbre_jour
+        FROM 
+            projet
+            LEFT JOIN type_statut_suivi AS ts ON ts.id_type_statut_suivi = projet.statut
+            LEFT JOIN utilisateur ON projet.chef_projet = utilisateur.id_utilisateur
+            LEFT JOIN projet_client ON projet.id_projet = projet_client.id_projet
+            LEFT JOIN client ON projet_client.id_client = client.id_client
+            LEFT JOIN besoins ON projet.id_projet = besoins.id_projet
+            LEFT JOIN budgets ON projet.id_projet = budgets.id_projet
+            LEFT JOIN projet_batiment ON projet.id_projet = projet_batiment.id_projet
+            LEFT JOIN batiment ON projet_batiment.id_batiment = batiment.id_batiment
+        WHERE 
+            projet.est_supprime = 0 AND projet.id_projet = ?
+        GROUP BY projet.id_projet
+    `;
+
+    let totalQuery = `
+        SELECT 
+            COUNT(*) AS total_taches
+        FROM 
+            tache
+        WHERE 
+            tache.est_supprime = 0
+    `;
+
+    if (id_projet) {  // Vérifier si id_projet est défini
+        totalQuery += ` AND tache.id_projet = ?`;
+    }
+
+    let totalQueryDoc = `
+        SELECT 
+            COUNT(*) AS total_doc
+        FROM 
+            document_projet
+        WHERE 
+            est_supprime = 0
+    `;
+
+    if (id_projet) {  // Vérifier si id_projet est défini
+        totalQueryDoc += ` AND document_projet.id_projet = ?`;
+    }
+
     db.query(q, [id_projet], (error, data) => {
-        if (error) res.status(500).send(error);
-        return res.status(200).json(data);
+        if (error) return res.status(500).send(error);
+
+        // Si vous souhaitez également récupérer total_taches et total_doc, faites des requêtes supplémentaires ici
+        db.query(totalQuery, [id_projet], (errorTaches, dataTaches) => {
+            if (errorTaches) return res.status(500).send(errorTaches);
+
+            db.query(totalQueryDoc, [id_projet], (errorDocs, dataDocs) => {
+                if (errorDocs) return res.status(500).send(errorDocs);
+
+                return res.status(200).json({
+                    projet: data,
+                    total_taches: dataTaches[0].total_taches,
+                    total_doc: dataDocs[0].total_doc,
+                });
+            });
+        });
     });
 }
+
 
 exports.postProjet = async (req, res) => {
     try {
