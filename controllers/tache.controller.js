@@ -1519,24 +1519,47 @@ exports.putProjetAssocie = async (req, res) => {
     }
 
     try {
-        const q = `
-            UPDATE tache 
-            SET 
-                id_projet = ?
+        // Vérifier d'abord si la tâche est déjà associée à un projet
+        const checkQuery = `
+            SELECT id_projet 
+            FROM tache 
             WHERE id_tache = ?
         `;
 
-        const values = [id_projet, id_tache];
-
-        db.query(q, values, (error, data) => {
-            if (error) {
-                console.log(error);
-                return res.status(404).json({ error: 'Projet record not found' });
+        db.query(checkQuery, [id_tache], (checkError, checkData) => {
+            if (checkError) {
+                console.log(checkError);
+                return res.status(500).json({ error: 'Erreur lors de la vérification de la tâche' });
             }
-            return res.json({ message: 'Projet record updated successfully' });
+
+            const currentProjet = checkData[0]?.id_projet;
+
+            // Si la tâche est déjà liée à un projet (id_projet n'est pas NULL), envoyer une notification
+            if (currentProjet) {
+                return res.status(400).json({ message: 'Cette tâche est déjà liée à un projet.' });
+            }
+
+            // Si la tâche n'est pas encore liée à un projet, faire la mise à jour
+            const updateQuery = `
+                UPDATE tache 
+                SET 
+                    id_projet = ?
+                WHERE id_tache = ?
+            `;
+
+            const values = [id_projet, id_tache];
+
+            db.query(updateQuery, values, (updateError, updateData) => {
+                if (updateError) {
+                    console.log(updateError);
+                    return res.status(404).json({ error: 'Projet non trouvé' });
+                }
+                return res.json({ message: 'Le projet a été associé à la tâche avec succès.' });
+            });
         });
     } catch (err) {
-        console.error("Error updating projet:", err);
-        return res.status(500).json({ error: 'Failed to update projet record' });
+        console.error("Erreur lors de l'association du projet:", err);
+        return res.status(500).json({ error: 'Échec de l\'association du projet à la tâche' });
     }
 };
+
