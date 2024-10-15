@@ -1500,3 +1500,35 @@ exports.postTacheProjet = (req, res) => {
         });
     });
 };
+
+//Tache associe
+exports.putProjetAssocie = async (req, res) => {
+    const { id_tache } = req.query;
+    const { id_projet } = req.body;
+
+    if (!id_tache || isNaN(id_tache)) {
+        return res.status(400).json({ error: 'ID de projet fourni non valide' });
+    }
+
+    try {
+        const q = `
+            UPDATE tache 
+            SET 
+                id_projet = ?,
+            WHERE id_tache = ?
+        `;
+      
+        const values = [nom_projet, description, chef_projet, date_debut, date_fin, statut, budget, client, id_batiment, id_projet];
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Projet record not found' });
+            }
+            return res.json({ message: 'Projet record updated successfully' });
+        })
+    } catch (err) {
+        console.error("Error updating projet:", err);
+        return res.status(500).json({ error: 'Failed to update projet record' });
+    }
+}
