@@ -1518,7 +1518,7 @@ exports.putProjetAssocie = async (req, res) => {
             WHERE id_tache = ?
         `;
       
-        const values = [nom_projet, description, chef_projet, date_debut, date_fin, statut, budget, client, id_batiment, id_projet];
+        const values = [id_tache, id_projet];
 
         db.query(q, values, (error, data)=>{
             if(error){
