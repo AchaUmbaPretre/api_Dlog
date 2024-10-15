@@ -1504,31 +1504,39 @@ exports.postTacheProjet = (req, res) => {
 //Tache associe
 exports.putProjetAssocie = async (req, res) => {
     const { id_tache } = req.query;
-    const { id_projet } = req.body;
+    const { ...body } = req.body;
 
+    // Vérifier si id_tache est valide
     if (!id_tache || isNaN(id_tache)) {
-        return res.status(400).json({ error: 'ID de projet fourni non valide' });
+        return res.status(400).json({ error: 'ID de tâche fourni non valide' });
+    }
+
+    const dynamicKey = Object.keys(body)[0];
+    const id_projet = dynamicKey;
+
+    if (!id_projet) {
+        return res.status(400).json({ error: 'ID de projet non fourni ou invalide.' });
     }
 
     try {
         const q = `
             UPDATE tache 
             SET 
-                id_projet = ?,
+                id_projet = ?
             WHERE id_tache = ?
         `;
-      
-        const values = [id_tache, id_projet];
 
-        db.query(q, values, (error, data)=>{
-            if(error){
-                console.log(error)
+        const values = [id_projet, id_tache];
+
+        db.query(q, values, (error, data) => {
+            if (error) {
+                console.log(error);
                 return res.status(404).json({ error: 'Projet record not found' });
             }
             return res.json({ message: 'Projet record updated successfully' });
-        })
+        });
     } catch (err) {
         console.error("Error updating projet:", err);
         return res.status(500).json({ error: 'Failed to update projet record' });
     }
-}
+};
