@@ -55,7 +55,7 @@ exports.getBesoinInactif = (req, res) => {
                     FROM besoins
                     INNER JOIN articles ON besoins.id_article = articles.id_article
                     LEFT JOIN projet ON besoins.id_projet = projet.id_projet
-                    WHERE besoins.id_projet = 0;
+                    WHERE besoins.id_projet IS NULL OR besoins.id_projet = 0;;
             `;
      
     db.query(q, (error, data) => {
