@@ -544,3 +544,37 @@ exports.putProjetDoc = async (req, res) => {
         return res.status(500).json({ error: 'Failed to update Projet record' });
     }
 };
+
+exports.putIdProjetBesoin = async (req, res) => {
+    const { id_besoin } = req.query;
+    const { id_projet } = req.body;
+
+
+    if (!id_besoin || isNaN(id_besoin)) {
+        return res.status(400).json({ error: 'Invalid document ID provided' });
+    }
+
+    try {
+        const q = `
+            UPDATE besoins 
+                SET id_projet = ? 
+            WHERE id_besoin = ?
+            `;
+
+        db.query(q,[id_projet, id_besoin], (error, results) => {
+            if (error) {
+                console.error("Error executing query:", error);
+                return res.status(500).json({ error: 'Failed to update Projet record' });
+            }
+
+            if (results.affectedRows === 0) {
+                return res.status(404).json({ error: 'Projet record not found' });
+            }
+
+            return res.json({ message: 'Projet record updated successfully' });
+        });
+    } catch (err) {
+        console.error("Error updating projet:", err);
+        return res.status(500).json({ error: 'Failed to update Projet record' });
+    }
+};
