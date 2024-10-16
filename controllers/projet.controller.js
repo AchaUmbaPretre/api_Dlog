@@ -547,8 +547,8 @@ exports.putProjetDoc = async (req, res) => {
 
 exports.putIdProjetBesoin = async (req, res) => {
     const { id_besoin } = req.query;
-    const { id_projet } = req.body;
 
+    const id_projet = Object.keys(req.body)[0];
 
     if (!id_besoin || isNaN(id_besoin)) {
         return res.status(400).json({ error: 'Invalid document ID provided' });
@@ -577,4 +577,4 @@ exports.putIdProjetBesoin = async (req, res) => {
         console.error("Error updating projet:", err);
         return res.status(500).json({ error: 'Failed to update Projet record' });
     }
-};
+}
