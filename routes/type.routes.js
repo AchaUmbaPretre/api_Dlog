@@ -15,7 +15,9 @@ router.put('/batiment/update_delete', typesController.deleteUpdatedBatiment)
 
 //Categorie
 router.get('/categorie', typesController.getCategorie)
+router.get('/categorie/one', typesController.getCategorieOne)
 router.post('/categorie', typesController.postCategorie)
+router.put('/categorie_put', typesController.putCategorie)
 
 //Activite
 router.get('/activite', typesController.getActivite)

@@ -27,7 +27,7 @@ exports.getCategorie = (req, res) => {
 exports.getCategorieOne = (req, res) => {
     const {id} = req.query;
 
-    const q = `SELECT * FROM categorie WHERE id_categorie = ?`;
+    const q = `SELECT * FROM categories WHERE id_categorie = ?`;
 
     db.query(q,[id], (error, data) => {
         if (error) {
@@ -46,7 +46,7 @@ exports.putCategorie = async (req, res) => {
 
     try {
         const q = `
-            UPDATE categorie
+            UPDATE categories
             SET 
                 nom_cat = ?
             WHERE id_categorie = ?
