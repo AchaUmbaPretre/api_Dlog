@@ -24,6 +24,52 @@ exports.getCategorie = (req, res) => {
     });
 };
 
+exports.getCategorieOne = (req, res) => {
+    const {id} = req.query;
+
+    const q = `SELECT * FROM categorie WHERE id_categorie = ?`;
+
+    db.query(q,[id], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.putCategorie = async (req, res) => {
+    const { id } = req.query;
+
+    if (!id || isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid corps ID provided' });
+    }
+
+    try {
+        const q = `
+            UPDATE categorie
+            SET 
+                nom_cat = ?
+            WHERE id_categorie = ?
+        `;
+      
+        const values = [
+            req.body.nom_cat,
+            id
+        ];
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Corps record not found' });
+            }
+            return res.json({ message: 'Corps record updated successfully' });
+        })
+    } catch (err) {
+        console.error("Error updating corps:", err);
+        return res.status(500).json({ error: 'Failed to update Tache record' });
+    }
+}
+
 exports.getArticle = (req, res) => {
 
     const q =   `SELECT articles.id_article, 
@@ -349,6 +395,7 @@ exports.getCatTache = (req, res) => {
     });
 };
 
+//Categorie Tache
 exports.getCatTacheOne = (req, res) => {
     const {id} = req.query;
 
