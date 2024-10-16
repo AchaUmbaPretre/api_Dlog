@@ -48,6 +48,22 @@ exports.getBesoinOne = (req, res) => {
     });
 }
 
+exports.getBesoinInactif = (req, res) => {
+
+    const q = `
+                SELECT besoins.*, articles.nom_article, projet.nom_projet 
+                    FROM besoins
+                    INNER JOIN articles ON besoins.id_article = articles.id_article
+                    LEFT JOIN projet ON besoins.id_projet = projet.id_projet
+                    WHERE besoins.id_projet = 0;
+            `;
+     
+    db.query(q, (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+}
+
 exports.postBesoins = (req, res) => {
 
     try {
