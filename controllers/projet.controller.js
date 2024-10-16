@@ -551,7 +551,7 @@ exports.putIdProjetBesoin = async (req, res) => {
     const id_projet = Object.keys(req.body)[0];
 
     if (!id_besoin || isNaN(id_besoin)) {
-        return res.status(400).json({ error: 'Invalid document ID provided' });
+        return res.status(400).json({ error: 'Invalid projet ID provided' });
     }
 
     try {
