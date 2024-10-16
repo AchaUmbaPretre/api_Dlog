@@ -40,4 +40,7 @@ router.get('/detail_projet_doc', projetController.getDetailProjetDoc)
 router.post('/projet_doc', upload.array('chemin_document', 10), projetController.postProjetDoc);
 router.put('/projet_doc', upload.single('chemin_document'), projetController.putProjetDoc);
 
+router.put('/projet_besoin', projetController.putIdProjetBesoin)
+
+
 module.exports = router;
