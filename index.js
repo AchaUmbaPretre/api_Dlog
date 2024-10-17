@@ -20,6 +20,7 @@ const fournisseurRoutes = require('./routes/fournisseur.routes');
 const offresRoutes = require('./routes/offres.routes');
 const besoinsRoutes = require('./routes/besoins.routes');
 const batimentRoutes = require('./routes/batiment.routes');
+const permissionRoutes = require('./routes/permission.routes');
 
 const app = express();
 
@@ -66,6 +67,7 @@ app.use('/api/fournisseur', fournisseurRoutes)
 app.use('/api/offre', offresRoutes)
 app.use('/api/besoin', besoinsRoutes)
 app.use('/api/batiment', batimentRoutes)
+app.use('/api/permission', permissionRoutes)
 
 app.listen(port, () => {
     console.log(
