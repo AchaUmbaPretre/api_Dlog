@@ -116,7 +116,7 @@ exports.getOffreArticle = (req, res) => {
             offre_article.id_offre,
             offres.nom_offre,
             offre_article.prix, 
-            articles.nom_article, 
+            articles.nom_article,
             fournisseur.nom_fournisseur
         FROM offre_article 
             LEFT JOIN articles ON offre_article.id_article = articles.id_article
