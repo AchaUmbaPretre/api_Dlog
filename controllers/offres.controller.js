@@ -109,10 +109,12 @@ exports.getOffreArticleOne = (req, res) => {
 };
 
 exports.getOffreArticle = (req, res) => {
+    const { id_article } = req.query;
 
-    const query = `
+    let query = `
         SELECT 
-            offre_article.id_offre, 
+            offre_article.id_offre,
+            offres.nom_offre,
             offre_article.prix, 
             articles.nom_article, 
             fournisseur.nom_fournisseur
@@ -122,7 +124,11 @@ exports.getOffreArticle = (req, res) => {
             LEFT JOIN fournisseur ON offres.id_fournisseur = fournisseur.id_fournisseur
     `;
 
-    db.query(query, (err, results) => {
+    if (id_article) {
+        query += ` WHERE offre_article.id_article = ?`;
+    }
+
+    db.query(query, [id_article], (err, results) => {
         if (err) {
             console.error("Database query error:", err);
             return res.status(500).json({ error: "Internal server error" });
@@ -130,6 +136,7 @@ exports.getOffreArticle = (req, res) => {
         return res.status(200).json(results);
     });
 };
+
 
 /* exports.getOffreArticleOne = (req, res) => {
     const { id_offre } = req.query;
