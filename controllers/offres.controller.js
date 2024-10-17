@@ -110,14 +110,12 @@ exports.getOffreArticleOne = (req, res) => {
 
 exports.getOffreArticle = (req, res) => {
 
-    // Préparez la requête SQL
     const query = `
         SELECT offre_article.id_offre_article, offre_article.id_offre, offre_article.id_article, offre_article.prix, articles.nom_article
         FROM offre_article 
         LEFT JOIN articles ON offre_article.id_article = articles.id_article
     `;
 
-    // Exécutez la requête SQL
     db.query(query, (err, results) => {
         if (err) {
             console.error("Database query error:", err);
