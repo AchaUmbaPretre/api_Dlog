@@ -111,9 +111,15 @@ exports.getOffreArticleOne = (req, res) => {
 exports.getOffreArticle = (req, res) => {
 
     const query = `
-        SELECT offre_article.id_offre_article, offre_article.id_offre, offre_article.id_article, offre_article.prix, articles.nom_article
+        SELECT 
+            offre_article.id_offre, 
+            offre_article.prix, 
+            articles.nom_article, 
+            fournisseur.nom_fournisseur
         FROM offre_article 
-        LEFT JOIN articles ON offre_article.id_article = articles.id_article
+            LEFT JOIN articles ON offre_article.id_article = articles.id_article
+            LEFT JOIN offres ON offre_article.id_offre = offres.id_offre
+            LEFT JOIN fournisseur ON offres.id_fournisseur = fournisseur.id_fournisseur
     `;
 
     db.query(query, (err, results) => {
