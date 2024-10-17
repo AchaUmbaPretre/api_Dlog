@@ -86,6 +86,7 @@ exports.getOffreDetailOne = (req, res) => {
     });
 };
 
+//Offre article
 exports.getOffreArticleOne = (req, res) => {
     const { id_offre } = req.query;
 
@@ -99,6 +100,25 @@ exports.getOffreArticleOne = (req, res) => {
 
     // Exécutez la requête SQL
     db.query(query, [id_offre || null], (err, results) => {
+        if (err) {
+            console.error("Database query error:", err);
+            return res.status(500).json({ error: "Internal server error" });
+        }
+        return res.status(200).json(results);
+    });
+};
+
+exports.getOffreArticle = (req, res) => {
+
+    // Préparez la requête SQL
+    const query = `
+        SELECT offre_article.id_offre_article, offre_article.id_offre, offre_article.id_article, offre_article.prix, articles.nom_article
+        FROM offre_article 
+        LEFT JOIN articles ON offre_article.id_article = articles.id_article
+    `;
+
+    // Exécutez la requête SQL
+    db.query(query, (err, results) => {
         if (err) {
             console.error("Database query error:", err);
             return res.status(500).json({ error: "Internal server error" });

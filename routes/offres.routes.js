@@ -24,6 +24,7 @@ router.get('/offre_doc', offreController.getOffreDoc)
 router.get('/detailOffre', offreController.getDetailDoc)
 router.get('/detail', offreController.getOffreDetailOne)
 router.get('/one_offre', offreController.getOffreArticleOne)
+router.get('/offre_article', offreController.getOffreArticle)
 router.post('/article', offreController.postOffresArticle)
 router.post('/articles', offreController.postArticle)
 router.post('/article_excel', upload.array('chemin_document', 10), offreController.postArticleExcel);
