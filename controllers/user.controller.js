@@ -41,7 +41,8 @@ exports.getUserOne = (req, res) => {
             utilisateur.nom,
             utilisateur.prenom,
             utilisateur.email,
-            utilisateur.role
+            utilisateur.role,
+            utilisateur.mot_de_passe
         FROM utilisateur 
             WHERE utilisateur.id_utilisateur = ?
     `;
