@@ -142,15 +142,31 @@ exports.permissions =  (req, res) => {
 exports.putPermission = (req, res) => {
     const userId = req.params.userId;
     const optionId = req.params.optionId;
+    const submenuId = req.body.submenu_id; // Get submenu ID from the request body
     const { can_read, can_edit, can_delete } = req.body;
   
-    const query = `
-      UPDATE permission 
-      SET can_read = ?, can_edit = ?, can_delete = ? 
-      WHERE user_id = ? AND menus_id = ?
-    `;
+    let query;
+    let queryParams;
   
-    db.query(query, [can_read, can_edit, can_delete, userId, optionId], (err, results) => {
+    if (submenuId) {
+      // If submenuId is provided, update permissions for the submenu
+      query = `
+        UPDATE permission 
+        SET can_read = ?, can_edit = ?, can_delete = ? 
+        WHERE user_id = ? AND menus_id = ? AND submenu_id = ?
+      `;
+      queryParams = [can_read, can_edit, can_delete, userId, optionId, submenuId];
+    } else {
+      // If no submenuId, update permissions for the main menu
+      query = `
+        UPDATE permission 
+        SET can_read = ?, can_edit = ?, can_delete = ? 
+        WHERE user_id = ? AND menus_id = ? AND submenu_id IS NULL
+      `;
+      queryParams = [can_read, can_edit, can_delete, userId, optionId];
+    }
+  
+    db.query(query, queryParams, (err, results) => {
       if (err) {
         console.error('Erreur lors de la mise à jour des permissions:', err);
         return res.status(500).json({ error: 'Erreur lors de la mise à jour des permissions' });
@@ -158,19 +174,24 @@ exports.putPermission = (req, res) => {
   
       if (results.affectedRows === 0) {
         // Si aucune ligne n'a été mise à jour, ajoutez une nouvelle ligne
-        db.query(
-          'INSERT INTO permission (user_id, menus_id, can_read, can_edit, can_delete) VALUES (?, ?, ?, ?, ?)',
-          [userId, optionId, can_read, can_edit, can_delete],
-          (insertErr, insertResults) => {
-            if (insertErr) {
-              console.error('Erreur lors de l\'insertion des permissions:', insertErr);
-              return res.status(500).json({ error: 'Erreur lors de l\'insertion des permissions' });
-            }
-            res.json({ message: 'Permissions updated successfully!' });
+        const insertQuery = `
+          INSERT INTO permission (user_id, menus_id, submenu_id, can_read, can_edit, can_delete) 
+          VALUES (?, ?, ?, ?, ?, ?)
+        `;
+        const insertParams = submenuId
+          ? [userId, optionId, submenuId, can_read, can_edit, can_delete]
+          : [userId, optionId, null, can_read, can_edit, can_delete]; // Null for submenu_id if it's not provided
+  
+        db.query(insertQuery, insertParams, (insertErr, insertResults) => {
+          if (insertErr) {
+            console.error('Erreur lors de l\'insertion des permissions:', insertErr);
+            return res.status(500).json({ error: 'Erreur lors de l\'insertion des permissions' });
           }
-        );
+          res.json({ message: 'Permissions updated successfully!' });
+        });
       } else {
         res.json({ message: 'Permissions updated successfully!' });
       }
     });
   };
+  
