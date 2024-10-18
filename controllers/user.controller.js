@@ -138,3 +138,27 @@ exports.deleteUser = (req, res) => {
     });
   
   }
+
+exports.putUserOne = async (req, res) => {
+    const { id } = req.query;
+  
+    const q = "UPDATE utilisateur SET `nom` = ?, `email` = ?, `mot_de_passe` = ? WHERE id_utilisateur = ?";
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash( req.body.mot_de_passe, salt);
+    const values = [
+      req.body.nom,
+      req.body.email,
+      hashedPassword,
+      id
+    ];
+  
+    db.query(q, values, (err, data) => {
+      if (err) {
+        console.error(err);
+        console.log(err)
+        return res.status(500).json(err);
+      }
+      return res.json(data);
+    });
+  };
