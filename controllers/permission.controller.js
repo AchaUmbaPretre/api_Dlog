@@ -142,7 +142,7 @@ exports.permissions =  (req, res) => {
 exports.putPermission = (req, res) => {
     const userId = req.params.userId;
     const optionId = req.params.optionId;
-    const submenuId = req.body.submenu_id; // Get submenu ID from the request body
+    const submenuId = req.body.submenu_id;
     const { can_read, can_edit, can_delete } = req.body;
   
     let query;
