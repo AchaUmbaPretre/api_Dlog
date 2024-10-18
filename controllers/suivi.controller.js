@@ -101,7 +101,6 @@ exports.getSuiviTacheUn = (req, res) => {
     });
 }
 
-
 exports.getSuiviTacheOne = (req, res) => {
     const {id_tache} = req.query;
 
