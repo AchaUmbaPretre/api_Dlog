@@ -21,6 +21,7 @@ const upload = multer({ storage });
 router.get('/count', suiviController.getSuiviCount)
 router.get('/', suiviController.getSuivi)
 router.get('/one', suiviController.getSuiviOne)
+router.get('/suiviTacheUne', suiviController.getSuiviTacheUn)
 router.get('/suiviTacheOne', suiviController.getSuiviTacheOne)
 router.get('/suiviTacheOneV', suiviController.getSuiviTacheOneV)
 router.post('/', suiviController.postSuivi)

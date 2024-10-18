@@ -71,6 +71,36 @@ exports.getSuiviAllNbre = (req, res) => {
     });
 };
 
+exports.getSuiviTacheUn = (req, res) => {
+    const {id_suivi} = req.query;
+
+    const q = `
+        SELECT 
+            suivi_tache.*, 
+            type_statut_suivi.nom_type_statut,
+            CASE 
+        WHEN suivi_tache.est_termine = 0 THEN 'Non' 
+        ELSE 'Oui' 
+            END AS est_termine,
+            utilisateur.nom, 
+            tache.nom_tache
+        FROM 
+            suivi_tache
+        LEFT JOIN 
+            utilisateur ON suivi_tache.effectue_par = utilisateur.id_utilisateur
+        LEFT JOIN 
+            tache ON suivi_tache.id_tache = tache.id_tache
+        LEFT JOIN 
+            type_statut_suivi ON suivi_tache.status = type_statut_suivi.id_type_statut_suivi
+            WHERE suivi_tache.est_supprime = 0 AND suivi_tache.id_suivi = ?
+        `;
+     
+    db.query(q,[id_suivi], (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+}
+
 
 exports.getSuiviTacheOne = (req, res) => {
     const {id_tache} = req.query;
