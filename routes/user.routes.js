@@ -9,6 +9,5 @@ router.post('/', userController.registerUser)
 router.put('/', userController.putUser)
 router.put('/one', userController.putUserOne)
 router.delete('/:id', userController.deleteUser)
-router.get('/password_forgot', userController.detailForgot)
  
 module.exports = router;
