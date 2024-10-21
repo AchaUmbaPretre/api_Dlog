@@ -9,6 +9,6 @@ router.post('/logout', authController.logout);
 //Auth
 router.post('/detail_forgot', authController.detailForgot)
 router.get('/password_forgot', authController.detailForgot)
-router.put('/password_reset/:id', authController.updateUser)
+router.put('/password_reset', authController.updateUser)
 
 module.exports = router;

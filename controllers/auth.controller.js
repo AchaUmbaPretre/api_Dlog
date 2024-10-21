@@ -110,69 +110,9 @@ exports.detailForgot = (req, res) => {
       res.status(200).json(data);
     });
   };
-  
-/* exports.updateUser = async (req, res) => {
-    const id = req.params.id
-    const { password } = req.query;
-  
-    if (!id || !password) {
-        return res.status(400).json({ error: "ID and password are required" });
-    }
-  
-    try {
-  
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-  
-        const q = `UPDATE users SET password = ? WHERE id = ?`;
-  
-        db.query(q, [hashedPassword, id], (error, data) => {
-            if (error) {
-                return res.status(500).json({ error: error.message });
-            }
-            if (data.affectedRows === 0) {
-                return res.status(404).json({ error: "User not found" });
-            }
-            res.status(200).json({ message: "Password updated successfully" });
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-  }; */
-
-exports.updateUser = async (req, res) => {
-    const { token } = req.params; // Récupérer le jeton de l'URL
-    const { password } = req.body; // Récupérer le nouveau mot de passe de la requête
-
-    if (!token || !password) {
-        return res.status(400).json({ error: "Token and password are required" });
-    }
-
-    try {
-        // Vérifier le jeton JWT
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const id = decoded.id; // Récupérer l'ID utilisateur à partir du jeton
-
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
-        const q = `UPDATE utilisateur SET mot_de_passe = ? WHERE id_utilisateur = ?`;
-        db.query(q, [hashedPassword, id], (error, data) => {
-            if (error) {
-                return res.status(500).json({ error: error.message });
-            }
-            if (data.affectedRows === 0) {
-                return res.status(404).json({ error: "User not found" });
-            }
-            res.status(200).json({ message: "Password updated successfully" });
-        });
-    } catch (error) {
-        res.status(500).json({ error: "Invalid token or token expired." });
-    }
-};
 
 
-  // Créer le transporteur avec les informations SMTP
+    // Créer le transporteur avec les informations SMTP
 const transporter = nodemailer.createTransport({
   host: 'mail.loginsmart-cd.com', // Serveur sortant
   port: 465, // Port SMTP pour SSL
@@ -220,7 +160,7 @@ exports.detailForgot = (req, res) => {
 
     // Générer un jeton JWT pour la réinitialisation (expirant en 10 minutes)
     const resetToken = jwt.sign({ id: user.id_utilisateur }, process.env.JWT, {
-      expiresIn: '10m',
+      expiresIn: '30m',
     });
 
     // URL de réinitialisation
@@ -237,3 +177,65 @@ exports.detailForgot = (req, res) => {
     res.status(200).json({ message: 'Email envoyé avec succès.' });
   });
 };
+  
+exports.updateUser = async (req, res) => {
+    const {id} = req.query;
+    const { password } = req.body;
+  
+    if (!id || !password) {
+        return res.status(400).json({ error: "L'identifiant et le mot de passe sont requis" });
+    }
+  
+    try {
+  
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+  
+        const q = `UPDATE utilisateur SET mot_de_passe = ? WHERE id_utilisateur = ?`;
+  
+        db.query(q, [hashedPassword, id], (error, data) => {
+            if (error) {
+                return res.status(500).json({ error: error.message });
+            }
+            if (data.affectedRows === 0) {
+                return res.status(404).json({ error: "Utilisateur non trouvé" });
+            }
+            res.status(200).json({ message: "Mot de passe mis à jour avec succès" });
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+  };
+
+/* exports.updateUser = async (req, res) => {
+    const { token } = req.query; // Récupérer le jeton de l'URL
+    const { password } = req.body; // Récupérer le nouveau mot de passe de la requête
+
+    console.log('token : ' + token, 'password : '+ password)
+    if (!token || !password) {
+        return res.status(400).json({ error: "Token and password are required" });
+    }
+
+    try {
+        // Vérifier le jeton JWT
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const id = decoded.id; // Récupérer l'ID utilisateur à partir du jeton
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const q = `UPDATE utilisateur SET mot_de_passe = ? WHERE id_utilisateur = ?`;
+        db.query(q, [hashedPassword, id], (error, data) => {
+            if (error) {
+                return res.status(500).json({ error: error.message });
+            }
+            if (data.affectedRows === 0) {
+                return res.status(404).json({ error: "User not found" });
+            }
+            res.status(200).json({ message: "Password updated successfully" });
+        });
+    } catch (error) {
+        res.status(500).json({ error: "Invalid token or token expired." });
+    }
+}; */
+
