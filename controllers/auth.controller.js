@@ -99,7 +99,7 @@ exports.logout = (req, res) => {
     res.status(200).json({ message: 'Utilisateur déconnecté avec succès' });
   };
 
-exports.detailForgot = (req, res) => {
+/* exports.detailForgot = (req, res) => {
     const { email } = req.query;
     const q = `SELECT users.username, users.id, users.email FROM users WHERE email = ?`
   
@@ -109,7 +109,7 @@ exports.detailForgot = (req, res) => {
       }
       res.status(200).json(data);
     });
-  };
+  }; */
 
 
     // Créer le transporteur avec les informations SMTP
