@@ -36,7 +36,7 @@ exports.getFrequenceOne = (req, res) => {
     const q = `
         SELECT *
             FROM frequence
-        WHERE id_frequence =${id_frequence}
+        WHERE id_frequence = ${id_frequence}
         `;
      
     db.query(q, (error, data) => {
