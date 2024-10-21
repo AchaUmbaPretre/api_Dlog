@@ -1,6 +1,10 @@
 const { db } = require("./../config/database");
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const dotenv = require('dotenv');
 const nodemailer = require('nodemailer');
+
+dotenv.config();
 
 
 exports.getUserCount = (req, res) => {
@@ -196,6 +200,7 @@ const sendEmail = async (options) => {
 // Fonction pour gérer la demande de réinitialisation de mot de passe
 exports.detailForgot = (req, res) => {
   const { email } = req.query;
+
   const q = `SELECT utilisateur.nom, utilisateur.id_utilisateur, utilisateur.email FROM utilisateur WHERE email = ?`;
 
   db.query(q, [email], (error, data) => {
@@ -210,12 +215,12 @@ exports.detailForgot = (req, res) => {
     const user = data[0];
 
     // Générer un jeton JWT pour la réinitialisation (expirant en 10 minutes)
-    const resetToken = jwt.sign({ id: user.id_utilisateur }, process.env.JWT_SECRET, {
+    const resetToken = jwt.sign({ id: user.id_utilisateur }, process.env.JWT, {
       expiresIn: '10m',
     });
 
     // URL de réinitialisation
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password`;
     const message = `Cliquez sur ce lien pour réinitialiser votre mot de passe : ${resetUrl}`;
 
     // Envoyer l'email avec Nodemailer
