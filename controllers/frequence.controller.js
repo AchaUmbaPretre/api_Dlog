@@ -32,7 +32,6 @@ exports.getFrequence = (req, res) => {
 
 exports.getFrequenceOne = (req, res) => {
     const {id_frequence} = req.query;
-
     const q = `
         SELECT *
             FROM frequence
