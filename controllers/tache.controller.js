@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { db } = require("./../config/database");
 
-exports.getTacheChart = (req, res) => {
+/* exports.getTacheChart = (req, res) => {
     const q = `SELECT 
             typeC.nom_type_statut AS statut,
             COUNT(*) AS nombre_taches
@@ -18,7 +18,58 @@ exports.getTacheChart = (req, res) => {
                 if (error) res.status(500).send(error);
                 return res.status(200).json(data);
             });
-}
+} */
+// Exemple d'implémentation dans un contrôleur ou un service
+exports.getTacheChart = (req, res) => {
+    const { filter, dateRange } = req.query;
+
+    let whereClause = "tache.est_supprime = 0";
+
+    const today = new Date();
+
+    if (filter === 'today') {
+        whereClause += ` AND DATE(tache.date_creation) = DATE('${today.toISOString().split('T')[0]}')`;
+    } else if (filter === 'yesterday') {
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        whereClause += ` AND DATE(tache.date_creation) = DATE('${yesterday.toISOString().split('T')[0]}')`;
+    } else if (filter === '7days') {
+        const sevenDaysAgo = new Date(today);
+        sevenDaysAgo.setDate(today.getDate() - 7);
+        whereClause += ` AND tache.date_creation >= DATE('${sevenDaysAgo.toISOString().split('T')[0]}')`;
+    } else if (filter === '30days') {
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+        whereClause += ` AND tache.date_creation >= DATE('${thirtyDaysAgo.toISOString().split('T')[0]}')`;
+    } else if (filter === 'range' && dateRange && dateRange.length === 2) {
+        const startDate = new Date(dateRange[0]);
+        const endDate = new Date(dateRange[1]);
+        whereClause += ` AND tache.date_creation >= DATE('${startDate.toISOString().split('T')[0]}') AND tache.date_creation <= DATE('${endDate.toISOString().split('T')[0]}')`;
+    }
+
+    const q = `
+      SELECT 
+          typeC.nom_type_statut AS statut,
+          COUNT(*) AS nombre_taches,
+          (SELECT COUNT(*) FROM tache WHERE ${whereClause}) AS total_taches
+      FROM 
+          tache
+      LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+      WHERE 
+          ${whereClause}
+      GROUP BY typeC.nom_type_statut
+    `;
+
+    db.query(q, (error, data) => {
+        if (error) return res.status(500).send(error);
+        
+        const totalTasks = data.length > 0 ? data[0].total_taches : 0;
+
+        return res.status(200).json({ totalTasks, data });
+    });
+};
+        
+            
 
 exports.getTacheCount = (req, res) => {
     const { searchValue } = req.query;
