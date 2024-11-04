@@ -948,6 +948,10 @@ exports.getNiveauOne = (req, res) => {
 
 exports.postNiveau = (req, res) => {
     const { id_batiment, nom_niveau } = req.body;
+
+    if(!id_batiment){
+        return res.status(400).json({ error: "L'ID de niveau est requis." })
+    }
   
     const query = 'INSERT INTO niveau_batiment (id_batiment, nom_niveau) VALUES (?, ?)';
     const values = [id_batiment, nom_niveau];
@@ -992,8 +996,12 @@ exports.getDenominationOne = (req, res) => {
 };
 
 exports.postDenomination = (req, res) => {
-    const { id_batiment, nom_niveau } = req.body;
-  
+    const { id_batiment, nom_denomination_bat } = req.body;
+
+    if(!id_batiment){
+        return res.status(400).json({ error: "L'ID de whse_fact est requis." })
+    }
+
     const query = 'INSERT INTO denomination_bat (id_batiment, nom_denomination_bat) VALUES (?, ?)';
     const values = [id_batiment, nom_denomination_bat];
   
@@ -1023,6 +1031,10 @@ exports.getWHSE_FACT = (req, res) => {
 
 exports.getWHSE_FACT_ONE = (req, res) => {
     const {id_batiment} = req.query;
+
+    if(!id_batiment){
+        return res.status(400).json({ error: "L'ID de whse_fact est requis." })
+    }
 
     const q = `
                 SELECT * FROM whse_fact WHERE id_batiment = ?
