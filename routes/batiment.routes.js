@@ -99,6 +99,4 @@ router.get('/whse_fact', batimentController.getWHSE_FACT)
 router.get('/whse_fact/one', batimentController.getWHSE_FACT_ONE)
 router.post('/whse_fact', batimentController.postWHSE_FACT)
 
-
-
 module.exports = router;
