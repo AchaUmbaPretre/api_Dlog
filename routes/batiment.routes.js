@@ -84,5 +84,10 @@ router.get('/bureau', batimentController.getBureaux)
 router.get('/bureau/one', batimentController.getBureauxOne)
 router.post('/bureau', batimentController.postBureaux)
 
+//Batiment
+router.get('/batiment', batimentController.getBureaux)
+router.get('/batiment/one', batimentController.getBureauxOne)
+router.post('/bu', batimentController.postBureaux)
+
 
 module.exports = router;

@@ -935,7 +935,7 @@ exports.getNiveauOne = (req, res) => {
     const {id_batiment} = req.query;
 
     const q = `
-                SELECT * FROM niveau_batiment id_batiment = ?
+                SELECT * FROM niveau_batiment WHERE id_batiment = ?
             `;
 
     db.query(q,[id_batiment], (error, data) => {
@@ -950,6 +950,51 @@ exports.postNiveau = (req, res) => {
     const { id_batiment, nom_niveau } = req.body;
   
     const query = 'INSERT INTO niveau_batiment (id_batiment, nom_niveau) VALUES (?, ?)';
+    const values = [id_batiment, nom_niveau];
+  
+    db.query(query, values, (err, result) => {
+      if (err) {
+        console.error('Erreur lors de l\'insertion:', err);
+        return res.status(500).send('Erreur serveur');
+      }
+      res.status(200).send('Bureau ajouté avec succès');
+    });
+  };
+
+//Denomination batiment
+exports.getDenomination = (req, res) => {
+
+    const q = `
+                SELECT * FROM denomination_bat
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getDenominationOne = (req, res) => {
+    const {id_batiment} = req.query;
+
+    const q = `
+                SELECT * FROM denomination_bat WHERE id_batiment = ?
+            `;
+
+    db.query(q,[id_batiment], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postDenomination = (req, res) => {
+    const { id_batiment, nom_niveau } = req.body;
+  
+    const query = 'INSERT INTO niveau_batiment (id_batiment, nom_denomination_bat) VALUES (?, ?)';
     const values = [id_batiment, nom_niveau];
   
     db.query(query, values, (err, result) => {
