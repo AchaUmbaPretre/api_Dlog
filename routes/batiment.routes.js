@@ -89,4 +89,12 @@ router.get('/niveaau_batiment', batimentController.getNiveau)
 router.get('/niveau_batiment/one', batimentController.getNiveauOne)
 router.post('/niveaau_batiment', batimentController.postNiveau)
 
+
+//Denomination batiment
+router.get('/denomination', batimentController.getDenomination)
+router.get('/denomination/one', batimentController.getDenominationOne)
+router.post('/denomination', batimentController.postDenomination)
+
+
+
 module.exports = router;
