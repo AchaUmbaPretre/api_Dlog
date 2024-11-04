@@ -72,7 +72,6 @@ exports.getTacheChart = (req, res) => {
 exports.getTacheFilter = (req, res) => {
     const { statut, dateDebut, dateFin } = req.query;
 
-    // Définition de la requête SQL
     let q = `
         SELECT 
             tache.id_tache, 
@@ -110,9 +109,9 @@ exports.getTacheFilter = (req, res) => {
         LEFT JOIN tags tg ON tt.id_tag = tg.id_tag
         WHERE 
             tache.est_supprime = 0
-            AND (typeC.nom_type_statut = ? OR ? IS NULL)  -- Filtre par statut
-            AND (tache.date_debut >= ? OR ? IS NULL)  -- Filtre par date de début
-            AND (tache.date_fin <= ? OR ? IS NULL)  -- Filtre par date de fin
+            AND (typeC.nom_type_statut = ? OR ? IS NULL)
+            AND (tache.date_debut >= ? OR ? IS NULL)
+            AND (tache.date_fin <= ? OR ? IS NULL)
     `;
 
     const params = [
@@ -124,7 +123,6 @@ exports.getTacheFilter = (req, res) => {
         dateFin || null  
     ];
 
-    // Exécution de la requête
     db.query(q, params, (error, data) => {
         if (error) {
             console.error('Erreur lors de la récupération des tâches:', error);
