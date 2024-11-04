@@ -312,7 +312,6 @@ exports.putBatimentDoc = async (req, res) => {
     }
 };
 
-
 exports.getMaintenance = (req, res) => {
 
     const q = `
@@ -370,7 +369,6 @@ exports.postMaintenance = async (req, res) => {
     }
 };
 
-
 exports.getTypeEquipement = (req, res) => {
 
     const q = `
@@ -412,7 +410,6 @@ exports.getStatutMaintenance= (req, res) => {
         return res.status(200).json(data);
     });
 };
-
 
 // Stocks des équipements
 exports.getStockEquipement = (req, res) => {
@@ -504,7 +501,6 @@ exports.putStockEquipement = async (req, res) => {
         return res.status(500).json({ error: 'Failed to update Tache record' });
     }
 }
-
 
 //Tableau de bord
 exports.getRapport = (req, res) => {
@@ -795,7 +791,6 @@ exports.deleteUpdatedBins = (req, res) => {
     });
   }
 
-
 exports.putBins = async (req, res) => {
     const { id } = req.query;
     const { nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut} = req.body;
@@ -911,6 +906,51 @@ exports.postBureaux = (req, res) => {
   
     const query = 'INSERT INTO bureaux (id_batiment, nom, longueur, largeur, hauteur, nombre_postes) VALUES (?, ?, ?, ?, ?, ?)';
     const values = [id_batiment, nom, longueur, largeur, hauteur, nombre_postes];
+  
+    db.query(query, values, (err, result) => {
+      if (err) {
+        console.error('Erreur lors de l\'insertion:', err);
+        return res.status(500).send('Erreur serveur');
+      }
+      res.status(200).send('Bureau ajouté avec succès');
+    });
+  };
+
+//Niveau batiment
+exports.getNiveau = (req, res) => {
+
+    const q = `
+                SELECT * FROM niveau_batiment
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getNiveauOne = (req, res) => {
+    const {id_batiment} = req.query;
+
+    const q = `
+                SELECT * FROM niveau_batiment id_batiment = ?
+            `;
+
+    db.query(q,[id_batiment], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postNiveau = (req, res) => {
+    const { id_batiment, nom_niveau } = req.body;
+  
+    const query = 'INSERT INTO niveau_batiment (id_batiment, nom_niveau) VALUES (?, ?)';
+    const values = [id_batiment, nom_niveau];
   
     db.query(query, values, (err, result) => {
       if (err) {
