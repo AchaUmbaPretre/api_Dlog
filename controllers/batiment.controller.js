@@ -1038,6 +1038,10 @@ exports.getWHSE_FACT_ONE = (req, res) => {
 
 exports.postWHSE_FACT = (req, res) => {
     const { id_batiment, nom_whse_fact } = req.body;
+
+    if(!id_batiment){
+        return res.status(400).json({ error: "L'ID de whse_fact est requis." })
+    }
   
     const query = 'INSERT INTO whse_fact (id_batiment, nom_whse_fact) VALUES (?, ?)';
     const values = [id_batiment, nom_whse_fact];
