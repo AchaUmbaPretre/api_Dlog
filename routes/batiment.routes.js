@@ -84,10 +84,9 @@ router.get('/bureau', batimentController.getBureaux)
 router.get('/bureau/one', batimentController.getBureauxOne)
 router.post('/bureau', batimentController.postBureaux)
 
-//Batiment
-router.get('/batiment', batimentController.getBureaux)
-router.get('/batiment/one', batimentController.getBureauxOne)
-router.post('/bu', batimentController.postBureaux)
-
+//Niveau batiment
+router.get('/niveaau_batiment', batimentController.getNiveau)
+router.get('/niveau_batiment/one', batimentController.getNiveauOne)
+router.post('/niveaau_batiment', batimentController.postNiveau)
 
 module.exports = router;
