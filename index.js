@@ -21,6 +21,7 @@ const offresRoutes = require('./routes/offres.routes');
 const besoinsRoutes = require('./routes/besoins.routes');
 const batimentRoutes = require('./routes/batiment.routes');
 const permissionRoutes = require('./routes/permission.routes');
+const templateRoutes = require('./routes/template.routes');
 
 const app = express();
 
@@ -68,6 +69,7 @@ app.use('/api/offre', offresRoutes)
 app.use('/api/besoin', besoinsRoutes)
 app.use('/api/batiment', batimentRoutes)
 app.use('/api/permission', permissionRoutes)
+app.use('/api/template', templateRoutes)
 
 app.listen(port, () => {
     console.log(
