@@ -54,3 +54,19 @@ exports.postTemplate = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
+
+
+//Type d'occupation
+exports.getTypeOccupation = (req, res) => {
+
+    const q = `
+            SELECT * FROM type_d_occupation
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};

@@ -6,4 +6,8 @@ router.get('/', templateController.getTemplate)
 router.get('/one', templateController.getTemplateOne)
 router.post('/', templateController.postTemplate)
 
+//Type d'occupation
+router.get('/type_occupation', templateController.getTypeOccupation)
+
+
 module.exports = router;
