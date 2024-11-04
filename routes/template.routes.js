@@ -8,6 +8,6 @@ router.post('/', templateController.postTemplate)
 
 //Type d'occupation
 router.get('/type_occupation', templateController.getTypeOccupation)
-
+router.get('/objet_facture', templateController.getObjetFacture)
 
 module.exports = router;
