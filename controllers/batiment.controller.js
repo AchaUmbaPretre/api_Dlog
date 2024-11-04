@@ -994,8 +994,53 @@ exports.getDenominationOne = (req, res) => {
 exports.postDenomination = (req, res) => {
     const { id_batiment, nom_niveau } = req.body;
   
-    const query = 'INSERT INTO niveau_batiment (id_batiment, nom_denomination_bat) VALUES (?, ?)';
-    const values = [id_batiment, nom_niveau];
+    const query = 'INSERT INTO denomination_bat (id_batiment, nom_denomination_bat) VALUES (?, ?)';
+    const values = [id_batiment, nom_denomination_bat];
+  
+    db.query(query, values, (err, result) => {
+      if (err) {
+        console.error('Erreur lors de l\'insertion:', err);
+        return res.status(500).send('Erreur serveur');
+      }
+      res.status(200).send('Bureau ajouté avec succès');
+    });
+  };
+
+  //WHSE FACT
+exports.getWHSE_FACT = (req, res) => {
+
+    const q = `
+                SELECT * FROM denomination_bat
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getWHSE_FACT_ONE = (req, res) => {
+    const {id_batiment} = req.query;
+
+    const q = `
+                SELECT * FROM whse_fact WHERE id_batiment = ?
+            `;
+
+    db.query(q,[id_batiment], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postWHSE_FACT = (req, res) => {
+    const { id_batiment, nom_whse_fact } = req.body;
+  
+    const query = 'INSERT INTO whse_fact (id_batiment, nom_whse_fact) VALUES (?, ?)';
+    const values = [id_batiment, nom_whse_fact];
   
     db.query(query, values, (err, result) => {
       if (err) {
