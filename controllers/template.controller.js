@@ -33,7 +33,7 @@ exports.getTemplateOne = (req, res) => {
 exports.postTemplate = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO template_occupation(`id_client`, `id_type_occupation`, `id_batiment`, `id_niveau`, `id_denomination`, `id_whse_fact`, `id_objet_fact`, `desc_template`, `status_template`) VALUES(?,?,?,?,?,?,?,?,?,?)';
+        const q = 'INSERT INTO template_occupation(`id_client`, `id_type_occupation`, `id_batiment`, `id_niveau`, `id_denomination`, `id_whse_fact`, `id_objet_fact`, `desc_template`, `status_template`) VALUES(?,?,?,?,?,?,?,?,?)';
 
         const values = [
             req.body.id_client,
