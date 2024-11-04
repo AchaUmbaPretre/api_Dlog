@@ -1006,7 +1006,7 @@ exports.postDenomination = (req, res) => {
     });
   };
 
-  //WHSE FACT
+//WHSE FACT
 exports.getWHSE_FACT = (req, res) => {
 
     const q = `
