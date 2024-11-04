@@ -20,6 +20,8 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 router.get('/count_chart', tacheController.getTacheChart)
+router.get('/tache_filter_chart', tacheController.getTacheFilter)
+
 router.get('/count', tacheController.getTacheCount)
 router.get('/tache_doc', tacheController.getTacheDoc)
 router.post('/tache', tacheController.getTache)
