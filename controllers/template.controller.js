@@ -76,7 +76,7 @@ exports.getObjetFacture = (req, res) => {
 
     const q = `
             SELECT * FROM objet_fact
-            `; 
+            `;  
 
     db.query(q, (error, data) => {
         if (error) {
