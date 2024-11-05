@@ -55,7 +55,6 @@ exports.postTemplate = async (req, res) => {
     }
 };
 
-
 //Type d'occupation
 exports.getTypeOccupation = (req, res) => {
 
