@@ -210,22 +210,51 @@ exports.getDeclarationOne = (req, res) => {
 exports.postDeclaration = async (req, res) => {
     try {
         const query = `
-            INSERT INTO declaration_superficie (type_activite, id_ville, id_client, id_batiment, id_objet, manutention, tarif_manutention, debours, total, ttc, observation)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO declaration_super (
+                id_template,
+                periode,
+                m2_occupe,
+                m2_facture,
+                tarif_entreposage,
+                entreposage,
+                debours_entreposage,
+                total_entreposage,
+                ttc_entreposage,
+                desc_entreposage,
+                id_ville,
+                id_client,
+                id_batiment,
+                id_objet,
+                manutation,
+                tarif_manutation,
+                debours_manutation,
+                total_manutation,
+                ttc_manutation,
+                desc_manutation
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const values = [
-            req.body.type_activite,
+            req.body.id_template,
+            req.body.periode,
+            req.body.m2_occupe,
+            req.body.m2_facture,
+            req.body.tarif_entreposage,
+            req.body.entreposage,
+            req.body.debours_entreposage,
+            req.body.total_entreposage,
+            req.body.ttc_entreposage,
+            req.body.desc_entreposage,
             req.body.id_ville,
             req.body.id_client,
             req.body.id_batiment,
             req.body.id_objet,
-            req.body.manutention,
-            req.body.tarif_manutention,
-            req.body.debours,
-            req.body.total,
-            req.body.ttc,
-            req.body.observation
+            req.body.manutation,
+            req.body.tarif_manutation,
+            req.body.debours_manutation,
+            req.body.total_manutation,
+            req.body.ttc_manutation,
+            req.body.desc_manutation
         ];
 
         await db.query(query, values);
@@ -235,3 +264,4 @@ exports.postDeclaration = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la déclaration." });
     }
 };
+
