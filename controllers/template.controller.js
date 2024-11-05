@@ -76,11 +76,11 @@ exports.getObjetFacture = (req, res) => {
 
     const q = `
             SELECT * FROM objet_fact
-            `;
+            `; 
 
     db.query(q, (error, data) => {
         if (error) {
-            return res.status(500).send(error);
+            return res.status(500).send(error)
         }
         return res.status(200).json(data);
     });
