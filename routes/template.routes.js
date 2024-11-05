@@ -10,4 +10,10 @@ router.post('/', templateController.postTemplate)
 router.get('/type_occupation', templateController.getTypeOccupation)
 router.get('/objet_facture', templateController.getObjetFacture)
 
+
+//Déclaration superficie
+router.get('/declaration_superficie', templateController.getDeclaration)
+router.get('/declaration_superficie/one', templateController.getDeclarationOne)
+router.post('/declaration_superficie', templateController.postDeclaration)
+
 module.exports = router;
