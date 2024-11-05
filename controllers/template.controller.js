@@ -9,7 +9,7 @@ exports.getTemplate = (req, res) => {
                 tm.date_actif,
                 tm.date_inactif,
                 tm.desc_template,
-                client.nom, 
+                client.nom AS nom_client, 
                 td.nom_type_d_occupation, 
                 batiment.nom_batiment, 
                 dn.nom_denomination_bat, 
@@ -39,13 +39,37 @@ exports.getTemplate = (req, res) => {
 };
 
 exports.getTemplateOne = (req, res) => {
-    const {id_batiment} = req.query;
+    const {id_template} = req.query;
 
     const q = `
-           SELECT * FROM template_occupation WHERE id_batiment = ?
+           SELECT 
+                tm.id_template, 
+                tm.date_actif,
+                tm.date_inactif,
+                tm.desc_template,
+                client.nom AS nom_client, 
+                td.nom_type_d_occupation, 
+                batiment.nom_batiment, 
+                dn.nom_denomination_bat, 
+                whse_fact.nom_whse_fact,
+                objet_fact.nom_objet_fact,
+                statut_template.nom_statut_template,
+                statut_template.id_statut_template,
+                niveau_batiment.nom_niveau
+            FROM 
+                template_occupation tm
+                INNER JOIN client ON tm.id_client = client.id_client
+                INNER JOIN type_d_occupation AS td ON tm.id_type_occupation = td.id_type_d_occupation
+                INNER JOIN batiment ON tm.id_batiment = batiment.id_batiment
+                INNER JOIN denomination_bat AS dn ON tm.id_denomination = dn.id_denomination_bat
+                INNER JOIN whse_fact ON tm.id_whse_fact = whse_fact.id_whse_fact
+                INNER JOIN objet_fact ON tm.id_objet_fact = objet_fact.id_objet_fact
+                INNER JOIN statut_template ON tm.status_template = statut_template.id_statut_template
+                INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau 
+            WHERE tm.id_template = ?        
             `;
 
-    db.query(q,[id_batiment], (error, data) => {
+    db.query(q,[id_template], (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
