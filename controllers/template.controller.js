@@ -123,6 +123,7 @@ exports.getTemplateOne = (req, res) => {
 };
 
 exports.postTemplate = async (req, res) => {
+    
     try {
         const query = `
             INSERT INTO template_occupation 
@@ -212,6 +213,7 @@ exports.getDeclarationOne = (req, res) => {
 };
 
 exports.postDeclaration = async (req, res) => {
+    console.log(req.body)
     try {
         const query = `
             INSERT INTO declaration_super (
@@ -259,10 +261,16 @@ exports.postDeclaration = async (req, res) => {
             req.body.total_manutation,
             req.body.ttc_manutation,
             req.body.desc_manutation
-        ];
+        ];  
+        db.query(query, values,(error, data) => {
+            if(error){
+                console.log(error)
+            }
+            else{
+                return res.status(201).json({ message: 'Déclaration ajoutée avec succès' });
+            }
+        })
 
-        await db.query(query, values);
-        return res.status(201).json({ message: 'Déclaration ajoutée avec succès' });
     } catch (error) {
         console.error("Erreur lors de l'ajout de la déclaration:", error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la déclaration." });
