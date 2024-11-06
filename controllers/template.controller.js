@@ -187,7 +187,17 @@ exports.getObjetFacture = (req, res) => {
 exports.getDeclaration = (req, res) => {
 
     const q = `
-           SELECT * FROM declaration_superficie   
+            SELECT 
+                ds.*, client.nom, 
+                p.name, 
+                batiment.nom_batiment, 
+                objet_fact.nom_objet_fact 
+            FROM 
+                declaration_super AS ds
+                INNER JOIN provinces p ON p.id = ds.id_ville
+                INNER JOIN client ON ds.id_client = client.id_client
+                INNER JOIN batiment ON ds.id_batiment = batiment.id_batiment
+                INNER JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
                 `;
 
     db.query(q, (error, data) => {
