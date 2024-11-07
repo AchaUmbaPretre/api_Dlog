@@ -920,7 +920,12 @@ exports.postBureaux = (req, res) => {
 exports.getNiveau = (req, res) => {
 
     const q = `
-                SELECT * FROM niveau_batiment
+                SELECT 
+                    nb.nom_niveau, 
+                    b.nom_batiment 
+                FROM 
+                    niveau_batiment nb
+                    INNER JOIN batiment b ON nb.id_batiment = b.id_batiment
             `;
 
     db.query(q, (error, data) => {
@@ -969,7 +974,8 @@ exports.postNiveau = (req, res) => {
 exports.getDenomination = (req, res) => {
 
     const q = `
-                SELECT * FROM denomination_bat
+                SELECT dn.nom_denomination_bat, b.nom_batiment FROM denomination_bat dn
+                    INNER JOIN batiment b ON dn.id_batiment = b.id_batiment
             `;
 
     db.query(q, (error, data) => {
@@ -1018,7 +1024,10 @@ exports.postDenomination = (req, res) => {
 exports.getWHSE_FACT = (req, res) => {
 
     const q = `
-                SELECT * FROM denomination_bat
+                SELECT 
+                    whse_fact.nom_whse_fact, 
+                    b.nom_batiment FROM whse_fact
+                INNER JOIN batiment b ON whse_fact.id_batiment = b.id_batiment
             `;
 
     db.query(q, (error, data) => {
