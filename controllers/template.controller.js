@@ -185,20 +185,40 @@ exports.getObjetFacture = (req, res) => {
 
 //Déclaration superficie
 exports.getDeclaration = (req, res) => {
+    const { ville, client, batiment, dateRange } = req.body;
+    let q = `
+        SELECT 
+            ds.*, 
+            client.nom, 
+            p.name, 
+            batiment.nom_batiment, 
+            objet_fact.nom_objet_fact,
+            tc.desc_template
+        FROM 
+            declaration_super AS ds
+            INNER JOIN provinces p ON p.id = ds.id_ville
+            INNER JOIN client ON ds.id_client = client.id_client
+            INNER JOIN batiment ON ds.id_batiment = batiment.id_batiment
+            INNER JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+            INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+        WHERE tc.status_template = 1
+    `;
 
-    const q = `
-            SELECT 
-                ds.*, client.nom, 
-                p.name, 
-                batiment.nom_batiment, 
-                objet_fact.nom_objet_fact 
-            FROM 
-                declaration_super AS ds
-                INNER JOIN provinces p ON p.id = ds.id_ville
-                INNER JOIN client ON ds.id_client = client.id_client
-                INNER JOIN batiment ON ds.id_batiment = batiment.id_batiment
-                INNER JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
-                `;
+    if (ville) {
+        q += ` AND ds.id_ville IN (${ville.map(v => db.escape(v)).join(',')})`;
+    }
+
+    if (client) {
+        q += ` AND ds.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
+    }
+
+    if (batiment) {
+        q += ` AND ds.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;
+    }
+
+    if (dateRange && dateRange.length === 2) {
+        q += ` AND ds.periode >= ${db.escape(dateRange[0])} AND ds.periode <= ${db.escape(dateRange[1])}`;
+    }
 
     db.query(q, (error, data) => {
         if (error) {
@@ -207,6 +227,8 @@ exports.getDeclaration = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+
 
 exports.getDeclarationOne = (req, res) => {
 
@@ -223,7 +245,7 @@ exports.getDeclarationOne = (req, res) => {
 };
 
 exports.postDeclaration = async (req, res) => {
-    console.log(req.body)
+    
     try {
         const query = `
             INSERT INTO declaration_super (
