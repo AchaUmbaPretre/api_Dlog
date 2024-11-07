@@ -78,7 +78,6 @@ LIMIT 5;
     });
 };
 
-
 exports.getTemplateOne = (req, res) => {
     const {id_template} = req.query;
 
@@ -190,7 +189,7 @@ exports.getDeclaration = (req, res) => {
         SELECT 
             ds.*, 
             client.nom, 
-            p.name, 
+            p.capital, 
             batiment.nom_batiment, 
             objet_fact.nom_objet_fact,
             tc.desc_template
@@ -204,18 +203,18 @@ exports.getDeclaration = (req, res) => {
         WHERE tc.status_template = 1
     `;
 
-    if (ville) {
+    if (ville && ville.length > 0) {
         q += ` AND ds.id_ville IN (${ville.map(v => db.escape(v)).join(',')})`;
     }
-
-    if (client) {
+    
+    if (client && client.length > 0) {
         q += ` AND ds.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
     }
-
-    if (batiment) {
+    
+    if (batiment && batiment.length > 0) {
         q += ` AND ds.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;
     }
-
+    
     if (dateRange && dateRange.length === 2) {
         q += ` AND ds.periode >= ${db.escape(dateRange[0])} AND ds.periode <= ${db.escape(dateRange[1])}`;
     }
