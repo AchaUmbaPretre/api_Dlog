@@ -2,7 +2,7 @@ const express = require("express");
 const templateController = require("../controllers/template.controller");
 const router = express.Router();
 
-router.post('/', templateController.getTemplate)
+router.get('/', templateController.getTemplate)
 router.get('/5derniers', templateController.getTemplate5Derniers)
 router.get('/one', templateController.getTemplateOne)
 router.post('/', templateController.postTemplate)
