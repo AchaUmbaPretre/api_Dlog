@@ -151,6 +151,42 @@ exports.postTemplate = async (req, res) => {
     }
 };
 
+exports.putTemplateStatut = async (req, res) => {
+    const { id_template } = req.query;
+
+    if (!id_template || isNaN(id_template)) {
+        return res.status(400).json({ error: 'Invalid template ID provided' });
+    }
+    const { status_template } = req.body;
+    if (typeof status_template === 'undefined' || isNaN(status_template)) {
+        return res.status(400).json({ error: 'Invalid status value provided' });
+    }
+
+    try {
+        const query = `
+            UPDATE template_occupation
+            SET status_template = ?
+            WHERE id_template = ?
+        `;
+        const values = [parseInt(status_template), id_template];
+
+        db.query(query, values, (error, results) => {
+            if (error) {
+                console.error("Error executing query:", error);
+                return res.status(500).json({ error: 'Failed to update template status' });
+            }
+
+            if (results.affectedRows === 0) {
+                return res.status(404).json({ error: 'Template not found' });
+            }
+
+            return res.json({ message: 'Template status updated successfully' });
+        });
+    } catch (err) {
+        console.error("Error updating template status:", err);
+        return res.status(500).json({ error: 'Failed to update template status' });
+    }
+};
 
 //Type d'occupation
 exports.getTypeOccupation = (req, res) => {

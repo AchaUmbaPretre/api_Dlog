@@ -6,6 +6,7 @@ router.get('/', templateController.getTemplate)
 router.get('/5derniers', templateController.getTemplate5Derniers)
 router.get('/one', templateController.getTemplateOne)
 router.post('/', templateController.postTemplate)
+router.put('/statut', templateController.putTemplateStatut)
 
 //Type d'occupation
 router.get('/type_occupation', templateController.getTypeOccupation)
