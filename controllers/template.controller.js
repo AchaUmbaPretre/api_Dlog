@@ -1,6 +1,20 @@
 const { db } = require("./../config/database");
 
 //Template
+exports.getTemplateCount = (req, res) => {
+    
+    let q = `
+        SELECT 
+            COUNT(id_template) AS nbre_template
+        FROM template_occupation
+        `;
+     
+    db.query(q, (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+}
+
 exports.getTemplate = (req, res) => {
 
     const q = `
@@ -219,6 +233,20 @@ exports.getObjetFacture = (req, res) => {
 };
 
 //Déclaration superficie
+exports.getDeclarationCount = (req, res) => {
+    
+    let q = `
+        SELECT 
+            COUNT(id_declaration_super ) AS nbre_declaration
+        FROM declaration_super
+        `;
+     
+    db.query(q, (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+}
+
 exports.getDeclaration = (req, res) => {
     const { ville, client, batiment, dateRange } = req.body;
     let q = `
@@ -237,7 +265,7 @@ exports.getDeclaration = (req, res) => {
             LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
             LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
             INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
-        WHERE tc.status_template
+        WHERE tc.status_template = 1
     `;
 
     if (ville && ville.length > 0) {

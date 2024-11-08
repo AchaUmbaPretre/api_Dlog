@@ -7,6 +7,7 @@ router.get('/article', typesController.getArticle)
 router.get('/articleOne', typesController.getArticleOne)
 
 //Batiment
+router.get('/batimentcount', typesController.getBatimentCount)
 router.get('/batiment', typesController.getBatiment)
 router.get('/batiment/one', typesController.getBatimentOne)
 router.post('/batiment', typesController.postBatiment)

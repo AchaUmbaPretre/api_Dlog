@@ -4,7 +4,7 @@ exports.getProjetCount = (req, res) => {
     
     let q = `
         SELECT 
-            COUNT(id_projet) AS nbre_proejet
+            COUNT(id_projet) AS nbre_projet
         FROM projet
         `;
      
