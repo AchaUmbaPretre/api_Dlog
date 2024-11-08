@@ -243,7 +243,7 @@ exports.getDeclarationOne = (req, res) => {
     });
 };
 
-exports.postDeclaration = async (req, res) => {
+/* exports.postDeclaration = async (req, res) => {
     
     try {
         const query = `
@@ -302,6 +302,83 @@ exports.postDeclaration = async (req, res) => {
             }
         })
 
+    } catch (error) {
+        console.error("Erreur lors de l'ajout de la déclaration:", error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la déclaration." });
+    }
+}; */
+
+exports.postDeclaration = async (req, res) => {
+    try {
+        const query = `
+            INSERT INTO declaration_super (
+                id_template,
+                periode,
+                m2_occupe,
+                m2_facture,
+                tarif_entreposage,
+                entreposage,
+                debours_entreposage,
+                total_entreposage,
+                ttc_entreposage,
+                desc_entreposage,
+                id_ville,
+                id_client,
+                id_objet,
+                manutation,
+                tarif_manutation,
+                debours_manutation,
+                total_manutation,
+                ttc_manutation,
+                desc_manutation
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const values = [
+            req.body.id_template,
+            req.body.periode,
+            req.body.m2_occupe,
+            req.body.m2_facture,
+            req.body.tarif_entreposage,
+            req.body.entreposage,
+            req.body.debours_entreposage,
+            req.body.total_entreposage,
+            req.body.ttc_entreposage,
+            req.body.desc_entreposage,
+            req.body.id_ville,
+            req.body.id_client,
+            req.body.id_objet,
+            req.body.manutation,
+            req.body.tarif_manutation,
+            req.body.debours_manutation,
+            req.body.total_manutation,
+            req.body.ttc_manutation,
+            req.body.desc_manutation
+        ];
+
+        db.query(query, values, (error, result) => {
+            if (error) {
+                console.log(error);
+                return res.status(500).json({ error: "Erreur lors de l'ajout de la déclaration." });
+            }
+
+            const declarationId = result.insertId;
+            const batimentIds = req.body.id_batiments; // Supposons que `id_batiments` est un tableau d'IDs de bâtiments.
+
+            const batimentValues = batimentIds.map((id_batiment) => [declarationId, id_batiment]);
+            const batimentQuery = `
+                INSERT INTO declaration_super_batiment (id_declaration_super, id_batiment) VALUES ?
+            `;
+
+            db.query(batimentQuery, [batimentValues], (error) => {
+                if (error) {
+                    console.log(error);
+                    return res.status(500).json({ error: "Erreur lors de l'association des bâtiments." });
+                }
+
+                return res.status(201).json({ message: 'Déclaration ajoutée avec succès et bâtiments associés.' });
+            });
+        });
     } catch (error) {
         console.error("Erreur lors de l'ajout de la déclaration:", error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la déclaration." });
