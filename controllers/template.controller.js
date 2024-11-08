@@ -228,8 +228,6 @@ exports.getDeclaration = (req, res) => {
     });
 };
 
-
-
 exports.getDeclarationOne = (req, res) => {
 
     const q = `
