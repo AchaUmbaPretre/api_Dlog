@@ -8,6 +8,7 @@ router.get('/5derniers', templateController.getTemplate5Derniers)
 router.get('/one', templateController.getTemplateOne)
 router.post('/', templateController.postTemplate)
 router.put('/statut', templateController.putTemplateStatut)
+router.put('/template_delete', templateController.deleteUpdateTemplate)
 
 //Type d'occupation
 router.get('/type_occupation', templateController.getTypeOccupation)
@@ -19,5 +20,6 @@ router.get('/declaration_count', templateController.getDeclarationCount)
 router.post('/declaration_superficies', templateController.getDeclaration)
 router.get('/declaration_superficie/one', templateController.getDeclarationOne)
 router.post('/declaration_superficie', templateController.postDeclaration)
+router.put('/declaration_superficie_delete', templateController.deleteUpdateDeclaration)
 
 module.exports = router;

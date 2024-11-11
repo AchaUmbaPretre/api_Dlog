@@ -732,9 +732,8 @@ exports.getTacheOne = (req, res) => {
                 });
             });
         });
-    };
+};
     
-
 exports.getTacheControleOne = (req, res) => {
     const {id_controle} = req.query;
 
@@ -985,7 +984,6 @@ exports.postTache = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 }; */
-
 
 exports.postTacheExcel = async (req, res) => {
     try {

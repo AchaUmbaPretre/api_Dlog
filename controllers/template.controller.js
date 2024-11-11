@@ -202,6 +202,19 @@ exports.putTemplateStatut = async (req, res) => {
     }
 };
 
+exports.deleteUpdateTemplate = (req, res) => {
+    const {id} = req.query;
+  
+    const q = "UPDATE template_occupation SET est_supprime = 1 WHERE id_template = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) {
+        console.log(err)
+      }
+      return res.json(data);
+    });
+  
+  }
 //Type d'occupation
 exports.getTypeOccupation = (req, res) => {
 
@@ -447,3 +460,17 @@ exports.postDeclaration = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la déclaration." });
     }
 };
+
+exports.deleteUpdateDeclaration = (req, res) => {
+    const {id} = req.query;
+  
+    const q = "UPDATE declaration_superficie SET est_supprime = 1 WHERE id_declaration_super = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) {
+        console.log(err)
+      }
+      return res.json(data);
+    });
+  
+  }
