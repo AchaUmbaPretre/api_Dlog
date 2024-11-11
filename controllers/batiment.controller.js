@@ -951,7 +951,7 @@ exports.getNiveauOne = (req, res) => {
     });
 };
 
-exports.postNiveau = (req, res) => {
+/* exports.postNiveau = (req, res) => {
     const { id_batiment, nom_niveau } = req.body;
 
     if(!id_batiment){
@@ -968,7 +968,32 @@ exports.postNiveau = (req, res) => {
       }
       res.status(200).send('Bureau ajouté avec succès');
     });
-  };
+  }; */
+
+exports.postNiveau = (req, res) => {
+    const { id_batiment, niveaux } = req.body;
+
+    if (!id_batiment) {
+        return res.status(400).json({ error: "L'ID du bâtiment est requis." });
+    }
+    if (!niveaux || !Array.isArray(niveaux) || niveaux.length === 0) {
+        return res.status(400).json({ error: "La liste des niveaux est requise." });
+    }
+
+    // Construire une liste de valeurs pour l'insertion en masse
+    const query = 'INSERT INTO niveau_batiment (id_batiment, nom_niveau) VALUES ?';
+    const values = niveaux.map(niveau => [id_batiment, niveau.nom_niveau]);
+
+    db.query(query, [values], (err, result) => {
+        if (err) {
+            console.error("Erreur lors de l'insertion :", err);
+            return res.status(500).send("Erreur serveur");
+        }
+        res.status(200).send("Niveaux ajoutés avec succès");
+    });
+};
+
+
 
 //Denomination batiment
 exports.getDenomination = (req, res) => {
@@ -1001,7 +1026,7 @@ exports.getDenominationOne = (req, res) => {
     });
 };
 
-exports.postDenomination = (req, res) => {
+/* exports.postDenomination = (req, res) => {
     const { id_batiment, nom_denomination_bat } = req.body;
 
     if(!id_batiment){
@@ -1018,7 +1043,30 @@ exports.postDenomination = (req, res) => {
       }
       res.status(200).send('Bureau ajouté avec succès');
     });
-  };
+  }; */
+
+
+exports.postDenomination = (req, res) => {
+    const { id_batiment, denominations } = req.body;
+
+    if (!id_batiment) {
+        return res.status(400).json({ error: "L'ID du bâtiment est requis." });
+    }
+    if (!denominations || !Array.isArray(denominations) || denominations.length === 0) {
+        return res.status(400).json({ error: "La liste des dénominations est requise." });
+    }
+
+    const query = 'INSERT INTO denomination_bat (id_batiment, nom_denomination_bat) VALUES ?';
+    const values = denominations.map(d => [id_batiment, d.nom_denomination_bat]);
+
+    db.query(query, [values], (err, result) => {
+        if (err) {
+            console.error("Erreur lors de l'insertion :", err);
+            return res.status(500).send("Erreur serveur");
+        }
+        res.status(200).send("Dénominations ajoutées avec succès");
+    });
+};
 
 //WHSE FACT
 exports.getWHSE_FACT = (req, res) => {
