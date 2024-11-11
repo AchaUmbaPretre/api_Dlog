@@ -591,7 +591,8 @@ exports.putDeclaration =  (req, res) => {
                     req.body.id_objet,
                     req.body.manutation,
                     req.body.tarif_manutation,
-                    re
+                    req.body.debours_manutation,
+                    req.body.total_manutation
                 ]
     }catch (err) {
         console.error("Error updating declaration:", err);
