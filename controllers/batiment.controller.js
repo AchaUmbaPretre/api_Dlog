@@ -994,7 +994,6 @@ exports.postNiveau = (req, res) => {
 };
 
 
-
 //Denomination batiment
 exports.getDenomination = (req, res) => {
 

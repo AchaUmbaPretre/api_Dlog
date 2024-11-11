@@ -137,35 +137,86 @@ exports.getTemplateOne = (req, res) => {
     });
 };
 
-exports.postTemplate = async (req, res) => {
-    
-    try {
-        const query = `
-            INSERT INTO template_occupation 
-            (id_client, id_type_occupation, id_batiment, id_niveau, id_denomination, id_whse_fact, id_objet_fact, desc_template, status_template, date_actif) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
+exports.postTemplate = (req, res) => {
+    db.getConnection((err, connection) => {
+        if (err) {
+            console.error("Erreur de connexion à la base de données:", err);
+            return res.status(500).json({ error: "Erreur de connexion à la base de données." });
+        }
 
-        const values = [
-            req.body.id_client,
-            req.body.id_type_occupation,
-            req.body.id_batiment,
-            req.body.id_niveau,
-            req.body.id_denomination,
-            req.body.id_whse_fact,
-            req.body.id_objet_fact,
-            req.body.desc_template , 
-            req.body.status_template || 1,
-            req.body.date_actif || new Date() 
-        ];
+        // Démarrer une transaction
+        connection.beginTransaction((err) => {
+            if (err) {
+                console.error("Erreur lors du démarrage de la transaction:", err);
+                return res.status(500).json({ error: "Erreur lors du démarrage de la transaction." });
+            }
 
-        await db.query(query, values);
-        return res.status(201).json({ message: 'Template ajouté avec succès' });
-    } catch (error) {
-        console.error("Erreur lors de l'ajout du nouveau template:", error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du template." });
-    }
+            // Insérer dans la table whse_fact pour obtenir l'id_whse_fact
+            const qWhseFact = `INSERT INTO whse_fact (id_batiment, nom_whse_fact) VALUES (?, ?)`;
+            const whseFactValues = [
+                req.body.id_batiment,
+                req.body.nom_whse_fact
+            ];
+
+            connection.query(qWhseFact, whseFactValues, (err, whseFactResult) => {
+                if (err) {
+                    return connection.rollback(() => {
+                        console.error("Erreur lors de l'insertion dans whse_fact:", err);
+                        return res.status(500).json({ error: "Erreur lors de l'insertion dans whse_fact." });
+                    });
+                }
+
+                const id_whse_fact = whseFactResult.insertId; // Récupérer l'ID généré
+
+                // Insérer dans la table template_occupation avec le nouvel id_whse_fact
+                const qTemplate = `
+                    INSERT INTO template_occupation 
+                    (id_client, id_type_occupation, id_batiment, id_niveau, id_denomination, id_whse_fact, id_objet_fact, desc_template, status_template, date_actif) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `;
+                const templateValues = [
+                    req.body.id_client,
+                    req.body.id_type_occupation,
+                    req.body.id_batiment,
+                    req.body.id_niveau,
+                    req.body.id_denomination,
+                    id_whse_fact,  // Utiliser l'ID généré dans whse_fact
+                    req.body.id_objet_fact,
+                    req.body.desc_template,
+                    req.body.status_template || 1,
+                    req.body.date_actif || new Date()
+                ];
+
+                connection.query(qTemplate, templateValues, (err, result) => {
+                    if (err) {
+                        return connection.rollback(() => {
+                            console.error("Erreur lors de l'insertion dans template_occupation:", err);
+                            return res.status(500).json({ error: "Erreur lors de l'insertion dans template_occupation." });
+                        });
+                    }
+
+                    // Commit de la transaction
+                    connection.commit((err) => {
+                        if (err) {
+                            return connection.rollback(() => {
+                                console.error("Erreur lors du commit de la transaction:", err);
+                                return res.status(500).json({ error: "Erreur lors du commit de la transaction." });
+                            });
+                        }
+
+                        // Si tout a réussi, envoyer la réponse
+                        return res.status(201).json({ message: 'Template ajouté avec succès' });
+                    });
+                });
+            });
+        });
+
+        // Libérer la connexion après l'opération
+        connection.release();
+    });
 };
+
+
 
 exports.putTemplateStatut = async (req, res) => {
     const { id_template } = req.query;
