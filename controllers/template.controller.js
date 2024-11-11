@@ -310,32 +310,45 @@ exports.getDeclaration = (req, res) => {
 exports.getDeclarationOne = (req, res) => {
     const { id } = req.body;
 
-    let q = `
-            SELECT 
-                ds.*, 
-                client.nom, 
-                p.capital, 
-                batiment.nom_batiment, 
-                objet_fact.nom_objet_fact,
-                tc.desc_template
-            FROM 
-                declaration_super AS ds
-                LEFT JOIN provinces p ON p.id = ds.id_ville
-                LEFT JOIN client ON ds.id_client = client.id_client
-                LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
-                LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
-                LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
-                INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
-            WHERE tc.status_template = 1 AND ds.est_supprime = 0 AND ds.id_declaration_super = ?
-        `;
+    if (!id) {
+        return res.status(400).json({ message: "L'identifiant (id) est requis." });
+    }
 
-    db.query(q, [id], (error, data) => {
+    const query = `
+        SELECT 
+            ds.*, 
+            client.nom, 
+            p.capital, 
+            batiment.nom_batiment, 
+            objet_fact.nom_objet_fact,
+            tc.desc_template
+        FROM 
+            declaration_super AS ds
+            LEFT JOIN provinces p ON p.id = ds.id_ville
+            LEFT JOIN client ON ds.id_client = client.id_client
+            LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+            LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
+            LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+            INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+        WHERE 
+            tc.status_template = 1 
+            AND ds.est_supprime = 0 
+            AND ds.id_declaration_super = ?
+    `;
+
+    db.query(query, [id], (error, data) => {
         if (error) {
-            return res.status(500).send(error);
+            return res.status(500).json({ message: "Erreur lors de la récupération des données.", error });
         }
+        
+        if (data.length === 0) {
+            return res.status(404).json({ message: "Déclaration non trouvée." });
+        }
+        
         return res.status(200).json(data);
     });
 };
+
 
 /* exports.postDeclaration = async (req, res) => {
     
