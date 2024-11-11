@@ -279,7 +279,7 @@ exports.getDeclaration = (req, res) => {
             LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
             LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
             INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
-        WHERE tc.status_template = 1
+        WHERE tc.status_template = 1 AND ds.est_supprime = 0
     `;
 
     if (ville && ville.length > 0) {
@@ -465,7 +465,7 @@ exports.postDeclaration = async (req, res) => {
 exports.deleteUpdateDeclaration = (req, res) => {
     const {id} = req.query;
   
-    const q = "UPDATE declaration_superficie SET est_supprime = 1 WHERE id_declaration_super = ?";
+    const q = "UPDATE declaration_super SET est_supprime = 1 WHERE id_declaration_super = ?";
   
     db.query(q, [id], (err, data) => {
       if (err) {
