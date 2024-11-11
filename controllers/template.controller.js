@@ -41,7 +41,8 @@ exports.getTemplate = (req, res) => {
                 INNER JOIN whse_fact ON tm.id_whse_fact = whse_fact.id_whse_fact
                 INNER JOIN objet_fact ON tm.id_objet_fact = objet_fact.id_objet_fact
                 INNER JOIN statut_template ON tm.status_template = statut_template.id_statut_template
-                INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau          
+                INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau     
+                WHERE tm.est_supprime = 0     
                 `;
 
     db.query(q, (error, data) => {
@@ -214,7 +215,7 @@ exports.deleteUpdateTemplate = (req, res) => {
       return res.json(data);
     });
   }
-  
+
 //Type d'occupation
 exports.getTypeOccupation = (req, res) => {
 
