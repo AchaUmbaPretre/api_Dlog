@@ -8,7 +8,7 @@ router.get('/5derniers', templateController.getTemplate5Derniers)
 router.get('/one', templateController.getTemplateOne)
 router.post('/', templateController.postTemplate)
 router.put('/statut', templateController.putTemplateStatut)
-router.put('/template_delete', templateController.deleteUpdateTemplate)
+router.put('/template_update_delete', templateController.deleteUpdateTemplate)
 
 //Type d'occupation
 router.get('/type_occupation', templateController.getTypeOccupation)
