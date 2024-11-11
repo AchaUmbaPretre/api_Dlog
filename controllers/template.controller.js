@@ -7,6 +7,7 @@ exports.getTemplateCount = (req, res) => {
         SELECT 
             COUNT(id_template) AS nbre_template
         FROM template_occupation
+        WHERE template_occupation.est_supprime = 0
         `;
      
     db.query(q, (error, data) => {
