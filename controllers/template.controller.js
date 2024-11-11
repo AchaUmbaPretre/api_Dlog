@@ -213,7 +213,6 @@ exports.deleteUpdateTemplate = (req, res) => {
       }
       return res.json(data);
     });
-  
   }
 //Type d'occupation
 exports.getTypeOccupation = (req, res) => {
