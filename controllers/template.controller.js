@@ -308,7 +308,7 @@ exports.getDeclaration = (req, res) => {
 };
 
 exports.getDeclarationOne = (req, res) => {
-    const { id } = req.body;
+    const { id } = req.query;
 
     if (!id) {
         return res.status(400).json({ message: "L'identifiant (id) est requis." });
