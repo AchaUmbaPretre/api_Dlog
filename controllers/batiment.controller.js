@@ -1172,7 +1172,8 @@ exports.postWHSE_FACT = (req, res) => {
 exports.getAdresse = (req, res) => {
 
     const q = `
-                SELECT * FROM adresse
+                SELECT adresse.*, bins.nom FROM adresse
+                INNER JOIN bins ON adresse.id_bin = bins.id_adresse
             `;
 
     db.query(q, (error, data) => {
