@@ -216,7 +216,52 @@ exports.postTemplate = (req, res) => {
     });
 };
 
+exports.putTemplate = (req, res) => {
+    const { id_template } = req.query;
 
+    if (!id_template || isNaN(id_template)) {
+        return res.status(400).json({ error: 'Invalid template ID provided' });
+    }
+
+    try {
+        const q = `
+            UPDATE template_occupation tm 
+            SET 
+                id_client = ?,
+                id_type_occupation = ?,
+                id_batiment = ?,
+                id_niveau = ?,
+                id_denomination = ?,
+                id_whse_fact = ?,
+                id_objet_fact = ?,
+                desc_template = ?,
+            WHERE id_template = ?
+        `
+
+        const values = [
+            req.body.id_client,
+            req.body.id_type_occupation,
+            req.body.id_batiment,
+            req.body.id_niveau,
+            req.body.id_denomination,
+            req.body.id_whse_fact,
+            req.body.id_objet_fact,
+            req.body.desc_template
+        ]
+
+        db.query(q, values, (error, data) => {
+            if(error) {
+                console.log(error);
+                return res.status(404).json({ error: 'Template record not found' });
+            }
+            return res.json({ message: 'Template record updated successfully' });
+        })
+
+    } catch(err) {
+        console.error("Error updating template status:", err);
+        return res.status(500).json({ error: 'Failed to update template status' });
+    }
+}
 
 exports.putTemplateStatut = async (req, res) => {
     const { id_template } = req.query;
@@ -254,6 +299,8 @@ exports.putTemplateStatut = async (req, res) => {
         return res.status(500).json({ error: 'Failed to update template status' });
     }
 };
+
+
 
 exports.deleteUpdateTemplate = (req, res) => {
     const {id} = req.query;
