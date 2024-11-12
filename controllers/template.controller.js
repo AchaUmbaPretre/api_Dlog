@@ -367,7 +367,6 @@ exports.putTemplateStatut = async (req, res) => {
     }
 
     try {
-        // Si le status_template est défini à 0 (désactiver), on met à jour la date_inactif
         let query = `
             UPDATE template_occupation
             SET status_template = ?,
@@ -394,9 +393,6 @@ exports.putTemplateStatut = async (req, res) => {
         return res.status(500).json({ error: 'Failed to update template status' });
     }
 };
-
-
-
 
 exports.deleteUpdateTemplate = (req, res) => {
     const {id} = req.query;
