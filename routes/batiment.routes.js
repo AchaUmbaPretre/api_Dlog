@@ -74,6 +74,9 @@ router.post('/bins', batimentController.postBins)
 router.put('/bins_delete', batimentController.deleteUpdatedBins)
 router.put('/bins_put', batimentController.putBins)
 
+//Adresse
+router.get('/adresse', batimentController.getAdresse)
+
 //Maintenance Bins
 router.get('/maintenance_bins', batimentController.getMaintenanceBin)
 router.get('/maintenance_bins/one', batimentController.getMaintenanceBinOne)

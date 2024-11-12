@@ -1167,3 +1167,18 @@ exports.postWHSE_FACT = (req, res) => {
       res.status(200).send('Bureau ajouté avec succès');
     });
   };
+
+  //Adresse
+exports.getAdresse = (req, res) => {
+
+    const q = `
+                SELECT * FROM adresse
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
