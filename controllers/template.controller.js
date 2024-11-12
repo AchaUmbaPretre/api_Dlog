@@ -99,10 +99,7 @@ exports.getTemplateOne = (req, res) => {
 
     const q = `
             SELECT 
-                tm.id_template, 
-                tm.date_actif,
-                tm.date_inactif,
-                tm.desc_template,
+                tm.*,
                 client.nom AS nom_client, 
                 client.id_client,
                 td.nom_type_d_occupation, 
@@ -234,9 +231,9 @@ exports.putTemplate = (req, res) => {
                 id_denomination = ?,
                 id_whse_fact = ?,
                 id_objet_fact = ?,
-                desc_template = ?,
+                desc_template = ?
             WHERE id_template = ?
-        `
+        `;
 
         const values = [
             req.body.id_client,
@@ -246,22 +243,23 @@ exports.putTemplate = (req, res) => {
             req.body.id_denomination,
             req.body.id_whse_fact,
             req.body.id_objet_fact,
-            req.body.desc_template
-        ]
+            req.body.desc_template,
+            id_template
+        ];
 
         db.query(q, values, (error, data) => {
-            if(error) {
+            if (error) {
                 console.log(error);
                 return res.status(404).json({ error: 'Template record not found' });
             }
             return res.json({ message: 'Template record updated successfully' });
-        })
-
-    } catch(err) {
+        });
+    } catch (err) {
         console.error("Error updating template status:", err);
         return res.status(500).json({ error: 'Failed to update template status' });
     }
-}
+};
+
 
 exports.putTemplateStatut = async (req, res) => {
     const { id_template } = req.query;
