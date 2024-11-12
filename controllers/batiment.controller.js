@@ -762,7 +762,7 @@ exports.getBinsOneV = (req, res) => {
     });
 };
 
-exports.postBins = (req, res) => {
+/* exports.postBins = (req, res) => {
     const { id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut, adresse } = req.body;
     const q = 'INSERT INTO bins (id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut) VALUES (?,?,?,?,?,?,?,?,?)';
 
@@ -783,6 +783,39 @@ exports.postBins = (req, res) => {
             }
             res.status(201).send('Bins créé avec adresse');
         });
+    });
+}; */
+
+exports.postBins = (req, res) => {
+    const { id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut, adresse } = req.body;
+    const q = 'INSERT INTO bins (id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut) VALUES (?,?,?,?,?,?,?,?,?)';
+    const qAdresse = 'INSERT INTO adresse (adresse, id_bin) VALUES (?,?)';
+
+    // Exécution de la requête d'insertion pour la table 'bins'
+    db.query(q, [id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut], (err, result) => {
+        if (err) {
+            console.log(err);
+            return res.status(500).send('Erreur lors de la création de bins');
+        }
+
+        // Récupération de l'ID du bin nouvellement créé
+        const id_bin = result.insertId;
+
+        // Vérification si l'adresse est fournie dans le corps de la requête
+        if (adresse && adresse.trim() !== "") {
+            // Si une adresse est fournie, on effectue l'insertion
+            db.query(qAdresse, [adresse, id_bin], (err, data) => {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).send('Erreur lors de la création de l\'adresse');
+                }
+                // Si l'insertion de l'adresse réussit
+                res.status(201).send('Bins créé avec adresse');
+            });
+        } else {
+            // Si l'adresse n'est pas fournie, on répond simplement
+            res.status(201).send('Bins créé sans adresse');
+        }
     });
 };
 
