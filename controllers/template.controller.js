@@ -213,7 +213,7 @@ exports.postTemplate = (req, res) => {
     });
 };
 
-exports.putTemplate = (req, res) => {
+/* exports.putTemplate = (req, res) => {
     const { id_template } = req.query;
 
     if (!id_template || isNaN(id_template)) {
@@ -258,6 +258,99 @@ exports.putTemplate = (req, res) => {
         console.error("Error updating template status:", err);
         return res.status(500).json({ error: 'Failed to update template status' });
     }
+}; */
+
+exports.putTemplate = (req, res) => {
+    const { id_template } = req.query;
+
+    if (!id_template || isNaN(id_template)) {
+        return res.status(400).json({ error: 'Invalid template ID provided' });
+    }
+
+    db.getConnection((err, connection) => {
+        if (err) {
+            console.error("Erreur de connexion à la base de données:", err);
+            return res.status(500).json({ error: "Erreur de connexion à la base de données." });
+        }
+
+        connection.beginTransaction((err) => {
+            if (err) {
+                console.error("Erreur lors du démarrage de la transaction:", err);
+                connection.release();
+                return res.status(500).json({ error: "Erreur lors du démarrage de la transaction." });
+            }
+
+            // Insertion dans whse_fact pour obtenir un id_whse_fact
+            const qWhseFact = `INSERT INTO whse_fact (id_batiment, nom_whse_fact) VALUES (?, ?)`;
+            const whseFactValues = [
+                req.body.id_batiment,
+                req.body.nom_whse_fact
+            ];
+
+            connection.query(qWhseFact, whseFactValues, (err, whseFactResult) => {
+                if (err) {
+                    return connection.rollback(() => {
+                        console.error("Erreur lors de l'insertion dans whse_fact:", err);
+                        connection.release();
+                        return res.status(500).json({ error: "Erreur lors de l'insertion dans whse_fact." });
+                    });
+                }
+
+                const id_whse_fact = whseFactResult.insertId; // ID généré dans whse_fact
+
+                // Mise à jour dans template_occupation avec le nouvel id_whse_fact
+                const q = `
+                    UPDATE template_occupation 
+                    SET 
+                        id_client = ?,
+                        id_type_occupation = ?,
+                        id_batiment = ?,
+                        id_niveau = ?,
+                        id_denomination = ?,
+                        id_whse_fact = ?,
+                        id_objet_fact = ?,
+                        desc_template = ?
+                    WHERE id_template = ?
+                `;
+
+                const values = [
+                    req.body.id_client,
+                    req.body.id_type_occupation,
+                    req.body.id_batiment,
+                    req.body.id_niveau,
+                    req.body.id_denomination,
+                    id_whse_fact, // Utiliser le nouvel id_whse_fact ici
+                    req.body.id_objet_fact,
+                    req.body.desc_template,
+                    id_template
+                ];
+
+                connection.query(q, values, (error, result) => {
+                    if (error) {
+                        return connection.rollback(() => {
+                            console.error("Erreur lors de la mise à jour du template:", error);
+                            connection.release();
+                            return res.status(500).json({ error: 'Erreur lors de la mise à jour du template.' });
+                        });
+                    }
+
+                    connection.commit((err) => {
+                        if (err) {
+                            return connection.rollback(() => {
+                                console.error("Erreur lors du commit de la transaction:", err);
+                                connection.release();
+                                return res.status(500).json({ error: "Erreur lors du commit de la transaction." });
+                            });
+                        }
+
+                        // Succès de la transaction
+                        connection.release();
+                        return res.json({ message: 'Template record updated successfully' });
+                    });
+                });
+            });
+        });
+    });
 };
 
 
@@ -267,18 +360,22 @@ exports.putTemplateStatut = async (req, res) => {
     if (!id_template || isNaN(id_template)) {
         return res.status(400).json({ error: 'Invalid template ID provided' });
     }
+
     const { status_template } = req.body;
     if (typeof status_template === 'undefined' || isNaN(status_template)) {
         return res.status(400).json({ error: 'Invalid status value provided' });
     }
 
     try {
-        const query = `
+        // Si le status_template est défini à 0 (désactiver), on met à jour la date_inactif
+        let query = `
             UPDATE template_occupation
-            SET status_template = ?
+            SET status_template = ?,
+                date_inactif = CASE WHEN ? = 2 THEN NOW() ELSE NULL END
             WHERE id_template = ?
         `;
-        const values = [parseInt(status_template), id_template];
+
+        const values = [parseInt(status_template), parseInt(status_template), id_template];
 
         db.query(query, values, (error, results) => {
             if (error) {
@@ -297,6 +394,7 @@ exports.putTemplateStatut = async (req, res) => {
         return res.status(500).json({ error: 'Failed to update template status' });
     }
 };
+
 
 
 
