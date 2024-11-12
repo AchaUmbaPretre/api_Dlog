@@ -353,7 +353,6 @@ exports.putTemplate = (req, res) => {
     });
 };
 
-
 exports.putTemplateStatut = async (req, res) => {
     const { id_template } = req.query;
 
