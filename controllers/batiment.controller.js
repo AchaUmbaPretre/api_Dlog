@@ -1116,10 +1116,12 @@ exports.postDenomination = (req, res) => {
 exports.getWHSE_FACT = (req, res) => {
 
     const q = `
-                SELECT 
-                    whse_fact.nom_whse_fact, 
-                    b.nom_batiment FROM whse_fact
-                INNER JOIN batiment b ON whse_fact.id_batiment = b.id_batiment
+                 SELECT whse_fact.nom_whse_fact, 
+                    b.nom_batiment,
+                    tc.desc_template
+                FROM whse_fact
+                    LEFT JOIN batiment b ON whse_fact.id_batiment = b.id_batiment
+                    LEFT JOIN template_occupation tc ON whse_fact.id_whse_fact = tc.id_whse_fact
             `;
 
     db.query(q, (error, data) => {
