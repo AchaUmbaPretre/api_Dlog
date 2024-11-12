@@ -594,9 +594,17 @@ exports.putDeclaration =  (req, res) => {
                     req.body.debours_manutation,
                     req.body.total_manutation
                 ]
+
+                db.query(q, values, (error,data)=> {
+                    if(error){
+                        console.log(error)
+                        return res.status(404).json({ error: 'Declaration record not found' });
+                    }
+                    return res.json({ message: 'Tache record updated successfully' });
+                })
     }catch (err) {
         console.error("Error updating declaration:", err);
-        return res.status(500).json({ error: 'Failed to update Tache record' });
+        return res.status(500).json({ error: 'Failed to update Declaration record' });
     }
 }
 
