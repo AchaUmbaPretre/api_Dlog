@@ -1173,7 +1173,7 @@ exports.getAdresse = (req, res) => {
 
     const q = `
                 SELECT adresse.*, bins.nom FROM adresse
-                INNER JOIN bins ON adresse.id_bin = bins.id_adresse
+                LEFT JOIN bins ON adresse.id_bin = bins.id
             `;
 
     db.query(q, (error, data) => {
