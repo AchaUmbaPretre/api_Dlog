@@ -1118,10 +1118,12 @@ exports.getWHSE_FACT = (req, res) => {
     const q = `
                  SELECT whse_fact.nom_whse_fact, 
                     b.nom_batiment,
-                    tc.desc_template
+                    tc.desc_template,
+                    td.nom_type_d_occupation
                 FROM whse_fact
                     LEFT JOIN batiment b ON whse_fact.id_batiment = b.id_batiment
                     LEFT JOIN template_occupation tc ON whse_fact.id_whse_fact = tc.id_whse_fact
+                    LEFT JOIN type_d_occupation td ON tc.id_type_occupation = td.id_type_d_occupation
             `;
 
     db.query(q, (error, data) => {
@@ -1174,8 +1176,9 @@ exports.postWHSE_FACT = (req, res) => {
 exports.getAdresse = (req, res) => {
 
     const q = `
-                SELECT adresse.*, bins.nom FROM adresse
-                LEFT JOIN bins ON adresse.id_bin = bins.id
+                SELECT adresse.*, bins.nom, batiment.nom_batiment FROM adresse
+                    LEFT JOIN bins ON adresse.id_bin = bins.id
+                    LEFT JOIN batiment ON bins.id_batiment = batiment.id_batiment
             `;
 
     db.query(q, (error, data) => {
