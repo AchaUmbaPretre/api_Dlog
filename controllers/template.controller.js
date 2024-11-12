@@ -543,70 +543,75 @@ exports.postDeclaration = async (req, res) => {
     }
 };
 
-exports.putDeclaration =  (req, res) => {
-    const {id_declaration} = req.query;
+exports.putDeclaration = (req, res) => {
+    const { id_declaration } = req.query;
 
-    if(!id_declaration || isNaN(id_declaration)) {
-        return res.status(400).json({ error: 'Invalid declaration ID provided'})
+    if (!id_declaration || isNaN(id_declaration)) {
+        return res.status(400).json({ error: 'Invalid declaration ID provided' });
     }
 
-    try{
+    try {
         const q = `
-                UPDATE declaration_super
-                SET 
-                    id_template = ?,
-                    periode = ?,
-                    m2_occupe = ?,
-                    m2_facture = ?,
-                    tarif_entreposage = ?,
-                    entreposage = ?,
-                    debours_entreposage = ?,
-                    total_entreposage = ?,
-                    ttc_entreposage = ?,
-                    desc_entreposage = ?,
-                    id_ville = ?,
-                    id_client = ?,
-                    id_objet = ?,
-                    manutation = ?,
-                    tarif_manutation = ?,
-                    debours_manutation = ?,
-                    total_manutation = ?,
-                    ttc_manutation = ?,
-                    desc_manutation = ?,
-                    WHERE id_declaration_super = ?
-                `
-                const values = [
-                    req.body.id_template,
-                    req.body.periode,
-                    req.body.m2_occupe,
-                    req.body.m2_facture,
-                    req.body.tarif_entreposage,
-                    req.body.entreposage,
-                    req.body.debours_entreposage,
-                    req.body.total_entreposage,
-                    req.body.ttc_entreposage,
-                    req.body.desc_entreposage,
-                    req.body.id_ville,
-                    req.body.id_client,
-                    req.body.id_objet,
-                    req.body.manutation,
-                    req.body.tarif_manutation,
-                    req.body.debours_manutation,
-                    req.body.total_manutation
-                ]
+            UPDATE declaration_super
+            SET 
+                id_template = ?,
+                periode = ?,
+                m2_occupe = ?,
+                m2_facture = ?,
+                tarif_entreposage = ?,
+                entreposage = ?,
+                debours_entreposage = ?,
+                total_entreposage = ?,
+                ttc_entreposage = ?,
+                desc_entreposage = ?,
+                id_ville = ?,
+                id_client = ?,
+                id_objet = ?,
+                manutation = ?,
+                tarif_manutation = ?,
+                debours_manutation = ?,
+                total_manutation = ?,
+                ttc_manutation = ?,
+                desc_manutation = ?
+            WHERE id_declaration_super = ?
+        `;
 
-                db.query(q, values, (error,data)=> {
-                    if(error){
-                        console.log(error)
-                        return res.status(404).json({ error: 'Declaration record not found' });
-                    }
-                    return res.json({ message: 'Tache record updated successfully' });
-                })
-    }catch (err) {
+        const values = [
+            req.body.id_template,
+            req.body.periode,
+            req.body.m2_occupe,
+            req.body.m2_facture,
+            req.body.tarif_entreposage,
+            req.body.entreposage,
+            req.body.debours_entreposage,
+            req.body.total_entreposage,
+            req.body.ttc_entreposage,
+            req.body.desc_entreposage,
+            req.body.id_ville,
+            req.body.id_client,
+            req.body.id_objet,
+            req.body.manutation,
+            req.body.tarif_manutation,
+            req.body.debours_manutation,
+            req.body.total_manutation,
+            req.body.ttc_manutation,
+            req.body.desc_manutation,
+            id_declaration
+        ];
+
+        db.query(q, values, (error, data) => {
+            if (error) {
+                console.log(error);
+                return res.status(404).json({ error: 'Declaration record not found' });
+            }
+            return res.json({ message: 'Declaration record updated successfully' });
+        });
+    } catch (err) {
         console.error("Error updating declaration:", err);
         return res.status(500).json({ error: 'Failed to update Declaration record' });
     }
-}
+};
+
 
 exports.deleteUpdateDeclaration = (req, res) => {
     const {id} = req.query;

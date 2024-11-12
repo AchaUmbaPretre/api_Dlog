@@ -21,5 +21,6 @@ router.post('/declaration_superficies', templateController.getDeclaration)
 router.get('/declaration_superficie/one', templateController.getDeclarationOne)
 router.post('/declaration_superficie', templateController.postDeclaration)
 router.put('/declaration_superficie_delete', templateController.deleteUpdateDeclaration)
+router.put('/declaration_superficie', templateController.putDeclaration)
 
 module.exports = router;
