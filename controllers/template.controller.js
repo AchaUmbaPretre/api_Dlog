@@ -612,7 +612,6 @@ exports.putDeclaration = (req, res) => {
     }
 };
 
-
 exports.deleteUpdateDeclaration = (req, res) => {
     const {id} = req.query;
   
@@ -625,4 +624,4 @@ exports.deleteUpdateDeclaration = (req, res) => {
       return res.json(data);
     });
   
-  }
+}

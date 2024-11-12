@@ -238,4 +238,3 @@ exports.updateUser = async (req, res) => {
         res.status(500).json({ error: "Invalid token or token expired." });
     }
 }; */
-
