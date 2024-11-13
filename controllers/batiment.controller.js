@@ -981,7 +981,7 @@ exports.getNiveau = (req, res) => {
 
     const q = `
                 SELECT 
-                    nb.nom_niveau, 
+                    nb.*, 
                     b.nom_batiment 
                 FROM 
                     niveau_batiment nb
@@ -989,6 +989,20 @@ exports.getNiveau = (req, res) => {
             `;
 
     db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+exports.getNiveauOneV = (req, res) => {
+    const {id_niveau} = req.query;
+
+    const q = `
+                SELECT * FROM niveau_batiment WHERE id_niveau = ?
+            `;
+
+    db.query(q,[id_niveau], (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
@@ -1053,10 +1067,9 @@ exports.postNiveau = (req, res) => {
     });
 };
 
-
 exports.putNiveau = (req, res) => {
     const { id_niveau } = req.query;
-    const { id_batiment, nom_niveau } = req.body;
+    const { nom_niveau } = req.body;
 
     if (!id_niveau || isNaN(id_niveau)) {
         return res.status(400).json({ error: 'ID de niveau fourni non valide' });
@@ -1066,12 +1079,11 @@ exports.putNiveau = (req, res) => {
         const q = `
             UPDATE niveau_batiment 
             SET 
-                id_batiment = ?,
                 nom_niveau = ?
             WHERE id_niveau = ?
         `;
       
-        const values = [ id_batiment, nom_niveau, id_niveau]
+        const values = [nom_niveau, id_niveau]
 
         db.query(q, values, (error, data)=>{
             if(error){
