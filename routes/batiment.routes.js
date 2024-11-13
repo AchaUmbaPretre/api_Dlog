@@ -94,6 +94,7 @@ router.get('/niveau_batiment/one', batimentController.getNiveauOne)
 router.get('/niveau_batiment/oneV', batimentController.getNiveauOneV)
 router.post('/niveaau_batiment', batimentController.postNiveau)
 router.put('/niveau_batiment_put', batimentController.putNiveau)
+router.put('/niveau_batiment_delete', batimentController.deleteUpdateNiveau)
 
 //Denomination batiment
 router.get('/denomination', batimentController.getDenomination)

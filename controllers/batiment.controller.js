@@ -986,6 +986,7 @@ exports.getNiveau = (req, res) => {
                 FROM 
                     niveau_batiment nb
                     INNER JOIN batiment b ON nb.id_batiment = b.id_batiment
+                    WHERE nb.est_supprime = 0
             `;
 
     db.query(q, (error, data) => {
@@ -1098,6 +1099,19 @@ exports.putNiveau = (req, res) => {
     }
 }
 
+exports.deleteUpdateNiveau = (req, res) => {
+    const {id} = req.query;
+  
+    const q = "UPDATE niveau_batiment SET est_supprime = 1 WHERE id_niveau = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) {
+        console.log(err)
+      }
+      return res.json(data);
+    });
+  
+  }
 //Denomination batiment
 exports.getDenomination = (req, res) => {
 
