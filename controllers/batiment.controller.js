@@ -27,7 +27,7 @@ exports.getEquipementOneV = (req, res) => {
                 FROM 
             equipments 
                 WHERE 
-                equipments.id_equipement= ?
+            equipments.id_equipement= ?
             `;
 
     db.query(q,[id],(error, data) => {
