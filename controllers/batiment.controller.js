@@ -23,8 +23,10 @@ exports.getEquipementOneV = (req, res) => {
     const {id} = req.query;
 
     const q = `
-            SELECT * FROM equipments 
-            WHERE 
+            SELECT * 
+                FROM 
+            equipments 
+                WHERE 
                 equipments.id_equipement= ?
             `;
 
