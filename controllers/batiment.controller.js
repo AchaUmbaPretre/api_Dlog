@@ -962,14 +962,17 @@ exports.postBureaux = (req, res) => {
 
 //Niveau batiment
 exports.getNiveauCount = (req, res) => {
+    const { id_batiment } = req.query;
 
     const q = `
                 SELECT 
                     COUNT(id_niveau) AS nbre_niveau
                 FROM 
-                    niveau_batiment            `;
+                    niveau_batiment           
+                    WHERE id_batiment = ? 
+                    `;
 
-    db.query(q, (error, data) => {
+    db.query(q, [id_batiment], (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
@@ -1114,6 +1117,23 @@ exports.deleteUpdateNiveau = (req, res) => {
   }
 
 //Denomination batiment
+exports.getDenominationCount = (req, res) => {
+    const { id_batiment} = req.query;
+    const q = `
+                SELECT 
+                    COUNT(id_denomination_bat) AS nbre_denomination
+                FROM 
+                    denomination_bat
+                WHERE denomination_bat.est_supprime = 0  AND id_batiment = ?     `;
+
+    db.query(q,[id_batiment], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getDenomination = (req, res) => {
 
     const q = `
