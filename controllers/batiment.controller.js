@@ -1116,11 +1116,26 @@ exports.deleteUpdateNiveau = (req, res) => {
 exports.getDenomination = (req, res) => {
 
     const q = `
-                SELECT dn.nom_denomination_bat, b.nom_batiment FROM denomination_bat dn
+                SELECT dn.*, b.nom_batiment FROM denomination_bat dn
                     INNER JOIN batiment b ON dn.id_batiment = b.id_batiment
             `;
 
     db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getDenominationOneV = (req, res) => {
+    const {id_denomination_bat} = req.query;
+
+    const q = `
+                SELECT * FROM denomination_bat WHERE id_denomination_bat = ?
+            `;
+
+    db.query(q,[id_denomination_bat], (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
