@@ -102,6 +102,7 @@ router.get('/denomination/oneV', batimentController.getDenominationOneV)
 router.get('/denomination/one', batimentController.getDenominationOne)
 router.post('/denomination', batimentController.postDenomination)
 router.put('/denomination_update', batimentController.putDenomination)
+router.put('/denomination_delete', batimentController.deleteUpdateDenomination)
 
 //WHSE FACT
 router.get('/whse_fact', batimentController.getWHSE_FACT)

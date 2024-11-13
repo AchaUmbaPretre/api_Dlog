@@ -1112,12 +1112,14 @@ exports.deleteUpdateNiveau = (req, res) => {
     });
   
   }
+
 //Denomination batiment
 exports.getDenomination = (req, res) => {
 
     const q = `
                 SELECT dn.*, b.nom_batiment FROM denomination_bat dn
                     INNER JOIN batiment b ON dn.id_batiment = b.id_batiment
+                    WHERE dn.est_supprime = 0
             `;
 
     db.query(q, (error, data) => {
@@ -1230,6 +1232,20 @@ exports.putDenomination = (req, res) => {
         return res.status(500).json({ error: 'Failed to update bins record' });
     }
 }
+
+exports.deleteUpdateDenomination = (req, res) => {
+    const {id} = req.query;
+  
+    const q = "UPDATE denomination_bat SET est_supprime = 1 WHERE id_denomination_bat = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) {
+        console.log(err)
+      }
+      return res.json(data);
+    });
+  
+  }
 //WHSE FACT
 exports.getWHSE_FACT = (req, res) => {
 
