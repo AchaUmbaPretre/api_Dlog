@@ -1054,6 +1054,38 @@ exports.postNiveau = (req, res) => {
 };
 
 
+exports.putNiveau = (req, res) => {
+    const { id_niveau } = req.query;
+    const { id_batiment, nom_niveau } = req.body;
+
+    if (!id_niveau || isNaN(id_niveau)) {
+        return res.status(400).json({ error: 'ID de niveau fourni non valide' });
+    }
+
+    try {
+        const q = `
+            UPDATE niveau_batiment 
+            SET 
+                id_batiment = ?,
+                nom_niveau = ?
+            WHERE id_niveau = ?
+        `;
+      
+        const values = [ id_batiment, nom_niveau, id_niveau]
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Niveau record not found' });
+            }
+            return res.json({ message: 'Niveau record updated successfully' });
+        })
+    } catch (err) {
+        console.error("Error updating niveau:", err);
+        return res.status(500).json({ error: 'Failed to update bins record' });
+    }
+}
+
 //Denomination batiment
 exports.getDenomination = (req, res) => {
 
