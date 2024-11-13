@@ -1200,6 +1200,36 @@ exports.postDenomination = (req, res) => {
     });
 };
 
+exports.putDenomination = (req, res) => {
+    const { id_denomination_bat } = req.query;
+    const { nom_denomination_bat } = req.body;
+
+    if (!id_denomination_bat || isNaN(id_denomination_bat)) {
+        return res.status(400).json({ error: 'ID de denomination fourni non valide' });
+    }
+
+    try {
+        const q = `
+            UPDATE denomination_bat 
+            SET 
+                nom_denomination_bat = ?
+            WHERE id_denomination_bat = ?
+        `;
+      
+        const values = [nom_denomination_bat, id_denomination_bat]
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Niveau record not found' });
+            }
+            return res.json({ message: 'Niveau record updated successfully' });
+        })
+    } catch (err) {
+        console.error("Error updating niveau:", err);
+        return res.status(500).json({ error: 'Failed to update bins record' });
+    }
+}
 //WHSE FACT
 exports.getWHSE_FACT = (req, res) => {
 
