@@ -1179,7 +1179,6 @@ exports.getDenominationOne = (req, res) => {
     });
   }; */
 
-
 exports.postDenomination = (req, res) => {
     const { id_batiment, denominations } = req.body;
 
