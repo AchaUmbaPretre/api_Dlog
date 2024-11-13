@@ -819,7 +819,6 @@ exports.postBins = (req, res) => {
     });
 };
 
-
 exports.deleteUpdatedBins = (req, res) => {
     const { id } = req.query;
 
@@ -962,6 +961,22 @@ exports.postBureaux = (req, res) => {
   };
 
 //Niveau batiment
+exports.getNiveauCount = (req, res) => {
+
+    const q = `
+                SELECT 
+                    COUNT(id_niveau) AS nbre_niveau
+                FROM 
+                    niveau_batiment            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getNiveau = (req, res) => {
 
     const q = `
