@@ -19,7 +19,7 @@ exports.getTemplateCount = (req, res) => {
 exports.getTemplate = (req, res) => {
 
     const q = `
-           SELECT 
+            SELECT 
                 tm.id_template, 
                 tm.date_actif,
                 tm.date_inactif,
@@ -28,7 +28,7 @@ exports.getTemplate = (req, res) => {
                 td.nom_type_d_occupation, 
                 batiment.nom_batiment, 
                 dn.nom_denomination_bat, 
-                whse_fact.nom_whse_fact,
+                b.nom_batiment AS nom_whse_fact,
                 objet_fact.nom_objet_fact,
                 statut_template.nom_statut_template,
                 statut_template.id_statut_template,
@@ -41,9 +41,10 @@ exports.getTemplate = (req, res) => {
                 INNER JOIN denomination_bat AS dn ON tm.id_denomination = dn.id_denomination_bat
                 INNER JOIN whse_fact ON tm.id_whse_fact = whse_fact.id_whse_fact
                 INNER JOIN objet_fact ON tm.id_objet_fact = objet_fact.id_objet_fact
+                INNER JOIN batiment b ON whse_fact.id_batiment = b.id_batiment
                 INNER JOIN statut_template ON tm.status_template = statut_template.id_statut_template
                 INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau     
-                WHERE tm.est_supprime = 0     
+                WHERE tm.est_supprime = 0        
                 `;
 
     db.query(q, (error, data) => {
@@ -99,15 +100,15 @@ exports.getTemplateOne = (req, res) => {
 
     const q = `
             SELECT 
-                tm.*,
+                tm.id_template, 
+                tm.date_actif,
+                tm.date_inactif,
+                tm.desc_template,
                 client.nom AS nom_client, 
-                client.id_client,
                 td.nom_type_d_occupation, 
                 batiment.nom_batiment, 
-                batiment.id_batiment,
-                provinces.id AS id_ville,
                 dn.nom_denomination_bat, 
-                whse_fact.nom_whse_fact,
+                b.nom_batiment AS nom_whse_fact,
                 objet_fact.nom_objet_fact,
                 statut_template.nom_statut_template,
                 statut_template.id_statut_template,
@@ -117,13 +118,13 @@ exports.getTemplateOne = (req, res) => {
                 INNER JOIN client ON tm.id_client = client.id_client
                 INNER JOIN type_d_occupation AS td ON tm.id_type_occupation = td.id_type_d_occupation
                 INNER JOIN batiment ON tm.id_batiment = batiment.id_batiment
-                INNER JOIN provinces ON batiment.ville = provinces.id
                 INNER JOIN denomination_bat AS dn ON tm.id_denomination = dn.id_denomination_bat
                 INNER JOIN whse_fact ON tm.id_whse_fact = whse_fact.id_whse_fact
                 INNER JOIN objet_fact ON tm.id_objet_fact = objet_fact.id_objet_fact
+                INNER JOIN batiment b ON whse_fact.id_batiment = b.id_batiment
                 INNER JOIN statut_template ON tm.status_template = statut_template.id_statut_template
-                INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau 
-            WHERE tm.id_template = ?        
+                INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau     
+                WHERE tm.est_supprime = 0 AND tm.id_template = ?        
             `;
 
     db.query(q,[id_template], (error, data) => {
@@ -151,7 +152,7 @@ exports.postTemplate = (req, res) => {
             // Insérer dans la table whse_fact pour obtenir l'id_whse_fact
             const qWhseFact = `INSERT INTO whse_fact (id_batiment, nom_whse_fact) VALUES (?, ?)`;
             const whseFactValues = [
-                req.body.id_batiment,
+                req.body.id_batiment_fact,
                 req.body.nom_whse_fact
             ];
 

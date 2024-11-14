@@ -1271,11 +1271,12 @@ exports.deleteUpdateDenomination = (req, res) => {
 exports.getWHSE_FACT = (req, res) => {
 
     const q = `
-                 SELECT whse_fact.nom_whse_fact, 
+                 SELECT b1.nom_batiment AS nom_whse_fact, 
                     b.nom_batiment,
                     tc.desc_template,
                     td.nom_type_d_occupation
                 FROM whse_fact
+                    INNER JOIN batiment b1 ON whse_fact.id_batiment = b1.id_batiment
                     LEFT JOIN batiment b ON whse_fact.id_batiment = b.id_batiment
                     LEFT JOIN template_occupation tc ON whse_fact.id_whse_fact = tc.id_whse_fact
                     LEFT JOIN type_d_occupation td ON tc.id_type_occupation = td.id_type_d_occupation
