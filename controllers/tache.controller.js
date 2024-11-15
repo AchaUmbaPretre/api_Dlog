@@ -1321,7 +1321,7 @@ exports.putTacheDoc = async (req, res) => {
             if (results.affectedRows === 0) {
                 return res.status(404).json({ error: 'Tache record not found' });
             }
-
+            
             return res.json({ message: 'Tache record updated successfully' });
         });
     } catch (err) {

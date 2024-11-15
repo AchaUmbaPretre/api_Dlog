@@ -1123,10 +1123,11 @@ exports.getDenominationCount = (req, res) => {
     const { id_batiment} = req.query;
     const q = `
                 SELECT 
-                    COUNT(id_denomination_bat) AS nbre_denomination
+                    COUNT(id_denomination_bat) AS nbre_denomination, batiment.nom_batiment
                 FROM 
                     denomination_bat
-                WHERE denomination_bat.est_supprime = 0  AND id_batiment = ?     `;
+                INNER JOIN batiment ON denomination_bat.id_batiment = batiment.id_batiment
+                WHERE denomination_bat.est_supprime = 0  AND denomination_bat.id_batiment = ?`;
 
     db.query(q,[id_batiment], (error, data) => {
         if (error) {
@@ -1348,8 +1349,11 @@ exports.getAdresse = (req, res) => {
 //Instruction
 exports.getInspection = (req, res) => {
     const q = `
-                SELECT *
-                FROM inspections
+                SELECT inspections.*, im.img, ti.nom_type_instruction, batiment.nom_batiment FROM inspections
+                    INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
+                    INNER JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
+                    INNER JOIN batiment ON inspections.id_batiment = batiment.id_batiment
+
             `;
 
     db.query(q, (error, data) => {
@@ -1363,9 +1367,11 @@ exports.getInspection = (req, res) => {
 exports.getInspectionOne = (req, res) => {
     const {id_batiment} = req.query;
     const q = `
-                SELECT *
-                FROM inspections
-                WHERE id_batiment = ?
+                SELECT inspections.*, im.img, ti.nom_type_instruction, batiment.nom_batiment FROM inspections
+                    INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
+                    INNER JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
+                    INNER JOIN batiment ON inspections.id_batiment = batiment.id_batiment
+                WHERE inspections.id_batiment = ?
             `;
 
     db.query(q, [id_batiment], (error, data) => {
@@ -1441,10 +1447,6 @@ exports.postInspections = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la déclaration." });
     }
 };
-
-
-
-
 
 exports.getTypeInstruction = (req, res) => {
     const q = `
