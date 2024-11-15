@@ -1379,34 +1379,60 @@ exports.getInspectionOne = (req, res) => {
 exports.postInspections = async (req, res) => {
     const { id_batiment, commentaire, id_cat_instruction, id_type_instruction } = req.body;
 
+    // Vérification si des fichiers ont été envoyés
     if (!req.files || req.files.length === 0) {
         return res.status(400).json({ message: 'Aucun fichier téléchargé' });
     }
 
     try {
+        // Requête d'insertion dans la table `inspections` (une seule fois)
         const query = `
             INSERT INTO inspections (
                 id_batiment,
                 commentaire,
-                img,
                 id_cat_instruction,
                 id_type_instruction
-            ) VALUES (?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?)
         `;
 
+        // Requête d'insertion dans la table `inspection_img` (pour chaque fichier)
+        const queryF = `
+            INSERT INTO inspection_img (id_inspection, img)
+            VALUES (?, ?)
+        `;
+
+        // Valeurs pour l'insertion dans `inspections` (elles sont communes pour tous les fichiers)
+        const values = [id_batiment, commentaire, id_cat_instruction, id_type_instruction];
+
+        // Insertion dans `inspections` (une seule fois pour tous les fichiers)
+        const result = await new Promise((resolve, reject) => {
+            db.query(query, values, (error, result) => {
+                if (error) {
+                    reject(error);  // On rejette l'erreur si elle survient
+                } else {
+                    resolve(result);  // On résout la promesse si l'insertion est un succès
+                }
+            });
+        });
+
+        // Récupérer l'ID de l'inspection nouvellement insérée
+        const insertId = result.insertId;
+
+        // Créer les promesses d'insertion dans `inspection_img` pour chaque fichier
         const promises = req.files.map(file => {
-            const values = [id_batiment, commentaire, file.filename, id_cat_instruction, id_type_instruction];
+            const imgValues = [insertId, file.path.replace(/\\/g, '/')]; // Valeurs pour l'insertion de l'image
             return new Promise((resolve, reject) => {
-                db.query(query, values, (error, result) => {
-                    if (error) {
-                        reject(error);
+                db.query(queryF, imgValues, (imgError, imgResult) => {
+                    if (imgError) {
+                        reject(imgError); // On rejette l'erreur d'insertion de l'image
                     } else {
-                        resolve(result);
+                        resolve(imgResult); // On résout la promesse si l'insertion est un succès
                     }
                 });
             });
         });
 
+        // Attendre que toutes les promesses d'insertion d'image soient exécutées
         await Promise.all(promises);
 
         return res.status(201).json({ message: 'Déclaration ajoutée avec succès' });
@@ -1415,6 +1441,9 @@ exports.postInspections = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la déclaration." });
     }
 };
+
+
+
 
 
 exports.getTypeInstruction = (req, res) => {
