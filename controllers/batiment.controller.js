@@ -1365,6 +1365,24 @@ exports.getInspection = (req, res) => {
     });
 };
 
+exports.getInspectionOneV = (req, res) => {
+    const {id} = req.query;
+    const q = `
+                SELECT inspections.*, im.img, ti.nom_type_instruction, batiment.nom_batiment FROM inspections
+                    INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
+                    INNER JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
+                    INNER JOIN batiment ON inspections.id_batiment = batiment.id_batiment
+                WHERE inspections.id_inspection = ?
+            `;
+
+    db.query(q, [id], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getInspectionOne = (req, res) => {
     const {id_batiment} = req.query;
     const q = `
