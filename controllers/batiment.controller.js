@@ -1344,3 +1344,83 @@ exports.getAdresse = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+//Instruction
+exports.getInspection = (req, res) => {
+    const q = `
+                SELECT *
+                FROM inspections
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getInspectionOne = (req, res) => {
+    const {id_batiment} = req.query;
+    const q = `
+                SELECT *
+                FROM inspections
+                WHERE id_batiment = ?
+            `;
+
+    db.query(q, [id_batiment], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postInspections = async (req, res) => {
+    
+    try {
+        const query = `
+            INSERT INTO inspections (
+                id_batiment,
+                commentaire,
+                img,
+                id_cat,
+                id_type_instruction
+            ) VALUES ( ?, ?, ?, ?, ? )
+        `;
+
+        const values = [
+            req.body.id_batiment,
+            req.body.commentaire,
+            req.body.img,
+            req.body.id_cat,
+            req.body.id_type_instruction
+        ];  
+        db.query(query, values,(error, data) => {
+            if(error){
+                console.log(error)
+            }
+            else{
+                return res.status(201).json({ message: 'Déclaration ajoutée avec succès' });
+            }
+        })
+
+    } catch (error) {
+        console.error("Erreur lors de l'ajout de la déclaration:", error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la déclaration." });
+    }
+}
+
+exports.getTypeInstruction = (req, res) => {
+    const q = `
+                SELECT *
+                FROM type_instruction
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
