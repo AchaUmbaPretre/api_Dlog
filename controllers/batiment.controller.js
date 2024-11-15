@@ -1377,39 +1377,45 @@ exports.getInspectionOne = (req, res) => {
 };
 
 exports.postInspections = async (req, res) => {
-    
+    const { id_batiment, commentaire, id_cat_instruction, id_type_instruction } = req.body;
+
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ message: 'Aucun fichier téléchargé' });
+    }
+
     try {
         const query = `
             INSERT INTO inspections (
                 id_batiment,
                 commentaire,
                 img,
-                id_cat,
+                id_cat_instruction,
                 id_type_instruction
-            ) VALUES ( ?, ?, ?, ?, ? )
+            ) VALUES (?, ?, ?, ?, ?)
         `;
 
-        const values = [
-            req.body.id_batiment,
-            req.body.commentaire,
-            req.body.img,
-            req.body.id_cat,
-            req.body.id_type_instruction
-        ];  
-        db.query(query, values,(error, data) => {
-            if(error){
-                console.log(error)
-            }
-            else{
-                return res.status(201).json({ message: 'Déclaration ajoutée avec succès' });
-            }
-        })
+        const promises = req.files.map(file => {
+            const values = [id_batiment, commentaire, file.filename, id_cat_instruction, id_type_instruction];
+            return new Promise((resolve, reject) => {
+                db.query(query, values, (error, result) => {
+                    if (error) {
+                        reject(error);
+                    } else {
+                        resolve(result);
+                    }
+                });
+            });
+        });
 
+        await Promise.all(promises);
+
+        return res.status(201).json({ message: 'Déclaration ajoutée avec succès' });
     } catch (error) {
         console.error("Erreur lors de l'ajout de la déclaration:", error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la déclaration." });
     }
-}
+};
+
 
 exports.getTypeInstruction = (req, res) => {
     const q = `
