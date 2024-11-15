@@ -110,4 +110,13 @@ router.get('/whse_fact', batimentController.getWHSE_FACT)
 router.get('/whse_fact/one', batimentController.getWHSE_FACT_ONE)
 router.post('/whse_fact', batimentController.postWHSE_FACT)
 
+//Instruction
+router.get('/inspections', batimentController.getInspection)
+router.get('/inspectionsOne', batimentController.getInspectionOne)
+router.post('/inspections_post', batimentController.postInspections)
+
+//Type instruction
+router.get('/instruction_type', batimentController.getTypeInstruction)
+
+
 module.exports = router;
