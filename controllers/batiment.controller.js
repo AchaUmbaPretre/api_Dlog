@@ -1351,8 +1351,8 @@ exports.getInspection = (req, res) => {
     const q = `
                 SELECT inspections.*, im.img, ti.nom_type_instruction, batiment.nom_batiment FROM inspections
                     INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
-                    INNER JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
-                    INNER JOIN batiment ON inspections.id_batiment = batiment.id_batiment
+                    LEFT JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
+                    LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
                     WHERE inspections.est_supprime = 0
                     GROUP BY inspections.id_inspection
 
@@ -1472,12 +1472,18 @@ exports.putInspections = (req, res) => {
     const { id_inspection } = req.query;
     const { id_batiment, commentaire, id_cat_instruction, id_type_instruction } = req.body;
 
-    if (!id_denomination_bat || isNaN(id_denomination_bat)) {
-        return res.status(400).json({ error: 'ID de denomination fourni non valide' });
+    if (!id_inspection || isNaN(id_inspection)) {
+        return res.status(400).json({ error: 'L\'ID de l\'inspection fourni est invalide ou manquant.' });
+    }
+
+    if (!id_batiment || !id_cat_instruction || !id_type_instruction) {
+        return res.status(400).json({ 
+            error: 'Les champs id_batiment, id_cat_instruction, et id_type_instruction sont obligatoires.' 
+        });
     }
 
     try {
-        const q = `
+        const query = `
             UPDATE inspections 
             SET 
                 id_batiment = ?,
@@ -1486,21 +1492,26 @@ exports.putInspections = (req, res) => {
                 id_type_instruction = ?
             WHERE id_inspection = ?
         `;
-      
-        const values = [id_batiment, commentaire, id_cat_instruction, id_type_instruction, id_inspection]
 
-        db.query(q, values, (error, data)=>{
-            if(error){
-                console.log(error)
-                return res.status(404).json({ error: 'Inspection record not found' });
+        const values = [id_batiment, commentaire, id_cat_instruction, id_type_instruction, id_inspection];
+
+        db.query(query, values, (error, result) => {
+            if (error) {
+                console.error('Erreur lors de la mise à jour :', error);
+                return res.status(500).json({ error: 'Erreur lors de la mise à jour de l\'inspection.' });
             }
-            return res.json({ message: 'Niveau record updated successfully' });
-        })
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ error: 'Aucune inspection trouvée avec l\'ID fourni.' });
+            }
+
+            return res.json({ message: 'Inspection mise à jour avec succès.' });
+        });
     } catch (err) {
-        console.error("Error updating Inspection:", err);
-        return res.status(500).json({ error: 'Failed to update bins record' });
+        console.error('Erreur serveur :', err);
+        return res.status(500).json({ error: 'Une erreur serveur est survenue.' });
     }
-}
+};
 
 exports.deleteUpdateInspections = (req, res) => {
     const {id} = req.query;
