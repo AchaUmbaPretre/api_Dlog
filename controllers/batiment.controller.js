@@ -923,9 +923,25 @@ exports.getBureaux = (req, res) => {
     const q = `
                 SELECT bureaux.*, batiment.nom_batiment FROM bureaux
                     INNER JOIN batiment ON bureaux.id_batiment = batiment.id_batiment
+                    WHERE bureaux.est_supprime = 0
             `;
 
     db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getBureauxOneV = (req, res) => {
+    const {id_bureau} = req.query;
+
+    const q = `
+                SELECT * FROM bureaux WHERE id_bureau = ?
+            `;
+
+    db.query(q,[id_bureau], (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
@@ -962,6 +978,56 @@ exports.postBureaux = (req, res) => {
       res.status(200).send('Bureau ajouté avec succès');
     });
   };
+
+exports.putBureaux = (req, res) => {
+    const { id_bureau } = req.query;
+    const { nom, longueur, largeur, hauteur, nombre_postes } = req.body;
+
+    if (!id_bureau || isNaN(id_bureau)) {
+        return res.status(400).json({ error: 'ID de bureau fourni non valide' });
+    }
+
+    try {
+        const q = `
+            UPDATE bureaux 
+            SET 
+                nom = ?,
+                longueur = ?,
+                largeur = ?,
+                hauteur = ?,
+                nombre_postes = ?
+            WHERE id_bureau = ?
+        `;
+      
+        const values = [nom, longueur, largeur, hauteur, nombre_postes, id_bureau]
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Bureau record not found' });
+            }
+            return res.json({ message: 'Bureau record updated successfully' });
+        })
+    } catch (err) {
+        console.log(err)
+        console.error("Error updating Bureau:", err);
+        return res.status(500).json({ error: 'Failed to update bureau record' });
+    }
+}
+
+exports.deleteUpdateBureaux = (req, res) => {
+    const {id} = req.query;
+  
+    const q = "UPDATE bureaux SET est_supprime = 1 WHERE id_bureau = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) {
+        console.log(err)
+      }
+      return res.json(data);
+    });
+  
+  }
 
 //Niveau batiment
 exports.getNiveauCount = (req, res) => {

@@ -84,8 +84,12 @@ router.post('/maintenance_bins', batimentController.postMaintenanceBin)
 
 //Bureau
 router.get('/bureau', batimentController.getBureaux)
+router.get('/bureau/oneV', batimentController.getBureauxOneV)
 router.get('/bureau/one', batimentController.getBureauxOne)
 router.post('/bureau', batimentController.postBureaux)
+router.put('/bureau_put', batimentController.putBureaux)
+router.put('/bureau_delete', batimentController.deleteUpdateBureaux)
+
 
 //Niveau batiment
 router.get('/niveau_count', batimentController.getNiveauCount)
