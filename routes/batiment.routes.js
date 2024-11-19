@@ -115,6 +115,8 @@ router.get('/inspections', batimentController.getInspection)
 router.get('/inspectionsOneV', batimentController.getInspectionOneV)
 router.get('/inspectionsOne', batimentController.getInspectionOne)
 router.post('/inspections_post', upload.array('files', 10), batimentController.postInspections)
+router.put('/inspection_update',batimentController.putInspections)
+router.put('/inspection_delete',batimentController.deleteUpdateInspections)
 
 //Type instruction
 router.get('/instruction_type', batimentController.getTypeInstruction)
