@@ -1353,6 +1353,7 @@ exports.getInspection = (req, res) => {
                     INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
                     INNER JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
                     INNER JOIN batiment ON inspections.id_batiment = batiment.id_batiment
+                    WHERE inspections.est_supprime = 0
                     GROUP BY inspections.id_inspection
 
             `;
