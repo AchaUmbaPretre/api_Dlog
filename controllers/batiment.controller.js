@@ -1467,6 +1467,54 @@ exports.postInspections = async (req, res) => {
     }
 };
 
+exports.putInspections = (req, res) => {
+    const { id_inspection } = req.query;
+    const { id_batiment, commentaire, id_cat_instruction, id_type_instruction } = req.body;
+
+    if (!id_denomination_bat || isNaN(id_denomination_bat)) {
+        return res.status(400).json({ error: 'ID de denomination fourni non valide' });
+    }
+
+    try {
+        const q = `
+            UPDATE inspections 
+            SET 
+                id_batiment = ?,
+                commentaire = ?,
+                id_cat_instruction = ?,
+                id_type_instruction = ?
+            WHERE id_inspection = ?
+        `;
+      
+        const values = [id_batiment, commentaire, id_cat_instruction, id_type_instruction, id_inspection]
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Inspection record not found' });
+            }
+            return res.json({ message: 'Niveau record updated successfully' });
+        })
+    } catch (err) {
+        console.error("Error updating Inspection:", err);
+        return res.status(500).json({ error: 'Failed to update bins record' });
+    }
+}
+
+exports.deleteUpdateInspections = (req, res) => {
+    const {id} = req.query;
+  
+    const q = "UPDATE inspections SET est_supprime = 1 WHERE id_inspection = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) {
+        console.log(err)
+      }
+      return res.json(data);
+    });
+  
+  }
+
 exports.getTypeInstruction = (req, res) => {
     const q = `
                 SELECT *
