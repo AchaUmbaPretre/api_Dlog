@@ -921,7 +921,8 @@ exports.postMaintenanceBin = (req, res) => {
 exports.getBureaux = (req, res) => {
 
     const q = `
-                SELECT * FROM bureaux
+                SELECT bureaux.*, batiment.nom_batiment FROM bureaux
+                    INNER JOIN batiment ON bureaux.id_batiment = batiment.id_batiment
             `;
 
     db.query(q, (error, data) => {
