@@ -1637,3 +1637,36 @@ exports.postCatInspection = (req, res) => {
         res.status(201).send('Bins créé');
     });
 };
+
+exports.putCatInspection = async (req, res) => {
+    const { id_cat_inspection  } = req.query;
+
+    if (!id_cat_inspection  || isNaN(id_cat_inspection )) {
+        return res.status(400).json({ error: 'Invalid Categorie inspection ID provided' });
+    }
+
+    try {
+        const q = `
+            UPDATE cat_inspection  
+            SET 
+                nom_corps_metier = ?
+            WHERE id_corps_metier = ?
+        `;
+      
+        const values = [
+            req.body.nom_corps_metier,
+            id_corps
+        ];
+
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
+                return res.status(404).json({ error: 'Corps record not found' });
+            }
+            return res.json({ message: 'Corps record updated successfully' });
+        })
+    } catch (err) {
+        console.error("Error updating corps:", err);
+        return res.status(500).json({ error: 'Failed to update Tache record' });
+    }
+}
