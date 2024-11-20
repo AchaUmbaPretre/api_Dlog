@@ -1421,7 +1421,7 @@ exports.getInspection = (req, res) => {
                     INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
                     LEFT JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
                     LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
-                    INNER JOIN cat_inspection ct ON inspections.id_cat_instruction = ct.id_cat_inspection
+                    LEFT JOIN cat_inspection ct ON inspections.id_cat_instruction = ct.id_cat_inspection
                     WHERE inspections.est_supprime = 0
                     GROUP BY inspections.id_inspection
 
@@ -1438,10 +1438,12 @@ exports.getInspection = (req, res) => {
 exports.getInspectionOneV = (req, res) => {
     const {id} = req.query;
     const q = `
-                SELECT inspections.*, im.img, ti.nom_type_instruction, batiment.nom_batiment FROM inspections
+                SELECT inspections.*, im.img, ti.nom_type_instruction, batiment.nom_batiment, ct.nom_cat_inspection FROM inspections
                     LEFT JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
                     INNER JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
                     LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
+                    LEFT JOIN cat_inspection ct ON inspections.id_cat_instruction = ct.id_cat_inspection
+
                 WHERE inspections.id_inspection = ?
             `;
 
@@ -1621,5 +1623,17 @@ exports.getCatInspection = (req, res) => {
             return res.status(500).send(error);
         }
         return res.status(200).json(data);
+    });
+};
+
+exports.postCatInspection = (req, res) => {
+    const {nom_cat_inspection} = req.body;
+    const q = 'INSERT INTO cat_inspection (nom_cat_inspection) VALUES (?)';
+    
+    db.query(q, [nom_cat_inspection], (err, result) => {
+        if (err) {
+            return res.status(500).send('Erreur lors de la création de bins');
+        }
+        res.status(201).send('Bins créé');
     });
 };
