@@ -1416,10 +1416,12 @@ exports.getAdresse = (req, res) => {
 //Instruction
 exports.getInspection = (req, res) => {
     const q = `
-                SELECT inspections.*, im.img, ti.nom_type_instruction, batiment.nom_batiment FROM inspections
+                
+                SELECT inspections.*, im.img, ti.nom_type_instruction, batiment.nom_batiment, ct.nom_cat_inspection FROM inspections
                     INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
                     LEFT JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
                     LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
+                    INNER JOIN cat_inspection ct ON inspections.id_cat_instruction = ct.id_cat_inspection
                     WHERE inspections.est_supprime = 0
                     GROUP BY inspections.id_inspection
 
@@ -1437,9 +1439,9 @@ exports.getInspectionOneV = (req, res) => {
     const {id} = req.query;
     const q = `
                 SELECT inspections.*, im.img, ti.nom_type_instruction, batiment.nom_batiment FROM inspections
-                    INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
+                    LEFT JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
                     INNER JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
-                    INNER JOIN batiment ON inspections.id_batiment = batiment.id_batiment
+                    LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
                 WHERE inspections.id_inspection = ?
             `;
 
@@ -1457,7 +1459,7 @@ exports.getInspectionOne = (req, res) => {
                 SELECT inspections.*, im.img, ti.nom_type_instruction, batiment.nom_batiment FROM inspections
                     INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
                     INNER JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
-                    INNER JOIN batiment ON inspections.id_batiment = batiment.id_batiment
+                    LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
                 WHERE inspections.id_batiment = ?
             `;
 
