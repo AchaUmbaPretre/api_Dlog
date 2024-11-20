@@ -125,6 +125,46 @@ exports.getArticleOne = (req, res) => {
     });
 };
 
+exports.putArticle = async (req, res) => {
+    const { id_article } = req.query;
+
+    if (!id_article || isNaN(id_article)) {
+        return res.status(400).json({ error: 'ID de Article invalide' });
+    }
+
+    try {
+        const q = `
+            UPDATE articles 
+            SET 
+                nom_article = ?,
+                id_categorie = ?
+            WHERE id_article = ?
+        `;
+
+        const values = [
+            req.body.nom_article,
+            req.body.id_categorie,
+            id_article
+        ];
+
+        // Exécution de la requête avec gestion des erreurs
+        db.query(q, values, (error, result) => {
+            if (error) {
+                console.error("Erreur lors de la mise à jour d'article :", error);
+                return res.status(500).json({ error: 'Erreur interne lors de la mise à jour d article' });
+            }
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ error: 'Article non trouvé' });
+            }
+            return res.json({ message: 'Article mis à jour avec succès' });
+        });
+    } catch (err) {
+        console.error("Erreur lors de la mise à jour d'article :", err);
+        return res.status(500).json({ error: 'Erreur interne lors de la mise à jour d article' });
+    }
+};
+
 //Batiment
 exports.getBatimentCount = (req, res) => {
     const { searchValue } = req.query;
