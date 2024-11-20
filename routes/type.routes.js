@@ -5,6 +5,7 @@ const typesController = require('./../controllers/type.controller');
 router.get('/', typesController.getTypes)
 router.get('/article', typesController.getArticle)
 router.get('/articleOne', typesController.getArticleOne)
+router.get('/articleOneV', typesController.getArticleOneV)
 
 //Batiment
 router.get('/batimentcount', typesController.getBatimentCount)

@@ -88,6 +88,21 @@ exports.getArticle = (req, res) => {
     });
 };
 
+exports.getArticleOneV = (req, res) => {
+    const {id_article} = req.query;
+
+    const q =   `SELECT *
+                FROM articles
+                WHERE id_article = ${id_article}`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getArticleOne = (req, res) => {
     const {id_article, id_fournisseur} = req.query;
 
