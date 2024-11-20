@@ -126,4 +126,7 @@ router.put('/inspection_delete',batimentController.deleteUpdateInspections)
 router.get('/instruction_type', batimentController.getTypeInstruction)
 
 
+//Categrie inspection
+router.get('/cat_inspection', batimentController.getCatInspection)
+
 module.exports = router;

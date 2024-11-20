@@ -1607,3 +1607,17 @@ exports.getTypeInstruction = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+exports.getCatInspection = (req, res) => {
+    const q = `
+                SELECT *
+                FROM cat_inspection
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
