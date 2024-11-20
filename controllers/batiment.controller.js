@@ -1626,6 +1626,22 @@ exports.getCatInspection = (req, res) => {
     });
 };
 
+exports.getCatInspectionOne = (req, res) => {
+    const {id_cat_inspection} = req.query;
+    const q = `
+                SELECT *
+                    FROM cat_inspection
+                WHERE id_cat_inspection = ?
+            `;
+
+    db.query(q, [id_cat_inspection], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.postCatInspection = (req, res) => {
     const {nom_cat_inspection} = req.body;
     const q = 'INSERT INTO cat_inspection (nom_cat_inspection) VALUES (?)';
