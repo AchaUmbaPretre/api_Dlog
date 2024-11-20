@@ -128,5 +128,7 @@ router.get('/instruction_type', batimentController.getTypeInstruction)
 //Categrie inspection
 router.get('/cat_inspection', batimentController.getCatInspection)
 router.post('/cat_inspection', batimentController.postCatInspection)
+router.put('/cat_inspection', batimentController.putCatInspection)
+router.delete('/cat_inspection/:id', batimentController.deleteCatInspection)
 
 module.exports = router;

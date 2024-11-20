@@ -1649,24 +1649,36 @@ exports.putCatInspection = async (req, res) => {
         const q = `
             UPDATE cat_inspection  
             SET 
-                nom_corps_metier = ?
-            WHERE id_corps_metier = ?
+                nom_cat_inspection = ?
+            WHERE id_cat_inspection = ?
         `;
       
         const values = [
-            req.body.nom_corps_metier,
-            id_corps
+            req.body.nom_cat_inspection,
+            id_cat_inspection
         ];
 
         db.query(q, values, (error, data)=>{
             if(error){
                 console.log(error)
-                return res.status(404).json({ error: 'Corps record not found' });
+                return res.status(404).json({ error: 'Categorie inspection record not found' });
             }
-            return res.json({ message: 'Corps record updated successfully' });
+            return res.json({ message: 'Categorie inspection record updated successfully' });
         })
     } catch (err) {
-        console.error("Error updating corps:", err);
-        return res.status(500).json({ error: 'Failed to update Tache record' });
+        console.error("Error updating Categorie inspection:", err);
+        return res.status(500).json({ error: 'Failed to update Categorie inspection record' });
     }
 }
+
+exports.deleteCatInspection = (req, res) => {
+    const id = req.params.id;
+  
+    const q = "DELETE FROM cat_inspection WHERE id_cat_inspection = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) return res.send(err);
+      return res.json(data);
+    });
+  
+  }
