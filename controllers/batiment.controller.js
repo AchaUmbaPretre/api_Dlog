@@ -1416,15 +1416,13 @@ exports.getAdresse = (req, res) => {
 //Inspection
 exports.getInspection = (req, res) => {
     const q = `
-                
-                SELECT inspections.*, im.img, ti.nom_type_instruction, batiment.nom_batiment, ct.nom_cat_inspection FROM inspections
+                SELECT inspections.*, im.img, im.commentaire, ti.nom_type_instruction, batiment.nom_batiment, ct.nom_cat_inspection FROM inspections
                     INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
                     LEFT JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
                     LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
                     LEFT JOIN cat_inspection ct ON inspections.id_cat_instruction = ct.id_cat_inspection
                     WHERE inspections.est_supprime = 0
                     GROUP BY inspections.id_inspection
-
             `;
 
     db.query(q, (error, data) => {
@@ -1537,6 +1535,40 @@ exports.postInspections = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la déclaration." });
     }
 };
+
+exports.postInspectionsApre = async (req, res) => {
+    const { id_inspection ,id_type_photo, commentaire } = req.body;
+
+        // Vérification si des fichiers ont été envoyés
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ message: 'Aucun fichier téléchargé' });
+        }
+
+        try{
+            const query = `INSERT INTO inspection_img (id_inspection, id_type_photo, img, commentaire) VALUES (?, ?, ?, ?)`
+
+            const promises = req.files.map(file => {
+                const imgValues = [id_inspection, id_type_photo, file.path.replace(/\\/g, '/'), commentaire]; // Valeurs pour l'insertion de l'image
+                return new Promise((resolve, reject) => {
+                    db.query(query, imgValues, (imgError, imgResult) => {
+                        if (imgError) {
+                            reject(imgError); // On rejette l'erreur d'insertion de l'image
+                        } else {
+                            resolve(imgResult); // On résout la promesse si l'insertion est un succès
+                        }
+                    });
+                });
+            });
+
+            // Attendre que toutes les promesses d'insertion d'image soient exécutées
+        await Promise.all(promises);
+
+        return res.status(201).json({ message: 'L inspection a ete ajoutée avec succès' });
+        } catch(error){
+            console.error("Erreur lors de l'ajout de l'inspection:", error);
+            return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de l'inspection." });
+        }
+}
 
 exports.putInspections = (req, res) => {
     const { id_inspection } = req.query;
