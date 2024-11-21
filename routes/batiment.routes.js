@@ -124,6 +124,7 @@ router.put('/inspection_delete',batimentController.deleteUpdateInspections)
 
 //Type instruction
 router.get('/instruction_type', batimentController.getTypeInstruction)
+router.get('/type_photo', batimentController.getType_photo)
 
 //Categrie inspection
 router.get('/cat_inspection', batimentController.getCatInspection)
