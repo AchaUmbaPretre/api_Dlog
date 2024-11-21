@@ -1413,7 +1413,7 @@ exports.getAdresse = (req, res) => {
     });
 };
 
-//Instruction
+//Inspection
 exports.getInspection = (req, res) => {
     const q = `
                 
@@ -1494,8 +1494,8 @@ exports.postInspections = async (req, res) => {
 
         // Requête d'insertion dans la table `inspection_img` (pour chaque fichier)
         const queryF = `
-            INSERT INTO inspection_img (id_inspection, img)
-            VALUES (?, ?)
+            INSERT INTO inspection_img (id_inspection, img, commentaire)
+            VALUES (?, ?, ?)
         `;
 
         // Valeurs pour l'insertion dans `inspections` (elles sont communes pour tous les fichiers)
@@ -1517,7 +1517,7 @@ exports.postInspections = async (req, res) => {
 
         // Créer les promesses d'insertion dans `inspection_img` pour chaque fichier
         const promises = req.files.map(file => {
-            const imgValues = [insertId, file.path.replace(/\\/g, '/')]; // Valeurs pour l'insertion de l'image
+            const imgValues = [insertId, file.path.replace(/\\/g, '/'), commentaire]; // Valeurs pour l'insertion de l'image
             return new Promise((resolve, reject) => {
                 db.query(queryF, imgValues, (imgError, imgResult) => {
                     if (imgError) {
@@ -1612,6 +1612,21 @@ exports.getTypeInstruction = (req, res) => {
     });
 };
 
+exports.getType_photo = (req, res) => {
+    const q = `
+                SELECT *
+                FROM type_photo
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+//Inspection
 exports.getCatInspection = (req, res) => {
     const q = `
                 SELECT *
