@@ -204,7 +204,6 @@ exports.getPermissionTache = (req, res) => {
     if (error) {
         return res.status(500).send(error);
     }
-    console.log(data)
     return res.status(200).json(data);
 });
 }
