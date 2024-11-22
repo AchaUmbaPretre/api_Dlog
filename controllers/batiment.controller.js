@@ -1416,8 +1416,9 @@ exports.getAdresse = (req, res) => {
 //Inspection
 exports.getInspection = (req, res) => {
     const q = `
-                SELECT inspections.*, im.img, im.commentaire, ti.nom_type_instruction, batiment.nom_batiment, ct.nom_cat_inspection FROM inspections
+                SELECT inspections.*, im.img, im.commentaire, ti.nom_type_instruction, tache.nom_tache, batiment.nom_batiment, ct.nom_cat_inspection FROM inspections
                     INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
+                    LEFT JOIN tache ON inspections.id_tache = tache.id_tache
                     LEFT JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
                     LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
                     LEFT JOIN cat_inspection ct ON inspections.id_cat_instruction = ct.id_cat_inspection
