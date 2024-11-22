@@ -1437,10 +1437,10 @@ exports.getInspection = (req, res) => {
 exports.getInspectionOneV = (req, res) => {
     const {id} = req.query;
     const q = `
-                SELECT inspections.*, im.img, ti.nom_type_instruction, type_photo.nom_type_photo, im.commentaire, batiment.nom_batiment, ct.nom_cat_inspection FROM inspections
-                    LEFT JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
-                    LEFT JOIN type_photo ON im.id_type_photo = type_photo.id_type_photo
-                    INNER JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
+                SELECT inspections.*, im.img, im.commentaire, ti.nom_type_instruction, tache.nom_tache, batiment.nom_batiment, ct.nom_cat_inspection FROM inspections
+                    INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
+                    LEFT JOIN tache ON inspections.id_tache = tache.id_tache
+                    LEFT JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
                     LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
                     LEFT JOIN cat_inspection ct ON inspections.id_cat_instruction = ct.id_cat_inspection
 
@@ -1458,10 +1458,10 @@ exports.getInspectionOneV = (req, res) => {
 exports.getInspectionOne = (req, res) => {
     const {id_batiment} = req.query;
     const q = `
-                 SELECT inspections.*, im.img, ti.nom_type_instruction, type_photo.nom_type_photo, im.commentaire, batiment.nom_batiment, ct.nom_cat_inspection FROM inspections
-                    LEFT JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
-                    LEFT JOIN type_photo ON im.id_type_photo = type_photo.id_type_photo
-                    INNER JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
+                SELECT inspections.*, im.img, im.commentaire, ti.nom_type_instruction, tache.nom_tache, batiment.nom_batiment, ct.nom_cat_inspection FROM inspections
+                    INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
+                    LEFT JOIN tache ON inspections.id_tache = tache.id_tache
+                    LEFT JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
                     LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
                     LEFT JOIN cat_inspection ct ON inspections.id_cat_instruction = ct.id_cat_inspection
                 WHERE inspections.id_batiment = ?
