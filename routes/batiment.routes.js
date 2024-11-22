@@ -121,6 +121,7 @@ router.get('/inspectionsOne', batimentController.getInspectionOne)
 router.post('/inspections_post', upload.array('files', 10), batimentController.postInspections)
 router.post('/inspections_post_apres', upload.array('files', 10), batimentController.postInspectionsApre)
 router.put('/inspection_update',batimentController.putInspections)
+router.put('/inspection_tache',batimentController.inspectionsTache)
 router.put('/inspection_delete',batimentController.deleteUpdateInspections)
 
 //Type instruction

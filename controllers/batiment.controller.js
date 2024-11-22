@@ -1618,6 +1618,48 @@ exports.putInspections = (req, res) => {
     }
 };
 
+exports.inspectionsTache = (req, res) => {
+    const { id_inspection } = req.query;
+    const { id_tache } = req.body;
+
+    if (!id_inspection || isNaN(id_inspection)) {
+        return res.status(400).json({ error: 'L\'ID de l\'inspection fourni est invalide ou manquant.' });
+    }
+
+    if (!id_tache) {
+        return res.status(400).json({ 
+            error: 'Le champs id_tache est obligatoire.' 
+        });
+    }
+
+    try {
+        const query = `
+            UPDATE inspections 
+            SET 
+                id_tache = ?
+            WHERE id_inspection = ?
+        `;
+
+        const values = [id_tache, id_inspection];
+
+        db.query(query, values, (error, result) => {
+            if (error) {
+                console.error('Erreur lors de la mise à jour :', error);
+                return res.status(500).json({ error: 'Erreur lors de la mise à jour de l\'inspection.' });
+            }
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ error: 'Aucune inspection trouvée avec l\'ID fourni.' });
+            }
+
+            return res.json({ message: 'Inspection mise à jour avec succès.' });
+        });
+    } catch (err) {
+        console.error('Erreur serveur :', err);
+        return res.status(500).json({ error: 'Une erreur serveur est survenue.' });
+    }
+};
+
 exports.deleteUpdateInspections = (req, res) => {
     const {id} = req.query;
   
