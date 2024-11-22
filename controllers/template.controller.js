@@ -159,8 +159,8 @@ exports.postTemplate = (req, res) => {
             connection.query(qWhseFact, whseFactValues, (err, whseFactResult) => {
                 if (err) {
                     return connection.rollback(() => {
-                        console.error("Erreur lors de l'insertion dans whse_fact:", err);
-                        return res.status(500).json({ error: "Erreur lors de l'insertion dans whse_fact." });
+                        console.log("Erreur lors de l'insertion dans whse_fact:", err);
+                        return res.status(500).json({ error: "Erreur lors de l'insertion dans whse_fact.", err });
                     });
                 }
 
