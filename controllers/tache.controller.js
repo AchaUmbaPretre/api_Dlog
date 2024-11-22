@@ -396,12 +396,12 @@ exports.getTache = (req, res) => {
     LEFT JOIN corpsmetier AS cm ON tache.id_corps_metier = cm.id_corps_metier
     LEFT JOIN tache_tags tt ON tache.id_tache = tt.id_tache
     LEFT JOIN tags tg ON tt.id_tag = tg.id_tag
-    INNER JOIN permissions_tache pt ON tache.id_tache = pt.id_tache
+    LEFT JOIN permissions_tache pt ON tache.id_tache = pt.id_tache
     WHERE 
         tache.est_supprime = 0`;
 
     // Ajout de conditions dynamiques pour les filtres
-    if (id_user) {
+    if (id_user != 'undefined') {
         query += ` AND pt.id_user = ${id_user}`;
     }
     if (departement) {
@@ -543,7 +543,7 @@ exports.getTachePermiAll = (req, res) => {
     LEFT JOIN corpsmetier AS cm ON tache.id_corps_metier = cm.id_corps_metier
     LEFT JOIN tache_tags tt ON tache.id_tache = tt.id_tache
     LEFT JOIN tags tg ON tt.id_tag = tg.id_tag
-    INNER JOIN permissions_tache pt ON tache.id_tache = pt.id_tache
+    LEFT JOIN permissions_tache pt ON tache.id_tache = pt.id_tache
     WHERE 
         tache.est_supprime = 0`;
 
@@ -566,6 +566,8 @@ exports.getTachePermiAll = (req, res) => {
     if (owners) {
         query += ` AND tache.responsable_principal IN (${owners.map(o => db.escape(o)).join(',')})`;
     }
+
+    query += ` GROUP BY tache.id_tache`;
 
     query += ` ORDER BY tache.date_creation DESC`;
 
