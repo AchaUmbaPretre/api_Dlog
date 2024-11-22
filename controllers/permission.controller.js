@@ -207,3 +207,62 @@ exports.getPermissionTache = (req, res) => {
     return res.status(200).json(data);
 });
 }
+
+exports.postPermissionTache = (req, res) => {
+  const { id_tache, id_user, can_view, can_edit, can_comment } = req.body;
+
+  if (!id_tache || !id_user) {
+    return res.status(400).send({ error: "Les champs 'id_tache' et 'id_user' sont requis." });
+  }
+
+  try {
+    // Vérifiez si une ligne existe déjà pour id_tache et id_user
+    const qSelect = `SELECT * FROM permissions_tache WHERE id_tache = ? AND id_user = ?`;
+    const valuesSelect = [id_tache, id_user];
+
+    db.query(qSelect, valuesSelect, (error, data) => {
+      if (error) {
+        console.error("Erreur lors de la récupération des permissions:", error);
+        return res.status(500).send({ error: "Erreur interne du serveur." });
+      }
+
+      if (data.length > 0) {
+        const qUpdate = `
+          UPDATE permissions_tache 
+          SET can_view = ?, can_edit = ?, can_comment = ? 
+          WHERE id_tache = ? AND id_user = ?
+        `;
+        const valuesUpdate = [can_view, can_edit, can_comment, id_tache, id_user];
+
+        db.query(qUpdate, valuesUpdate, (errorUpdate) => {
+          if (errorUpdate) {
+            console.error("Erreur lors de la mise à jour des permissions:", errorUpdate);
+            return res.status(500).send({ error: "Erreur lors de la mise à jour des permissions." });
+          }
+
+          res.status(200).send({ message: "Permission mise à jour avec succès." });
+        });
+      } else {
+        // Insérez une nouvelle ligne
+        const qInsert = `
+          INSERT INTO permissions_tache (id_tache, id_user, can_view, can_edit, can_comment) 
+          VALUES (?, ?, ?, ?, ?)
+        `;
+        const valuesInsert = [id_tache, id_user, can_view, can_edit, can_comment];
+
+        db.query(qInsert, valuesInsert, (errorInsert) => {
+          if (errorInsert) {
+            console.error("Erreur lors de l'insertion des permissions:", errorInsert);
+            return res.status(500).send({ error: "Erreur lors de l'insertion des permissions." });
+          }
+
+          res.status(201).send({ message: "Permission ajoutée avec succès." });
+        });
+      }
+    });
+  } catch (error) {
+    console.error("Erreur inattendue:", error);
+    res.status(500).send({ error: "Erreur interne du serveur." });
+  }
+};
+
