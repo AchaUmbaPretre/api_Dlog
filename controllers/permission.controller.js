@@ -195,3 +195,15 @@ exports.putPermission = (req, res) => {
     });
   };
   
+//Permission Tache
+exports.getPermissionTache = (req, res) => {
+  const { id_tache } = req.query;
+  const q = `SELECT id_user, can_view, can_edit, can_comment FROM permissions_tache WHERE id_tache = ?`
+
+  db.query(q, [id_tache], (error, data) => {
+    if (error) {
+        return res.status(500).send(error);
+    }
+    return res.status(200).json(data);
+});
+}
