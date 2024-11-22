@@ -655,7 +655,6 @@ exports.getTache = (req, res) => {
     });
 };
 
-
 exports.getTachePermiAll = (req, res) => {
     const { departement, client, statut, priorite, dateRange, owners } = req.body;
 
