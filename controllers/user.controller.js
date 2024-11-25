@@ -61,7 +61,7 @@ exports.getUserOne = (req, res) => {
 }
 
 exports.registerUser = async (req, res) => {
-    const { nom, prenom, email, mot_de_passe, role } = req.body;
+    const { nom, prenom, email, mot_de_passe, role, id_ville } = req.body;
   
     try {
       const query = 'SELECT * FROM utilisateur WHERE email = ?';
@@ -79,7 +79,7 @@ exports.registerUser = async (req, res) => {
         const defaultPassword = mot_de_passe || '1234';
         const hashedPassword = await bcrypt.hash(defaultPassword, 10);
   
-        const insertQuery = 'INSERT INTO utilisateur (nom, prenom, email, mot_de_passe, role) VALUES (?, ?, ?, ?, ?)';
+        const insertQuery = 'INSERT INTO utilisateur (nom, prenom, email, mot_de_passe, role, id_ville) VALUES (?, ?, ?, ?, ?, ?)';
         const insertValues = [nom, prenom, email, hashedPassword,role];
   
         db.query(insertQuery, insertValues, (err, insertResult) => {
