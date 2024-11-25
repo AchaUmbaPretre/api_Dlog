@@ -529,7 +529,11 @@ exports.getTache = (req, res) => {
         DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour,
         ct.nom_cat_tache,
         cm.nom_corps_metier,
-        tg.nom_tag          
+        tg.nom_tag,
+        pt.	can_view,
+        pt.can_edit,
+        pt.can_comment,
+        pt.	id_user
     FROM 
         tache
     LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
