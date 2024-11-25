@@ -560,7 +560,7 @@ exports.getTache = (req, res) => {
             query += ` AND tache.id_ville = (SELECT id_ville FROM utilisateur WHERE id_utilisateur = ${db.escape(id_user)})`;
         }
 
-        if (role == 'Owner' && id_user) {
+        if (role === 'Owner' && id_user) {
             query += `AND (pt.id_user = ${db.escape(id_user)} AND pt.can_view = 1 OR tache.user_cr = ${db.escape(id_user)})`;
         }
 
