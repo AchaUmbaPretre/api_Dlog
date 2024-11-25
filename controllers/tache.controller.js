@@ -557,7 +557,8 @@ exports.getTache = (req, res) => {
         query += ` AND pt.id_user = ${db.escape(id_user)} AND pt.can_view = 1 OR tache.user_cr =${id_user} `;
     }
 
-    if (role == 'Manager' && id_user) {
+    if (role !== 'Manager' && departement) {
+        query += ` AND tache.id_departement IN (${departement.map(d => db.escape(d)).join(',')})`;
     }
 
     // Ajout des filtres dynamiques
