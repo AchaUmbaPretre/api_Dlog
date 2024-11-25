@@ -554,7 +554,7 @@ exports.getTache = (req, res) => {
 
     // Vérifiez si l'utilisateur est admin
     if (role !== 'Admin' && id_user) {
-        query += ` AND pt.id_user = ${id_user}`;
+        query += ` AND pt.id_user = ${db.escape(id_user)} AND pt.can_view = 1`;
     }
 
     // Ajout des filtres dynamiques
