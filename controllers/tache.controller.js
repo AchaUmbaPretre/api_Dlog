@@ -1080,7 +1080,7 @@ GROUP BY
 exports.postTache = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`, `id_tache_parente`, `id_departement`, `id_client`, `id_frequence`, `id_control`, `id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`, `id_batiment`, `id_ville`, `id_cat_tache`, `id_corps_metier`, `doc`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`, `id_tache_parente`, `id_departement`, `id_client`, `id_frequence`, `id_control`, `id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`, `id_batiment`, `id_ville`, `id_cat_tache`, `id_corps_metier`, `doc`, `user_cr`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
         const qCat = 'INSERT INTO categorie_tache(`id_tache`, `id_cat`, `cout`) VALUES (?, ?, ?)';
         
         const values = [
@@ -1103,7 +1103,8 @@ exports.postTache = async (req, res) => {
             req.body.id_ville,
             req.body.id_cat_tache,
             req.body.id_corps_metier,
-            req.body.doc
+            req.body.doc,
+            req.body.user_cr
         ];
 
         db.query(q, values, (error, data) => {
