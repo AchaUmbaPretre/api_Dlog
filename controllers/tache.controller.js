@@ -507,7 +507,7 @@ exports.getTacheCount = (req, res) => {
 }; */
 
 exports.getTache = (req, res) => {
-    const { id_user, role } = req.query; // Nous récupérons le rôle de l'utilisateur ici.
+    const { id_user, role } = req.query;
     const { departement, client, statut, priorite, dateRange, owners } = req.body;
 
     let query = `SELECT 
@@ -554,7 +554,10 @@ exports.getTache = (req, res) => {
 
     // Vérifiez si l'utilisateur est admin
     if (role !== 'Admin' && id_user) {
-        query += ` AND pt.id_user = ${db.escape(id_user)} AND pt.can_view = 1`;
+        query += ` AND pt.id_user = ${db.escape(id_user)} AND pt.can_view = 1 OR tache.user_cr =${id_user} `;
+    }
+
+    if (role == 'Manager' && id_user) {
     }
 
     // Ajout des filtres dynamiques
