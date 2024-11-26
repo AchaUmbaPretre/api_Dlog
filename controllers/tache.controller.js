@@ -2404,6 +2404,7 @@ exports.getAuditLogsTache = (req, res) => {
                     LEFT JOIN tache ON audit_logs.id_tache = tache.id_tache
                     LEFT JOIN departement ON tache.id_departement = departement.id_departement
                     LEFT JOIN utilisateur ON audit_logs.user_id = utilisateur.id_utilisateur
+                    ORDER BY audit_logs.timestamp DESC
                 `;
 
     db.query(q, (error, data) => {
