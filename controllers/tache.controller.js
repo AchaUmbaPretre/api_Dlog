@@ -1455,7 +1455,6 @@ exports.postTache = async (req, res) => {
     }
 };
 
-
 /*1 exports.postTache = async (req, res) => {
     console.log(req.body.categories)
 
