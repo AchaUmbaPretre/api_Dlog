@@ -1506,15 +1506,14 @@ exports.postTacheExcel = async (req, res) => {
 } */
 
 
-    exports.putTache = async (req, res) => {
-        const { id_tache, user_id } = req.query;
+exports.putTache = async (req, res) => {
+        const { id_tache} = req.query;
     
         if (!id_tache || isNaN(id_tache)) {
             return res.status(400).json({ error: 'Invalid tache ID provided' });
         }
     
         try {
-            // Requête pour mettre à jour la tâche
             const q = `
                 UPDATE tache 
                 SET 
@@ -1530,7 +1529,9 @@ exports.postTacheExcel = async (req, res) => {
                     responsable_principal = ?,
                     id_demandeur = ?,
                     id_batiment = ?,
-                    id_ville = ?
+                    id_ville = ?,
+                    id_cat_tache = ?,
+                    id_corps_metier = ?
                 WHERE id_tache = ?
             `;
     
@@ -1548,6 +1549,8 @@ exports.postTacheExcel = async (req, res) => {
                 req.body.id_demandeur,
                 req.body.id_batiment,
                 req.body.id_ville,
+                req.body.id_cat_tache,
+                req.body.id_corps_metier,
                 id_tache
             ];
     
@@ -1564,9 +1567,9 @@ exports.postTacheExcel = async (req, res) => {
                 `;
     
                 const logValues = [
-                    'Update Tache', // Action effectuée
-                    user_id,        // ID de l'utilisateur
-                    id_tache        // ID de la tâche mise à jour
+                    'Modifié',
+                    req.body.user_cr,
+                    id_tache
                 ];
     
                 db.query(logQuery, logValues, (logError) => {
