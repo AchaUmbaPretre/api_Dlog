@@ -1449,7 +1449,7 @@ exports.postTacheExcel = async (req, res) => {
 };
 
 exports.putTache = async (req, res) => {
-    const { id_tache } = req.query;
+    const { id_tache, user_id } = req.query;
 
     if (!id_tache || isNaN(id_tache)) {
         return res.status(400).json({ error: 'Invalid tache ID provided' });
