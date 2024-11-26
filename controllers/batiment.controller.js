@@ -1422,8 +1422,8 @@ exports.getInspection = (req, res) => {
                     LEFT JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
                     LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
                     LEFT JOIN cat_inspection ct ON inspections.id_cat_instruction = ct.id_cat_inspection
-                    WHERE inspections.est_supprime = 0
-                    GROUP BY inspections.id_inspection
+                WHERE inspections.est_supprime = 0
+                GROUP BY inspections.id_inspection
             `;
 
     db.query(q, (error, data) => {
