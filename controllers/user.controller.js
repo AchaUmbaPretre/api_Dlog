@@ -148,7 +148,7 @@ exports.deleteUser = (req, res) => {
 exports.putUserOne = async (req, res) => {
     const { id } = req.query;
   
-    const q = "UPDATE utilisateur SET `nom` = ?, `email` = ?, `mot_de_passe` = ? WHERE id_utilisateur = ?";
+    const q = "UPDATE utilisateur SET `nom` = ?, `email` = ?, `mot_de_passe` = ?, `id_ville` = ?, `id_departement` WHERE id_utilisateur = ?";
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash( req.body.mot_de_passe, salt);
@@ -156,6 +156,8 @@ exports.putUserOne = async (req, res) => {
       req.body.nom,
       req.body.email,
       hashedPassword,
+      req.body.id_ville,
+      req.body.id_departement,
       id
     ];
   
