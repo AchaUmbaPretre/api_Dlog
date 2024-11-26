@@ -684,13 +684,16 @@ exports.getTache = (req, res) => {
     // Application des restrictions basées sur le rôle
     if (role !== 'Admin') {
         if (role === 'Manager' && id_user) {
-            query += ` AND tache.id_departement IN (
-            SELECT id_departement 
-            FROM departement 
-            WHERE responsable = ${db.escape(id_user)}
-        )`;
+            query += `
+                AND tache.id_departement IN (
+                    SELECT id_departement 
+                    FROM utilisateur 
+                    WHERE id_utilisateur = ${db.escape(id_user)}
+                    AND id_ville = (SELECT id_ville FROM utilisateur WHERE id_utilisateur = ${db.escape(id_user)})
+                )
+            `;
         }
-
+        
         if (role === 'Owner' && id_user) {
             query += `AND (pt.id_user = ${db.escape(id_user)} AND pt.can_view = 1 OR tache.user_cr = ${db.escape(id_user)})`;
         }
