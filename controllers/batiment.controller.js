@@ -1494,7 +1494,6 @@ exports.postInspections = async (req, res) => {
             ) VALUES (?, ?, ?, ?)
         `;
 
-        // Requête d'insertion dans la table `inspection_img` (pour chaque fichier)
         const queryF = `
             INSERT INTO inspection_img (id_inspection, id_type_photo, img, commentaire)
             VALUES (?, ?, ?, ?)
