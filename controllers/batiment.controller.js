@@ -1476,7 +1476,7 @@ exports.getInspectionOne = (req, res) => {
 };
 
 exports.postInspections = async (req, res) => {
-    const { id_batiment,id_type_photo, commentaire, id_cat_instruction, id_type_instruction } = req.body;
+    const { id_batiment,id_type_photo, commentaire, id_cat_instruction, id_type_instruction, id_tache } = req.body;
 
     // Vérification si des fichiers ont été envoyés
     if (!req.files || req.files.length === 0) {
@@ -1487,10 +1487,11 @@ exports.postInspections = async (req, res) => {
         // Requête d'insertion dans la table `inspections` (une seule fois)
         const query = `
             INSERT INTO inspections (
+                id_tache,
                 id_batiment,
                 id_cat_instruction,
                 id_type_instruction
-            ) VALUES (?, ?, ?)
+            ) VALUES (?, ?, ?, ?)
         `;
 
         // Requête d'insertion dans la table `inspection_img` (pour chaque fichier)
@@ -1500,7 +1501,7 @@ exports.postInspections = async (req, res) => {
         `;
 
         // Valeurs pour l'insertion dans `inspections` (elles sont communes pour tous les fichiers)
-        const values = [id_batiment, id_cat_instruction, id_type_instruction];
+        const values = [id_tache, id_batiment, id_cat_instruction, id_type_instruction];
 
         // Insertion dans `inspections` (une seule fois pour tous les fichiers)
         const result = await new Promise((resolve, reject) => {
