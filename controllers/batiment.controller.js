@@ -1543,7 +1543,6 @@ exports.postInspections = async (req, res) => {
 exports.postInspectionsApre = async (req, res) => {
     const { id_inspection ,id_type_photo, commentaire } = req.body;
 
-        // Vérification si des fichiers ont été envoyés
         if (!req.files || req.files.length === 0) {
             return res.status(400).json({ message: 'Aucun fichier téléchargé' });
         }
