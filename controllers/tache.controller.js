@@ -681,7 +681,6 @@ exports.getTache = (req, res) => {
             tache.est_supprime = 0
     `;
 
-    // Application des restrictions basées sur le rôle
     if (role !== 'Admin') {
         if (role === 'Manager' && id_user) {
             query += `
