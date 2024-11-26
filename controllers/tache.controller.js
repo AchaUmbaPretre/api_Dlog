@@ -1185,7 +1185,7 @@ GROUP BY
     });
 }
 
-exports.postTache = async (req, res) => {
+/* exports.postTache = async (req, res) => {
 
     try {
         const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`, `id_tache_parente`, `id_departement`, `id_client`, `id_frequence`, `id_control`, `id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`, `id_batiment`, `id_ville`, `id_cat_tache`, `id_corps_metier`, `doc`, `user_cr`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
@@ -1255,7 +1255,206 @@ exports.postTache = async (req, res) => {
         console.error('Erreur lors de l\'ajout de la tâche :', error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
+}; */
+
+/* 
+exports.postTache = async (req, res) => {
+    try {
+        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`, `id_tache_parente`, `id_departement`, `id_client`, `id_frequence`, `id_control`, `id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`, `id_batiment`, `id_ville`, `id_cat_tache`, `id_corps_metier`, `doc`, `user_cr`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+
+        const qCat = 'INSERT INTO categorie_tache(`id_tache`, `id_cat`, `cout`) VALUES (?, ?, ?)';
+
+        const values = [
+            req.body.nom_tache,
+            req.body.description,
+            req.body.statut || 1,
+            req.body.date_debut,
+            req.body.date_fin,
+            req.body.priorite,
+            req.body.id_tache_parente,
+            req.body.id_departement,
+            req.body.id_client,
+            req.body.id_frequence,
+            req.body.id_control,
+            req.body.id_projet,
+            req.body.id_point_supervision,
+            req.body.responsable_principal,
+            req.body.id_demandeur,
+            req.body.id_batiment,
+            req.body.id_ville,
+            req.body.id_cat_tache,
+            req.body.id_corps_metier,
+            req.body.doc,
+            req.body.user_cr
+        ];
+
+        db.query(q, values, (error, data) => {
+            if (error) {
+                console.log(error);
+                return res.status(500).json({ error: "Erreur lors de l'insertion de la tâche." });
+            } else {
+                const insertId = data.insertId;
+
+                // Insérer dans audit_logs
+                const logQuery = `
+                    INSERT INTO audit_logs (action, user_id, id_tache, timestamp)
+                    VALUES (?, ?, ?, NOW())
+                `;
+                const logValues = [
+                    'Créer tache',
+                    req.body.user_cr,
+                    insertId
+                ];
+
+                db.query(logQuery, logValues, (logError) => {
+                    if (logError) {
+                        console.log("Erreur lors de l'ajout du log d'audit:", logError);
+                    }
+                });
+
+                // Vérifiez que categories est un tableau et a des éléments
+                if (Array.isArray(req.body.categories) && req.body.categories.length > 0) {
+                    const categoryQueries = req.body.categories.map(datas => {
+                        return new Promise((resolve, reject) => {
+                            const catValues = [insertId, datas.id_cat, datas.cout];
+                            db.query(qCat, catValues, (errorCat) => {
+                                if (errorCat) {
+                                    console.log(errorCat);
+                                    reject(errorCat);
+                                } else {
+                                    resolve();
+                                }
+                            });
+                        });
+                    });
+
+                    // Attendre que toutes les requêtes d'insertion des catégories soient complétées
+                    Promise.all(categoryQueries)
+                        .then(() => {
+                            return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
+                        })
+                        .catch(() => {
+                            return res.status(500).json({ error: "Erreur lors de l'insertion des catégories." });
+                        });
+                } else {
+                    return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout de la tâche :', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+    }
 };
+ */
+
+exports.postTache = async (req, res) => {
+    try {
+        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`, `id_tache_parente`, `id_departement`, `id_client`, `id_frequence`, `id_control`, `id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`, `id_batiment`, `id_ville`, `id_cat_tache`, `id_corps_metier`, `doc`, `user_cr`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+
+        const qCat = 'INSERT INTO categorie_tache(`id_tache`, `id_cat`, `cout`) VALUES (?, ?, ?)';
+        
+        const qPermissions = 'INSERT INTO permissions_tache(`id_tache`, `id_user`, `can_view`, `can_edit`, `can_comment`) VALUES (?, ?, ?, ?, ?)';
+
+        const values = [
+            req.body.nom_tache,
+            req.body.description,
+            req.body.statut || 1,
+            req.body.date_debut,
+            req.body.date_fin,
+            req.body.priorite,
+            req.body.id_tache_parente,
+            req.body.id_departement,
+            req.body.id_client,
+            req.body.id_frequence,
+            req.body.id_control,
+            req.body.id_projet,
+            req.body.id_point_supervision,
+            req.body.responsable_principal,
+            req.body.id_demandeur,
+            req.body.id_batiment,
+            req.body.id_ville,
+            req.body.id_cat_tache,
+            req.body.id_corps_metier,
+            req.body.doc,
+            req.body.user_cr
+        ];
+
+        db.query(q, values, (error, data) => {
+            if (error) {
+                console.log(error);
+                return res.status(500).json({ error: "Erreur lors de l'insertion de la tâche." });
+            } else {
+                const insertId = data.insertId;
+
+                // Insérer dans audit_logs
+                const logQuery = `
+                    INSERT INTO audit_logs (action, user_id, id_tache, timestamp)
+                    VALUES (?, ?, ?, NOW())
+                `;
+                const logValues = [
+                    'Créer tache',
+                    req.body.user_cr,
+                    insertId
+                ];
+
+                db.query(logQuery, logValues, (logError) => {
+                    if (logError) {
+                        console.log("Erreur lors de l'ajout du log d'audit:", logError);
+                    }
+                });
+
+                // Insérer les permissions de la tâche pour l'utilisateur créateur
+                const permissionValues = [
+                    insertId,  // id_tache
+                    req.body.user_cr,  // id_user
+                    1,  // can_view
+                    1,  // can_edit
+                    1   // can_comment
+                ];
+
+                db.query(qPermissions, permissionValues, (permError) => {
+                    if (permError) {
+                        console.log("Erreur lors de l'ajout des permissions de la tâche:", permError);
+                        return res.status(500).json({ error: "Erreur lors de l'ajout des permissions." });
+                    }
+                });
+
+                // Vérifiez que categories est un tableau et a des éléments
+                if (Array.isArray(req.body.categories) && req.body.categories.length > 0) {
+                    const categoryQueries = req.body.categories.map(datas => {
+                        return new Promise((resolve, reject) => {
+                            const catValues = [insertId, datas.id_cat, datas.cout];
+                            db.query(qCat, catValues, (errorCat) => {
+                                if (errorCat) {
+                                    console.log(errorCat);
+                                    reject(errorCat);
+                                } else {
+                                    resolve();
+                                }
+                            });
+                        });
+                    });
+
+                    // Attendre que toutes les requêtes d'insertion des catégories soient complétées
+                    Promise.all(categoryQueries)
+                        .then(() => {
+                            return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
+                        })
+                        .catch(() => {
+                            return res.status(500).json({ error: "Erreur lors de l'insertion des catégories." });
+                        });
+                } else {
+                    return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout de la tâche :', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+    }
+};
+
 
 /*1 exports.postTache = async (req, res) => {
     console.log(req.body.categories)
