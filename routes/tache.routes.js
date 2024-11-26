@@ -57,4 +57,7 @@ router.get('/get_search', tacheController.getSearch)
 router.post('/projet_tache', tacheController.postTacheProjet)
 router.put('/projet_associe', tacheController.putProjetAssocie)
 
+//Audit Logs Tache
+router.get('/audit_logs', tacheController.getAuditLogsTache)
+
 module.exports = router;

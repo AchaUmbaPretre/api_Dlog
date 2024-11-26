@@ -2366,3 +2366,16 @@ exports.putProjetAssocie = async (req, res) => {
     }
 };
 
+
+//Audit Logs Tache
+exports.getAuditLogsTache = (req, res) => {
+
+    const q = `SELECT * FROM audit_logs`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
