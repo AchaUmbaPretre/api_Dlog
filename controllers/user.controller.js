@@ -47,7 +47,9 @@ exports.getUserOne = (req, res) => {
             utilisateur.prenom,
             utilisateur.email,
             utilisateur.role,
-            utilisateur.mot_de_passe
+            utilisateur.mot_de_passe,
+            utilisateur.id_ville,
+            utilisateur.id_departement
         FROM utilisateur 
             WHERE utilisateur.id_utilisateur = ?
     `;
@@ -61,7 +63,7 @@ exports.getUserOne = (req, res) => {
 }
 
 exports.registerUser = async (req, res) => {
-    const { nom, prenom, email, mot_de_passe, role, id_ville } = req.body;
+    const { nom, prenom, email, mot_de_passe, role, id_ville, id_departement  } = req.body;
   
     try {
       const query = 'SELECT * FROM utilisateur WHERE email = ?';
@@ -79,8 +81,8 @@ exports.registerUser = async (req, res) => {
         const defaultPassword = mot_de_passe || '1234';
         const hashedPassword = await bcrypt.hash(defaultPassword, 10);
   
-        const insertQuery = 'INSERT INTO utilisateur (nom, prenom, email, mot_de_passe, role, id_ville) VALUES (?, ?, ?, ?, ?, ?)';
-        const insertValues = [nom, prenom, email, hashedPassword,role];
+        const insertQuery = 'INSERT INTO utilisateur (nom, prenom, email, mot_de_passe, role, id_ville, id_departement ) VALUES (?, ?, ?, ?, ?, ?, ?)';
+        const insertValues = [nom, prenom, email, hashedPassword,role, id_ville, id_departement];
   
         db.query(insertQuery, insertValues, (err, insertResult) => {
           if (err) {
