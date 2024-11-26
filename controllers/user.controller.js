@@ -102,7 +102,7 @@ exports.registerUser = async (req, res) => {
 
 exports.putUser = async (req, res) => {
     const { id } = req.query;
-    const { nom, prenom, email } = req.body;
+    const { nom, prenom, email, id_ville, id_departement } = req.body;
 
     if (!id || isNaN(id)) {
         return res.status(400).json({ error: 'Invalid userId ID provided' });
@@ -114,11 +114,13 @@ exports.putUser = async (req, res) => {
             SET 
                 nom = ?,
                 prenom = ?,
-                email  = ?
+                email  = ?,
+                id_ville = ?,
+                id_departement = ?
             WHERE id_utilisateur = ?
         `;
       
-        const values = [nom, prenom, email, id];
+        const values = [nom, prenom, email, id_ville, id_departement, id];
 
         db.query(q, values, (error, data)=>{
             if(error){
