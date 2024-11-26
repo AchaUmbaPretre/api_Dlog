@@ -136,7 +136,7 @@ exports.getSuiviTacheOne = (req, res) => {
     
         let additionalCondition = '';
         if (role !== 'Admin') {
-            additionalCondition = `AND suivi_tache.assign_to = ${db.escape(id_user)}`;
+            additionalCondition = `AND tache.user_cr = ${db.escape(id_user)}`;
         }
     
         const q = `
