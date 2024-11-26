@@ -1393,7 +1393,7 @@ exports.postTache = async (req, res) => {
                     VALUES (?, ?, ?, NOW())
                 `;
                 const logValues = [
-                    'Créer tache',
+                    'Création',
                     req.body.user_cr,
                     insertId
                 ];
@@ -1768,7 +1768,7 @@ exports.putTache = async (req, res) => {
                 `;
     
                 const logValues = [
-                    'Modifié',
+                    'Modification',
                     req.body.user_cr,
                     id_tache
                 ];
@@ -1787,8 +1787,6 @@ exports.putTache = async (req, res) => {
         }
     };
     
-
-
 exports.putTacheDesc = async (req, res) => {
     const { id_tache } = req.query;
 
@@ -1866,7 +1864,7 @@ exports.putTachePriorite = async (req, res) => {
     }
 };
 
-exports.deleteUpdateTache = (req, res) => {
+/* exports.deleteUpdateTache = (req, res) => {
     const {id} = req.query;
   
     const q = "UPDATE tache SET est_supprime = 1 WHERE id_tache = ?";
@@ -1878,8 +1876,40 @@ exports.deleteUpdateTache = (req, res) => {
       return res.json(data);
     });
   
-  }
+  } */
 
+exports.deleteUpdateTache = (req, res) => {
+        const {id} = req.query;
+        const userId = req.body.user_id;
+    
+        const q = "UPDATE tache SET est_supprime = 1 WHERE id_tache = ?";
+      
+        db.query(q, [id], (err, data) => {
+            if (err) {
+                console.log(err);
+                return res.status(500).json({ error: "Erreur lors de la mise à jour de la tâche." });
+            }
+    
+            const logQuery = `
+                INSERT INTO audit_logs (action, user_id, id_tache, timestamp)
+                VALUES (?, ?, ?, NOW())
+            `;
+            const logValues = [
+                'Suppression',
+                userId,
+                id
+            ];
+    
+            db.query(logQuery, logValues, (logError) => {
+                if (logError) {
+                    console.log("Erreur lors de l'ajout du log d'audit:", logError);
+                }
+            });
+    
+            return res.json({ message: "Tâche supprimée avec succès", data });
+        });
+    };
+    
 exports.deleteTache = (req, res) => {
     const id = req.params.id;
   
@@ -2370,7 +2400,11 @@ exports.putProjetAssocie = async (req, res) => {
 //Audit Logs Tache
 exports.getAuditLogsTache = (req, res) => {
 
-    const q = `SELECT * FROM audit_logs`;
+    const q = `SELECT audit_logs.*, tache.nom_tache, utilisateur.nom, utilisateur.prenom, departement.nom_departement FROM audit_logs
+                    LEFT JOIN tache ON audit_logs.id_tache = tache.id_tache
+                    LEFT JOIN departement ON tache.id_departement = departement.id_departement
+                    LEFT JOIN utilisateur ON audit_logs.user_id = utilisateur.id_utilisateur
+                `;
 
     db.query(q, (error, data) => {
         if (error) {
