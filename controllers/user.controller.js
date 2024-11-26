@@ -26,8 +26,10 @@ exports.getUsers = (req, res) => {
 
     const q = `
     SELECT 
-        utilisateur.*
+        utilisateur.*, d.nom_departement, p.name
     FROM utilisateur
+    LEFT JOIN departement d ON utilisateur.id_departement = d.id_departement
+    LEFT JOIN provinces p ON utilisateur.id_ville = p.id
     `;
 
     db.query(q, (error, data) => {

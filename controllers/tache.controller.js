@@ -1575,11 +1575,10 @@ exports.putTache = async (req, res) => {
                 db.query(logQuery, logValues, (logError) => {
                     if (logError) {
                         console.error("Error logging action:", logError);
-                        // Vous pouvez décider de ne pas bloquer l'utilisateur ici
                     }
                 });
     
-                return res.json({ message: 'Tache record updated successfully' });
+                return res.json({ message: 'Tache a été modifiée avec succes' });
             });
         } catch (err) {
             console.error("Error updating tache:", err);
