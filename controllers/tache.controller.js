@@ -2123,7 +2123,7 @@ exports.getAuditLogsTache = (req, res) => {
 
 //Notifications
 exports.getNotificationTache = (req, res) => {
-    const { user_id } = req.query; 
+    const { user_id } = req.query; // ID de l'utilisateur qui effectue la requête
 
     const checkRoleQuery = `SELECT role FROM utilisateur WHERE id_utilisateur = ?`;
 
@@ -2132,27 +2132,48 @@ exports.getNotificationTache = (req, res) => {
             return res.status(500).json({ error: 'Erreur serveur lors de la vérification du rôle.' });
         }
 
-        if (!result.length || result[0].role !== 'Admin') {
-            return res.status(403).json({ error: 'Accès non autorisé. Seul un administrateur peut voir les notifications.' });
+        if (!result.length) {
+            return res.status(403).json({ error: 'Utilisateur non trouvé.' });
         }
 
-        const q = `
-            SELECT notifications.*, u.nom, u.prenom 
-            FROM notifications
-            INNER JOIN utilisateur u ON notifications.user_id = u.id_utilisateur
-            WHERE is_read = 0 
-            AND notifications.user_id != ?  -- Exclure les notifications de l'utilisateur qui a créé la tâche
-            ORDER BY notifications.timestamp DESC
-        `;
+        const role = result[0].role;
 
-        db.query(q, [user_id], (error, data) => {
+        // Condition pour filtrer les notifications selon le rôle
+        let notificationQuery;
+        let queryParams;
+
+        if (role === 'Admin') {
+            // Si l'utilisateur est un administrateur, il voit toutes les notifications sauf celles qu'il a créées lui-même
+            notificationQuery = `
+                SELECT notifications.*, u.nom, u.prenom 
+                FROM notifications
+                INNER JOIN utilisateur u ON notifications.user_id = u.id_utilisateur
+                WHERE is_read = 0
+                ORDER BY notifications.timestamp DESC
+            `;
+            queryParams = [];
+        } else {
+            // Si l'utilisateur est un utilisateur normal, il ne voit que ses propres notifications
+            notificationQuery = `
+                SELECT notifications.*, u.nom, u.prenom 
+                FROM notifications
+                INNER JOIN utilisateur u ON notifications.user_id = u.id_utilisateur
+                WHERE is_read = 0 AND notifications.user_id = ?
+                ORDER BY notifications.timestamp DESC
+            `;
+            queryParams = [user_id];
+        }
+
+        db.query(notificationQuery, queryParams, (error, data) => {
             if (error) {
                 return res.status(500).json({ error: 'Erreur serveur lors de la récupération des notifications.' });
             }
+
             return res.status(200).json(data);
         });
     });
 };
+
 
 exports.getNotificationTacheOne = (req, res) => {
     const { id_notification } = req.query;
