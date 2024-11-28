@@ -60,7 +60,6 @@ router.put('/projet_associe', tacheController.putProjetAssocie)
 //Audit Logs Tache
 router.get('/audit_logs', tacheController.getAuditLogsTache);
 
-
 //Notification
 router.get('/notification', tacheController.getNotificationTache);
 router.get('/notification/one', tacheController.getNotificationTacheOne);
