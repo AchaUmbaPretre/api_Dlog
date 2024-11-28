@@ -144,35 +144,29 @@ exports.getTacheCount = (req, res) => {
     
         db.query(userQuery, [userId], (error, result) => {
             if (error) {
-                return res.status(500).send(error);  // En cas d'erreur SQL
+                return res.status(500).send(error);
             }
     
-            // Vérifier si l'utilisateur existe
             if (result.length === 0) {
                 return res.status(404).send('Utilisateur non trouvé');
             }
     
-            // Récupérer les informations de l'utilisateur
             const { id_ville, id_departement, role } = result[0];
     
-            // Étape 2: Construire la requête de comptage des tâches
             let countQuery = `
                 SELECT COUNT(id_tache) AS nbre_tache
                 FROM tache
                 WHERE est_supprime = 0
             `;
     
-            // Si l'utilisateur est un manager, filtrer par département
             if (role === 'Manager' && id_departement) {
                 countQuery += ` AND tache.id_departement = ?`;
             }
     
-            // Si l'utilisateur est dans une ville spécifique, filtrer par id_ville
             if (id_ville) {
-                countQuery += ` AND tache.id_ville_id = ?`;
+                countQuery += ` AND tache.id_ville = ?`;
             }
     
-            // Si l'utilisateur est un admin, ne pas ajouter de filtres
             if (role === 'Admin') {
                 countQuery = `
                     SELECT COUNT(id_tache) AS nbre_tache
@@ -199,7 +193,6 @@ exports.getTacheCount = (req, res) => {
         });
     };
     
-
     
 exports.getTache = (req, res) => {
     const { id_user, role } = req.query;
