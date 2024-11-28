@@ -159,7 +159,7 @@ exports.getSuiviTacheOne = (req, res) => {
                 type_statut_suivi ON suivi_tache.status = type_statut_suivi.id_type_statut_suivi
             WHERE 
                 suivi_tache.est_supprime = 0
-                ${additionalCondition} -- Applique la condition uniquement si l'utilisateur n'est pas Admin
+                ${additionalCondition}
         `;
     
         db.query(q, (error, data) => {
