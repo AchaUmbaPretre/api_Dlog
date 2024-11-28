@@ -117,29 +117,90 @@ exports.getTacheFilter = (req, res) => {
     });
 }
             
-exports.getTacheCount = (req, res) => {
-    const { searchValue } = req.query;
+/* exports.getTacheCount = (req, res) => {
+    const { userId } = req.query;
     
     let q = `
         SELECT 
             COUNT(id_tache) AS nbre_tache
         FROM tache
-            WHERE est_supprime = 0
+            WHERE est_supprime = 0 AND tache.user_cr = ?
         `;
-
-    const params = [];
-
-    if (searchValue) {
-        q += ` AND (nom_tache LIKE ?)`;
-        params.push(`%${searchValue}%`, `%${searchValue}%`);
-    }
      
-    db.query(q, params, (error, data) => {
+    db.query(q, [userId], (error, data) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
-}
+} */
 
+exports.getTacheCount = (req, res) => {
+        const { userId } = req.query;
+    
+        const userQuery = `
+            SELECT id_ville, id_departement, role 
+            FROM utilisateur 
+            WHERE id_utilisateur = ?
+        `;
+    
+        db.query(userQuery, [userId], (error, result) => {
+            if (error) {
+                return res.status(500).send(error);  // En cas d'erreur SQL
+            }
+    
+            // Vérifier si l'utilisateur existe
+            if (result.length === 0) {
+                return res.status(404).send('Utilisateur non trouvé');
+            }
+    
+            // Récupérer les informations de l'utilisateur
+            const { id_ville, id_departement, role } = result[0];
+    
+            // Étape 2: Construire la requête de comptage des tâches
+            let countQuery = `
+                SELECT COUNT(id_tache) AS nbre_tache
+                FROM tache
+                WHERE est_supprime = 0
+            `;
+    
+            // Si l'utilisateur est un manager, filtrer par département
+            if (role === 'Manager' && id_departement) {
+                countQuery += ` AND tache.id_departement = ?`;
+            }
+    
+            // Si l'utilisateur est dans une ville spécifique, filtrer par id_ville
+            if (id_ville) {
+                countQuery += ` AND tache.id_ville_id = ?`;
+            }
+    
+            // Si l'utilisateur est un admin, ne pas ajouter de filtres
+            if (role === 'Admin') {
+                countQuery = `
+                    SELECT COUNT(id_tache) AS nbre_tache
+                    FROM tache
+                    WHERE est_supprime = 0
+                `;
+            }
+    
+            // Préparer les paramètres de la requête
+            const params = [];
+            if (role === 'Manager' && id_departement) {
+                params.push(id_departement);
+            }
+            if (id_ville) {
+                params.push(id_ville);
+            }
+    
+            db.query(countQuery, params, (error, data) => {
+                if (error) {
+                    return res.status(500).send(error); 
+                }
+                return res.status(200).json(data);
+            });
+        });
+    };
+    
+
+    
 exports.getTache = (req, res) => {
     const { id_user, role } = req.query;
     const { departement, client, statut, priorite, dateRange, owners } = req.body;
@@ -1037,7 +1098,7 @@ exports.postTache = async (req, res) => {
             });
 
             // Envoi de la notification au créateur
-            const notificationMessage = `Vous avez ajouté une tâche : ${nom_tache}`;
+            const notificationMessage = `Une nouvelle tâche vient d'être créée avec le titre de : ${nom_tache}`;
             const notificationsQuery = `
                 INSERT INTO notifications (user_id, message, timestamp)
                 VALUES (?, ?, NOW())
@@ -1107,8 +1168,6 @@ exports.postTache = async (req, res) => {
         return res.status(500).json({ error: "Une erreur inattendue s'est produite." });
     }
 };
-
-
 
 /*1 exports.postTache = async (req, res) => {
     console.log(req.body.categories)
@@ -1360,7 +1419,6 @@ exports.postTacheExcel = async (req, res) => {
         return res.status(500).json({ error: 'Failed to update Tache record' });
     }
 } */
-
 
 exports.putTache = async (req, res) => {
         const { id_tache} = req.query;
@@ -2072,17 +2130,34 @@ exports.getAuditLogsTache = (req, res) => {
 
 //Notifications
 exports.getNotificationTache = (req, res) => {
+    const { user_id } = req.query; 
 
-    const q = `SELECT notifications.*, u.nom, u.prenom FROM notifications
-                    INNER JOIN utilisateur u ON notifications.user_id = u.id_utilisateur
-                    ORDER BY notificationS.timestamp DESC
-                `;
+    const checkRoleQuery = `SELECT role FROM utilisateur WHERE id_utilisateur = ?`;
 
-    db.query(q, (error, data) => {
+    db.query(checkRoleQuery, [user_id], (error, result) => {
         if (error) {
-            return res.status(500).send(error);
+            return res.status(500).json({ error: 'Erreur serveur lors de la vérification du rôle.' });
         }
-        return res.status(200).json(data);
+
+        if (!result.length || result[0].role !== 'Admin') {
+            return res.status(403).json({ error: 'Accès non autorisé. Seul un administrateur peut voir les notifications.' });
+        }
+
+        const q = `
+            SELECT notifications.*, u.nom, u.prenom 
+            FROM notifications
+            INNER JOIN utilisateur u ON notifications.user_id = u.id_utilisateur
+            WHERE is_read = 0 
+            AND notifications.user_id != ?  -- Exclure les notifications de l'utilisateur qui a créé la tâche
+            ORDER BY notifications.timestamp DESC
+        `;
+
+        db.query(q, [user_id], (error, data) => {
+            if (error) {
+                return res.status(500).json({ error: 'Erreur serveur lors de la récupération des notifications.' });
+            }
+            return res.status(200).json(data);
+        });
     });
 };
 
@@ -2121,5 +2196,20 @@ exports.getNotificationTacheOne = (req, res) => {
 
         // Réponse avec les données de la notification
         return res.status(200).json(results[0]);
+    });
+};
+
+exports.deleteUpdateNotification = (req, res) => {
+    const {id} = req.query;
+
+    const q = "UPDATE notifications SET is_read = 1 WHERE id_notifications = ?";
+  
+    db.query(q, [id], (err, data) => {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({ error: "Erreur lors de la mise à jour de la notification." });
+        }
+
+        return res.json({ message: "Notification a été mise à jour avec succès", data });
     });
 };

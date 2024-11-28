@@ -63,5 +63,6 @@ router.get('/audit_logs', tacheController.getAuditLogsTache);
 //Notification
 router.get('/notification', tacheController.getNotificationTache);
 router.get('/notification/one', tacheController.getNotificationTacheOne);
+router.put('/notificationUpdate', tacheController.deleteUpdateNotification)
 
 module.exports = router;
