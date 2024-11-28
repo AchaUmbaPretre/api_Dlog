@@ -5,7 +5,7 @@ const { Server } = require('socket.io');
 const socketServer = http.createServer();
 const io = new Server(socketServer, {
     cors: {
-        origin: "*", // Permet toutes les origines (ajuste selon tes besoins)
+        origin: "*",
         methods: ["GET", "POST"]
     }
 });
@@ -14,8 +14,8 @@ socketServer.listen(8070, () => {
     console.log('Serveur Socket.IO écoute sur le port 8070');
 });
 
-let onlineUsers = new Map();  // Map pour suivre les utilisateurs connectés
-let adminSocketId = 3;    // Variable pour stocker le socket.id de l'administrateur
+let onlineUsers = new Map();
+let adminSocketId = 3;
 
 // Gestion des connexions des utilisateurs
 io.on('connection', (socket) => {
@@ -39,7 +39,7 @@ io.on('connection', (socket) => {
         console.log('Un utilisateur s\'est déconnecté');
         onlineUsers.forEach((value, key) => {
             if (value === socket.id) {
-                onlineUsers.delete(key);  // Supprimer l'utilisateur de la liste
+                onlineUsers.delete(key);
             }
         });
 
@@ -67,5 +67,4 @@ function notifyAdmin(taskDetails) {
     }
 }
 
-// Exporter la fonction et la map
 module.exports = { getSocketIO, onlineUsers, notifyAdmin };
