@@ -131,6 +131,7 @@ exports.getSuiviTacheUn = (req, res) => {
     });
 } */
 
+    
 exports.getSuiviTacheOne = (req, res) => {
     const { id_user, role } = req.query;
     
@@ -236,7 +237,6 @@ exports.getSuiviTacheOneV = (req, res) => {
         });
     };
 
-    
 exports.postSuivi = async (req, res) => {
 
     try {

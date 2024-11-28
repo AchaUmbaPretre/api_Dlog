@@ -10,5 +10,4 @@ router.put('/', controlleController.putControle)
 router.put('/est_supprime', controlleController.deleteUpdatedControle)
 router.delete('/:id', controlleController.deleteControle)
 
-
 module.exports = router;
