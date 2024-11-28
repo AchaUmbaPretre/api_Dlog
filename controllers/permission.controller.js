@@ -139,7 +139,7 @@ exports.permissions =  (req, res) => {
     );
   };
 
-/* exports.putPermission = (req, res) => {
+exports.putPermission = (req, res) => {
     const userId = req.params.userId;
     const optionId = req.params.optionId;
     const submenuId = req.body.submenu_id;
@@ -193,88 +193,8 @@ exports.permissions =  (req, res) => {
         res.json({ message: 'Permissions updated successfully!' });
       }
     });
-  }; */
+  };
   
-  exports.putPermission = (req, res) => {
-    const userId = req.params.userId; // Utilisateur à qui on donne accès
-    const optionId = req.params.optionId;
-    const submenuId = req.body.submenu_id;
-    const { can_read, can_edit, can_delete } = req.body;
-
-    let query;
-    let queryParams;
-
-    if (submenuId) {
-        // Si submenuId est fourni, mettre à jour les permissions pour le sous-menu
-        query = `
-            UPDATE permission 
-            SET can_read = ?, can_edit = ?, can_delete = ? 
-            WHERE user_id = ? AND menus_id = ? AND submenu_id = ?
-        `;
-        queryParams = [can_read, can_edit, can_delete, userId, optionId, submenuId];
-    } else {
-        // Sinon, mettre à jour les permissions pour le menu principal
-        query = `
-            UPDATE permission 
-            SET can_read = ?, can_edit = ?, can_delete = ? 
-            WHERE user_id = ? AND menus_id = ? AND submenu_id IS NULL
-        `;
-        queryParams = [can_read, can_edit, can_delete, userId, optionId];
-    }
-
-    db.query(query, queryParams, (err, results) => {
-        if (err) {
-            console.error('Erreur lors de la mise à jour des permissions:', err);
-            return res.status(500).json({ error: 'Erreur lors de la mise à jour des permissions' });
-        }
-
-        const permissionUpdated = results.affectedRows > 0;
-
-        if (!permissionUpdated) {
-            // Si aucune ligne n'a été mise à jour, insérer une nouvelle permission
-            const insertQuery = `
-                INSERT INTO permission (user_id, menus_id, submenu_id, can_read, can_edit, can_delete) 
-                VALUES (?, ?, ?, ?, ?, ?)
-            `;
-            const insertParams = submenuId
-                ? [userId, optionId, submenuId, can_read, can_edit, can_delete]
-                : [userId, optionId, null, can_read, can_edit, can_delete]; // Null pour submenu_id si non fourni
-
-            db.query(insertQuery, insertParams, (insertErr, insertResults) => {
-                if (insertErr) {
-                    console.error('Erreur lors de l\'insertion des permissions:', insertErr);
-                    return res.status(500).json({ error: 'Erreur lors de l\'insertion des permissions' });
-                }
-
-                sendNotification(userId, optionId, submenuId, res);
-            });
-        } else {
-            sendNotification(userId, optionId, submenuId, res);
-        }
-    });
-};
-
-const sendNotification = (userId, optionId, submenuId, res) => {
-    const notificationMessage = submenuId
-        ? `Vous avez reçu un accès au sous-menu avec l'ID ${submenuId}.`
-        : `Vous avez reçu un accès au menu avec l'ID ${optionId}.`;
-
-    const insertNotificationQuery = `
-        INSERT INTO notifications (user_id, message, timestamp) 
-        VALUES (?, ?, NOW())
-    `;
-
-    db.query(insertNotificationQuery, [userId, notificationMessage], (notifErr) => {
-        if (notifErr) {
-            console.error('Erreur lors de l\'ajout de la notification:', notifErr);
-            return res.status(500).json({ error: 'Erreur lors de l\'ajout de la notification' });
-        }
-
-        res.json({ message: 'Permissions et notification ajoutées avec succès !' });
-    });
-};
-
-
 //Permission Tache
 exports.getPermissionTache = (req, res) => {
   const { id_tache } = req.query;
@@ -288,7 +208,7 @@ exports.getPermissionTache = (req, res) => {
 });
 }
 
-exports.postPermissionTache = (req, res) => {
+/* exports.postPermissionTache = (req, res) => {
   const { id_tache, id_user, can_view, can_edit, can_comment } = req.body;
 
   if (!id_tache || !id_user) {
@@ -344,5 +264,83 @@ exports.postPermissionTache = (req, res) => {
     console.error("Erreur inattendue:", error);
     res.status(500).send({ error: "Erreur interne du serveur." });
   }
+}; */
+
+exports.postPermissionTache = (req, res) => {
+  const { id_tache, id_user, can_view, can_edit, can_comment } = req.body;
+
+  if (!id_tache || !id_user) {
+    return res.status(400).send({ error: "Les champs 'id_tache' et 'id_user' sont requis." });
+  }
+
+  try {
+    // Vérifiez si une ligne existe déjà pour id_tache et id_user
+    const qSelect = `SELECT * FROM permissions_tache WHERE id_tache = ? AND id_user = ?`;
+    const valuesSelect = [id_tache, id_user];
+
+    db.query(qSelect, valuesSelect, (error, data) => {
+      if (error) {
+        console.error("Erreur lors de la récupération des permissions:", error);
+        return res.status(500).send({ error: "Erreur interne du serveur." });
+      }
+
+      if (data.length > 0) {
+        const qUpdate = `
+          UPDATE permissions_tache 
+          SET can_view = ?, can_edit = ?, can_comment = ? 
+          WHERE id_tache = ? AND id_user = ?
+        `;
+        const valuesUpdate = [can_view, can_edit, can_comment, id_tache, id_user];
+
+        db.query(qUpdate, valuesUpdate, (errorUpdate) => {
+          if (errorUpdate) {
+            console.error("Erreur lors de la mise à jour des permissions:", errorUpdate);
+            return res.status(500).send({ error: "Erreur lors de la mise à jour des permissions." });
+          }
+
+          // Ajoutez une notification après la mise à jour des permissions
+          addNotification(id_user, "Vos permissions pour une tâche ont été mises à jour.", res);
+        });
+      } else {
+        // Insérez une nouvelle ligne
+        const qInsert = `
+          INSERT INTO permissions_tache (id_tache, id_user, can_view, can_edit, can_comment) 
+          VALUES (?, ?, ?, ?, ?)
+        `;
+        const valuesInsert = [id_tache, id_user, can_view, can_edit, can_comment];
+
+        db.query(qInsert, valuesInsert, (errorInsert) => {
+          if (errorInsert) {
+            console.error("Erreur lors de l'insertion des permissions:", errorInsert);
+            return res.status(500).send({ error: "Erreur lors de l'insertion des permissions." });
+          }
+
+          // Ajoutez une notification après l'insertion des permissions
+          addNotification(id_user,"Vous avez reçu un accès à une nouvelle tâche.", res);
+        });
+      }
+    });
+  } catch (error) {
+    console.error("Erreur inattendue:", error);
+    res.status(500).send({ error: "Erreur interne du serveur." });
+  }
 };
 
+// Fonction pour ajouter une notification
+const addNotification = (userId, message, res) => {
+  const qInsertNotification = `
+    INSERT INTO notifications (user_id, message, timestamp) 
+    VALUES (?, ?, NOW())
+  `;
+  const valuesNotification = [userId, message];
+
+  db.query(qInsertNotification, valuesNotification, (error) => {
+    if (error) {
+      console.error("Erreur lors de l'ajout de la notification:", error);
+      return res.status(500).send({ error: "Erreur lors de l'ajout de la notification." });
+    }
+
+    // Répondre une fois l'opération terminée
+    res.status(200).send({ message: "Permission et notification ajoutées/mises à jour avec succès." });
+  });
+};
