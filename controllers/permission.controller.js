@@ -373,12 +373,12 @@ exports.getPermissionVilleOne = (req, res) => {
 };
 
 exports.postPermissionVille = (req, res) => {
-  const { id_user, id_ville } = req.body;
+  const { id_user, id_ville, can_view } = req.body;
 
   try {
     // Vérifier si l'utilisateur a déjà cette permission pour la ville
     const qSelect = `SELECT * FROM user_villes WHERE id_ville = ? AND id_user = ?`;
-    const valuesSelect = [id_ville, id_user]; // Corriger l'ordre des valeurs
+    const valuesSelect = [id_ville, id_user];
 
     db.query(qSelect, valuesSelect, (error, data) => {
       if (error) {
@@ -388,8 +388,12 @@ exports.postPermissionVille = (req, res) => {
 
       // Si l'utilisateur a déjà cette permission, mettre à jour
       if (data.length > 0) {
-        const qUpdate = `UPDATE user_villes SET id_ville = ? WHERE id_user = ?`;
-        const valuesUpdate = [id_ville, id_user]; // Corriger les valeurs
+        const qUpdate = `
+          UPDATE user_villes 
+          SET can_view = ? 
+          WHERE id_user = ? AND id_ville = ?
+        `;
+        const valuesUpdate = [can_view, id_user, id_ville]; // Mise à jour de la permission spécifique
 
         db.query(qUpdate, valuesUpdate, (errorP, dataP) => {
           if (errorP) {
@@ -400,9 +404,9 @@ exports.postPermissionVille = (req, res) => {
           return res.status(200).send({ message: "Permissions mises à jour avec succès." });
         });
       } else {
-        // Si l'utilisateur n'a pas cette permission, insérer
-        const qInsert = `INSERT INTO user_villes (id_user, id_ville) VALUES (?, ?)`;
-        const valuesInsert = [id_user, id_ville];
+        // Si l'utilisateur n'a pas cette permission, insérer une nouvelle entrée
+        const qInsert = `INSERT INTO user_villes (id_user, id_ville, can_view) VALUES (?, ?, ?)`;
+        const valuesInsert = [id_user, id_ville, can_view];
 
         db.query(qInsert, valuesInsert, (errorI, dataI) => {
           if (errorI) {
@@ -419,6 +423,7 @@ exports.postPermissionVille = (req, res) => {
     return res.status(500).send({ error: "Erreur interne du serveur." });
   }
 };
+
 
 
 //Permission de departement
