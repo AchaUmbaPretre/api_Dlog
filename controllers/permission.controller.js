@@ -425,7 +425,6 @@ exports.postPermissionVille = (req, res) => {
 };
 
 
-
 //Permission de departement
 exports.getPermissionDepartementOne = (req, res) => {
   const { id_departement } = req.query;
@@ -441,41 +440,57 @@ exports.getPermissionDepartementOne = (req, res) => {
 };
 
 exports.postPermissionDepartement = (req, res) => {
-  const { id_user, id_departement } = req.body;
+  const { id_user, id_departement, id_ville, can_view } = req.body;
+
+  // Vérification des données d'entrée
+  if (!id_user || !id_departement || !id_ville || can_view === undefined) {
+    return res.status(400).send({ error: "Les champs id_user, id_departement, id_ville et can_view sont requis." });
+  }
 
   try {
-    // Vérifier si l'utilisateur a déjà cette permission pour le département
-    const qSelect = `SELECT * FROM user_departements WHERE id_departement = ? AND id_user = ?`;
-    const valuesSelect = [id_departement, id_user]; // Corriger l'ordre des valeurs
+    // Vérifier si l'utilisateur a déjà cette permission pour le département et la ville
+    const qSelect = `
+      SELECT * 
+      FROM user_departements 
+      WHERE id_user = ? AND id_departement = ? AND id_ville = ?
+    `;
+    const valuesSelect = [id_user, id_departement, id_ville];
 
     db.query(qSelect, valuesSelect, (error, data) => {
       if (error) {
         console.error("Erreur lors de la récupération des permissions:", error);
-        return res.status(500).send({ error: "Erreur interne du serveur." });
+        return res.status(500).send({ error: "Erreur interne du serveur lors de la récupération des permissions." });
       }
 
-      // Si l'utilisateur a déjà cette permission, mettre à jour
       if (data.length > 0) {
-        const qUpdate = `UPDATE user_departements SET id_departement = ? WHERE id_user = ?`;
-        const valuesUpdate = [id_departement, id_user]; // Corriger les valeurs
+        // Mise à jour si la permission existe déjà
+        const qUpdate = `
+          UPDATE user_departements 
+          SET can_view = ? 
+          WHERE id_user = ? AND id_departement = ? AND id_ville = ?
+        `;
+        const valuesUpdate = [can_view, id_user, id_departement, id_ville];
 
-        db.query(qUpdate, valuesUpdate, (errorP, dataP) => {
+        db.query(qUpdate, valuesUpdate, (errorP) => {
           if (errorP) {
             console.error("Erreur lors de la mise à jour des permissions:", errorP);
-            return res.status(500).send({ error: "Erreur lors de la mise à jour des permissions." });
+            return res.status(500).send({ error: "Erreur interne du serveur lors de la mise à jour des permissions." });
           }
 
           return res.status(200).send({ message: "Permissions mises à jour avec succès." });
         });
       } else {
-        // Si l'utilisateur n'a pas cette permission, insérer
-        const qInsert = `INSERT INTO user_departements (id_user, id_departement) VALUES (?, ?)`;
-        const valuesInsert = [id_user, id_departement];
+        // Insérer si la permission n'existe pas encore
+        const qInsert = `
+          INSERT INTO user_departements (id_user, id_departement, id_ville, can_view) 
+          VALUES (?, ?, ?, ?)
+        `;
+        const valuesInsert = [id_user, id_departement, id_ville, can_view];
 
-        db.query(qInsert, valuesInsert, (errorI, dataI) => {
+        db.query(qInsert, valuesInsert, (errorI) => {
           if (errorI) {
             console.error("Erreur lors de l'ajout des permissions:", errorI);
-            return res.status(500).send({ error: "Erreur lors de l'ajout des permissions." });
+            return res.status(500).send({ error: "Erreur interne du serveur lors de l'ajout des permissions." });
           }
 
           return res.status(200).send({ message: "Permissions ajoutées avec succès." });
@@ -483,7 +498,8 @@ exports.postPermissionDepartement = (req, res) => {
       }
     });
   } catch (error) {
-    console.log(error);
+    console.error("Erreur interne:", error);
     return res.status(500).send({ error: "Erreur interne du serveur." });
   }
 };
+
