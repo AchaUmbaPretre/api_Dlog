@@ -2174,7 +2174,6 @@ exports.getNotificationTache = (req, res) => {
     });
 };
 
-
 exports.getNotificationTacheOne = (req, res) => {
     const { id_notification } = req.query;
 
