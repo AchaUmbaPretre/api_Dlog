@@ -344,3 +344,6 @@ const addNotification = (userId, message, res) => {
     res.status(200).send({ message: "Permission et notification ajoutées/mises à jour avec succès." });
   });
 };
+
+
+//Permission ville
