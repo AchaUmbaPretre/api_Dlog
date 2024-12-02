@@ -180,8 +180,8 @@ exports.getProvince = (req, res) => {
 exports.getProvinceOne = (req, res) => {
     const {id} = req.query;
 
-    const q = `SELECT * FROM provinces WHERE id = ?
-    `;
+    const q = `SELECT * FROM provinces WHERE id = ?`;
+    
     db.query(q, [id], (error, data) => {
         if (error) {
             return res.status(500).send(error);
