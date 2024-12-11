@@ -1437,8 +1437,9 @@ exports.getInspection = (req, res) => {
 exports.getInspectionOneV = (req, res) => {
     const {id} = req.query;
     const q = `
-                SELECT inspections.*, im.img, im.commentaire, ti.nom_type_instruction, tache.nom_tache, batiment.nom_batiment, ct.nom_cat_inspection FROM inspections
+                SELECT inspections.*, im.img, im.commentaire, ti.nom_type_instruction, tache.nom_tache, batiment.nom_batiment, ct.nom_cat_inspection, type_photo.nom_type_photo FROM inspections
                     INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
+                    INNER JOIN type_photo ON im.id_type_photo = type_photo.id_type_photo
                     LEFT JOIN tache ON inspections.id_tache = tache.id_tache
                     LEFT JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
                     LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
