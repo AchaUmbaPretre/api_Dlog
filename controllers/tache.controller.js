@@ -1185,7 +1185,6 @@ exports.postTache = async (req, res) => {
             id_batiment, id_ville, id_cat_tache, id_corps_metier, doc, user_cr, categories
         } = req.body;
 
-        // Validation des champs requis
         if (!nom_tache || !user_cr) {
             return res.status(400).json({ error: "Les champs 'nom_tache' et 'user_cr' sont obligatoires." });
         }

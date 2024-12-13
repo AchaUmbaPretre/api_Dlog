@@ -59,11 +59,9 @@ function getSocketIO() {
 // Fonction pour envoyer une notification à l'administrateur
 function notifyAdmin(taskDetails) {
     if (adminSocketId) {
-        console.log(taskDetails)
         const message = `Un utilisateur ajouté à la tâche : ${taskDetails.nom_tache}`;
         const io = getSocketIO();
         io.to(adminSocketId).emit('notification', { message: message, taskId: taskDetails.id_tache, id_notif: taskDetails.id_notif });
-        console.log('Notification envoyée à l\'administrateur');
     }
 }
 
