@@ -28,8 +28,7 @@ io.on('connection', (socket) => {
         // Enregistrer l'utilisateur comme en ligne
         onlineUsers.set(userId, socket.id); 
 
-        // Si l'utilisateur est un administrateur, stocker son socket.id
-        if (userId === 3) {  // Remplace par l'ID de ton administrateur
+        if (userId === 3) {
             adminSocketId = socket.id;
             console.log('L\'administrateur est connecté');
         }
