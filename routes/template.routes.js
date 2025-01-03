@@ -4,7 +4,8 @@ const router = express.Router();
 
 router.get('/count', templateController.getTemplateCount)
 router.get('/', templateController.getTemplate)
-router.get('/5derniers', templateController.getTemplate5Derniers)
+router.get('/5derniers', templateController.getTemplate5Derniers);
+router.get('/2mois_precedents', templateController.getTemplateDeuxPrecedent);
 router.get('/one', templateController.getTemplateOne)
 router.post('/', templateController.postTemplate)
 router.put('/statut', templateController.putTemplateStatut)
