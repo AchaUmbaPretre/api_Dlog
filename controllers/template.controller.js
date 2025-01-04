@@ -97,46 +97,117 @@ exports.getTemplate = (req, res) => {
     });
 }; */
 
-exports.getTemplate5Derniers = (req, res) => {
-    const {id_client} = req.query;
+exports.getTemplate5DerniersSS = (req, res) => {
+    const { id_client, periode } = req.query;
+
+    if (!id_client || !periode) {
+        return res.status(400).json({ error: "L'ID de la tâche est requis." });
+    }
 
     const q = `
-                SELECT 
-                    tm.id_template, 
-                    tm.date_actif,
-                    tm.date_inactif,
-                    tm.desc_template,
-                    client.nom AS nom_client, 
-                    td.nom_type_d_occupation, 
-                    batiment.nom_batiment, 
-                    dn.nom_denomination_bat, 
-                    whse_fact.nom_whse_fact,
-                    objet_fact.nom_objet_fact,
-                    statut_template.nom_statut_template,
-                    statut_template.id_statut_template,
-                    niveau_batiment.nom_niveau
-                FROM 
-                    template_occupation tm
-                    INNER JOIN client ON tm.id_client = client.id_client
-                    INNER JOIN type_d_occupation AS td ON tm.id_type_occupation = td.id_type_d_occupation
-                    INNER JOIN batiment ON tm.id_batiment = batiment.id_batiment
-                    INNER JOIN denomination_bat AS dn ON tm.id_denomination = dn.id_denomination_bat
-                    INNER JOIN whse_fact ON tm.id_whse_fact = whse_fact.id_whse_fact
-                    INNER JOIN objet_fact ON tm.id_objet_fact = objet_fact.id_objet_fact
-                    INNER JOIN statut_template ON tm.status_template = statut_template.id_statut_template
-                    INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau
-                    WHERE date_colonne >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH) AND tm.id_client = ?
-                ORDER BY tm.date_actif DESC
-                `;
+        SELECT 
+            tm.id_template, 
+            tm.date_actif,
+            tm.date_inactif,
+            tm.desc_template,
+            client.nom AS nom_client, 
+            td.nom_type_d_occupation, 
+            batiment.nom_batiment, 
+            dn.nom_denomination_bat, 
+            whse_fact.nom_whse_fact,
+            objet_fact.nom_objet_fact,
+            statut_template.nom_statut_template,
+            statut_template.id_statut_template,
+            niveau_batiment.nom_niveau
+        FROM 
+            template_occupation tm
+            INNER JOIN client ON tm.id_client = client.id_client
+            INNER JOIN type_d_occupation AS td ON tm.id_type_occupation = td.id_type_d_occupation
+            LEFT JOIN batiment ON tm.id_batiment = batiment.id_batiment
+            LEFT JOIN denomination_bat AS dn ON tm.id_denomination = dn.id_denomination_bat
+            INNER JOIN whse_fact ON tm.id_whse_fact = whse_fact.id_whse_fact
+            LEFT JOIN objet_fact ON tm.id_objet_fact = objet_fact.id_objet_fact
+            LEFT JOIN statut_template ON tm.status_template = statut_template.id_statut_template
+            INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau
+        WHERE 
+            MOTH(tm.date_actif) = ? 
+            AND tm.id_client = ?
+        ORDER BY 
+            tm.date_actif DESC;
+    `;
 
-    db.query(q,[id_client], (error, data) => {
-
+    // Inverser l'ordre des paramètres : periode (date) puis id_client
+    db.query(q, [periode, id_client], (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
         return res.status(200).json(data);
     });
 };
+
+exports.getTemplate5Derniers = (req, res) => {
+    const { id_client, periode } = req.query;
+
+    // Validation des paramètres
+    if (!id_client || !periode) {
+        return res.status(400).json({
+            error: "Les paramètres 'id_client' et 'periode' sont requis.",
+        });
+    }
+
+    // Extraire l'année et le mois de la période
+    const [year, month] = periode.split('-');
+
+    if (!year || !month || isNaN(year) || isNaN(month)) {
+        return res.status(400).json({
+            error: "Le paramètre 'periode' doit être au format 'YYYY-MM-DD'.",
+        });
+    }
+
+    const q = `
+        SELECT 
+            tm.id_template, 
+            tm.date_actif,
+            tm.date_inactif,
+            tm.desc_template,
+            client.nom AS nom_client, 
+            td.nom_type_d_occupation, 
+            batiment.nom_batiment, 
+            dn.nom_denomination_bat, 
+            whse_fact.nom_whse_fact,
+            objet_fact.nom_objet_fact,
+            statut_template.nom_statut_template,
+            statut_template.id_statut_template,
+            niveau_batiment.nom_niveau
+        FROM 
+            template_occupation tm
+            INNER JOIN client ON tm.id_client = client.id_client
+            INNER JOIN type_d_occupation AS td ON tm.id_type_occupation = td.id_type_d_occupation
+            LEFT JOIN batiment ON tm.id_batiment = batiment.id_batiment
+            LEFT JOIN denomination_bat AS dn ON tm.id_denomination = dn.id_denomination_bat
+            INNER JOIN whse_fact ON tm.id_whse_fact = whse_fact.id_whse_fact
+            LEFT JOIN objet_fact ON tm.id_objet_fact = objet_fact.id_objet_fact
+            LEFT JOIN statut_template ON tm.status_template = statut_template.id_statut_template
+            INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau
+        WHERE 
+            YEAR(tm.date_actif) = ? 
+            AND MONTH(tm.date_actif) = ?
+            AND tm.id_client = ?
+        ORDER BY 
+            tm.date_actif DESC;
+    `;
+
+    // Exécuter la requête avec les paramètres
+    db.query(q, [year, month, id_client], (error, data) => {
+        if (error) {
+            console.error("Erreur lors de l'exécution de la requête :", error);
+            return res.status(500).json({ error: "Erreur interne du serveur." });
+        }
+
+        return res.status(200).json(data);
+    });
+};
+
 
 exports.getTemplateDeuxPrecedent = (req, res) => {
     const {id_client} = req.query;
@@ -166,7 +237,7 @@ exports.getTemplateDeuxPrecedent = (req, res) => {
                     INNER JOIN objet_fact ON tm.id_objet_fact = objet_fact.id_objet_fact
                     INNER JOIN statut_template ON tm.status_template = statut_template.id_statut_template
                     INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau
-                    WHERE date_colonne >= DATE_SUB(CURDATE(), INTERVAL 2 MONTH) AND tm.id_client = ?
+                    WHERE tm.id_client = ? 
                 ORDER BY tm.date_actif DESC
                 `;
 
@@ -179,10 +250,6 @@ exports.getTemplateDeuxPrecedent = (req, res) => {
     });
 };
 
-`SELECT *
-FROM votre_table
-WHERE date_colonne >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH);
-`
 
 exports.getTemplateOne = (req, res) => {
     const {id_template} = req.query;
@@ -194,6 +261,7 @@ exports.getTemplateOne = (req, res) => {
                 tm.date_inactif,
                 tm.desc_template,
                 client.nom AS nom_client, 
+                client.id_client,
                 td.nom_type_d_occupation, 
                 batiment.nom_batiment, 
                 dn.nom_denomination_bat, 
@@ -201,7 +269,8 @@ exports.getTemplateOne = (req, res) => {
                 objet_fact.nom_objet_fact,
                 statut_template.nom_statut_template,
                 statut_template.id_statut_template,
-                niveau_batiment.nom_niveau
+                niveau_batiment.nom_niveau,
+                b.ville AS id_ville
             FROM 
                 template_occupation tm
                 INNER JOIN client ON tm.id_client = client.id_client
@@ -694,7 +763,7 @@ exports.getDeclarationOne = (req, res) => {
     }
 }; */
 
-exports.postDeclaration = async (req, res) => {
+/* exports.postDeclaration = async (req, res) => {
     try {
         const query = `
             INSERT INTO declaration_super (
@@ -749,7 +818,7 @@ exports.postDeclaration = async (req, res) => {
             }
 
             const declarationId = result.insertId;
-            const batimentIds = req.body.id_batiments; // Supposons que `id_batiments` est un tableau d'IDs de bâtiments.
+            const batimentIds = req.body.id_batiments.length > 0 ? req.body.id_batiments: [] ; 
 
             const batimentValues = batimentIds.map((id_batiment) => [declarationId, id_batiment]);
             const batimentQuery = `
@@ -769,7 +838,92 @@ exports.postDeclaration = async (req, res) => {
         console.error("Erreur lors de l'ajout de la déclaration:", error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la déclaration." });
     }
+}; */
+
+
+exports.postDeclaration = async (req, res) => {
+    try {
+        const {
+            id_template,
+            periode,
+            m2_occupe,
+            m2_facture,
+            tarif_entreposage,
+            entreposage,
+            debours_entreposage,
+            total_entreposage,
+            ttc_entreposage,
+            desc_entreposage,
+            id_ville,
+            id_client,
+            id_objet,
+            manutation,
+            tarif_manutation,
+            debours_manutation,
+            total_manutation,
+            ttc_manutation,
+            desc_manutation,
+            id_batiments = [], // Définir un tableau vide par défaut si non fourni
+        } = req.body;
+
+        // Valider les données d'entrée
+        if (!id_template || !periode || !id_ville || !id_client ) {
+            return res.status(400).json({ error: "Les champs obligatoires sont manquants." });
+        }
+
+        // Requête principale pour la table `declaration_super`
+        const declarationQuery = `
+            INSERT INTO declaration_super (
+                id_template, periode, m2_occupe, m2_facture, tarif_entreposage,
+                entreposage, debours_entreposage, total_entreposage, ttc_entreposage, desc_entreposage,
+                id_ville, id_client, id_objet, manutation, tarif_manutation,
+                debours_manutation, total_manutation, ttc_manutation, desc_manutation
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const declarationValues = [
+            id_template, periode, m2_occupe, m2_facture, tarif_entreposage,
+            entreposage, debours_entreposage, total_entreposage, ttc_entreposage, desc_entreposage,
+            id_ville, id_client, id_objet, manutation, tarif_manutation,
+            debours_manutation, total_manutation, ttc_manutation, desc_manutation
+        ];
+
+        // Exécuter la requête principale
+        db.query(declarationQuery, declarationValues, (declarationError, declarationResult) => {
+            if (declarationError) {
+                console.error("Erreur lors de l'insertion dans declaration_super:", declarationError);
+                return res.status(500).json({ error: "Erreur lors de l'ajout de la déclaration." });
+            }
+
+            const declarationId = declarationResult.insertId;
+
+            // Associer les bâtiments s'ils sont fournis
+            if (id_batiments.length > 0) {
+                const batimentValues = id_batiments.map((id_batiment) => [declarationId, id_batiment]);
+                const batimentQuery = `
+                    INSERT INTO declaration_super_batiment (id_declaration_super, id_batiment) VALUES ?
+                `;
+
+                db.query(batimentQuery, [batimentValues], (batimentError) => {
+                    if (batimentError) {
+                        console.error("Erreur lors de l'insertion dans declaration_super_batiment:", batimentError);
+                        return res.status(500).json({ error: "Erreur lors de l'association des bâtiments." });
+                    }
+
+                    return res.status(201).json({ message: 'Déclaration ajoutée avec succès et bâtiments associés.' });
+                });
+            } else {
+                // Si aucun bâtiment n'est fourni
+                return res.status(201).json({ message: 'Déclaration ajoutée avec succès.' });
+            }
+        });
+    } catch (error) {
+        console.error("Erreur inattendue lors de l'ajout de la déclaration:", error);
+        return res.status(500).json({ error: "Une erreur inattendue s'est produite lors de l'ajout de la déclaration." });
+    }
 };
+
+
 
 exports.putDeclaration = (req, res) => {
     const { id_declaration } = req.query;
