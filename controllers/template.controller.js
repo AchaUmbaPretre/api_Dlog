@@ -145,8 +145,8 @@ exports.getTemplate5DerniersSS = (req, res) => {
     });
 };
 
-exports.getTemplate5Derniers = (req, res) => {
-    const { id_client, periode } = req.query;
+/* exports.getTemplate5Derniers = (req, res) => {
+    const { id_client, periode, idProvince } = req.query;
 
     // Validation des paramètres
     if (!id_client || !periode) {
@@ -178,12 +178,14 @@ exports.getTemplate5Derniers = (req, res) => {
             objet_fact.nom_objet_fact,
             statut_template.nom_statut_template,
             statut_template.id_statut_template,
-            niveau_batiment.nom_niveau
+            niveau_batiment.nom_niveau,
+            pv.capital
         FROM 
             template_occupation tm
             INNER JOIN client ON tm.id_client = client.id_client
             INNER JOIN type_d_occupation AS td ON tm.id_type_occupation = td.id_type_d_occupation
             LEFT JOIN batiment ON tm.id_batiment = batiment.id_batiment
+            INNER JOIN provinces pv ON batiment.ville = pv.id
             LEFT JOIN denomination_bat AS dn ON tm.id_denomination = dn.id_denomination_bat
             INNER JOIN whse_fact ON tm.id_whse_fact = whse_fact.id_whse_fact
             LEFT JOIN objet_fact ON tm.id_objet_fact = objet_fact.id_objet_fact
@@ -197,8 +199,15 @@ exports.getTemplate5Derniers = (req, res) => {
             tm.date_actif DESC;
     `;
 
+    const params = [year, month, id_client];
+
+    if (idProvince) {
+        q += ' AND pv.id = ?';
+        params.push(idProvince);
+    }
+
     // Exécuter la requête avec les paramètres
-    db.query(q, [year, month, id_client], (error, data) => {
+    db.query(q, params, (error, data) => {
         if (error) {
             console.error("Erreur lors de l'exécution de la requête :", error);
             return res.status(500).json({ error: "Erreur interne du serveur." });
@@ -206,49 +215,132 @@ exports.getTemplate5Derniers = (req, res) => {
 
         return res.status(200).json(data);
     });
+}; */
+
+exports.getTemplate5Derniers = (req, res) => {
+    const { id_client, periode, idProvince } = req.query;
+
+    // Validation des paramètres
+    if (!id_client || !periode) {
+        return res.status(400).json({
+            error: "Les paramètres 'id_client' et 'periode' sont requis.",
+        });
+    }
+
+    // Extraire l'année et le mois de la période
+    const [year, month] = periode.split('-');
+
+    if (!year || !month || isNaN(year) || isNaN(month) || year.length !== 4 || month.length !== 2) {
+        return res.status(400).json({
+            error: "Le paramètre 'periode' doit être au format 'YYYY-MM'.",
+        });
+    }
+
+    let q = `
+        SELECT 
+            tm.id_template, 
+            tm.date_actif,
+            tm.date_inactif,
+            tm.desc_template,
+            client.nom AS nom_client, 
+            td.nom_type_d_occupation, 
+            batiment.nom_batiment, 
+            dn.nom_denomination_bat, 
+            whse_fact.nom_whse_fact,
+            objet_fact.nom_objet_fact,
+            statut_template.nom_statut_template,
+            statut_template.id_statut_template,
+            niveau_batiment.nom_niveau,
+            pv.capital
+        FROM 
+            template_occupation tm
+            INNER JOIN client ON tm.id_client = client.id_client
+            INNER JOIN type_d_occupation AS td ON tm.id_type_occupation = td.id_type_d_occupation
+            LEFT JOIN batiment ON tm.id_batiment = batiment.id_batiment
+            INNER JOIN provinces pv ON batiment.ville = pv.id
+            LEFT JOIN denomination_bat AS dn ON tm.id_denomination = dn.id_denomination_bat
+            INNER JOIN whse_fact ON tm.id_whse_fact = whse_fact.id_whse_fact
+            LEFT JOIN objet_fact ON tm.id_objet_fact = objet_fact.id_objet_fact
+            LEFT JOIN statut_template ON tm.status_template = statut_template.id_statut_template
+            INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau
+        WHERE 
+            YEAR(tm.date_actif) = ? 
+            AND MONTH(tm.date_actif) = ? 
+            AND tm.id_client = ?
+    `;
+
+    const params = [year, month, id_client];
+
+    if (idProvince) {
+        q += ' AND pv.id = ?';
+        params.push(idProvince);
+    }
+
+    q += ' ORDER BY tm.date_actif DESC';
+
+    // Exécuter la requête avec les paramètres
+    db.query(q, params, (error, data) => {
+        if (error) {
+            console.error("Erreur lors de l'exécution de la requête :", error);
+            return res.status(500).json({ error: "Erreur interne du serveur." });
+        }
+
+        // Retourner les résultats sous forme de JSON
+        return res.status(200).json(data);
+    });
 };
 
 
 exports.getTemplateDeuxPrecedent = (req, res) => {
-    const {id_client} = req.query;
+    const { id_client, idProvince } = req.query;
 
-    const q = `
-                SELECT 
-                    tm.id_template, 
-                    tm.date_actif,
-                    tm.date_inactif,
-                    tm.desc_template,
-                    client.nom AS nom_client, 
-                    td.nom_type_d_occupation, 
-                    batiment.nom_batiment, 
-                    dn.nom_denomination_bat, 
-                    whse_fact.nom_whse_fact,
-                    objet_fact.nom_objet_fact,
-                    statut_template.nom_statut_template,
-                    statut_template.id_statut_template,
-                    niveau_batiment.nom_niveau
-                FROM 
-                    template_occupation tm
-                    INNER JOIN client ON tm.id_client = client.id_client
-                    INNER JOIN type_d_occupation AS td ON tm.id_type_occupation = td.id_type_d_occupation
-                    INNER JOIN batiment ON tm.id_batiment = batiment.id_batiment
-                    INNER JOIN denomination_bat AS dn ON tm.id_denomination = dn.id_denomination_bat
-                    INNER JOIN whse_fact ON tm.id_whse_fact = whse_fact.id_whse_fact
-                    INNER JOIN objet_fact ON tm.id_objet_fact = objet_fact.id_objet_fact
-                    INNER JOIN statut_template ON tm.status_template = statut_template.id_statut_template
-                    INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau
-                    WHERE tm.id_client = ? 
-                ORDER BY tm.date_actif DESC
-                `;
+    let q = `
+        SELECT 
+            tm.id_template, 
+            tm.date_actif,
+            tm.date_inactif,
+            tm.desc_template,
+            client.nom AS nom_client, 
+            td.nom_type_d_occupation, 
+            batiment.nom_batiment, 
+            dn.nom_denomination_bat, 
+            whse_fact.nom_whse_fact,
+            objet_fact.nom_objet_fact,
+            statut_template.nom_statut_template,
+            statut_template.id_statut_template,
+            niveau_batiment.nom_niveau,
+            pv.capital
+        FROM 
+            template_occupation tm
+            INNER JOIN client ON tm.id_client = client.id_client
+            INNER JOIN type_d_occupation AS td ON tm.id_type_occupation = td.id_type_d_occupation
+            INNER JOIN batiment ON tm.id_batiment = batiment.id_batiment
+            INNER JOIN provinces pv ON batiment.ville = pv.id
+            INNER JOIN denomination_bat AS dn ON tm.id_denomination = dn.id_denomination_bat
+            INNER JOIN whse_fact ON tm.id_whse_fact = whse_fact.id_whse_fact
+            INNER JOIN objet_fact ON tm.id_objet_fact = objet_fact.id_objet_fact
+            INNER JOIN statut_template ON tm.status_template = statut_template.id_statut_template
+            INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau
+        WHERE 
+            tm.id_client = ?
+    `;
 
-    db.query(q,[id_client], (error, data) => {
+    const params = [id_client];
 
+    if (idProvince) {
+        q += ' AND pv.id = ?';
+        params.push(idProvince);
+    }
+
+    // Exécuter la requête
+    db.query(q, params, (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
         return res.status(200).json(data);
     });
 };
+
 
 
 exports.getTemplateOne = (req, res) => {
