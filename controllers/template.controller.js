@@ -821,11 +821,22 @@ exports.getDeclarationOne = (req, res) => {
 };
 
 exports.getDeclarationOneClient = (req, res) => {
-    const { id_client } = req.query;
-    let q = `
+    const { id_client, idProvince } = req.query;
+
+    // Validation de l'identifiant du client
+    if (!id_client) {
+        return res.status(400).json({ message: "L'identifiant (id_client) est requis." });
+    }
+
+    if (isNaN(parseInt(id_client))) {
+        return res.status(400).json({ message: "L'identifiant (id_client) doit être un nombre valide." });
+    }
+
+    // Début de la requête SQL
+    let query = `
         SELECT 
             ds.*, 
-            client.nom, 
+            client.nom AS nom_client, 
             p.capital, 
             batiment.nom_batiment, 
             objet_fact.nom_objet_fact,
@@ -838,25 +849,46 @@ exports.getDeclarationOneClient = (req, res) => {
             LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
             LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
             INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
-        WHERE tc.status_template = 1 AND ds.est_supprime = 0
+        WHERE 
+            tc.status_template = 1 
+            AND ds.est_supprime = 0 
+            AND ds.id_client = ?
     `;
-    
-    if (id_client) {
-        q += ` AND ds.id_client = ${id_client}`;
+
+    // Paramètres pour la requête
+    const params = [id_client];
+
+    // Ajout de la condition pour idProvince si elle est fournie
+    if (idProvince) {
+        if (isNaN(parseInt(idProvince))) {
+            return res.status(400).json({ message: "L'identifiant de la province (idProvince) doit être un nombre valide." });
+        }
+        query += ` AND ds.id_ville = ?`;
+        params.push(idProvince);
     }
 
-    q += `
-        GROUP BY MONTH(ds.periode), YEAR(ds.periode), client.id_client
-        ORDER BY MONTH(ds.periode) DESC
+    // Ajout du GROUP BY et ORDER BY
+    query += `
+        GROUP BY 
+            YEAR(ds.periode), 
+            MONTH(ds.periode), 
+            client.id_client
+        ORDER BY 
+            YEAR(ds.periode) DESC, 
+            MONTH(ds.periode) DESC
     `;
 
-    db.query(q, (error, data) => {
+    // Exécution de la requête
+    db.query(query, params, (error, results) => {
         if (error) {
-            return res.status(500).send(error);
+            console.error("Erreur lors de l'exécution de la requête :", error);
+            return res.status(500).json({ message: "Une erreur est survenue lors de l'extraction des données.", error });
         }
-        return res.status(200).json(data);
+
+        return res.status(200).json(results);
     });
 };
+
 
 
 
