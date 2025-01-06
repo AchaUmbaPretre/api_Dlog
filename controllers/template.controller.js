@@ -1034,6 +1034,7 @@ exports.getDeclarationOneClient = (req, res) => {
 }; */
 
 exports.postDeclaration = async (req, res) => {
+
     try {
         const {
             id_template,
@@ -1057,6 +1058,10 @@ exports.postDeclaration = async (req, res) => {
             desc_manutation,
             id_batiments = [], // Définir un tableau vide par défaut si non fourni
         } = req.body;
+
+        if (!id_ville || !id_client) {
+            return res.status(400).json({ error: "L'ID de la ville et client sont requis." });
+        }
 
         // Valider les données d'entrée
         if (!id_template || !periode ) {
