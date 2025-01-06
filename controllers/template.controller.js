@@ -1056,19 +1056,17 @@ exports.postDeclaration = async (req, res) => {
             total_manutation,
             ttc_manutation,
             desc_manutation,
-            id_batiments = [], // Définir un tableau vide par défaut si non fourni
+            id_batiments = [],
         } = req.body;
 
         if (!id_ville || !id_client) {
             return res.status(400).json({ error: "L'ID de la ville et client sont requis." });
         }
 
-        // Valider les données d'entrée
         if (!id_template || !periode ) {
             return res.status(400).json({ error: "Les champs obligatoires sont manquants." });
         }
 
-        // Requête principale pour la table `declaration_super`
         const declarationQuery = `
             INSERT INTO declaration_super (
                 id_template, periode, m2_occupe, m2_facture, tarif_entreposage,
