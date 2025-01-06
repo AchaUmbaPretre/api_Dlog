@@ -855,7 +855,6 @@ exports.getDeclarationOneClient = (req, res) => {
             AND ds.id_client = ?
     `;
 
-    // Paramètres pour la requête
     const params = [id_client];
 
     // Ajout de la condition pour idProvince si elle est fournie
