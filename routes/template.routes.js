@@ -20,7 +20,9 @@ router.get('/objet_facture', templateController.getObjetFacture)
 //Déclaration superficie
 router.get('/declaration_count', templateController.getDeclarationCount)
 router.post('/declaration_superficies', templateController.getDeclaration)
-router.get('/declaration_superficie/one', templateController.getDeclarationOne)
+router.get('/declaration_superficies_5derniers', templateController.getDeclaration5derniers)
+router.get('/declaration_superficie/one', templateController.getDeclarationOne);
+router.get('/declaration_superficie/oneClient', templateController.getDeclarationOneClient)
 router.post('/declaration_superficie', templateController.postDeclaration)
 router.put('/declaration_superficie_delete', templateController.deleteUpdateDeclaration)
 router.put('/declaration_superficie', templateController.putDeclaration)

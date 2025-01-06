@@ -44,7 +44,8 @@ exports.getTemplate = (req, res) => {
                 INNER JOIN batiment b ON whse_fact.id_batiment = b.id_batiment
                 INNER JOIN statut_template ON tm.status_template = statut_template.id_statut_template
                 INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau     
-                WHERE tm.est_supprime = 0        
+                WHERE tm.est_supprime = 0      
+
                 `;
 
     db.query(q, (error, data) => {
@@ -702,7 +703,7 @@ exports.getDeclarationCount = (req, res) => {
     });
 }
 
-exports.getDeclaration = (req, res) => {
+exports.getDeclaration = (req, res) => { 
     const { ville, client, batiment, dateRange } = req.body;
     let q = `
         SELECT 
@@ -738,6 +739,36 @@ exports.getDeclaration = (req, res) => {
     if (dateRange && dateRange.length === 2) {
         q += ` AND ds.periode >= ${db.escape(dateRange[0])} AND ds.periode <= ${db.escape(dateRange[1])}`;
     }
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getDeclaration5derniers = (req, res) => { 
+    let q = `
+                SELECT 
+                    ds.*, 
+                    client.nom, 
+                    p.capital, 
+                    batiment.nom_batiment, 
+                    objet_fact.nom_objet_fact,
+                    tc.desc_template
+                FROM 
+                    declaration_super AS ds
+                    LEFT JOIN provinces p ON p.id = ds.id_ville
+                    LEFT JOIN client ON ds.id_client = client.id_client
+                    LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+                    LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
+                    LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+                    INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+                WHERE tc.status_template = 1 AND ds.est_supprime = 0
+                ORDER BY ds.date_creation DESC
+                LIMIT 5
+            `;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -788,6 +819,45 @@ exports.getDeclarationOne = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+exports.getDeclarationOneClient = (req, res) => {
+    const { id_client } = req.query;
+    let q = `
+        SELECT 
+            ds.*, 
+            client.nom, 
+            p.capital, 
+            batiment.nom_batiment, 
+            objet_fact.nom_objet_fact,
+            tc.desc_template
+        FROM 
+            declaration_super AS ds
+            LEFT JOIN provinces p ON p.id = ds.id_ville
+            LEFT JOIN client ON ds.id_client = client.id_client
+            LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+            LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
+            LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+            INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+        WHERE tc.status_template = 1 AND ds.est_supprime = 0
+    `;
+    
+    if (id_client) {
+        q += ` AND ds.id_client = ${id_client}`;
+    }
+
+    q += `
+        GROUP BY MONTH(ds.periode), YEAR(ds.periode), client.id_client
+        ORDER BY MONTH(ds.periode) DESC
+    `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 
 
 /* exports.postDeclaration = async (req, res) => {
@@ -932,7 +1002,6 @@ exports.getDeclarationOne = (req, res) => {
     }
 }; */
 
-
 exports.postDeclaration = async (req, res) => {
     try {
         const {
@@ -959,7 +1028,7 @@ exports.postDeclaration = async (req, res) => {
         } = req.body;
 
         // Valider les données d'entrée
-        if (!id_template || !periode || !id_ville || !id_client ) {
+        if (!id_template || !periode ) {
             return res.status(400).json({ error: "Les champs obligatoires sont manquants." });
         }
 
@@ -1014,8 +1083,6 @@ exports.postDeclaration = async (req, res) => {
         return res.status(500).json({ error: "Une erreur inattendue s'est produite lors de l'ajout de la déclaration." });
     }
 };
-
-
 
 exports.putDeclaration = (req, res) => {
     const { id_declaration } = req.query;
