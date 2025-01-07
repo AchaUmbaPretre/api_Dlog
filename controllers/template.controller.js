@@ -865,18 +865,12 @@ exports.getDeclarationOneClient = (req, res) => {
         params.push(idProvince);
     }
 
-    // Ajout du GROUP BY et ORDER BY
     query += `
-        GROUP BY 
-            YEAR(ds.periode), 
-            MONTH(ds.periode), 
-            client.id_client
         ORDER BY 
             YEAR(ds.periode) DESC, 
             MONTH(ds.periode) DESC
     `;
 
-    // Exécution de la requête
     db.query(query, params, (error, results) => {
         if (error) {
             console.error("Erreur lors de l'exécution de la requête :", error);
