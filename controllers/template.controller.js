@@ -44,8 +44,8 @@ exports.getTemplate = (req, res) => {
                 INNER JOIN batiment b ON whse_fact.id_batiment = b.id_batiment
                 INNER JOIN statut_template ON tm.status_template = statut_template.id_statut_template
                 INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau     
-                WHERE tm.est_supprime = 0      
-
+                WHERE tm.est_supprime = 0    
+                ORDER BY tm.date_actif DESC   
                 `;
 
     db.query(q, (error, data) => {
@@ -291,7 +291,6 @@ exports.getTemplate5Derniers = (req, res) => {
     });
 };
 
-
 exports.getTemplateDeuxPrecedent = (req, res) => {
     const { id_client, idProvince } = req.query;
 
@@ -341,8 +340,6 @@ exports.getTemplateDeuxPrecedent = (req, res) => {
         return res.status(200).json(data);
     });
 };
-
-
 
 exports.getTemplateOne = (req, res) => {
     const {id_template} = req.query;
@@ -739,6 +736,8 @@ exports.getDeclaration = (req, res) => {
     if (dateRange && dateRange.length === 2) {
         q += ` AND ds.periode >= ${db.escape(dateRange[0])} AND ds.periode <= ${db.escape(dateRange[1])}`;
     }
+
+    q += `ORDER BY ds.periode DESC`
 
     db.query(q, (error, data) => {
         if (error) {
