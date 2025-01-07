@@ -1135,17 +1135,15 @@ exports.postDeclaration = async (req, res) => {
         } = req.body;
 
         if (!id_ville || !id_client) {
-            return res.status(400).json({ error: "L'ID de la ville et client sont requis." });
+            return res.status(400).json({ error: "Veuillez ouvrir la section Manutention pour vérifier si la ville et le client sont remplis. Si c'est le cas, envoyez les données maintenant." });
         }
 
         if (!id_template || !periode) {
             return res.status(400).json({ error: "Les champs obligatoires sont manquants." });
         }
 
-        // Force the day to 03 in the periode value
-        const fixedPeriode = periode.split('-').slice(0, 2).join('-') + '-03'; // Ensures the day is always 03
+        const fixedPeriode = periode.split('-').slice(0, 2).join('-') + '-03';
 
-        // Vérifiez si une déclaration avec id_template et période existe déjà
         const checkQuery = `
             SELECT COUNT(*) AS count
             FROM declaration_super
@@ -1215,8 +1213,6 @@ exports.postDeclaration = async (req, res) => {
         return res.status(500).json({ error: "Une erreur inattendue s'est produite lors de l'ajout de la déclaration." });
     }
 };
-
-
 
 exports.putDeclaration = (req, res) => {
     const { id_declaration } = req.query;
