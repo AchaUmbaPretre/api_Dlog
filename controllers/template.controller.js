@@ -882,8 +882,6 @@ exports.getDeclarationOneClient = (req, res) => {
 };
 
 
-
-
 /* exports.postDeclaration = async (req, res) => {
     
     try {
@@ -1026,7 +1024,7 @@ exports.getDeclarationOneClient = (req, res) => {
     }
 }; */
 
-exports.postDeclaration = async (req, res) => {
+/* exports.postDeclaration = async (req, res) => {
 
     try {
         const {
@@ -1109,7 +1107,116 @@ exports.postDeclaration = async (req, res) => {
         console.error("Erreur inattendue lors de l'ajout de la déclaration:", error);
         return res.status(500).json({ error: "Une erreur inattendue s'est produite lors de l'ajout de la déclaration." });
     }
+}; */
+
+exports.postDeclaration = async (req, res) => {
+    try {
+        const {
+            id_template,
+            periode,
+            m2_occupe,
+            m2_facture,
+            tarif_entreposage,
+            entreposage,
+            debours_entreposage,
+            total_entreposage,
+            ttc_entreposage,
+            desc_entreposage,
+            id_ville,
+            id_client,
+            id_objet,
+            manutation,
+            tarif_manutation,
+            debours_manutation,
+            total_manutation,
+            ttc_manutation,
+            desc_manutation,
+            id_batiments = [],
+        } = req.body;
+
+        if (!id_ville || !id_client) {
+            return res.status(400).json({ error: "L'ID de la ville et client sont requis." });
+        }
+
+        if (!id_template || !periode) {
+            return res.status(400).json({ error: "Les champs obligatoires sont manquants." });
+        }
+
+        // Force the day to 03 in the periode value
+        const fixedPeriode = periode.split('-').slice(0, 2).join('-') + '-03'; // Ensures the day is always 03
+
+        // Vérifiez si une déclaration avec id_template et période existe déjà
+        const checkQuery = `
+            SELECT COUNT(*) AS count
+            FROM declaration_super
+            WHERE id_template = ? AND periode = ?
+        `;
+        const checkValues = [id_template, fixedPeriode];
+
+        db.query(checkQuery, checkValues, (checkError, checkResult) => {
+            if (checkError) {
+                console.error("Erreur lors de la vérification des doublons:", checkError);
+                return res.status(500).json({ error: "Erreur lors de la vérification des doublons." });
+            }
+
+            const { count } = checkResult[0];
+            if (count > 0) {
+                return res.status(409).json({ error: "Une déclaration avec cet id_template et cette période existe déjà." });
+            }
+
+            // Insérer la déclaration après la vérification
+            const declarationQuery = `
+                INSERT INTO declaration_super (
+                    id_template, periode, m2_occupe, m2_facture, tarif_entreposage,
+                    entreposage, debours_entreposage, total_entreposage, ttc_entreposage, desc_entreposage,
+                    id_ville, id_client, id_objet, manutation, tarif_manutation,
+                    debours_manutation, total_manutation, ttc_manutation, desc_manutation
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+
+            const declarationValues = [
+                id_template, fixedPeriode, m2_occupe, m2_facture, tarif_entreposage,
+                entreposage, debours_entreposage, total_entreposage, ttc_entreposage, desc_entreposage,
+                id_ville, id_client, id_objet, manutation, tarif_manutation,
+                debours_manutation, total_manutation, ttc_manutation, desc_manutation
+            ];
+
+            db.query(declarationQuery, declarationValues, (declarationError, declarationResult) => {
+                if (declarationError) {
+                    console.error("Erreur lors de l'insertion dans declaration_super:", declarationError);
+                    return res.status(500).json({ error: "Erreur lors de l'ajout de la déclaration." });
+                }
+
+                const declarationId = declarationResult.insertId;
+
+                // Associer les bâtiments s'ils sont fournis
+                if (id_batiments.length > 0) {
+                    const batimentValues = id_batiments.map((id_batiment) => [declarationId, id_batiment]);
+                    const batimentQuery = `
+                        INSERT INTO declaration_super_batiment (id_declaration_super, id_batiment) VALUES ?
+                    `;
+
+                    db.query(batimentQuery, [batimentValues], (batimentError) => {
+                        if (batimentError) {
+                            console.error("Erreur lors de l'insertion dans declaration_super_batiment:", batimentError);
+                            return res.status(500).json({ error: "Erreur lors de l'association des bâtiments." });
+                        }
+
+                        return res.status(201).json({ message: 'Déclaration ajoutée avec succès et bâtiments associés.' });
+                    });
+                } else {
+                    // Si aucun bâtiment n'est fourni
+                    return res.status(201).json({ message: 'Déclaration ajoutée avec succès.' });
+                }
+            });
+        });
+    } catch (error) {
+        console.error("Erreur inattendue lors de l'ajout de la déclaration:", error);
+        return res.status(500).json({ error: "Une erreur inattendue s'est produite lors de l'ajout de la déclaration." });
+    }
 };
+
+
 
 exports.putDeclaration = (req, res) => {
     const { id_declaration } = req.query;
