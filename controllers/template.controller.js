@@ -747,6 +747,56 @@ exports.getDeclaration = (req, res) => {
     });
 };
 
+exports.getDeclarationClientOneAll = (req, res) => { 
+    const { ville, batiment, dateRange } = req.body;
+    const { idClient } = req.query;
+
+
+    let q = `
+        SELECT 
+            ds.*, 
+            client.nom, 
+            p.capital, 
+            batiment.nom_batiment, 
+            objet_fact.nom_objet_fact,
+            tc.desc_template
+        FROM 
+            declaration_super AS ds
+            LEFT JOIN provinces p ON p.id = ds.id_ville
+            LEFT JOIN client ON ds.id_client = client.id_client
+            LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+            LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
+            LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+            INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+        WHERE tc.status_template = 1 AND ds.est_supprime = 0
+    `;
+
+    if (ville && ville.length > 0) {
+        q += ` AND ds.id_ville IN (${ville.map(v => db.escape(v)).join(',')})`;
+    }
+    
+    if (idClient) {
+        q += ` AND ds.id_client = ${idClient}`;
+    }
+    
+    if (batiment && batiment.length > 0) {
+        q += ` AND ds.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;
+    }
+    
+    if (dateRange && dateRange.length === 2) {
+        q += ` AND ds.periode >= ${db.escape(dateRange[0])} AND ds.periode <= ${db.escape(dateRange[1])}`;
+    }
+
+    q += ` ORDER BY ds.periode DESC`
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getDeclaration5derniers = (req, res) => { 
     let q = `
                 SELECT 
@@ -820,12 +870,15 @@ exports.getDeclarationOne = (req, res) => {
 };
 
 exports.getDeclarationOneClient = (req, res) => {
-    const { id_client, idProvince } = req.query;
+    const { id_client, idProvince, periode } = req.query;
 
     // Validation de l'identifiant du client
     if (!id_client) {
         return res.status(400).json({ message: "L'identifiant (id_client) est requis." });
     }
+
+    // Extraire l'année et le mois de la période
+    const [year, month] = periode.split('-');
 
     if (isNaN(parseInt(id_client))) {
         return res.status(400).json({ message: "L'identifiant (id_client) doit être un nombre valide." });
@@ -863,6 +916,11 @@ exports.getDeclarationOneClient = (req, res) => {
         }
         query += ` AND ds.id_ville = ?`;
         params.push(idProvince);
+    }
+
+     if(periode !== 'null') {
+        query += ` AND YEAR(ds.periode) = ? AND MONTH(ds.periode) = ? `;
+        params.push(year, month);
     }
 
     query += `
