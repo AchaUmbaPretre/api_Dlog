@@ -702,6 +702,15 @@ exports.getDeclarationCount = (req, res) => {
 
 exports.getDeclaration = (req, res) => { 
     const { ville, client, batiment, dateRange } = req.body;
+
+    let year, month;
+    if (dateRange && typeof dateRange === 'string') {
+        [year, month] = dateRange.split('-');
+        if (!year || !month || isNaN(year) || isNaN(month)) {
+            return res.status(400).json({ error: "Invalid dateRange format. Expected 'YYYY-MM'." });
+        }
+    }
+
     let q = `
         SELECT 
             ds.*, 
@@ -733,8 +742,8 @@ exports.getDeclaration = (req, res) => {
         q += ` AND ds.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;
     }
     
-    if (dateRange && dateRange.length === 2) {
-        q += ` AND ds.periode >= ${db.escape(dateRange[0])} AND ds.periode <= ${db.escape(dateRange[1])}`;
+    if (dateRange && typeof dateRange === 'string') {
+        q += ` AND MONTH(ds.periode) = ${db.escape(month)}`;
     }
 
     q += `ORDER BY ds.periode DESC`
@@ -751,6 +760,14 @@ exports.getDeclarationClientOneAll = (req, res) => {
     const { ville, batiment, dateRange } = req.body;
     const { idClient } = req.query;
 
+        // Validation et parsing de dateRange
+        let year, month;
+        if (dateRange && typeof dateRange === 'string') {
+            [year, month] = dateRange.split('-');
+            if (!year || !month || isNaN(year) || isNaN(month)) {
+                return res.status(400).json({ error: "Invalid dateRange format. Expected 'YYYY-MM'." });
+            }
+        }
 
     let q = `
         SELECT 
@@ -783,8 +800,8 @@ exports.getDeclarationClientOneAll = (req, res) => {
         q += ` AND ds.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;
     }
     
-    if (dateRange && dateRange.length === 2) {
-        q += ` AND ds.periode >= ${db.escape(dateRange[0])} AND ds.periode <= ${db.escape(dateRange[1])}`;
+    if (dateRange && typeof dateRange === 'string') {
+        q += ` AND MONTH(ds.periode) = ${db.escape(month)}`;
     }
 
     q += ` ORDER BY ds.periode DESC`
