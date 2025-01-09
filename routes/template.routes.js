@@ -28,4 +28,12 @@ router.post('/declaration_superficie', templateController.postDeclaration)
 router.put('/declaration_superficie_delete', templateController.deleteUpdateDeclaration)
 router.put('/declaration_superficie', templateController.putDeclaration)
 
+//Contrat
+router.get('/contrat', templateController.getContrat)
+router.get('/contratOne', templateController.getContratClientOne)
+router.post('/contrat', templateController.postContrat)
+
+//Type contrat
+router.get('/type_contrat', templateController.getContratTypeContrat)
+
 module.exports = router;

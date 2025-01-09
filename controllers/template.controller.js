@@ -1371,3 +1371,85 @@ exports.deleteUpdateDeclaration = (req, res) => {
     });
   
 }
+
+//Contrat
+exports.getContrat = (req, res) => {
+
+    const q = `
+            SELECT * FROM contrat
+            `;  
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data);
+    }); 
+};
+
+exports.getContratClientOne = (req, res) => {
+    const {id_client} = req.query;
+
+    const q = `
+            SELECT * FROM contrat c WHERE c.id_client = ?
+            `;  
+
+    db.query(q, [id_client], (error, data) => {
+        if (error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data);
+    }); 
+};
+
+exports.postContrat = async (req, res) => {
+    try {
+        // Vérification des paramètres requis dans req.body
+        const { id_client, date_debut, date_fin, montant, type_contrat, statut, date_signature, conditions } = req.body;
+
+        if (!id_client || !date_debut || !date_fin || !montant || !type_contrat || !date_signature) {
+            return res.status(400).json({ error: 'Tous les champs obligatoires doivent être renseignés.' });
+        }
+
+        // Construction de la requête SQL
+        const q = 'INSERT INTO contrat(`id_client`, `date_debut`, `date_fin`, `montant`, `type_contrat`, `statut`, `date_signature`, `conditions`) VALUES(?)';
+
+        // Paramètres de la requête
+        const values = [
+            id_client,
+            date_debut,
+            date_fin,
+            montant,
+            type_contrat,
+            statut || 'actif', // Si 'statut' est manquant, on attribue 'actif' par défaut
+            date_signature,
+            conditions || '' // Si 'conditions' est manquant, on attribue une chaîne vide
+        ];
+
+        // Exécution de la requête SQL
+        await db.query(q, [values]);
+
+        // Réponse en cas de succès
+        return res.status(201).json({ message: 'Contrat ajouté avec succès' });
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout du contrat:', error.message);
+
+        // Réponse en cas d'erreur
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du contrat." });
+    }
+};
+
+//Type de contrat
+exports.getContratTypeContrat = (req, res) => {
+
+    const q = `
+            SELECT * FROM type_contrat
+            `;  
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data);
+    }); 
+};
