@@ -417,8 +417,8 @@ exports.postTemplate = (req, res) => {
                 // Insérer dans la table template_occupation avec le nouvel id_whse_fact
                 const qTemplate = `
                     INSERT INTO template_occupation 
-                    (id_client, id_type_occupation, id_batiment, id_niveau, id_denomination, id_whse_fact, id_objet_fact, desc_template, status_template, date_actif) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (id_client, id_type_occupation, id_batiment, id_niveau, id_denomination, id_whse_fact, id_contrat, id_objet_fact, desc_template, status_template, date_actif) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `;
                 const templateValues = [
                     req.body.id_client,
@@ -427,6 +427,7 @@ exports.postTemplate = (req, res) => {
                     req.body.id_niveau,
                     req.body.id_denomination,
                     id_whse_fact,  // Utiliser l'ID généré dans whse_fact
+                    req.body.id_contrat,
                     req.body.id_objet_fact,
                     req.body.desc_template,
                     req.body.status_template || 1,
@@ -1376,7 +1377,10 @@ exports.deleteUpdateDeclaration = (req, res) => {
 exports.getContrat = (req, res) => {
 
     const q = `
-            SELECT * FROM contrat
+            SELECT contrat.*, tc.nom_type_contrat, client.nom FROM contrat
+                INNER JOIN type_contrat tc ON tc.id_type_contrat = contrat.type_contrat
+                INNER JOIN client ON contrat.id_client = client.id_client
+                ORDER BY contrat.created_at DESC
             `;  
 
     db.query(q, (error, data) => {
@@ -1407,7 +1411,7 @@ exports.postContrat = async (req, res) => {
         // Vérification des paramètres requis dans req.body
         const { id_client, date_debut, date_fin, montant, type_contrat, statut, date_signature, conditions } = req.body;
 
-        if (!id_client || !date_debut || !date_fin || !montant || !type_contrat || !date_signature) {
+        if (!id_client || !date_debut || !date_fin || !type_contrat || !date_signature) {
             return res.status(400).json({ error: 'Tous les champs obligatoires doivent être renseignés.' });
         }
 
