@@ -1457,3 +1457,59 @@ exports.getContratTypeContrat = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+//Rapport m2 facture
+exports.getRapportFacture = (req, res) => {
+
+    const q = `
+            SELECT 
+    client.nom AS Client,
+    MONTH(ds.periode) AS Mois,
+    YEAR(ds.periode) AS Année,
+    SUM(ds.m2_facture) AS Montant
+FROM 
+    declaration_super AS ds
+    LEFT JOIN provinces p ON p.id = ds.id_ville
+    LEFT JOIN client ON ds.id_client = client.id_client
+    LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+    LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
+    LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+    INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+WHERE 
+    tc.status_template = 1 
+    AND ds.est_supprime = 0
+GROUP BY 
+    client.nom, MONTH(ds.periode), YEAR(ds.periode);
+            `;  
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data);
+    });
+};
+
+//Rapport ville
+exports.getRapportVille = (req, res) => {
+
+    const q = `
+            SELECT 
+                ds.periode,
+                p.capital,  -- Nous utilisons le nom de la province ici
+                SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
+                SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
+                SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_facture  -- Addition des deux pour le total
+            FROM declaration_super ds
+            INNER JOIN provinces p ON ds.id_ville = p.id
+            GROUP BY ds.periode, p.capital  -- Regroupement par période et par province (capital)
+            ORDER BY ds.periode, p.capital
+            `;  
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data);
+    });
+};
