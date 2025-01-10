@@ -1524,9 +1524,11 @@ exports.getRapportManutention = (req, res) => {
                     YEAR(ds.periode) AS Année,
                     SUM(COALESCE(ds.total_manutation, 0)) AS Montant
                 FROM declaration_super ds
-                INNER JOIN client ON ds.id_client = client.id_client
-                GROUP BY ds.periode, client.id_client, client.nom
-                ORDER BY ds.periode, client.id_client;
+                    INNER JOIN client ON ds.id_client = client.id_client
+                GROUP BY 
+                    ds.periode, client.id_client, client.nom
+                ORDER BY 
+                    ds.periode, client.id_client;
             `;
 
     db.query(q, (error, data) => {
