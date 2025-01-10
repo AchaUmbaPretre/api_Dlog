@@ -1463,23 +1463,23 @@ exports.getRapportFacture = (req, res) => {
 
     const q = `
             SELECT 
-    client.nom AS Client,
-    MONTH(ds.periode) AS Mois,
-    YEAR(ds.periode) AS Année,
-    SUM(ds.m2_facture) AS Montant
-FROM 
-    declaration_super AS ds
-    LEFT JOIN provinces p ON p.id = ds.id_ville
-    LEFT JOIN client ON ds.id_client = client.id_client
-    LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
-    LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
-    LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
-    INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
-WHERE 
-    tc.status_template = 1 
-    AND ds.est_supprime = 0
-GROUP BY 
-    client.nom, MONTH(ds.periode), YEAR(ds.periode);
+                client.nom AS Client,
+                MONTH(ds.periode) AS Mois,
+                YEAR(ds.periode) AS Année,
+                SUM(ds.m2_facture) AS Montant
+            FROM 
+                declaration_super AS ds
+                LEFT JOIN provinces p ON p.id = ds.id_ville
+                LEFT JOIN client ON ds.id_client = client.id_client
+                LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+                LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
+                LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+                INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+            WHERE 
+                tc.status_template = 1 
+                AND ds.est_supprime = 0
+            GROUP BY 
+                client.nom, MONTH(ds.periode), YEAR(ds.periode);
             `;  
 
     db.query(q, (error, data) => {
@@ -1527,7 +1527,7 @@ exports.getRapportManutention = (req, res) => {
                 INNER JOIN client ON ds.id_client = client.id_client
                 GROUP BY ds.periode, client.id_client, client.nom
                 ORDER BY ds.periode, client.id_client;
-            `;  
+            `;
 
     db.query(q, (error, data) => {
         if (error) {
