@@ -1513,3 +1513,49 @@ exports.getRapportVille = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+//Rapport manutention
+exports.getRapportManutention = (req, res) => {
+
+    const q = `
+                SELECT
+                    client.nom AS Client,
+                    MONTH(ds.periode) AS Mois,
+                    YEAR(ds.periode) AS Année,
+                    SUM(COALESCE(ds.total_manutation, 0)) AS Montant
+                FROM declaration_super ds
+                INNER JOIN client ON ds.id_client = client.id_client
+                GROUP BY ds.periode, client.id_client, client.nom
+                ORDER BY ds.periode, client.id_client;
+            `;  
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data);
+    });
+};
+
+//Rapport entreposage
+exports.getRapportEntreposage = (req, res) => {
+
+    const q = `
+                SELECT 
+                    client.nom AS Client,
+                    MONTH(ds.periode) AS Mois,
+                    YEAR(ds.periode) AS Année,
+                    SUM(COALESCE(ds.total_entreposage, 0)) AS Montant
+                FROM declaration_super ds
+                INNER JOIN client ON ds.id_client = client.id_client
+                GROUP BY ds.periode, client.id_client, client.nom
+                ORDER BY MONTH(ds.periode), YEAR(ds.periode), client.id_client;
+            `;  
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data);
+    });
+};
