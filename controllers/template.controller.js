@@ -1548,10 +1548,10 @@ exports.getContratTypeContrat = (req, res) => {
 
 //Rapport m2 facture
 exports.getRapportFacture = (req, res) => {
-    const { client } = req.body;
+    const { client, dateRange } = req.body;
 
-    const { months, year} = req.body.dateRange;
-
+    const months = dateRange?.months || [];
+    const year = dateRange?.year;
     let q = `
         SELECT 
             client.nom AS Client,
