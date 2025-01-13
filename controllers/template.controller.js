@@ -757,7 +757,7 @@ exports.getDeclaration = (req, res) => {
     });
 };
 
-exports.getDeclarationClientOneAll = (req, res) => { 
+/* exports.getDeclarationClientOneAll = (req, res) => { 
     const { ville, batiment, dateRange } = req.body;
     const { idClient } = req.query;
 
@@ -813,7 +813,64 @@ exports.getDeclarationClientOneAll = (req, res) => {
         }
         return res.status(200).json(data);
     });
+}; */
+
+exports.getDeclarationClientOneAll = (req, res) => { 
+    const { ville, batiment, dateRange } = req.body;
+    const { idClient } = req.query;
+
+    let q = `
+        SELECT 
+            ds.*, 
+            client.nom, 
+            p.capital, 
+            batiment.nom_batiment, 
+            objet_fact.nom_objet_fact,
+            tc.desc_template
+        FROM 
+            declaration_super AS ds
+            LEFT JOIN provinces p ON p.id = ds.id_ville
+            LEFT JOIN client ON ds.id_client = client.id_client
+            LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+            LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
+            LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+            INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+        WHERE tc.status_template = 1 AND ds.est_supprime = 0
+    `;
+
+    // Filtrer par ville
+    if (ville && ville.length > 0) {
+        q += ` AND ds.id_ville IN (${ville.map(v => db.escape(v)).join(',')})`;
+    }
+
+    // Filtrer par client
+    if (idClient) {
+        q += ` AND ds.id_client = ${db.escape(idClient)}`;
+    }
+
+    // Filtrer par bâtiment
+    if (batiment && batiment.length > 0) {
+        q += ` AND dsb.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;
+    }
+
+    // Filtrer par dateRange (mois multiples)
+    if (dateRange && Array.isArray(dateRange) && dateRange.length > 0) {
+        const escapedMonths = dateRange.map(month => db.escape(month)).join(',');
+        q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+    }
+
+    // Ajouter l'ordre de tri
+    q += ` ORDER BY ds.periode DESC`;
+
+    // Exécuter la requête
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
 };
+
 
 exports.getDeclaration5derniers = (req, res) => { 
     let q = `
@@ -918,7 +975,7 @@ exports.getDeclarationOneClient = (req, res) => {
             LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
             LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
             LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
-            INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+            LEFT JOIN template_occupation tc ON tc.id_template = ds.id_template
         WHERE 
             tc.status_template = 1 
             AND ds.est_supprime = 0 
@@ -1210,6 +1267,7 @@ exports.postDeclaration = async (req, res) => {
             id_batiments = [],
         } = req.body;
 
+
         if (!id_ville || !id_client) {
             return res.status(400).json({ error: "Veuillez ouvrir la section Manutention pour vérifier si la ville et le client sont remplis. Si c'est le cas, envoyez les données maintenant." });
         }
@@ -1218,7 +1276,14 @@ exports.postDeclaration = async (req, res) => {
             return res.status(400).json({ error: "Les champs obligatoires sont manquants." });
         }
 
-        const fixedPeriode = periode.split('-').slice(0, 2).join('-') + '-03';
+        const periodeDate = new Date(periode);
+            if (isNaN(periodeDate.getTime())) {
+                return res.status(400).json({ error: "Format de période invalide." });
+            }
+            const year = periodeDate.getUTCFullYear();
+            const month = String(periodeDate.getUTCMonth() + 1).padStart(2, '0');
+            const fixedPeriode = `${year}-${month}-03`;
+
 
         const checkQuery = `
             SELECT COUNT(*) AS count
@@ -1460,35 +1525,55 @@ exports.getContratTypeContrat = (req, res) => {
 
 //Rapport m2 facture
 exports.getRapportFacture = (req, res) => {
+    const { client, dateRange } = req.body;
 
-    const q = `
-            SELECT 
-                client.nom AS Client,
-                MONTH(ds.periode) AS Mois,
-                YEAR(ds.periode) AS Année,
-                SUM(ds.m2_facture) AS Montant
-            FROM 
-                declaration_super AS ds
-                LEFT JOIN provinces p ON p.id = ds.id_ville
-                LEFT JOIN client ON ds.id_client = client.id_client
-                LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
-                LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
-                LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
-                INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
-            WHERE 
-                tc.status_template = 1 
-                AND ds.est_supprime = 0
-            GROUP BY 
-                client.nom, MONTH(ds.periode), YEAR(ds.periode);
-            `;  
+    let q = `
+        SELECT 
+            client.nom AS Client,
+            MONTH(ds.periode) AS Mois,
+            YEAR(ds.periode) AS Année,
+            SUM(ds.m2_facture) AS Montant
+        FROM 
+            declaration_super AS ds
+            LEFT JOIN provinces p ON p.id = ds.id_ville
+            LEFT JOIN client ON ds.id_client = client.id_client
+            LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+            LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
+            LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+            INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+        WHERE 
+            tc.status_template = 1 
+            AND ds.est_supprime = 0
+    `;
 
+    // Ajout des filtres dynamiques
+    if (client && Array.isArray(client) && client.length > 0) {
+        const escapedClients = client.map(c => db.escape(c)).join(',');
+        q += ` AND ds.id_client IN (${escapedClients})`;
+    }
+
+    if (dateRange && Array.isArray(dateRange) && dateRange.length > 0) {
+        const escapedMonths = dateRange.map(month => db.escape(month)).join(',');
+        q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+    }
+
+    q += `
+        GROUP BY 
+            client.nom, MONTH(ds.periode), YEAR(ds.periode)
+        ORDER BY 
+            YEAR(ds.periode) DESC, MONTH(ds.periode) DESC
+    `;
+
+    // Exécuter la requête
     db.query(q, (error, data) => {
         if (error) {
-            return res.status(500).send(error)
+            console.error('Erreur SQL:', error);
+            return res.status(500).json({ error: 'Erreur lors de la récupération des données.' });
         }
         return res.status(200).json(data);
     });
 };
+
 
 //Rapport ville
 exports.getRapportVille = (req, res) => {
