@@ -711,8 +711,8 @@ exports.getDeclaration = (req, res) => {
     let q = `
         SELECT 
             ds.*, 
-            client.nom AS client_nom, 
-            p.capital AS province_capital, 
+            client.nom, 
+            p.capital, 
             batiment.nom_batiment, 
             objet_fact.nom_objet_fact,
             tc.desc_template
