@@ -1813,7 +1813,8 @@ exports.getRapportEntreposage = (req, res) => {
                     client.nom AS Client,
                     MONTH(ds.periode) AS Mois,
                     YEAR(ds.periode) AS Année,
-                    SUM(COALESCE(ds.total_entreposage, 0)) AS Montant
+                    SUM(COALESCE(ds.total_entreposage, 0)) AS Montant,
+                    SUM(COALESCE(ds.ttc_entreposage, 0)) AS TTC_montant
                 FROM declaration_super ds
                 INNER JOIN client ON ds.id_client = client.id_client
                 GROUP BY ds.periode, client.id_client, client.nom
