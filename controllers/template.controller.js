@@ -704,19 +704,15 @@ exports.getDeclarationCount = (req, res) => {
 exports.getDeclaration = (req, res) => { 
     const { ville, client, batiment, dateRange } = req.body;
 
-    let year, month;
-    if (dateRange && typeof dateRange === 'string') {
-        [year, month] = dateRange.split('-');
-        if (!year || !month || isNaN(year) || isNaN(month)) {
-            return res.status(400).json({ error: "Invalid dateRange format. Expected 'YYYY-MM'." });
-        }
-    }
+    const months = dateRange?.months || [];
+    const year = dateRange?.year;
 
+    // Début de la requête SQL
     let q = `
         SELECT 
             ds.*, 
-            client.nom, 
-            p.capital, 
+            client.nom AS client_nom, 
+            p.capital AS province_capital, 
             batiment.nom_batiment, 
             objet_fact.nom_objet_fact,
             tc.desc_template
@@ -728,34 +724,61 @@ exports.getDeclaration = (req, res) => {
             LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
             LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
             INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
-        WHERE tc.status_template = 1 AND ds.est_supprime = 0
+        WHERE 
+            tc.status_template = 1 
+            AND ds.est_supprime = 0
     `;
 
-    if (ville && ville.length > 0) {
-        q += ` AND ds.id_ville IN (${ville.map(v => db.escape(v)).join(',')})`;
+    // Ajout des filtres dynamiques uniquement si les paramètres sont présents
+    if (ville && Array.isArray(ville) && ville.length > 0) {
+        const escapedVille = ville.map(v => db.escape(v)).join(',');
+        q += ` AND ds.id_ville IN (${escapedVille})`;
     }
     
-    if (client && client.length > 0) {
-        q += ` AND ds.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
+    if (client && Array.isArray(client) && client.length > 0) {
+        const escapedClient = client.map(c => db.escape(c)).join(',');
+        q += ` AND ds.id_client IN (${escapedClient})`;
     }
     
-    if (batiment && batiment.length > 0) {
-        q += ` AND ds.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;
+    if (batiment && Array.isArray(batiment) && batiment.length > 0) {
+        const escapedBatiment = batiment.map(b => db.escape(b)).join(',');
+        q += ` AND ds.id_batiment IN (${escapedBatiment})`;
     }
     
-    if (dateRange && typeof dateRange === 'string') {
-        q += ` AND MONTH(ds.periode) = ${db.escape(month)}`;
+    if (months && months.length > 0) {
+        const escapedMonths = months.map(month => db.escape(month)).join(',');
+        q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
     }
 
-    q += `ORDER BY ds.periode DESC`
+    if (year) {
+        const escapedYear = db.escape(year);
+        q += ` AND YEAR(ds.periode) = ${escapedYear}`;
+    }
 
+    // Ajout du tri des résultats
+    q += ` ORDER BY ds.date_creation DESC`;
+
+    // Exécution de la requête
     db.query(q, (error, data) => {
         if (error) {
-            return res.status(500).send(error);
+            console.error('Erreur SQL:', error.message);
+            return res.status(500).json({
+                error: 'Erreur lors de l\'exécution de la requête SQL.',
+                details: error.message,
+            });
         }
+        
+        // Vérification des résultats
+        if (!data || data.length === 0) {
+            return res.status(404).json({
+                message: 'Aucune déclaration trouvée pour les critères sélectionnés.',
+            });
+        }
+
         return res.status(200).json(data);
     });
 };
+
 
 /* exports.getDeclarationClientOneAll = (req, res) => { 
     const { ville, batiment, dateRange } = req.body;
@@ -860,7 +883,7 @@ exports.getDeclarationClientOneAll = (req, res) => {
     }
 
     // Ajouter l'ordre de tri
-    q += ` ORDER BY ds.periode DESC`;
+    q += ` ORDER BY ds.date_creation DESC`;
 
     // Exécuter la requête
     db.query(q, (error, data) => {
@@ -1525,7 +1548,9 @@ exports.getContratTypeContrat = (req, res) => {
 
 //Rapport m2 facture
 exports.getRapportFacture = (req, res) => {
-    const { client, dateRange } = req.body;
+    const { client } = req.body;
+
+    const { months, year} = req.body.dateRange;
 
     let q = `
         SELECT 
@@ -1552,9 +1577,14 @@ exports.getRapportFacture = (req, res) => {
         q += ` AND ds.id_client IN (${escapedClients})`;
     }
 
-    if (dateRange && Array.isArray(dateRange) && dateRange.length > 0) {
-        const escapedMonths = dateRange.map(month => db.escape(month)).join(',');
+    if (months && Array.isArray(months) && months.length > 0) {
+        const escapedMonths = months.map(month => db.escape(month)).join(',');
         q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+    }
+
+    if (year) {
+        const escapedYear = db.escape(year);
+        q += ` AND YEAR(ds.periode) = ${escapedYear}`;
     }
 
     q += `
@@ -1567,12 +1597,19 @@ exports.getRapportFacture = (req, res) => {
     // Exécuter la requête
     db.query(q, (error, data) => {
         if (error) {
-            console.error('Erreur SQL:', error);
-            return res.status(500).json({ error: 'Erreur lors de la récupération des données.' });
+            console.error('Erreur SQL:', error.message);
+            return res.status(500).json({
+                error: 'Une erreur est survenue lors de la récupération des données.',
+                details: error.message,
+            });
+        }
+        if (data.length === 0) {
+            return res.status(404).json({ message: 'Aucune donnée trouvée pour les critères sélectionnés.' });
         }
         return res.status(200).json(data);
     });
 };
+
 
 
 //Rapport ville
