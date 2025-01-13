@@ -401,12 +401,10 @@ exports.getTache = (req, res) => {
             `;
         }
 
-        // Owner - filtrer par taches de l'utilisateur ou ses tâches créées
         if (role === 'Owner' && id_user) {
             query += `AND (pt.id_user = ${db.escape(id_user)} AND pt.can_view = 1 OR tache.user_cr = ${db.escape(id_user)})`;
         }
 
-        // Filtrage par départements, clients, statut, priorité, etc.
         if (departement && departement.length > 0) {
             query += ` AND tache.id_departement IN (${departement.map(d => db.escape(d)).join(',')})`;
         }
@@ -427,10 +425,8 @@ exports.getTache = (req, res) => {
         }
     }
 
-    // Trier les résultats par date de création
     query += ` ORDER BY tache.date_creation DESC`;
 
-    // Requêtes supplémentaires pour les statistiques et le total
     const statsQuery = `
         SELECT 
             typeC.nom_type_statut AS statut,
