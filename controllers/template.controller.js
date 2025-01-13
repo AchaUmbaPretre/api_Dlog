@@ -701,7 +701,7 @@ exports.getDeclarationCount = (req, res) => {
     });
 }
 
-exports.getDeclaration = (req, res) => { 
+/* exports.getDeclaration = (req, res) => { 
     const { ville, client, batiment, dateRange } = req.body;
 
     const months = dateRange?.months || [];
@@ -776,6 +776,150 @@ exports.getDeclaration = (req, res) => {
         }
 
         return res.status(200).json(data);
+    });
+}; */
+
+
+exports.getDeclaration = (req, res) => { 
+    const { ville, client, batiment, dateRange } = req.body;
+
+    const months = dateRange?.months || [];
+    const year = dateRange?.year;
+
+    // Début de la requête SQL pour les détails de la déclaration
+    let q = `
+        SELECT 
+            ds.*, 
+            client.nom, 
+            p.capital, 
+            batiment.nom_batiment, 
+            objet_fact.nom_objet_fact,
+            tc.desc_template
+        FROM 
+            declaration_super AS ds
+            LEFT JOIN provinces p ON p.id = ds.id_ville
+            LEFT JOIN client ON ds.id_client = client.id_client
+            LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+            LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
+            LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+            INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+        WHERE 
+            tc.status_template = 1 
+            AND ds.est_supprime = 0
+    `;
+
+    // Ajout des filtres dynamiques uniquement si les paramètres sont présents
+    if (ville && Array.isArray(ville) && ville.length > 0) {
+        const escapedVille = ville.map(v => db.escape(v)).join(',');
+        q += ` AND ds.id_ville IN (${escapedVille})`;
+    }
+    
+    if (client && Array.isArray(client) && client.length > 0) {
+        const escapedClient = client.map(c => db.escape(c)).join(',');
+        q += ` AND ds.id_client IN (${escapedClient})`;
+    }
+    
+    if (batiment && Array.isArray(batiment) && batiment.length > 0) {
+        const escapedBatiment = batiment.map(b => db.escape(b)).join(',');
+        q += ` AND ds.id_batiment IN (${escapedBatiment})`;
+    }
+    
+    if (months && months.length > 0) {
+        const escapedMonths = months.map(month => db.escape(month)).join(',');
+        q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+    }
+
+    if (year) {
+        const escapedYear = db.escape(year);
+        q += ` AND YEAR(ds.periode) = ${escapedYear}`;
+    }
+
+    // Ajout du tri des résultats
+    q += ` ORDER BY ds.date_creation DESC`;
+
+    // Exécution de la première requête (détails des déclarations)
+    db.query(q, (error, data) => {
+        if (error) {
+            console.error('Erreur SQL:', error.message);
+            return res.status(500).json({
+                error: 'Erreur lors de l\'exécution de la requête SQL.',
+                details: error.message,
+            });
+        }
+        
+        // Vérification des résultats de la première requête
+        if (!data || data.length === 0) {
+            return res.status(404).json({
+                message: 'Aucune déclaration trouvée pour les critères sélectionnés.',
+            });
+        }
+
+        // Requête SQL pour les agrégats
+        let qTotal = `
+            SELECT 
+                COUNT(DISTINCT ds.id_client) AS nbre_client,
+                SUM(ds.m2_facture) AS total_m2_facture,
+                SUM(ds.total_entreposage) AS total_entreposage,
+                SUM(ds.ttc_entreposage) AS total_ttc_entreposage,
+                SUM(ds.total_manutation) AS total_manutation,
+                SUM(ds.ttc_manutation) AS total_ttc_manutation
+            FROM 
+                declaration_super AS ds
+                LEFT JOIN template_occupation tc ON tc.id_template = ds.id_template
+            WHERE 
+                tc.status_template = 1 
+                AND ds.est_supprime = 0
+        `;
+
+        // Ajout des mêmes filtres dynamiques pour la deuxième requête
+        if (ville && Array.isArray(ville) && ville.length > 0) {
+            const escapedVille = ville.map(v => db.escape(v)).join(',');
+            qTotal += ` AND ds.id_ville IN (${escapedVille})`;
+        }
+
+        if (client && Array.isArray(client) && client.length > 0) {
+            const escapedClient = client.map(c => db.escape(c)).join(',');
+            qTotal += ` AND ds.id_client IN (${escapedClient})`;
+        }
+
+        if (batiment && Array.isArray(batiment) && batiment.length > 0) {
+            const escapedBatiment = batiment.map(b => db.escape(b)).join(',');
+            qTotal += ` AND ds.id_batiment IN (${escapedBatiment})`;
+        }
+
+        if (months && months.length > 0) {
+            const escapedMonths = months.map(month => db.escape(month)).join(',');
+            qTotal += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+        }
+
+        if (year) {
+            const escapedYear = db.escape(year);
+            qTotal += ` AND YEAR(ds.periode) = ${escapedYear}`;
+        }
+
+        // Exécution de la deuxième requête (agrégats)
+        db.query(qTotal, (error, totals) => {
+            if (error) {
+                console.error('Erreur SQL (agrégats):', error.message);
+                return res.status(500).json({
+                    error: 'Erreur lors de l\'exécution de la requête SQL pour les agrégats.',
+                    details: error.message,
+                });
+            }
+
+            // Vérification des résultats des agrégats
+            if (!totals || totals.length === 0) {
+                return res.status(404).json({
+                    message: 'Aucun agrégat trouvé pour les critères sélectionnés.',
+                });
+            }
+
+            // Fusionner les résultats des deux requêtes et les renvoyer
+            return res.status(200).json({
+                declarations: data,
+                totals: totals[0], // Totaux sous forme d'objet
+            });
+        });
     });
 };
 
