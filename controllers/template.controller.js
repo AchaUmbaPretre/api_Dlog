@@ -1770,8 +1770,12 @@ exports.getRapportFacture = (req, res) => {
 
 //Rapport ville
 exports.getRapportVille = (req, res) => {
+    const { ville, dateRange } = req.body;
 
-    const q = `
+    const months = dateRange?.months || [];
+    const year = dateRange?.year;
+
+    let q = `
             SELECT 
                 ds.periode,
                 p.capital,  -- Nous utilisons le nom de la province ici
@@ -1780,9 +1784,26 @@ exports.getRapportVille = (req, res) => {
                 SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_facture  -- Addition des deux pour le total
             FROM declaration_super ds
             INNER JOIN provinces p ON ds.id_ville = p.id
-            GROUP BY ds.periode, p.capital  -- Regroupement par période et par province (capital)
-            ORDER BY ds.periode, p.capital
             `;  
+
+            if (ville && Array.isArray(ville) && ville.length > 0) {
+                const escapedVilles = ville.map(c => db.escape(c)).join(',');
+                q += ` AND ds.id_ville IN (${escapedVilles})`;
+            }
+
+            if (months && Array.isArray(months) && months.length > 0) {
+                const escapedMonths = months.map(month => db.escape(month)).join(',');
+                q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+            }
+        
+            if (year) {
+                const escapedYear = db.escape(year);
+                q += ` AND YEAR(ds.periode) = ${escapedYear}`;
+            }
+            q += `
+                    GROUP BY ds.periode, p.capital  -- Regroupement par période et par province (capital)
+                    ORDER BY ds.periode, p.capital
+                `
 
     db.query(q, (error, data) => {
         if (error) {
