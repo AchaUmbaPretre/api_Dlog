@@ -1413,6 +1413,25 @@ exports.getAdresse = (req, res) => {
     });
 };
 
+exports.postAdresse = (req, res) => {
+    const { id_bin, adresse } = req.body;
+
+    if(!id_bin){
+        return res.status(400).json({ error: "L'ID de bin est requis." })
+    }
+  
+    const query = 'INSERT INTO adresse (adresse, id_bin) VALUES (?, ?)';
+    const values = [adresse, id_bin];
+  
+    db.query(query, values, (err, result) => {
+      if (err) {
+        console.error('Erreur lors de l\'insertion:', err);
+        return res.status(500).send('Erreur serveur');
+      }
+      res.status(200).send('Adresse a ete ajoutée avec succès');
+    });
+  };
+
 //Inspection
 exports.getInspection = (req, res) => {
     const q = `
