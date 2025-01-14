@@ -783,6 +783,9 @@ exports.getDeclarationCount = (req, res) => {
 exports.getDeclaration = (req, res) => { 
     const { ville, client, batiment, dateRange } = req.body;
 
+    const {search} = req.query;
+
+
     const months = dateRange?.months || [];
     const year = dateRange?.year;
 
@@ -857,6 +860,7 @@ exports.getDeclaration = (req, res) => {
         // Requête SQL pour les agrégats
         let qTotal = `
             SELECT 
+                client.nom,
                 COUNT(DISTINCT ds.id_client) AS nbre_client,
                 SUM(ds.m2_facture) AS total_m2_facture,
                 SUM(ds.total_entreposage) AS total_entreposage,
@@ -865,6 +869,8 @@ exports.getDeclaration = (req, res) => {
                 SUM(ds.ttc_manutation) AS total_ttc_manutation
             FROM 
                 declaration_super AS ds
+                LEFT JOIN provinces p ON p.id = ds.id_ville
+                LEFT JOIN client ON ds.id_client = client.id_client
                 LEFT JOIN template_occupation tc ON tc.id_template = ds.id_template
             WHERE 
                 tc.status_template = 1 
@@ -896,6 +902,12 @@ exports.getDeclaration = (req, res) => {
             const escapedYear = db.escape(year);
             qTotal += ` AND YEAR(ds.periode) = ${escapedYear}`;
         }
+
+        if (search) {
+            const searchQuery = `%${search}%`;
+            qTotal += ` AND (client.nom LIKE ${db.escape(searchQuery)}) OR (tc.desc_template LIKE ${db.escape(searchQuery)})`;
+        }
+        
 
         // Exécution de la deuxième requête (agrégats)
         db.query(qTotal, (error, totals) => {
@@ -1807,8 +1819,11 @@ exports.getRapportManutention = (req, res) => {
 
 //Rapport entreposage
 exports.getRapportEntreposage = (req, res) => {
+    const { client, dateRange } = req.body;
+    const months = dateRange?.months || [];
+    const year = dateRange?.year;
 
-    const q = `
+    let q = `
                 SELECT 
                     client.nom AS Client,
                     MONTH(ds.periode) AS Mois,
@@ -1817,9 +1832,28 @@ exports.getRapportEntreposage = (req, res) => {
                     SUM(COALESCE(ds.ttc_entreposage, 0)) AS TTC_montant
                 FROM declaration_super ds
                 INNER JOIN client ON ds.id_client = client.id_client
-                GROUP BY ds.periode, client.id_client, client.nom
-                ORDER BY MONTH(ds.periode), YEAR(ds.periode), client.id_client;
             `;  
+
+                // Ajout des filtres dynamiques
+            if (client && Array.isArray(client) && client.length > 0) {
+                const escapedClients = client.map(c => db.escape(c)).join(',');
+                q += ` AND ds.id_client IN (${escapedClients})`;
+            }
+
+            if (months && Array.isArray(months) && months.length > 0) {
+                const escapedMonths = months.map(month => db.escape(month)).join(',');
+                q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+            }
+
+            if (year) {
+                const escapedYear = db.escape(year);
+                q += ` AND YEAR(ds.periode) = ${escapedYear}`;
+            }
+
+            q += `
+                GROUP BY ds.periode, client.id_client, client.nom
+                ORDER BY MONTH(ds.periode), YEAR(ds.periode), client.id_client
+                `;
 
     db.query(q, (error, data) => {
         if (error) {

@@ -40,6 +40,6 @@ router.get('/type_contrat', templateController.getContratTypeContrat)
 router.post('/rapport_facture', templateController.getRapportFacture)
 router.get('/rapport_ville', templateController.getRapportVille)
 router.get('/rapport_manutentation', templateController.getRapportManutention)
-router.get('/rapport_entreposage', templateController.getRapportEntreposage)
+router.post('/rapport_entreposage', templateController.getRapportEntreposage)
 
 module.exports = router;
