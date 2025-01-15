@@ -732,8 +732,10 @@ exports.getBinsOne = (req, res) => {
                 SELECT bins.id, bins.id_batiment, bins.nom, bins.superficie, 
                     bins.longueur, bins.largeur, bins.hauteur, 
                     bins.capacite, statut_bins.nom_statut_bins AS statut, 
-                    type_stockage_bins.nom_stockage AS type_stockage 
+                    type_stockage_bins.nom_stockage AS type_stockage,
+                    batiment.nom_batiment
                 FROM bins
+                	INNER JOIN batiment ON bins.id_batiment = batiment.id_batiment
                     INNER JOIN statut_bins ON bins.statut = statut_bins.id_statut_bins
                     INNER JOIN type_stockage_bins ON bins.type_stockage = type_stockage_bins.id_type_stockage_bins
                 WHERE bins.id_batiment = ?
