@@ -32,7 +32,8 @@ exports.getTemplate = (req, res) => {
                 objet_fact.nom_objet_fact,
                 statut_template.nom_statut_template,
                 statut_template.id_statut_template,
-                niveau_batiment.nom_niveau
+                niveau_batiment.nom_niveau,
+                ct.conditions
             FROM 
                 template_occupation tm
                 INNER JOIN client ON tm.id_client = client.id_client
@@ -43,7 +44,8 @@ exports.getTemplate = (req, res) => {
                 INNER JOIN objet_fact ON tm.id_objet_fact = objet_fact.id_objet_fact
                 INNER JOIN batiment b ON whse_fact.id_batiment = b.id_batiment
                 INNER JOIN statut_template ON tm.status_template = statut_template.id_statut_template
-                INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau     
+                INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau
+                LEFT JOIN contrat ct ON tm.id_contrat = ct.id_contrat 
                 WHERE tm.est_supprime = 0    
                 ORDER BY tm.date_actif DESC   
                 `;
