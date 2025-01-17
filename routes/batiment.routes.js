@@ -76,6 +76,7 @@ router.put('/bins_put', batimentController.putBins)
 
 //Adresse
 router.get('/adresse', batimentController.getAdresse)
+router.get('/adresseBinOne', batimentController.getAdresseBinOne)
 router.post('/adresse', batimentController.postAdresse)
 
 

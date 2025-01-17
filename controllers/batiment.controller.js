@@ -1415,6 +1415,28 @@ exports.getAdresse = (req, res) => {
     });
 };
 
+exports.getAdresseBinOne = (req, res) => {
+    const { id_bin} = req.query;
+
+    if (isNaN(parseInt(id_client))) {
+        return res.status(400).json({ message: "L'identifiant (id_client) doit être un nombre valide." });
+    }
+
+    const q = `
+                SELECT adresse.*, bins.nom, batiment.nom_batiment FROM adresse
+                    LEFT JOIN bins ON adresse.id_bin = bins.id
+                    LEFT JOIN batiment ON bins.id_batiment = batiment.id_batiment
+                    WHERE adresse.id_bin = ?
+            `;
+
+    db.query(q, [id_bin], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.postAdresse = (req, res) => {
     const { id_bin, adresse } = req.body;
 
