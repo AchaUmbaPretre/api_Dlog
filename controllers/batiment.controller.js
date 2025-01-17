@@ -4,12 +4,21 @@ exports.getEquipement = (req, res) => {
 
     const q = `
                 SELECT equipments.model, equipments.num_serie, 
-                    equipments.id_equipement, equipments.installation_date, 
-                    equipments.maintenance_date, equipments.date_prochaine_maintenance, bins.nom AS location, batiment.nom_batiment, statut_equipement.nom_statut, articles.nom_article FROM equipments 
+                        equipments.id_equipement, 
+                        equipments.installation_date, 
+                        equipments.maintenance_date, 
+                        equipments.date_prochaine_maintenance, 
+                        bins.nom AS nom_bin, 
+                        batiment.nom_batiment, 
+                        statut_equipement.nom_statut, 
+                        articles.nom_article,
+                        adresse.adresse
+                    FROM equipments 
                     LEFT JOIN batiment ON equipments.id_batiment = batiment.id_batiment
                     LEFT JOIN statut_equipement ON equipments.status = statut_equipement.id_statut_equipement
                     LEFT JOIN articles ON equipments.id_type_equipement = articles.id_article
                     LEFT JOIN bins ON equipments.id_bin = bins.id
+                    LEFT JOIN adresse ON equipments.location = adresse.id_adresse
             `;
 
     db.query(q, (error, data) => {
@@ -1418,8 +1427,8 @@ exports.getAdresse = (req, res) => {
 exports.getAdresseBinOne = (req, res) => {
     const { id_bin} = req.query;
 
-    if (isNaN(parseInt(id_client))) {
-        return res.status(400).json({ message: "L'identifiant (id_client) doit être un nombre valide." });
+    if (isNaN(parseInt(id_bin))) {
+        return res.status(400).json({ message: "L'identifiant doit être un nombre valide." });
     }
 
     const q = `
