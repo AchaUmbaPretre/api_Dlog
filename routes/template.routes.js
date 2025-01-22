@@ -38,6 +38,7 @@ router.get('/type_contrat', templateController.getContratTypeContrat)
 
 //Rapport
 router.post('/rapport_facture', templateController.getRapportFacture)
+router.post('/rapport_facture_ville', templateController.getRapportFactureVille)
 router.post('/rapport_ville', templateController.getRapportVille)
 router.post('/rapport_externEtInterne', templateController.getRapportExterneEtInterne)
 router.get('/rapport_manutentation', templateController.getRapportManutention)

@@ -2054,6 +2054,101 @@ exports.getRapportFacture = (req, res) => {
     });
 };
 
+exports.getRapportFactureVille = (req, res) => {
+    const { client, montant, period, status_batiment } = req.body;
+
+    let months = [];
+    let year;
+
+    if (typeof period === 'string' && period.includes('-')) {
+        const [yr, mo] = period.split('-').map(Number);
+        year = yr;
+        months = [mo];
+    } else if (typeof period === 'number') {
+        year = period;
+    }
+
+    const montantMin = montant?.min || null;
+    const montantMax = montant?.max || null;
+
+    let q = `
+        SELECT 
+            p.capital,
+            MONTH(ds.periode) AS Mois,
+            YEAR(ds.periode) AS Année,
+            SUM(ds.m2_facture) AS Montant
+        FROM 
+            declaration_super AS ds
+            LEFT JOIN provinces p ON p.id = ds.id_ville
+            LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+            LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+            INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+            LEFT JOIN batiment ON tc.id_batiment = batiment.id_batiment
+
+        WHERE 
+            tc.status_template = 1 
+            AND ds.est_supprime = 0
+    `;
+
+    // Ajout des filtres dynamiques
+    if (client && Array.isArray(client) && client.length > 0) {
+        const escapedClients = client.map(c => db.escape(c)).join(',');
+        q += ` AND ds.id_client IN (${escapedClients})`;
+    }
+
+    if (status_batiment) {
+        q += ` AND batiment.statut_batiment = (${status_batiment})`;
+    }
+
+    if (months && Array.isArray(months) && months.length > 0) {
+        const escapedMonths = months.map(month => db.escape(month)).join(',');
+        q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+    }
+
+    if (year) {
+        const escapedYear = db.escape(year);
+        q += ` AND YEAR(ds.periode) = ${escapedYear}`;
+    }
+
+    q += `
+        GROUP BY 
+            p.capital, MONTH(ds.periode), YEAR(ds.periode)
+    `;
+
+    // Ajout du filtre par montant dans la clause HAVING
+    if (montantMin !== null) {
+        q += ` HAVING SUM(ds.m2_facture) >= ${db.escape(montantMin)}`;
+    }
+
+    if (montantMax !== null) {
+        if (montantMin === null) {
+            q += ` HAVING SUM(ds.m2_facture) <= ${db.escape(montantMax)}`;
+        } else {
+            q += ` AND SUM(ds.m2_facture) <= ${db.escape(montantMax)}`;
+        }
+    }
+
+    q += `
+        ORDER BY 
+            YEAR(ds.periode) DESC, MONTH(ds.periode) DESC
+    `;
+
+    // Exécuter la requête
+    db.query(q, (error, data) => {
+        if (error) {
+            console.error('Erreur SQL:', error.message);
+            return res.status(500).json({
+                error: 'Une erreur est survenue lors de la récupération des données.',
+                details: error.message,
+            });
+        }
+        if (data.length === 0) {
+            return res.status(404).json({ message: 'Aucune donnée trouvée pour les critères sélectionnés.' });
+        }
+        return res.status(200).json(data);
+    });
+};
+
 
 //Rapport ville
 exports.getRapportVille = (req, res) => {
