@@ -781,11 +781,12 @@ exports.getDeclarationCount = (req, res) => {
     });
 }; */
 
-
-exports.getDeclaration = (req, res) => { 
+/* exports.getDeclaration = (req, res) => { 
     const { ville, client, batiment, dateRange } = req.body;
 
     const {search} = req.query;
+
+    console.log(req.body)
 
 
     const months = dateRange?.months || [];
@@ -907,8 +908,9 @@ exports.getDeclaration = (req, res) => {
 
         if (search) {
             const searchQuery = `%${search}%`;
-            qTotal += ` AND (client.nom LIKE ${db.escape(searchQuery)}) OR (tc.desc_template LIKE ${db.escape(searchQuery)})`;
+            q += ` AND (client.nom LIKE ${db.escape(searchQuery)} OR tc.desc_template LIKE ${db.escape(searchQuery)})`;
         }
+        
         
 
         // Exécution de la deuxième requête (agrégats)
@@ -932,6 +934,94 @@ exports.getDeclaration = (req, res) => {
             return res.status(200).json({
                 declarations: data,
                 totals: totals[0], // Totaux sous forme d'objet
+            });
+        });
+    });
+}; */
+
+exports.getDeclaration = (req, res) => {
+    const { ville, client, batiment, period } = req.body;
+    const { search } = req.query;
+
+    let months = [];
+    let year;
+
+    if (typeof period === 'string' && period.includes('-')) {
+        const [yr, mo] = period.split('-').map(Number);
+        year = yr;
+        months = [mo];
+    } else if (typeof period === 'number') {
+        year = period;
+    }
+
+    let q = `
+        SELECT 
+            ds.*, 
+            client.nom, 
+            p.capital, 
+            batiment.nom_batiment, 
+            objet_fact.nom_objet_fact,
+            tc.desc_template
+        FROM 
+            declaration_super AS ds
+            LEFT JOIN provinces p ON p.id = ds.id_ville
+            LEFT JOIN client ON ds.id_client = client.id_client
+            LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+            LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+            INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+            LEFT JOIN batiment ON tc.id_batiment = batiment.id_batiment
+        WHERE 
+            tc.status_template = 1 
+            AND ds.est_supprime = 0
+    `;
+
+    // Ajout des filtres
+    if (ville?.length > 0) q += ` AND ds.id_ville IN (${ville.map(v => db.escape(v)).join(',')})`;
+    if (client?.length > 0) q += ` AND ds.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
+    if (batiment?.length > 0) q += ` AND tc.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;
+    if (months.length > 0) q += ` AND MONTH(ds.periode) IN (${months.map(m => db.escape(m)).join(',')})`;
+    if (year) q += ` AND YEAR(ds.periode) = ${db.escape(year)}`;
+    if (search) q += ` AND (client.nom LIKE ${db.escape(`%${search}%`)} OR tc.desc_template LIKE ${db.escape(`%${search}%`)})`;
+
+    q += ` ORDER BY ds.date_creation DESC`;
+
+    db.query(q, (error, data) => {
+        if (error) return res.status(500).json({ error: 'Erreur SQL', details: error.message });
+
+        if (!data?.length) return res.status(404).json({ message: 'Aucune déclaration trouvée.' });
+
+        let qTotal = `
+            SELECT 
+                client.nom,
+                COUNT(DISTINCT ds.id_client) AS nbre_client,
+                SUM(ds.m2_facture) AS total_m2_facture,
+                SUM(ds.total_entreposage) AS total_entreposage,
+                SUM(ds.ttc_entreposage) AS total_ttc_entreposage,
+                SUM(ds.total_manutation) AS total_manutation,
+                SUM(ds.ttc_manutation) AS total_ttc_manutation
+            FROM 
+                declaration_super AS ds
+                LEFT JOIN provinces p ON p.id = ds.id_ville
+                LEFT JOIN client ON ds.id_client = client.id_client
+                LEFT JOIN template_occupation tc ON tc.id_template = ds.id_template
+            WHERE 
+                tc.status_template = 1 
+                AND ds.est_supprime = 0
+        `;
+
+        if (ville?.length > 0) qTotal += ` AND ds.id_ville IN (${ville.map(v => db.escape(v)).join(',')})`;
+        if (client?.length > 0) qTotal += ` AND ds.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
+        if (batiment?.length > 0) qTotal += ` AND ds.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;
+        if (months.length > 0) qTotal += ` AND MONTH(ds.periode) IN (${months.map(m => db.escape(m)).join(',')})`;
+        if (year) qTotal += ` AND YEAR(ds.periode) = ${db.escape(year)}`;
+        if (search) qTotal += ` AND (client.nom LIKE ${db.escape(`%${search}%`)} OR tc.desc_template LIKE ${db.escape(`%${search}%`)})`;
+
+        db.query(qTotal, (error, totals) => {
+            if (error) return res.status(500).json({ error: 'Erreur SQL (agrégats)', details: error.message });
+
+            return res.status(200).json({
+                declarations: data,
+                totals: totals[0],
             });
         });
     });
@@ -1536,12 +1626,22 @@ exports.postDeclaration = async (req, res) => {
     }
 };
 
-exports.putDeclaration = (req, res) => {
+/* exports.putDeclaration = (req, res) => {
     const { id_declaration } = req.query;
 
     if (!id_declaration || isNaN(id_declaration)) {
         return res.status(400).json({ error: 'Invalid declaration ID provided' });
     }
+
+    const periodeDate = new Date(periode);
+    if (isNaN(periodeDate.getTime())) {
+        return res.status(400).json({ error: "Format de période invalide." });
+    }
+    const year = periodeDate.getUTCFullYear();
+    const month = String(periodeDate.getUTCMonth() + 1).padStart(2, '0');
+    const fixedPeriode = `${year}-${month}-03`;
+
+
 
     try {
         const q = `
@@ -1571,7 +1671,7 @@ exports.putDeclaration = (req, res) => {
 
         const values = [
             req.body.id_template,
-            req.body.periode,
+            fixedPeriode,
             req.body.m2_occupe,
             req.body.m2_facture,
             req.body.tarif_entreposage,
@@ -1603,7 +1703,95 @@ exports.putDeclaration = (req, res) => {
         console.error("Error updating declaration:", err);
         return res.status(500).json({ error: 'Failed to update Declaration record' });
     }
+}; */
+
+exports.putDeclaration = (req, res) => {
+    const { id_declaration } = req.query;
+    const { periode } = req.body; // Ajout de la récupération de "periode" depuis le body
+
+    if (!id_declaration || isNaN(id_declaration)) {
+        return res.status(400).json({ error: 'Invalid declaration ID provided' });
+    }
+
+    if (!periode) {
+        return res.status(400).json({ error: 'Period is required' });
+    }
+
+    const periodeDate = new Date(periode);
+    if (isNaN(periodeDate.getTime())) {
+        return res.status(400).json({ error: "Invalid period format." });
+    }
+    
+    // Formatting the period to the expected format YYYY-MM-DD
+    const year = periodeDate.getUTCFullYear();
+    const month = String(periodeDate.getUTCMonth() + 1).padStart(2, '0');
+    const fixedPeriode = `${year}-${month}-03`; // Assuming the day is always 03
+
+    try {
+        const q = `
+            UPDATE declaration_super
+            SET 
+                id_template = ?,
+                periode = ?,
+                m2_occupe = ?,
+                m2_facture = ?,
+                tarif_entreposage = ?,
+                entreposage = ?,
+                debours_entreposage = ?,
+                total_entreposage = ?,
+                ttc_entreposage = ?,
+                desc_entreposage = ?,
+                id_ville = ?,
+                id_client = ?,
+                id_objet = ?,
+                manutation = ?,
+                tarif_manutation = ?,
+                debours_manutation = ?,
+                total_manutation = ?,
+                ttc_manutation = ?,
+                desc_manutation = ?
+            WHERE id_declaration_super = ?
+        `;
+
+        const values = [
+            req.body.id_template,
+            fixedPeriode,
+            req.body.m2_occupe,
+            req.body.m2_facture,
+            req.body.tarif_entreposage,
+            req.body.entreposage,
+            req.body.debours_entreposage,
+            req.body.total_entreposage,
+            req.body.ttc_entreposage,
+            req.body.desc_entreposage,
+            req.body.id_ville,
+            req.body.id_client,
+            req.body.id_objet,
+            req.body.manutation,
+            req.body.tarif_manutation,
+            req.body.debours_manutation,
+            req.body.total_manutation,
+            req.body.ttc_manutation,
+            req.body.desc_manutation,
+            id_declaration // ID de la déclaration à mettre à jour
+        ];
+
+        db.query(q, values, (error, data) => {
+            if (error) {
+                console.log(error);
+                return res.status(500).json({ error: 'Error updating declaration record' });
+            }
+            if (data.affectedRows === 0) {
+                return res.status(404).json({ error: 'Declaration record not found' });
+            }
+            return res.json({ message: 'Declaration record updated successfully' });
+        });
+    } catch (err) {
+        console.error("Error updating declaration:", err);
+        return res.status(500).json({ error: 'Failed to update declaration record' });
+    }
 };
+
 
 exports.deleteUpdateDeclaration = (req, res) => {
     const {id} = req.query;
@@ -1805,6 +1993,47 @@ exports.getRapportVille = (req, res) => {
             q += `
                     GROUP BY ds.periode, p.capital  -- Regroupement par période et par province (capital)
                     ORDER BY ds.periode, p.capital
+                `
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data);
+    });
+};
+
+//Rapport Interieure et Exterieure
+exports.getRapportExterneEtInterne = (req, res) => {
+    const { dateRange } = req.body;
+
+    const months = dateRange?.months || [];
+    const year = dateRange?.year;
+
+    let q = `
+            SELECT 
+				tc.nom_type,
+                ds.periode,
+                SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
+                SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
+                SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_facture  -- Addition des deux pour le total
+            FROM declaration_super ds
+                INNER JOIN client c ON ds.id_client = c.id_client
+                INNER JOIN type_client tc ON c.id_type_client = tc.id_type_client
+            `;  
+
+            if (months && Array.isArray(months) && months.length > 0) {
+                const escapedMonths = months.map(month => db.escape(month)).join(',');
+                q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+            }
+        
+            if (year) {
+                const escapedYear = db.escape(year);
+                q += ` AND YEAR(ds.periode) = ${escapedYear}`;
+            }
+            q += `
+                    GROUP BY ds.periode, tc.id_type_client
+                    ORDER BY ds.periode, tc.id_type_client
                 `
 
     db.query(q, (error, data) => {
