@@ -2018,8 +2018,9 @@ exports.getRapportExterneEtInterne = (req, res) => {
                 SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
                 SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_facture  -- Addition des deux pour le total
             FROM declaration_super ds
-                INNER JOIN client c ON ds.id_client = c.id_client
-                INNER JOIN type_client tc ON c.id_type_client = tc.id_type_client
+            	INNER JOIN template_occupation tco ON ds.id_template = tco.id_template
+                INNER JOIN batiment b ON tco.id_batiment = b.id_batiment
+                INNER JOIN type_client tc ON b.statut_batiment = tc.id_type_client
             `;  
 
             if (months && Array.isArray(months) && months.length > 0) {

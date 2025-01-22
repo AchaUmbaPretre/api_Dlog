@@ -191,8 +191,9 @@ exports.getBatimentCount = (req, res) => {
 exports.getBatiment = (req, res) => {
 
     const q = `
-            SELECT batiment.*, provinces.name FROM batiment
+            SELECT batiment.*, provinces.name, tc.nom_type FROM batiment
                 LEFT JOIN provinces ON batiment.ville = provinces.id
+                LEFT JOIN type_client tc ON batiment.statut_batiment = tc.id_type_client
                 WHERE batiment.est_supprime = 0
             `;
 
@@ -208,8 +209,9 @@ exports.getBatimentOne = (req, res) => {
     const {id} = req.query;
 
     const q = `
-            SELECT batiment.*, provinces.name FROM batiment
+            SELECT batiment.*, provinces.name, tc.nom_type FROM batiment
                 LEFT JOIN provinces ON batiment.ville = provinces.id
+                LEFT JOIN type_client tc ON batiment.statut_batiment = tc.id_type_client
                 WHERE batiment.id_batiment = ?
             `;
 
@@ -224,7 +226,7 @@ exports.getBatimentOne = (req, res) => {
 exports.postBatiment = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO batiment(`nom_batiment`, `site`, `ville`, `longueur`, `largeur`, `hauteur`, `surface_sol`, `surface_murs`, `metres_lineaires`, `type_batiment`) VALUES(?,?,?,?,?,?,?,?,?,?)';
+        const q = 'INSERT INTO batiment(`nom_batiment`, `site`, `ville`, `longueur`, `largeur`, `hauteur`, `surface_sol`, `surface_murs`, `metres_lineaires`, `type_batiment`, `statut_batiment`) VALUES(?,?,?,?,?,?,?,?,?,?,?)';
 
         const values = [
             req.body.nom_batiment,
@@ -236,7 +238,8 @@ exports.postBatiment = async (req, res) => {
             req.body.surface_sol,
             req.body.surface_murs,
             req.body.metres_lineaires,
-            req.body.type_batiment
+            req.body.type_batiment,
+            req.body.statut_batiment
         ];
 
         await db.query(q, values);
@@ -268,7 +271,8 @@ exports.putBatiment = async (req, res) => {
                 surface_sol = ?,
                 surface_murs = ?,
                 metres_lineaires = ?,
-                type_batiment = ?
+                type_batiment = ?,
+                statut_batiment = ?
 
             WHERE id_batiment = ?
         `;
@@ -284,6 +288,7 @@ exports.putBatiment = async (req, res) => {
             req.body.surface_murs,
             req.body.metres_lineaires,
             req.body.type_batiment,
+            req.body.statut_batiment,
             id_batiment
         ];
 
