@@ -1959,10 +1959,19 @@ exports.getContratTypeContrat = (req, res) => {
 }; */
 
 exports.getRapportFacture = (req, res) => {
-    const { client, montant, dateRange } = req.body;
+    const { client, montant, period, status_batiment } = req.body;
 
-    const months = dateRange?.months || [];
-    const year = dateRange?.year;
+    let months = [];
+    let year;
+
+    if (typeof period === 'string' && period.includes('-')) {
+        const [yr, mo] = period.split('-').map(Number);
+        year = yr;
+        months = [mo];
+    } else if (typeof period === 'number') {
+        year = period;
+    }
+
     const montantMin = montant?.min || null;
     const montantMax = montant?.max || null;
 
@@ -1977,9 +1986,10 @@ exports.getRapportFacture = (req, res) => {
             LEFT JOIN provinces p ON p.id = ds.id_ville
             LEFT JOIN client ON ds.id_client = client.id_client
             LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
-            LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
             LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
             INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+            LEFT JOIN batiment ON tc.id_batiment = batiment.id_batiment
+
         WHERE 
             tc.status_template = 1 
             AND ds.est_supprime = 0
@@ -1989,6 +1999,10 @@ exports.getRapportFacture = (req, res) => {
     if (client && Array.isArray(client) && client.length > 0) {
         const escapedClients = client.map(c => db.escape(c)).join(',');
         q += ` AND ds.id_client IN (${escapedClients})`;
+    }
+
+    if (status_batiment) {
+        q += ` AND batiment.statut_batiment = (${status_batiment})`;
     }
 
     if (months && Array.isArray(months) && months.length > 0) {
