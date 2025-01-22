@@ -2095,7 +2095,7 @@ exports.getRapportExterneEtInterne = (req, res) => {
 
     let q = `
             SELECT 
-				tc.nom_type,
+				sb.nom_status_batiment,
                 ds.periode,
                 SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
                 SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
@@ -2103,7 +2103,7 @@ exports.getRapportExterneEtInterne = (req, res) => {
             FROM declaration_super ds
             	INNER JOIN template_occupation tco ON ds.id_template = tco.id_template
                 INNER JOIN batiment b ON tco.id_batiment = b.id_batiment
-                INNER JOIN type_client tc ON b.statut_batiment = tc.id_type_client
+                INNER JOIN status_batiment sb ON b.statut_batiment = sb.id_status_batiment
             `;  
 
             if (months && Array.isArray(months) && months.length > 0) {
@@ -2116,8 +2116,8 @@ exports.getRapportExterneEtInterne = (req, res) => {
                 q += ` AND YEAR(ds.periode) = ${escapedYear}`;
             }
             q += `
-                    GROUP BY ds.periode, tc.id_type_client
-                    ORDER BY ds.periode, tc.id_type_client
+                    GROUP BY ds.periode, sb.id_status_batiment
+                    ORDER BY ds.periode, sb.id_status_batiment
                 `
 
     db.query(q, (error, data) => {
