@@ -191,9 +191,9 @@ exports.getBatimentCount = (req, res) => {
 exports.getBatiment = (req, res) => {
 
     const q = `
-            SELECT batiment.*, provinces.name, tc.nom_type FROM batiment
+            SELECT batiment.*, provinces.name, sb.nom_status_batiment FROM batiment
                 LEFT JOIN provinces ON batiment.ville = provinces.id
-                LEFT JOIN type_client tc ON batiment.statut_batiment = tc.id_type_client
+                LEFT JOIN status_batiment sb ON batiment.statut_batiment = sb.id_status_batiment
                 WHERE batiment.est_supprime = 0
             `;
 
@@ -209,9 +209,9 @@ exports.getBatimentOne = (req, res) => {
     const {id} = req.query;
 
     const q = `
-            SELECT batiment.*, provinces.name, tc.nom_type FROM batiment
+            SELECT batiment.*, provinces.name, sb.nom_status_batiment FROM batiment
                 LEFT JOIN provinces ON batiment.ville = provinces.id
-                LEFT JOIN type_client tc ON batiment.statut_batiment = tc.id_type_client
+                LEFT JOIN status_batiment sb ON batiment.statut_batiment = sb.id_status_batiment
                 WHERE batiment.id_batiment = ?
             `;
 
@@ -556,6 +556,18 @@ exports.typeStockageBins = (req, res) => {
 exports.statut_bins = (req, res) => {
 
     const q = `SELECT * FROM statut_bins`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.statusBatiment = (req, res) => {
+
+    const q = `SELECT * FROM status_batiment`;
 
     db.query(q, (error, data) => {
         if (error) {

@@ -40,5 +40,8 @@ router.put('/cat_tache_put',typesController.putCatTache)
 router.get('/type_bin',typesController.typeStockageBins)
 router.get('/statut_bin',typesController.statut_bins)
 
+//Statut batiment
+router.get('/status_batiment',typesController.statusBatiment)
+
 
 module.exports = router;
