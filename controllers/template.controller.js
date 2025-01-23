@@ -2052,7 +2052,7 @@ exports.getRapportFacture = (req, res) => {
         }
 
         let qResume = `
-                        SELECT 
+                    SELECT 
                         COUNT(DISTINCT ds.id_client) AS Nbre_de_clients,
                         COUNT(DISTINCT ds.id_ville) AS Nbre_de_villes,
                         SUM(ds.m2_facture) AS Total_M2_facture,
