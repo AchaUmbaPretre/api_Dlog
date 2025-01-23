@@ -2190,7 +2190,7 @@ exports.getRapportFactureExternEtInterne = (req, res) => {
     }
 
     if (status_batiment) {
-        q += ` AND batiment.statut_batiment = (${status_batiment})`;
+        q += ` AND b.statut_batiment = (${status_batiment})`;
     }
 
     if (months && Array.isArray(months) && months.length > 0) {
@@ -2241,6 +2241,7 @@ exports.getRapportFactureExternEtInterne = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
 
 
 //Rapport ville
