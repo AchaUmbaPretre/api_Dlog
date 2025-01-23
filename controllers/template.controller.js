@@ -2242,8 +2242,6 @@ exports.getRapportFactureExternEtInterne = (req, res) => {
     });
 };
 
-
-
 //Rapport ville
 exports.getRapportVille = (req, res) => {
     const { ville, dateRange } = req.body;
