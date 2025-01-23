@@ -2050,7 +2050,61 @@ exports.getRapportFacture = (req, res) => {
         if (data.length === 0) {
             return res.status(404).json({ message: 'Aucune donnée trouvée pour les critères sélectionnés.' });
         }
-        return res.status(200).json(data);
+
+        let qResume = `
+                        SELECT 
+                        COUNT(DISTINCT ds.id_client) AS Nbre_de_clients,
+                        COUNT(DISTINCT ds.id_ville) AS Nbre_de_villes,
+                        SUM(ds.m2_facture) AS Total_M2_facture,
+                        SUM(CASE WHEN sb.nom_status_batiment = 'Non couvert' THEN ds.m2_facture ELSE 0 END) AS Total_M2_facture_Extérieur,
+                        SUM(CASE WHEN sb.nom_status_batiment = 'Couvert' THEN ds.m2_facture ELSE 0 END) AS Total_M2_facture_Intérieur
+                    FROM 
+                        declaration_super AS ds
+                        INNER JOIN template_occupation tco ON ds.id_template = tco.id_template
+                        INNER JOIN batiment b ON tco.id_batiment = b.id_batiment
+                        INNER JOIN status_batiment sb ON b.statut_batiment = sb.id_status_batiment
+                    WHERE 
+                        tco.status_template = 1 
+                        AND ds.est_supprime = 0
+                    `
+                    if (client && Array.isArray(client) && client.length > 0) {
+                        const escapedClients = client.map(c => db.escape(c)).join(',');
+                        qResume += ` AND ds.id_client IN (${escapedClients})`;
+                    }
+                
+                    if (status_batiment) {
+                        qResume += ` AND b.statut_batiment = (${status_batiment})`;
+                    }
+                
+                    if (months && Array.isArray(months) && months.length > 0) {
+                        const escapedMonths = months.map(month => db.escape(month)).join(',');
+                        qResume += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+                    }
+                
+                    if (year) {
+                        const escapedYear = db.escape(year);
+                        qResume += ` AND YEAR(ds.periode) = ${escapedYear}`;
+                    }
+
+                    if (montantMin !== null) {
+                        qResume += ` HAVING SUM(ds.m2_facture) >= ${db.escape(montantMin)}`;
+                    }
+                
+                    if (montantMax !== null) {
+                        if (montantMin === null) {
+                            qResume += ` HAVING SUM(ds.m2_facture) <= ${db.escape(montantMax)}`;
+                        } else {
+                            qResume += ` AND SUM(ds.m2_facture) <= ${db.escape(montantMax)}`;
+                        }
+                    }
+                db.query(qResume, (error, datas) => {
+                    if (error) return res.status(500).json({ error: 'Erreur SQL (agrégats)', details: error.message });
+                    return res.status(200).json({
+                        data : data,
+                        resume: datas[0]
+                    });
+
+                })                
     });
 };
 
