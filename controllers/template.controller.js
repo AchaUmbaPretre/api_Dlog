@@ -2108,6 +2108,20 @@ exports.getRapportFacture = (req, res) => {
     });
 };
 
+exports.getFactureClient = (req, res) => {
+
+    const q = `SELECT c.nom FROM declaration_super ds
+                INNER JOIN client c ON ds.id_client = c.id_client
+                GROUP BY c.id_client`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getRapportFactureVille = (req, res) => {
     const { client, montant, period, status_batiment } = req.body;
 
