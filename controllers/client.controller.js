@@ -106,7 +106,6 @@ exports.postClient = async (req, res) => {
     }
 };
 
-
 exports.putClient = async (req, res) => {
     const { id_client } = req.query;
     const { nom, adresse, ville, pays, email, id_type_client } = req.body;
@@ -161,7 +160,7 @@ exports.deleteUpdatedClient = (req, res) => {
         
       return res.json(data);
     });
-  }
+}
 
 exports.deleteClient = (req, res) => {
     const id = req.params.id;
@@ -173,7 +172,7 @@ exports.deleteClient = (req, res) => {
       return res.json(data);
     });
   
-  }
+}
 
 exports.getProvince = (req, res) => {
 
