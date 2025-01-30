@@ -175,7 +175,6 @@ exports.deleteClient = (req, res) => {
   
   }
 
-
 exports.getProvince = (req, res) => {
 
     const q = `SELECT * FROM provinces
