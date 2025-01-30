@@ -939,6 +939,20 @@ exports.getDeclarationCount = (req, res) => {
     });
 }; */
 
+exports.getDeclarationsId = (req, res) => {
+
+    const q = `
+            SELECT ds.id_declaration_super FROM declaration_super AS ds
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getDeclaration = (req, res) => {
     const { ville, client, batiment, period } = req.body;
     const { search } = req.query;

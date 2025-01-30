@@ -18,6 +18,7 @@ router.get('/objet_facture', templateController.getObjetFacture)
 
 
 //Déclaration superficie
+router.get('/declaration_ID', templateController.getDeclarationsId)
 router.get('/declaration_count', templateController.getDeclarationCount)
 router.post('/declaration_superficies', templateController.getDeclaration)
 router.post('/declaration_superficies_client_OneAll', templateController.getDeclarationClientOneAll)
