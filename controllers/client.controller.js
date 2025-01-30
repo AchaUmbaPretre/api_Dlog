@@ -1,5 +1,17 @@
 const { db } = require("./../config/database");
 
+exports.getClientId = (req, res) => {
+
+    const q = `SELECT c.id_client FROM client AS c`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getClientCount = (req, res) => {
     const { searchValue } = req.query;
     
