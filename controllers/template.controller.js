@@ -2062,12 +2062,12 @@ exports.getRapportFacture = (req, res) => {
     const { client, montant, period, status_batiment } = req.body;
 
     let months = [];
-    let years = [];
+    let years = []; // Correction du nom
 
+    // Extraction des mois et années
     if (period?.mois?.length) {
         months = period.mois.map(Number);
     }
-
     if (period?.annees?.length) {
         years = period.annees.map(Number);
     }
@@ -2079,10 +2079,10 @@ exports.getRapportFacture = (req, res) => {
         SELECT 
             client.nom AS Client,
             MONTH(ds.periode) AS Mois,
-            YEAR(ds.periode) AS Annee,
+            YEAR(ds.periode) AS Année,
             SUM(ds.m2_facture) AS Montant
         FROM 
-            declaration_super ds
+            declaration_super AS ds
             LEFT JOIN provinces p ON p.id = ds.id_ville
             LEFT JOIN client ON ds.id_client = client.id_client
             LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
@@ -2094,8 +2094,10 @@ exports.getRapportFacture = (req, res) => {
             AND ds.est_supprime = 0
     `;
 
+    // Filtres dynamiques
     if (client?.length) {
-        q += ` AND ds.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
+        const escapedClients = client.map(c => db.escape(c)).join(',');
+        q += ` AND ds.id_client IN (${escapedClients})`;
     }
 
     if (status_batiment) {
@@ -2103,17 +2105,22 @@ exports.getRapportFacture = (req, res) => {
     }
 
     if (months.length) {
-        q += ` AND MONTH(ds.periode) IN (${months.map(m => db.escape(m)).join(',')})`;
+        const escapedMonths = months.map(month => db.escape(month)).join(',');
+        q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
     }
 
     if (years.length) {
-        q += ` AND YEAR(ds.periode) IN (${years.map(y => db.escape(y)).join(',')})`;
+        const escapedYears = years.map(y => db.escape(y)).join(',');
+        q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
     }
 
-    q += ` GROUP BY client.nom, MONTH(ds.periode), YEAR(ds.periode)`;
+    q += `
+        GROUP BY 
+            client.nom, MONTH(ds.periode), YEAR(ds.periode)
+    `;
 
-    // Ajout du filtre HAVING pour le montant total
-    let havingConditions = [];
+    // Gestion de HAVING pour montant
+    const havingConditions = [];
     if (montantMin !== null) {
         havingConditions.push(`SUM(ds.m2_facture) >= ${db.escape(montantMin)}`);
     }
@@ -2124,7 +2131,10 @@ exports.getRapportFacture = (req, res) => {
         q += ` HAVING ${havingConditions.join(' AND ')}`;
     }
 
-    q += ` ORDER BY YEAR(ds.periode) DESC, MONTH(ds.periode) DESC`;
+    q += `
+        ORDER BY 
+            YEAR(ds.periode) DESC, MONTH(ds.periode) DESC
+    `;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -2134,7 +2144,7 @@ exports.getRapportFacture = (req, res) => {
                 details: error.message,
             });
         }
-        if (!data.length) {
+        if (data.length === 0) {
             return res.status(404).json({ message: 'Aucune donnée trouvée pour les critères sélectionnés.' });
         }
 
@@ -2146,7 +2156,7 @@ exports.getRapportFacture = (req, res) => {
                 SUM(CASE WHEN sb.nom_status_batiment = 'Non couvert' THEN ds.m2_facture ELSE 0 END) AS Total_M2_facture_Extérieur,
                 SUM(CASE WHEN sb.nom_status_batiment = 'Couvert' THEN ds.m2_facture ELSE 0 END) AS Total_M2_facture_Intérieur
             FROM 
-                declaration_super ds
+                declaration_super AS ds
                 INNER JOIN template_occupation tco ON ds.id_template = tco.id_template
                 INNER JOIN batiment b ON tco.id_batiment = b.id_batiment
                 INNER JOIN status_batiment sb ON b.statut_batiment = sb.id_status_batiment
@@ -2155,8 +2165,10 @@ exports.getRapportFacture = (req, res) => {
                 AND ds.est_supprime = 0
         `;
 
+        // Ajout des mêmes filtres dynamiques pour le résumé
         if (client?.length) {
-            qResume += ` AND ds.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
+            const escapedClients = client.map(c => db.escape(c)).join(',');
+            qResume += ` AND ds.id_client IN (${escapedClients})`;
         }
 
         if (status_batiment) {
@@ -2164,22 +2176,18 @@ exports.getRapportFacture = (req, res) => {
         }
 
         if (months.length) {
-            qResume += ` AND MONTH(ds.periode) IN (${months.map(m => db.escape(m)).join(',')})`;
+            const escapedMonths = months.map(month => db.escape(month)).join(',');
+            qResume += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
         }
 
         if (years.length) {
-            qResume += ` AND YEAR(ds.periode) IN (${years.map(y => db.escape(y)).join(',')})`;
+            const escapedYears = years.map(y => db.escape(y)).join(',');
+            qResume += ` AND YEAR(ds.periode) IN (${escapedYears})`;
         }
 
-        let havingResumeConditions = [];
-        if (montantMin !== null) {
-            havingResumeConditions.push(`SUM(ds.m2_facture) >= ${db.escape(montantMin)}`);
-        }
-        if (montantMax !== null) {
-            havingResumeConditions.push(`SUM(ds.m2_facture) <= ${db.escape(montantMax)}`);
-        }
-        if (havingResumeConditions.length) {
-            qResume += ` HAVING ${havingResumeConditions.join(' AND ')}`;
+        // Ajout du HAVING dans la requête de résumé
+        if (havingConditions.length) {
+            qResume += ` HAVING ${havingConditions.join(' AND ')}`;
         }
 
         db.query(qResume, (error, datas) => {
@@ -2188,11 +2196,12 @@ exports.getRapportFacture = (req, res) => {
             }
             return res.status(200).json({
                 data: data,
-                resume: datas[0] || {},
+                resume: datas[0] || {}, // Assurer un objet vide si aucun résultat
             });
         });
     });
 };
+
 
 
 exports.getFactureClient = (req, res) => {
