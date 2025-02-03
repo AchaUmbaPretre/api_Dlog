@@ -2614,12 +2614,18 @@ exports.getRapportEntreposage = (req, res) => {
                     SUM(COALESCE(ds.ttc_entreposage, 0)) AS TTC_montant
                 FROM declaration_super ds
                 INNER JOIN client ON ds.id_client = client.id_client
+                INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+                LEFT JOIN batiment ON tc.id_batiment = batiment.id_batiment
             `;  
 
                 // Ajout des filtres dynamiques
             if (client && Array.isArray(client) && client.length > 0) {
                 const escapedClients = client.map(c => db.escape(c)).join(',');
                 q += ` AND ds.id_client IN (${escapedClients})`;
+            }
+
+            if (status_batiment) {
+                q += ` AND batiment.statut_batiment = ${db.escape(status_batiment)}`;
             }
 
             if (months && Array.isArray(months) && months.length > 0) {
