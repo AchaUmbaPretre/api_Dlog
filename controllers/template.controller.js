@@ -1907,85 +1907,19 @@ exports.getContratTypeContrat = (req, res) => {
 };
 
 //Rapport m2 facture
+
 /* exports.getRapportFacture = (req, res) => {
-    const { client, dateRange } = req.body;
-
-    console.log(req.body)
-
-    const months = dateRange?.months || [];
-    const year = dateRange?.year;
-    let q = `
-        SELECT 
-            client.nom AS Client,
-            MONTH(ds.periode) AS Mois,
-            YEAR(ds.periode) AS Année,
-            SUM(ds.m2_facture) AS Montant
-        FROM 
-            declaration_super AS ds
-            LEFT JOIN provinces p ON p.id = ds.id_ville
-            LEFT JOIN client ON ds.id_client = client.id_client
-            LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
-            LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
-            LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
-            INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
-        WHERE 
-            tc.status_template = 1 
-            AND ds.est_supprime = 0
-    `;
-
-    // Ajout des filtres dynamiques
-    if (client && Array.isArray(client) && client.length > 0) {
-        const escapedClients = client.map(c => db.escape(c)).join(',');
-        q += ` AND ds.id_client IN (${escapedClients})`;
-    }
-
-    if (months && Array.isArray(months) && months.length > 0) {
-        const escapedMonths = months.map(month => db.escape(month)).join(',');
-        q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
-    }
-
-    if (year) {
-        const escapedYear = db.escape(year);
-        q += ` AND YEAR(ds.periode) = ${escapedYear}`;
-    }
-
-    q += `
-        GROUP BY 
-            client.nom, MONTH(ds.periode), YEAR(ds.periode)
-        ORDER BY 
-            YEAR(ds.periode) DESC, MONTH(ds.periode) DESC
-    `;
-
-    // Exécuter la requête
-    db.query(q, (error, data) => {
-        if (error) {
-            console.error('Erreur SQL:', error.message);
-            return res.status(500).json({
-                error: 'Une erreur est survenue lors de la récupération des données.',
-                details: error.message,
-            });
-        }
-        if (data.length === 0) {
-            return res.status(404).json({ message: 'Aucune donnée trouvée pour les critères sélectionnés.' });
-        }
-        return res.status(200).json(data);
-    });
-}; */
-
-exports.getRapportFacture = (req, res) => {
     const { client, montant, period, status_batiment } = req.body;
 
     let months = [];
-    let years = [];  // Rename to 'years' to reflect the plural nature of the data
+    let year;
 
-    // Extract months if provided
-    if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
-        months = period.mois.map(Number);
-    }
-
-    // Extract years if provided
-    if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
-        years = period.annees.map(Number);  // Assuming multiple years can be provided
+    if (typeof period === 'string' && period.includes('-')) {
+        const [yr, mo] = period.split('-').map(Number);
+        year = yr;
+        months = [mo];
+    } else if (typeof period === 'number') {
+        year = period;
     }
 
     const montantMin = montant?.min || null;
@@ -2026,10 +1960,9 @@ exports.getRapportFacture = (req, res) => {
         q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
     }
 
-    if (years) {
-        const escapedYear = db.escape(years);
-        q += ` AND YEAR(ds.periode) IN (${escapedYear})`;
-
+    if (year) {
+        const escapedYear = db.escape(year);
+        q += ` AND YEAR(ds.periode) = ${escapedYear}`;
     }
 
     q += `
@@ -2098,9 +2031,9 @@ exports.getRapportFacture = (req, res) => {
                         qResume += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
                     }
                 
-                    if (years) {
-                        const escapedYear = db.escape(years);
-                        qResume += ` AND YEAR(ds.periode) IN (${escapedYear})`;
+                    if (year) {
+                        const escapedYear = db.escape(year);
+                        qResume += ` AND YEAR(ds.periode) = ${escapedYear}`;
                     }
 
                     if (montantMin !== null) {
@@ -2123,7 +2056,144 @@ exports.getRapportFacture = (req, res) => {
 
                 })                
     });
+}; */
+
+exports.getRapportFacture = (req, res) => {
+    const { client, montant, period, status_batiment } = req.body;
+
+    let months = [];
+    let years = [];
+
+    if (period?.mois?.length) {
+        months = period.mois.map(Number);
+    }
+
+    if (period?.annees?.length) {
+        years = period.annees.map(Number);
+    }
+
+    const montantMin = montant?.min || null;
+    const montantMax = montant?.max || null;
+
+    let q = `
+        SELECT 
+            client.nom AS Client,
+            MONTH(ds.periode) AS Mois,
+            YEAR(ds.periode) AS Annee,
+            SUM(ds.m2_facture) AS Montant
+        FROM 
+            declaration_super ds
+            LEFT JOIN provinces p ON p.id = ds.id_ville
+            LEFT JOIN client ON ds.id_client = client.id_client
+            LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+            LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+            INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+            LEFT JOIN batiment ON tc.id_batiment = batiment.id_batiment
+        WHERE 
+            tc.status_template = 1 
+            AND ds.est_supprime = 0
+    `;
+
+    if (client?.length) {
+        q += ` AND ds.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
+    }
+
+    if (status_batiment) {
+        q += ` AND batiment.statut_batiment = ${db.escape(status_batiment)}`;
+    }
+
+    if (months.length) {
+        q += ` AND MONTH(ds.periode) IN (${months.map(m => db.escape(m)).join(',')})`;
+    }
+
+    if (years.length) {
+        q += ` AND YEAR(ds.periode) IN (${years.map(y => db.escape(y)).join(',')})`;
+    }
+
+    q += ` GROUP BY client.nom, MONTH(ds.periode), YEAR(ds.periode)`;
+
+    // Ajout du filtre HAVING pour le montant total
+    let havingConditions = [];
+    if (montantMin !== null) {
+        havingConditions.push(`SUM(ds.m2_facture) >= ${db.escape(montantMin)}`);
+    }
+    if (montantMax !== null) {
+        havingConditions.push(`SUM(ds.m2_facture) <= ${db.escape(montantMax)}`);
+    }
+    if (havingConditions.length) {
+        q += ` HAVING ${havingConditions.join(' AND ')}`;
+    }
+
+    q += ` ORDER BY YEAR(ds.periode) DESC, MONTH(ds.periode) DESC`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            console.error('Erreur SQL:', error.message);
+            return res.status(500).json({
+                error: 'Une erreur est survenue lors de la récupération des données.',
+                details: error.message,
+            });
+        }
+        if (!data.length) {
+            return res.status(404).json({ message: 'Aucune donnée trouvée pour les critères sélectionnés.' });
+        }
+
+        let qResume = `
+            SELECT 
+                COUNT(DISTINCT ds.id_client) AS Nbre_de_clients,
+                COUNT(DISTINCT ds.id_ville) AS Nbre_de_villes,
+                SUM(ds.m2_facture) AS Total_M2_facture,
+                SUM(CASE WHEN sb.nom_status_batiment = 'Non couvert' THEN ds.m2_facture ELSE 0 END) AS Total_M2_facture_Extérieur,
+                SUM(CASE WHEN sb.nom_status_batiment = 'Couvert' THEN ds.m2_facture ELSE 0 END) AS Total_M2_facture_Intérieur
+            FROM 
+                declaration_super ds
+                INNER JOIN template_occupation tco ON ds.id_template = tco.id_template
+                INNER JOIN batiment b ON tco.id_batiment = b.id_batiment
+                INNER JOIN status_batiment sb ON b.statut_batiment = sb.id_status_batiment
+            WHERE 
+                tco.status_template = 1 
+                AND ds.est_supprime = 0
+        `;
+
+        if (client?.length) {
+            qResume += ` AND ds.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
+        }
+
+        if (status_batiment) {
+            qResume += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+        }
+
+        if (months.length) {
+            qResume += ` AND MONTH(ds.periode) IN (${months.map(m => db.escape(m)).join(',')})`;
+        }
+
+        if (years.length) {
+            qResume += ` AND YEAR(ds.periode) IN (${years.map(y => db.escape(y)).join(',')})`;
+        }
+
+        let havingResumeConditions = [];
+        if (montantMin !== null) {
+            havingResumeConditions.push(`SUM(ds.m2_facture) >= ${db.escape(montantMin)}`);
+        }
+        if (montantMax !== null) {
+            havingResumeConditions.push(`SUM(ds.m2_facture) <= ${db.escape(montantMax)}`);
+        }
+        if (havingResumeConditions.length) {
+            qResume += ` HAVING ${havingResumeConditions.join(' AND ')}`;
+        }
+
+        db.query(qResume, (error, datas) => {
+            if (error) {
+                return res.status(500).json({ error: 'Erreur SQL (agrégats)', details: error.message });
+            }
+            return res.status(200).json({
+                data: data,
+                resume: datas[0] || {},
+            });
+        });
+    });
 };
+
 
 exports.getFactureClient = (req, res) => {
 
