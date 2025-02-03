@@ -1976,14 +1976,16 @@ exports.getRapportFacture = (req, res) => {
     const { client, montant, period, status_batiment } = req.body;
 
     let months = [];
-    let year;
+    let years = [];  // Rename to 'years' to reflect the plural nature of the data
 
-    if (typeof period === 'string' && period.includes('-')) {
-        const [yr, mo] = period.split('-').map(Number);
-        year = yr;
-        months = [mo];
-    } else if (typeof period === 'number') {
-        year = period;
+    // Extract months if provided
+    if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
+        months = period.mois.map(Number);
+    }
+
+    // Extract years if provided
+    if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
+        years = period.annees.map(Number);  // Assuming multiple years can be provided
     }
 
     const montantMin = montant?.min || null;
@@ -2024,9 +2026,10 @@ exports.getRapportFacture = (req, res) => {
         q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
     }
 
-    if (year) {
-        const escapedYear = db.escape(year);
-        q += ` AND YEAR(ds.periode) = ${escapedYear}`;
+    if (years) {
+        const escapedYear = db.escape(years);
+        q += ` AND YEAR(ds.periode) IN (${escapedYear})`;
+
     }
 
     q += `
@@ -2095,9 +2098,9 @@ exports.getRapportFacture = (req, res) => {
                         qResume += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
                     }
                 
-                    if (year) {
-                        const escapedYear = db.escape(year);
-                        qResume += ` AND YEAR(ds.periode) = ${escapedYear}`;
+                    if (years) {
+                        const escapedYear = db.escape(years);
+                        qResume += ` AND YEAR(ds.periode) IN (${escapedYear})`;
                     }
 
                     if (montantMin !== null) {
@@ -2325,19 +2328,21 @@ exports.getRapportFactureExternEtInterne = (req, res) => {
 };
 
 //Rapport ville
-exports.getRapportVille = (req, res) => {
+/* exports.getRapportVille = (req, res) => {
     const { ville, period } = req.body;
+
+    console.log(req.body)
 
     
     let months = [];
-    let year;
+    let year = [];
 
-    if (typeof period === 'string' && period.includes('-')) {
-        const [yr, mo] = period.split('-').map(Number);
-        year = yr;
-        months = [mo];
-    } else if (typeof period === 'number') {
-        year = period;
+    if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
+        months = period.mois.map(Number);
+    }
+
+    if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
+        year = period.annees.map(Number);  // Assuming only one year in the array for simplicity
     }
 
     let q = `
@@ -2363,7 +2368,7 @@ exports.getRapportVille = (req, res) => {
         
             if (year) {
                 const escapedYear = db.escape(year);
-                q += ` AND YEAR(ds.periode) = ${escapedYear}`;
+                q += ` AND YEAR(ds.periode) IN ${escapedYear}`;
             }
             q += `
                     GROUP BY ds.periode, p.capital  -- Regroupement par période et par province (capital)
@@ -2376,7 +2381,69 @@ exports.getRapportVille = (req, res) => {
         }
         return res.status(200).json(data);
     });
+}; */
+
+exports.getRapportVille = (req, res) => {
+    const { ville, period } = req.body;
+
+    let months = [];
+    let years = [];  // Rename to 'years' to reflect the plural nature of the data
+
+    // Extract months if provided
+    if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
+        months = period.mois.map(Number);
+    }
+
+    // Extract years if provided
+    if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
+        years = period.annees.map(Number);  // Assuming multiple years can be provided
+    }
+
+    // Start building the query
+    let q = `
+        SELECT 
+            ds.periode,
+            p.capital,  -- Using the province name here
+            SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
+            SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
+            SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_facture
+        FROM declaration_super ds
+        INNER JOIN provinces p ON ds.id_ville = p.id
+    `;
+
+    // Filter by ville (cities) if provided
+    if (ville && Array.isArray(ville) && ville.length > 0) {
+        const escapedVilles = ville.map(c => db.escape(c)).join(',');
+        q += ` AND ds.id_ville IN (${escapedVilles})`;
+    }
+
+    // Filter by months if provided
+    if (months && months.length > 0) {
+        const escapedMonths = months.map(month => db.escape(month)).join(',');
+        q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+    }
+
+    // Filter by years if provided
+    if (years && years.length > 0) {
+        const escapedYears = years.map(year => db.escape(year)).join(',');
+        q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+    }
+
+    // Group by period and province
+    q += `
+        GROUP BY ds.periode, p.capital
+        ORDER BY ds.periode, p.capital
+    `;
+
+    // Execute the query
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
 };
+
 
 //Rapport Interieure et Exterieure
 exports.getRapportExterneEtInterne = (req, res) => {
