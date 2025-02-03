@@ -2326,10 +2326,19 @@ exports.getRapportFactureExternEtInterne = (req, res) => {
 
 //Rapport ville
 exports.getRapportVille = (req, res) => {
-    const { ville, dateRange } = req.body;
+    const { ville, period } = req.body;
 
-    const months = dateRange?.months || [];
-    const year = dateRange?.year;
+    
+    let months = [];
+    let year;
+
+    if (typeof period === 'string' && period.includes('-')) {
+        const [yr, mo] = period.split('-').map(Number);
+        year = yr;
+        months = [mo];
+    } else if (typeof period === 'number') {
+        year = period;
+    }
 
     let q = `
             SELECT 
@@ -2477,6 +2486,44 @@ exports.getRapportEntreposage = (req, res) => {
     db.query(q, (error, data) => {
         if (error) {
             return res.status(500).send(error)
+        }
+        return res.status(200).json(data);
+    });
+};
+
+
+//ANNEE ET MOIS
+exports.getMois = (req, res) => {
+
+    const q = `
+            SELECT 
+               MONTH(ds.periode) AS mois
+               FROM declaration_super ds
+           GROUP BY MONTH(ds.periode)
+           ORDER BY MONTH(ds.periode)
+        `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getAnnee = (req, res) => {
+
+    const q = `
+            SELECT 
+                YEAR(ds.periode) AS annee
+                FROM declaration_super ds
+            GROUP BY YEAR(ds.periode)
+            ORDER BY YEAR(ds.periode)
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
         }
         return res.status(200).json(data);
     });

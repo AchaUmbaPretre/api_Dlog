@@ -47,4 +47,7 @@ router.post('/rapport_externEtInterne', templateController.getRapportExterneEtIn
 router.get('/rapport_manutentation', templateController.getRapportManutention)
 router.post('/rapport_entreposage', templateController.getRapportEntreposage)
 
+router.get('/mois', templateController.getMois);
+router.get('/annee', templateController.getAnnee)
+
 module.exports = router;
