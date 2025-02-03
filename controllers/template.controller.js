@@ -2593,9 +2593,17 @@ exports.getRapportManutention = (req, res) => {
 
 //Rapport entreposage
 exports.getRapportEntreposage = (req, res) => {
-    const { client, dateRange } = req.body;
-    const months = dateRange?.months || [];
-    const year = dateRange?.year;
+    const { client, period } = req.body;
+    let months = [];
+    let years = []; 
+
+        // Extraction des mois et années
+        if (period?.mois?.length) {
+            months = period.mois.map(Number);
+        }
+        if (period?.annees?.length) {
+            years = period.annees.map(Number);
+        }
 
     let q = `
                 SELECT 
@@ -2619,9 +2627,9 @@ exports.getRapportEntreposage = (req, res) => {
                 q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
             }
 
-            if (year) {
-                const escapedYear = db.escape(year);
-                q += ` AND YEAR(ds.periode) = ${escapedYear}`;
+            if (years.length) {
+                const escapedYears = years.map(y => db.escape(y)).join(',');
+                q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
             }
 
             q += `
