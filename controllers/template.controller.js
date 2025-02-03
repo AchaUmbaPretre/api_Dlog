@@ -2593,7 +2593,7 @@ exports.getRapportManutention = (req, res) => {
 
 //Rapport entreposage
 exports.getRapportEntreposage = (req, res) => {
-    const { client, period } = req.body;
+    const { client, period, status_batiment } = req.body;
     let months = [];
     let years = []; 
 
@@ -2616,6 +2616,7 @@ exports.getRapportEntreposage = (req, res) => {
                 INNER JOIN client ON ds.id_client = client.id_client
                 INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
                 LEFT JOIN batiment ON tc.id_batiment = batiment.id_batiment
+                WHERE ds.est_supprime = 0
             `;  
 
                 // Ajout des filtres dynamiques
