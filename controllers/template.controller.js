@@ -2716,6 +2716,17 @@ exports.getRapportPays = (req, res) => {
                 qResume += ` AND ds.id_ville IN (${escapedVilles})`;
             }
 
+            if (months && Array.isArray(months) && months.length > 0) {
+                const escapedMonths = months.map(month => db.escape(month)).join(',');
+                qResume += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+            }
+        
+                // Filter by years if provided
+                if (years && years.length > 0) {
+                    const escapedYears = years.map(year => db.escape(year)).join(',');
+                    qResume += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+                }
+
             db.query(qResume, (error, datas) => {
                 if (error) {
                     return res.status(500).json({ error: 'Erreur SQL (agrégats)', details: error.message });
