@@ -44,6 +44,7 @@ router.post('/rapport_facture_ville', templateController.getRapportFactureVille)
 router.post('/rapport_facture_externeEtInternet', templateController.getRapportFactureExternEtInterne)
 router.post('/rapport_ville', templateController.getRapportVille)
 router.post('/rapport_externEtInterne', templateController.getRapportExterneEtInterne)
+router.post('/rapport_pays', templateController.getRapportPays)
 router.post('/rapport_manutentation', templateController.getRapportManutention)
 router.post('/rapport_entreposage', templateController.getRapportEntreposage)
 
