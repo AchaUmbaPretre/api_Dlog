@@ -2581,12 +2581,10 @@ exports.getRapportExterneEtInterne = (req, res) => {
     let months = [];
     let years = [];
 
-    // Extract months if provided
     if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
         months = period.mois.map(Number);
     }
 
-    // Extract years if provided
     if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
         years = period.annees.map(Number);  // Assuming multiple years can be provided
     }
@@ -2605,9 +2603,9 @@ exports.getRapportExterneEtInterne = (req, res) => {
             `;  
 
             if (status_batiment) {
-                q += ` AND batiment.statut_batiment = ${db.escape(status_batiment)}`;
+                q += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
             }
-            
+
             if (months && Array.isArray(months) && months.length > 0) {
                 const escapedMonths = months.map(month => db.escape(month)).join(',');
                 q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
