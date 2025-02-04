@@ -2526,10 +2526,20 @@ exports.getRapportVille = (req, res) => {
 
 //Rapport Interieure et Exterieure
 exports.getRapportExterneEtInterne = (req, res) => {
-    const { dateRange } = req.body;
+    const { period } = req.body;
 
-    const months = dateRange?.months || [];
-    const year = dateRange?.year;
+    let months = [];
+    let years = [];  // Rename to 'years' to reflect the plural nature of the data
+
+    // Extract months if provided
+    if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
+        months = period.mois.map(Number);
+    }
+
+    // Extract years if provided
+    if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
+        years = period.annees.map(Number);  // Assuming multiple years can be provided
+    }
 
     let q = `
             SELECT 
@@ -2549,10 +2559,11 @@ exports.getRapportExterneEtInterne = (req, res) => {
                 q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
             }
         
-            if (year) {
-                const escapedYear = db.escape(year);
-                q += ` AND YEAR(ds.periode) = ${escapedYear}`;
-            }
+                // Filter by years if provided
+                if (years && years.length > 0) {
+                    const escapedYears = years.map(year => db.escape(year)).join(',');
+                    q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+                }
             q += `
                     GROUP BY ds.periode, sb.id_status_batiment
                     ORDER BY ds.periode, sb.id_status_batiment
@@ -2568,32 +2579,7 @@ exports.getRapportExterneEtInterne = (req, res) => {
 
 //Rapport manutention
 exports.getRapportManutention = (req, res) => {
-
-    const q = `
-                SELECT
-                    client.nom AS Client,
-                    MONTH(ds.periode) AS Mois,
-                    YEAR(ds.periode) AS Année,
-                    SUM(COALESCE(ds.total_manutation, 0)) AS Montant
-                FROM declaration_super ds
-                    INNER JOIN client ON ds.id_client = client.id_client
-                GROUP BY 
-                    ds.periode, client.id_client, client.nom
-                ORDER BY 
-                    ds.periode, client.id_client;
-            `;
-
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error)
-        }
-        return res.status(200).json(data);
-    });
-};
-
-//Rapport entreposage
-exports.getRapportEntreposage = (req, res) => {
-    const { client, period, status_batiment } = req.body;
+    const { client, montant, period, status_batiment } = req.body;
     let months = [];
     let years = []; 
 
@@ -2604,6 +2590,156 @@ exports.getRapportEntreposage = (req, res) => {
         if (period?.annees?.length) {
             years = period.annees.map(Number);
         }
+
+        const montantMin = montant?.min || null;
+        const montantMax = montant?.max || null;
+
+
+    let q = `
+                SELECT
+                    client.nom AS Client,
+                    MONTH(ds.periode) AS Mois,
+                    YEAR(ds.periode) AS Année,
+                    SUM(COALESCE(ds.total_manutation, 0)) AS Montant,
+                    SUM(COALESCE(ds.ttc_manutation, 0)) AS TTC_montant
+
+                FROM declaration_super ds
+                    INNER JOIN client ON ds.id_client = client.id_client
+                    INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+                    LEFT JOIN batiment ON tc.id_batiment = batiment.id_batiment
+                WHERE ds.est_supprime = 0
+            `;
+
+                            // Ajout des filtres dynamiques
+            if (client && Array.isArray(client) && client.length > 0) {
+                const escapedClients = client.map(c => db.escape(c)).join(',');
+                q += ` AND ds.id_client IN (${escapedClients})`;
+            }
+
+            if (status_batiment) {
+                q += ` AND batiment.statut_batiment = ${db.escape(status_batiment)}`;
+            }
+
+            if (months && Array.isArray(months) && months.length > 0) {
+                const escapedMonths = months.map(month => db.escape(month)).join(',');
+                q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+            }
+
+            if (years.length) {
+                const escapedYears = years.map(y => db.escape(y)).join(',');
+                q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+            }
+
+            q += `
+            GROUP BY 
+                client.nom, MONTH(ds.periode), YEAR(ds.periode)
+            `;
+
+            // Gestion de HAVING pour montant
+            const havingConditions = [];
+            if (montantMin !== null) {
+                havingConditions.push(`SUM(ds.total_manutation) >= ${db.escape(montantMin)}`);
+            }
+            if (montantMax !== null) {
+                havingConditions.push(`SUM(ds.total_manutation) <= ${db.escape(montantMax)}`);
+            }
+            if (havingConditions.length) {
+                q += ` HAVING ${havingConditions.join(' AND ')}`;
+            }
+
+            q += `
+            ORDER BY MONTH(ds.periode), YEAR(ds.periode) DESC
+            `;
+
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error)
+        }
+
+        if (data.length === 0) {
+            return res.status(404).json({ message: 'Aucune donnée trouvée pour les critères sélectionnés.' });
+        }
+
+        let qResume = `
+        SELECT 
+            COUNT(DISTINCT ds.id_client) AS Nbre_de_clients,
+            COUNT(DISTINCT ds.id_ville) AS Nbre_de_villes,
+            SUM(ds.total_manutation) AS Total,
+            SUM(ds.ttc_manutation) AS Total_ttc,
+            SUM(CASE WHEN sb.nom_status_batiment = 'Non couvert' THEN ds.total_manutation ELSE 0 END) AS Total_Extérieur,
+            SUM(CASE WHEN sb.nom_status_batiment = 'Couvert' THEN ds.total_manutation ELSE 0 END) AS Total_Intérieur
+            
+        FROM 
+            declaration_super AS ds
+            INNER JOIN template_occupation tco ON ds.id_template = tco.id_template
+            INNER JOIN batiment b ON tco.id_batiment = b.id_batiment
+            INNER JOIN status_batiment sb ON b.statut_batiment = sb.id_status_batiment
+        WHERE 
+            tco.status_template = 1 
+            AND ds.est_supprime = 0
+    `;
+
+    if (client?.length) {
+        const escapedClients = client.map(c => db.escape(c)).join(',');
+        qResume += ` AND ds.id_client IN (${escapedClients})`;
+    }
+
+    if (status_batiment) {
+        qResume += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+    }
+
+    if (months.length) {
+        const escapedMonths = months.map(month => db.escape(month)).join(',');
+        qResume += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+    }
+
+    if (years.length) {
+        const escapedYears = years.map(y => db.escape(y)).join(',');
+        qResume += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+    }
+
+     // Gestion de HAVING pour montant
+     const havingConditions = [];
+     if (montantMin !== null) {
+         havingConditions.push(`SUM(ds.total_manutation) >= ${db.escape(montantMin)}`);
+     }
+     if (montantMax !== null) {
+         havingConditions.push(`SUM(ds.total_manutation) <= ${db.escape(montantMax)}`);
+     }
+     if (havingConditions.length) {
+         q += ` HAVING ${havingConditions.join(' AND ')}`;
+     }
+
+    db.query(qResume, (error, datas) => {
+        if (error) {
+            return res.status(500).json({ error: 'Erreur SQL (agrégats)', details: error.message });
+        }
+        return res.status(200).json({
+            data: data,
+            resume: datas[0] || {},
+        });
+    });
+
+    });
+};
+
+//Rapport entreposage
+exports.getRapportEntreposage = (req, res) => {
+    const { client, montant, period, status_batiment } = req.body;
+    let months = [];
+    let years = []; 
+
+        // Extraction des mois et années
+        if (period?.mois?.length) {
+            months = period.mois.map(Number);
+        }
+        if (period?.annees?.length) {
+            years = period.annees.map(Number);
+        }
+
+        const montantMin = montant?.min || null;
+        const montantMax = montant?.max || null;
 
     let q = `
                 SELECT 
@@ -2640,37 +2776,108 @@ exports.getRapportEntreposage = (req, res) => {
             }
 
             q += `
-                GROUP BY ds.periode, client.id_client, client.nom
-                ORDER BY MONTH(ds.periode), YEAR(ds.periode), client.id_client
+            GROUP BY 
+                client.nom, MONTH(ds.periode), YEAR(ds.periode)
+            `;
+
+            // Gestion de HAVING pour montant
+            const havingConditions = [];
+            if (montantMin !== null) {
+                havingConditions.push(`SUM(ds.total_entreposage) >= ${db.escape(montantMin)}`);
+            }
+            if (montantMax !== null) {
+                havingConditions.push(`SUM(ds.total_entreposage) <= ${db.escape(montantMax)}`);
+            }
+            if (havingConditions.length) {
+                q += ` HAVING ${havingConditions.join(' AND ')}`;
+            }
+
+            q += `
+                ORDER BY MONTH(ds.periode), YEAR(ds.periode) DESC
                 `;
 
     db.query(q, (error, data) => {
         if (error) {
             return res.status(500).send(error)
         }
-        return res.status(200).json(data);
+
+        if (data.length === 0) {
+            return res.status(404).json({ message: 'Aucune donnée trouvée pour les critères sélectionnés.' });
+        }
+
+        let qResume = `
+        SELECT 
+            COUNT(DISTINCT ds.id_client) AS Nbre_de_clients,
+            COUNT(DISTINCT ds.id_ville) AS Nbre_de_villes,
+            SUM(ds.total_entreposage) AS Total,
+            SUM(ds.ttc_entreposage) AS Total_ttc,
+            SUM(CASE WHEN sb.nom_status_batiment = 'Non couvert' THEN ds.total_entreposage ELSE 0 END) AS Total_Extérieur,
+            SUM(CASE WHEN sb.nom_status_batiment = 'Couvert' THEN ds.total_entreposage ELSE 0 END) AS Total_Intérieur
+            
+        FROM 
+            declaration_super AS ds
+            INNER JOIN template_occupation tco ON ds.id_template = tco.id_template
+            INNER JOIN batiment b ON tco.id_batiment = b.id_batiment
+            INNER JOIN status_batiment sb ON b.statut_batiment = sb.id_status_batiment
+        WHERE 
+            tco.status_template = 1 
+            AND ds.est_supprime = 0
+    `;
+
+    if (client?.length) {
+        const escapedClients = client.map(c => db.escape(c)).join(',');
+        qResume += ` AND ds.id_client IN (${escapedClients})`;
+    }
+
+    if (status_batiment) {
+        qResume += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+    }
+
+    if (months.length) {
+        const escapedMonths = months.map(month => db.escape(month)).join(',');
+        qResume += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+    }
+
+    if (years.length) {
+        const escapedYears = years.map(y => db.escape(y)).join(',');
+        qResume += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+    }
+
+    db.query(qResume, (error, datas) => {
+        if (error) {
+            return res.status(500).json({ error: 'Erreur SQL (agrégats)', details: error.message });
+        }
+        return res.status(200).json({
+            data: data,
+            resume: datas[0] || {},
+        });
+    });
+
     });
 };
 
 
 //ANNEE ET MOIS
 exports.getMois = (req, res) => {
+    const { annee } = req.query; // Récupérer l'année depuis la requête
 
     const q = `
-            SELECT 
-               MONTH(ds.periode) AS mois
-               FROM declaration_super ds
-           GROUP BY MONTH(ds.periode)
-           ORDER BY MONTH(ds.periode)
-        `;
+        SELECT 
+            MONTH(ds.periode) AS mois
+        FROM declaration_super ds
+        WHERE YEAR(ds.periode) = ?
+        GROUP BY MONTH(ds.periode)
+        ORDER BY MONTH(ds.periode)
+    `;
 
-    db.query(q, (error, data) => {
+    db.query(q, [annee], (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
         return res.status(200).json(data);
     });
 };
+
 
 exports.getAnnee = (req, res) => {
 
