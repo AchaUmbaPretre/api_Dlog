@@ -2577,10 +2577,9 @@ exports.getRapportVille = (req, res) => {
 
 //Rapport Interieure et Exterieure
 exports.getRapportExterneEtInterne = (req, res) => {
-    const { period } = req.body;
-
+    const { client, montant, period, status_batiment } = req.body;
     let months = [];
-    let years = [];  // Rename to 'years' to reflect the plural nature of the data
+    let years = [];
 
     // Extract months if provided
     if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
@@ -2605,6 +2604,10 @@ exports.getRapportExterneEtInterne = (req, res) => {
                 INNER JOIN status_batiment sb ON b.statut_batiment = sb.id_status_batiment
             `;  
 
+            if (status_batiment) {
+                q += ` AND batiment.statut_batiment = ${db.escape(status_batiment)}`;
+            }
+            
             if (months && Array.isArray(months) && months.length > 0) {
                 const escapedMonths = months.map(month => db.escape(month)).join(',');
                 q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
