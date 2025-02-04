@@ -2489,7 +2489,7 @@ exports.getRapportVille = (req, res) => {
         FROM declaration_super ds
         INNER JOIN provinces p ON ds.id_ville = p.id
          WHERE 
-            AND ds.est_supprime = 0
+             ds.est_supprime = 0
     `;
 
     // Filter by ville (cities) if provided
