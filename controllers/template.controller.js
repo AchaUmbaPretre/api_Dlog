@@ -2482,7 +2482,7 @@ exports.getRapportVille = (req, res) => {
     let q = `
         SELECT 
             ds.periode,
-            p.capital,  -- Using the province name here
+            p.capital,
             SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
             SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
             SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_facture
