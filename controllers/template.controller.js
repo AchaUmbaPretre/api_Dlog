@@ -2617,8 +2617,8 @@ exports.getRapportExterneEtInterne = (req, res) => {
                     q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
                 }
             q += `
-                    GROUP BY ds.periode, sb.id_status_batiment
-                    ORDER BY ds.periode, sb.id_status_batiment
+                    GROUP BY MONTH(ds.periode), sb.id_status_batiment
+                    ORDER BY MONTH(ds.periode), sb.id_status_batiment
                 `
 
     db.query(q, (error, data) => {
