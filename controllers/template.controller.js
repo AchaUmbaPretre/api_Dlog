@@ -2942,7 +2942,7 @@ exports.getRapportManutention = (req, res) => {
 
 //Rapport entreposage
 exports.getRapportEntreposage = (req, res) => {
-    const { client, montant, period, status_batiment } = req.body;
+    const { ville, client, montant, period, status_batiment } = req.body;
     let months = [];
     let years = []; 
 
@@ -2970,6 +2970,11 @@ exports.getRapportEntreposage = (req, res) => {
                 LEFT JOIN batiment ON tc.id_batiment = batiment.id_batiment
                 WHERE ds.est_supprime = 0
             `;  
+
+            if (ville && Array.isArray(ville) && ville.length > 0) {
+                const escapedVilles = ville.map(c => db.escape(c)).join(',');
+                q += ` AND ds.id_ville IN (${escapedVilles})`;
+            }
 
                 // Ajout des filtres dynamiques
             if (client && Array.isArray(client) && client.length > 0) {
@@ -3038,25 +3043,29 @@ exports.getRapportEntreposage = (req, res) => {
                     tco.status_template = 1 
                     AND ds.est_supprime = 0
             `;
+        if (ville && Array.isArray(ville) && ville.length > 0) {
+            const escapedVilles = ville.map(c => db.escape(c)).join(',');
+            qResume += ` AND ds.id_ville IN (${escapedVilles})`;
+        }
 
-    if (client?.length) {
-        const escapedClients = client.map(c => db.escape(c)).join(',');
-        qResume += ` AND ds.id_client IN (${escapedClients})`;
-    }
+        if (client?.length) {
+            const escapedClients = client.map(c => db.escape(c)).join(',');
+            qResume += ` AND ds.id_client IN (${escapedClients})`;
+        }
 
-    if (status_batiment) {
-        qResume += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
-    }
+        if (status_batiment) {
+            qResume += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+        }
 
-    if (months.length) {
-        const escapedMonths = months.map(month => db.escape(month)).join(',');
-        qResume += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
-    }
+        if (months.length) {
+            const escapedMonths = months.map(month => db.escape(month)).join(',');
+            qResume += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+        }
 
-    if (years.length) {
-        const escapedYears = years.map(y => db.escape(y)).join(',');
-        qResume += ` AND YEAR(ds.periode) IN (${escapedYears})`;
-    }
+        if (years.length) {
+            const escapedYears = years.map(y => db.escape(y)).join(',');
+            qResume += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+        }
 
     db.query(qResume, (error, datas) => {
         if (error) {
