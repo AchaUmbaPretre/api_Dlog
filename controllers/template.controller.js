@@ -656,7 +656,7 @@ exports.deleteUpdateTemplate = (req, res) => {
       }
       return res.json(data);
     });
-  }
+}
 
 //Type d'occupation
 exports.getTypeOccupation = (req, res) => {
@@ -1041,7 +1041,6 @@ exports.getDeclaration = (req, res) => {
     });
 };
 
-
 /* exports.getDeclarationClientOneAll = (req, res) => { 
     const { ville, batiment, dateRange } = req.body;
     const { idClient } = req.query;
@@ -1155,7 +1154,6 @@ exports.getDeclarationClientOneAll = (req, res) => {
         return res.status(200).json(data);
     });
 };
-
 
 exports.getDeclaration5derniers = (req, res) => { 
     let q = `
@@ -1298,7 +1296,6 @@ exports.getDeclarationOneClient = (req, res) => {
         return res.status(200).json(results);
     });
 };
-
 
 /* exports.postDeclaration = async (req, res) => {
     
@@ -1806,7 +1803,6 @@ exports.putDeclaration = (req, res) => {
     }
 };
 
-
 exports.deleteUpdateDeclaration = (req, res) => {
     const {id} = req.query;
   
@@ -2257,7 +2253,6 @@ exports.getRapportSuperficie = (req, res) => {
     });
 };
 
-
 exports.getFactureClient = (req, res) => {
 
     const q = `SELECT c.nom FROM declaration_super ds
@@ -2633,7 +2628,6 @@ exports.getRapportVille = (req, res) => {
             });
     });
 };
-
 
 //Rapport Interieure et Exterieure
 exports.getRapportExterneEtInterne = (req, res) => {
@@ -3092,7 +3086,6 @@ exports.getRapportEntreposage = (req, res) => {
 
     });
 };
-
 
 //ANNEE ET MOIS
 exports.getMois = (req, res) => {
