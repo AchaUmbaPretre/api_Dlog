@@ -2202,6 +2202,60 @@ exports.getRapportFacture = (req, res) => {
     });
 };
 
+//Rapport superficie
+exports.getRapportSuperficie = (req, res) => {
+    const { client, montant, period, status_batiment } = req.body;
+    let months = [];
+    let years = [];
+
+    if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
+        months = period.mois.map(Number);
+    }
+
+    if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
+        years = period.annees.map(Number);
+    }
+
+    let q = `
+            SELECT 
+                b.nom_batiment,
+                ds.periode,
+                SUM(COALESCE(ds.m2_facture, 0)) AS total_facture,
+                SUM(COALESCE(ds.m2_occupe, 0)) AS total_occupe,
+                SUM(COALESCE(ds.m2_facture, 0)) - SUM(COALESCE(ds.m2_occupe, 0)) AS superficie
+            FROM declaration_super ds
+                INNER JOIN template_occupation tco ON ds.id_template = tco.id_template
+                INNER JOIN batiment b ON tco.id_batiment = b.id_batiment
+                INNER JOIN status_batiment sb ON b.statut_batiment = sb.id_status_batiment
+            WHERE ds.est_supprime = 0
+            `;  
+
+            if (status_batiment) {
+                q += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+            }
+
+            if (months && Array.isArray(months) && months.length > 0) {
+                const escapedMonths = months.map(month => db.escape(month)).join(',');
+                q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+            }
+        
+            // Filter by years if provided
+            if (years && years.length > 0) {
+                const escapedYears = years.map(year => db.escape(year)).join(',');
+                q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+            }
+            q += `
+                    GROUP BY ds.periode, b.id_batiment
+        	        ORDER BY ds.periode, b.id_batiment
+                `
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data);
+    });
+};
 
 
 exports.getFactureClient = (req, res) => {
@@ -3038,7 +3092,6 @@ exports.getMois = (req, res) => {
         return res.status(200).json(data);
     });
 };
-
 
 exports.getAnnee = (req, res) => {
 
