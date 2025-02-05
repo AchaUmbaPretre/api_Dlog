@@ -2273,17 +2273,17 @@ exports.getFactureClient = (req, res) => {
 };
 
 exports.getRapportFactureVille = (req, res) => {
-    const { client, montant, period, status_batiment } = req.body;
+    const { ville, client, montant, period, status_batiment } = req.body;
 
     let months = [];
-    let year;
+    let years = []; 
 
-    if (typeof period === 'string' && period.includes('-')) {
-        const [yr, mo] = period.split('-').map(Number);
-        year = yr;
-        months = [mo];
-    } else if (typeof period === 'number') {
-        year = period;
+    if (period?.mois?.length) {
+        months = period.mois.map(Number);
+    }
+
+    if (period?.annees?.length) {
+        years = period.annees.map(Number);
     }
 
     const montantMin = montant?.min || null;
@@ -2308,7 +2308,11 @@ exports.getRapportFactureVille = (req, res) => {
             AND ds.est_supprime = 0
     `;
 
-    // Ajout des filtres dynamiques
+    if (ville && Array.isArray(ville) && ville.length > 0) {
+        const escapedVilles = ville.map(c => db.escape(c)).join(',');
+        q += ` AND ds.id_ville IN (${escapedVilles})`;
+    }
+
     if (client && Array.isArray(client) && client.length > 0) {
         const escapedClients = client.map(c => db.escape(c)).join(',');
         q += ` AND ds.id_client IN (${escapedClients})`;
@@ -2323,9 +2327,9 @@ exports.getRapportFactureVille = (req, res) => {
         q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
     }
 
-    if (year) {
-        const escapedYear = db.escape(year);
-        q += ` AND YEAR(ds.periode) = ${escapedYear}`;
+    if (years.length) {
+        const escapedYears = years.map(y => db.escape(y)).join(',');
+        q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
     }
 
     q += `
@@ -2795,7 +2799,7 @@ exports.getRapportPays = (req, res) => {
 
 //Rapport manutention
 exports.getRapportManutention = (req, res) => {
-    const { client, montant, period, status_batiment } = req.body;
+    const { ville, client, montant, period, status_batiment } = req.body;
     let months = [];
     let years = []; 
 
@@ -2826,7 +2830,11 @@ exports.getRapportManutention = (req, res) => {
                 WHERE ds.est_supprime = 0
             `;
 
-                            // Ajout des filtres dynamiques
+            if (ville && Array.isArray(ville) && ville.length > 0) {
+                const escapedVilles = ville.map(c => db.escape(c)).join(',');
+                q += ` AND ds.id_ville IN (${escapedVilles})`;
+            }
+
             if (client && Array.isArray(client) && client.length > 0) {
                 const escapedClients = client.map(c => db.escape(c)).join(',');
                 q += ` AND ds.id_client IN (${escapedClients})`;
@@ -2895,6 +2903,11 @@ exports.getRapportManutention = (req, res) => {
             tco.status_template = 1 
             AND ds.est_supprime = 0
     `;
+
+    if (ville && Array.isArray(ville) && ville.length > 0) {
+        const escapedVilles = ville.map(c => db.escape(c)).join(',');
+        qResume += ` AND ds.id_ville IN (${escapedVilles})`;
+    }
 
     if (client?.length) {
         const escapedClients = client.map(c => db.escape(c)).join(',');
