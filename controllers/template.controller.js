@@ -2200,7 +2200,7 @@ exports.getRapportFacture = (req, res) => {
 
 //Rapport superficie
 exports.getRapportSuperficie = (req, res) => {
-    const { client, montant, period, status_batiment } = req.body;
+    const { client, montant, period, status_batiment, batiment } = req.body;
     let months = [];
     let years = [];
 
@@ -2228,6 +2228,11 @@ exports.getRapportSuperficie = (req, res) => {
 
             if (status_batiment) {
                 q += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+            }
+
+            if (batiment?.length > 0) {
+                const escapedBatiments = batiment.map(b => db.escape(b)).join(',');
+                q += ` AND tco.id_batiment IN (${escapedBatiments})`;
             }
 
             if (months && Array.isArray(months) && months.length > 0) {
