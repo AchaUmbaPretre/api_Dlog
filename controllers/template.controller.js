@@ -1103,6 +1103,8 @@ exports.getDeclarationClientOneAll = (req, res) => {
     const { ville, batiment, period } = req.body;
     const { idClient } = req.query;
 
+    console.log(req.body)
+
     let months = [];
     let years = [];
 
@@ -1311,15 +1313,6 @@ exports.getDeclarationOneClient = (req, res) => {
             YEAR(ds.periode) DESC, 
             MONTH(ds.periode) DESC
     `;
-
-    db.query(query, params, (error, results) => {
-        if (error) {
-            console.error("Erreur lors de l'exécution de la requête :", error);
-            return res.status(500).json({ message: "Une erreur est survenue lors de l'extraction des données.", error });
-        }
-
-        return res.status(200).json(results);
-    });
 };
 
 /* exports.postDeclaration = async (req, res) => {
