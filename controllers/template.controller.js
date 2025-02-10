@@ -1100,8 +1100,21 @@ exports.getDeclaration = (req, res) => {
 }; */
 
 exports.getDeclarationClientOneAll = (req, res) => { 
-    const { ville, batiment, dateRange } = req.body;
+    const { ville, batiment, period } = req.body;
     const { idClient } = req.query;
+
+    let months = [];
+    let years = [];
+
+        // Extract months if provided
+        if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
+            months = period.mois.map(Number);
+        }
+    
+        // Extract years if provided
+        if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
+            years = period.annees.map(Number);  // Assuming multiple years can be provided
+        }
 
     let q = `
         SELECT 
@@ -1137,10 +1150,22 @@ exports.getDeclarationClientOneAll = (req, res) => {
         q += ` AND dsb.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;
     }
 
-    // Filtrer par dateRange (mois multiples)
-    if (dateRange && Array.isArray(dateRange) && dateRange.length > 0) {
-        const escapedMonths = dateRange.map(month => db.escape(month)).join(',');
-        q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+    
+    if (months && Array.isArray(months) && months.length > 0) {
+        const escapedMonths = months.map(month => db.escape(month)).join(',');
+        q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;   
+    }
+
+    if (years && years.length > 0) {
+        const escapedYears = years.map(year => db.escape(year)).join(',');
+        q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+    }
+
+
+
+    if (years.length) {
+        const escapedYears = years.map(y => db.escape(y)).join(',');
+        q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
     }
 
     // Ajouter l'ordre de tri
@@ -1360,7 +1385,7 @@ exports.getDeclarationOneClient = (req, res) => {
         console.error("Erreur lors de l'ajout de la déclaration:", error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la déclaration." });
     }
-}; */
+}; 
 
 /* exports.postDeclaration = async (req, res) => {
     try {
