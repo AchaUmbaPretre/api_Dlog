@@ -1103,20 +1103,25 @@ exports.getDeclarationClientOneAll = (req, res) => {
     const { ville, batiment, period } = req.body;
     const { idClient } = req.query;
 
-    console.log(req.body)
-
     let months = [];
     let years = [];
 
-        // Extract months if provided
-        if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
+    // Vérifier si period est défini
+    if (period) {
+        // Vérifier si mois est un tableau ou une valeur unique
+        if (Array.isArray(period.mois)) {
             months = period.mois.map(Number);
+        } else if (typeof period.mois === 'number') {
+            months = [Number(period.mois)];
         }
-    
-        // Extract years if provided
-        if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
-            years = period.annees.map(Number);  // Assuming multiple years can be provided
+
+        // Vérifier si annees est un tableau ou une valeur unique
+        if (Array.isArray(period.annees)) {
+            years = period.annees.map(Number);
+        } else if (typeof period.annees === 'number') {
+            years = [Number(period.annees)];
         }
+    }
 
     let q = `
         SELECT 
@@ -1152,22 +1157,14 @@ exports.getDeclarationClientOneAll = (req, res) => {
         q += ` AND dsb.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;
     }
 
-    
-    if (months && Array.isArray(months) && months.length > 0) {
-        const escapedMonths = months.map(month => db.escape(month)).join(',');
-        q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;   
+    // Filtrer par mois
+    if (months.length > 0) {
+        q += ` AND MONTH(ds.periode) IN (${months.map(m => db.escape(m)).join(',')})`;
     }
 
-    if (years && years.length > 0) {
-        const escapedYears = years.map(year => db.escape(year)).join(',');
-        q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
-    }
-
-
-
-    if (years.length) {
-        const escapedYears = years.map(y => db.escape(y)).join(',');
-        q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+    // Filtrer par année
+    if (years.length > 0) {
+        q += ` AND YEAR(ds.periode) IN (${years.map(y => db.escape(y)).join(',')})`;
     }
 
     // Ajouter l'ordre de tri
@@ -1181,6 +1178,9 @@ exports.getDeclarationClientOneAll = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+
+
 
 exports.getDeclaration5derniers = (req, res) => { 
     let q = `
