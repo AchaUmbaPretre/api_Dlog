@@ -2055,7 +2055,7 @@ exports.getContratTypeContrat = (req, res) => {
 }; */
 
 exports.getRapportFacture = (req, res) => {
-    const { client, montant, period, status_batiment } = req.body;
+    const { ville, client, montant, period, status_batiment } = req.body;
 
     let months = [];
     let years = []; // Correction du nom
@@ -2090,7 +2090,11 @@ exports.getRapportFacture = (req, res) => {
             AND ds.est_supprime = 0
     `;
 
-    // Filtres dynamiques
+    if (ville && Array.isArray(ville) && ville.length > 0) {
+        const escapedVilles = ville.map(c => db.escape(c)).join(',');
+        q += ` AND ds.id_ville IN (${escapedVilles})`;
+    }
+
     if (client?.length) {
         const escapedClients = client.map(c => db.escape(c)).join(',');
         q += ` AND ds.id_client IN (${escapedClients})`;
@@ -2161,7 +2165,11 @@ exports.getRapportFacture = (req, res) => {
                 AND ds.est_supprime = 0
         `;
 
-        // Ajout des mêmes filtres dynamiques pour le résumé
+        if (ville && Array.isArray(ville) && ville.length > 0) {
+            const escapedVilles = ville.map(c => db.escape(c)).join(',');
+            qResume += ` AND ds.id_ville IN (${escapedVilles})`;
+        }
+
         if (client?.length) {
             const escapedClients = client.map(c => db.escape(c)).join(',');
             qResume += ` AND ds.id_client IN (${escapedClients})`;
