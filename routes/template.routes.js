@@ -51,6 +51,7 @@ router.post('/rapport_entreposage', templateController.getRapportEntreposage)
 router.post('/rapport_template', templateController.getRapportTemplate)
 router.post('/rapport_variation', templateController.getRapportVariation)
 router.post('/rapport_variation_ville', templateController.getRapportVariationVille)
+router.post('/rapport_variation_client', templateController.getRapportVariationClient)
 
 router.get('/mois', templateController.getMois);
 router.get('/annee', templateController.getAnnee)
