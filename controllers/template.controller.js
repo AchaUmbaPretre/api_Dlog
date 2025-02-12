@@ -3394,171 +3394,167 @@ exports.getRapportVariationVille = (req, res) => {
 };
 
 exports.getRapportVariationClient = (req, res) => {
-    const { period, status_batiment } = req.body;
-    let months = [];
-    let years = [];
+    try {
+        const { period, status_batiment, ville } = req.body;
+        let months = [];
+        let years = [];
 
-    if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
-        months = period.mois.map(Number);
-    }
-
-    if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
-        years = period.annees.map(Number);
-    }
-
-    let q = `
-        WITH MonthlyData AS (
-    -- Récupérer les données mensuelles par client
-    SELECT 
-        client.nom AS client_nom,
-        MONTH(ds.periode) AS Mois,
-        YEAR(ds.periode) AS Annee,
-        SUM(COALESCE(ds.m2_facture, 0)) AS total_facture,
-        SUM(COALESCE(ds.total_entreposage,0)) AS total_entrep,
-        SUM(COALESCE(ds.total_manutation, 0)) AS total_manu,
-        SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_superficie
-    FROM 
-        declaration_super AS ds
-        LEFT JOIN provinces p ON p.id = ds.id_ville
-        LEFT JOIN client ON ds.id_client = client.id_client
-        LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
-        LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
-        LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
-        INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
-    WHERE 
-        tc.status_template = 1 
-        AND ds.est_supprime = 0
-    GROUP BY 
-        client.nom, YEAR(ds.periode), MONTH(ds.periode)
-),
-TotalData AS (
-    SELECT 
-        client.nom AS client_nom,
-        NULL AS Mois,
-        NULL AS Annee,
-        SUM(COALESCE(ds.m2_facture, 0)) AS total_facture,
-        SUM(COALESCE(ds.total_entreposage, 0)) AS total_entrep,
-        SUM(COALESCE(ds.total_manutation, 0)) AS total_manu,
-        SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_superficie,
-        NULL AS prev_total_facture,
-        NULL AS prev_total_entrep,
-        NULL AS prev_total_manu,
-        NULL AS variation_facture,
-        NULL AS variation_entrep,
-        NULL AS variation_manu,
-        NULL AS variation_superficie
-    FROM 
-        declaration_super AS ds
-        LEFT JOIN provinces p ON p.id = ds.id_ville
-        LEFT JOIN client ON ds.id_client = client.id_client
-        LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
-        LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
-        LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
-        INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
-    WHERE 
-        tc.status_template = 1 
-        AND ds.est_supprime = 0
-    GROUP BY 
-        client.nom
-),
-VariationData AS (
-    -- Calcul de la variation en pourcentage
-    SELECT 
-        m1.client_nom,
-        m1.Mois,
-        m1.Annee,
-        m1.total_facture,
-        m1.total_entrep,
-        m1.total_manu,
-        m1.total_superficie,
-        m2.total_facture AS prev_total_facture,
-        m2.total_entrep AS prev_total_entrep,
-        m2.total_manu AS prev_total_manu,
-        m2.total_superficie AS prev_total_superficie,
-        CASE 
-            WHEN m2.total_facture > 0 THEN ROUND(((m1.total_facture - m2.total_facture) / m2.total_facture) * 100, 2) 
-            ELSE NULL 
-        END AS variation_facture,
-        CASE 
-            WHEN m2.total_entrep > 0 THEN ROUND(((m1.total_entrep - m2.total_entrep) / m2.total_entrep) * 100, 2) 
-            ELSE NULL 
-        END AS variation_entrep,
-        CASE 
-            WHEN m2.total_manu > 0 THEN ROUND(((m1.total_manu - m2.total_manu) / m2.total_manu) * 100, 2) 
-            ELSE NULL 
-        END AS variation_manu,
-        CASE 
-            WHEN m2.total_superficie > 0 THEN ROUND(((m1.total_superficie - m2.total_superficie) / m2.total_superficie) * 100, 2) 
-            ELSE NULL 
-        END AS variation_superficie
-    FROM 
-        MonthlyData m1
-    LEFT JOIN MonthlyData m2 
-        ON m1.client_nom = m2.client_nom 
-        AND m1.Annee = m2.Annee 
-        AND m1.Mois = m2.Mois + 1 -- Comparer avec le mois précédent
-)
--- UNION des deux résultats
-SELECT 
-    client_nom,
-    Mois,
-    Annee,
-    total_facture,
-    total_entrep,
-    total_manu,
-    total_superficie,
-    prev_total_facture,
-    prev_total_entrep,
-    prev_total_manu,
-    variation_facture,
-    variation_entrep,
-    variation_manu,
-    variation_superficie,
-    total_entrep + total_manu AS superficie_totale
-FROM TotalData
-UNION ALL
-SELECT 
-    client_nom,
-    Mois,
-    Annee,
-    total_facture,
-    total_entrep,
-    total_manu,
-    total_superficie,
-    prev_total_facture,
-    prev_total_entrep,
-    prev_total_manu,
-    variation_facture,
-    variation_entrep,
-    variation_manu,
-    variation_superficie,
-    total_entrep + total_manu AS superficie_totale
-FROM VariationData
-ORDER BY client_nom, Annee, Mois;
-
-    `;
-
-    if (status_batiment) {
-        q += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
-    }
-
-    if (months && Array.isArray(months) && months.length > 0) {
-        const escapedMonths = months.map(month => db.escape(month)).join(',');
-        q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
-    }
-
-    // Filter by years if provided
-    if (years && years.length > 0) {
-        const escapedYears = years.map(year => db.escape(year)).join(',');
-        q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
-    }
-
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
+        if (period?.mois?.length) {
+            months = period.mois.map(Number);
         }
-        return res.status(200).json(data);
-    });
+
+        if (period?.annees?.length) {
+            years = period.annees.map(Number);
+        }
+
+        let filters = [`tc.status_template = 1`, `ds.est_supprime = 0`];
+
+        if (ville) {
+            filters.push(`p.capital = ${db.escape(ville)}`);
+        }
+
+        if (status_batiment) {
+            filters.push(`batiment.statut_batiment = ${db.escape(status_batiment)}`);
+        }
+
+        if (months.length > 0) {
+            const escapedMonths = months.map(month => db.escape(month)).join(',');
+            filters.push(`MONTH(ds.periode) IN (${escapedMonths})`);
+        }
+
+        if (years.length > 0) {
+            const escapedYears = years.map(year => db.escape(year)).join(',');
+            filters.push(`YEAR(ds.periode) IN (${escapedYears})`);
+        }
+
+        let whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
+
+        let q = `
+            WITH MonthlyData AS (
+                SELECT 
+                    client.nom AS client_nom,
+                    MONTH(ds.periode) AS Mois,
+                    YEAR(ds.periode) AS Annee,
+                    SUM(COALESCE(ds.m2_facture, 0)) AS total_facture,
+                    SUM(COALESCE(ds.total_entreposage, 0)) AS total_entrep,
+                    SUM(COALESCE(ds.total_manutation, 0)) AS total_manu,
+                    SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_superficie
+                FROM 
+                    declaration_super AS ds
+                    LEFT JOIN provinces p ON p.id = ds.id_ville
+                    LEFT JOIN client ON ds.id_client = client.id_client
+                    LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+                    LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
+                    LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+                    INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+                ${whereClause}
+                GROUP BY client.nom, YEAR(ds.periode), MONTH(ds.periode)
+            ),
+            TotalData AS (
+                SELECT 
+                    client.nom AS client_nom,
+                    NULL AS Mois,
+                    NULL AS Annee,
+                    SUM(COALESCE(ds.m2_facture, 0)) AS total_facture,
+                    SUM(COALESCE(ds.total_entreposage, 0)) AS total_entrep,
+                    SUM(COALESCE(ds.total_manutation, 0)) AS total_manu,
+                    SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_superficie
+                FROM 
+                    declaration_super AS ds
+                    LEFT JOIN provinces p ON p.id = ds.id_ville
+                    LEFT JOIN client ON ds.id_client = client.id_client
+                    LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+                    LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
+                    LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+                    INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+                ${whereClause}
+                GROUP BY client.nom
+            ),
+            VariationData AS (
+                SELECT 
+                    m1.client_nom,
+                    m1.Mois,
+                    m1.Annee,
+                    m1.total_facture,
+                    m1.total_entrep,
+                    m1.total_manu,
+                    m1.total_superficie,
+                    m2.total_facture AS prev_total_facture,
+                    m2.total_entrep AS prev_total_entrep,
+                    m2.total_manu AS prev_total_manu,
+                    m2.total_superficie AS prev_total_superficie,
+                    CASE 
+                        WHEN m2.total_facture > 0 THEN ROUND(((m1.total_facture - m2.total_facture) / m2.total_facture) * 100, 2) 
+                        ELSE NULL 
+                    END AS variation_facture,
+                    CASE 
+                        WHEN m2.total_entrep > 0 THEN ROUND(((m1.total_entrep - m2.total_entrep) / m2.total_entrep) * 100, 2) 
+                        ELSE NULL 
+                    END AS variation_entrep,
+                    CASE 
+                        WHEN m2.total_manu > 0 THEN ROUND(((m1.total_manu - m2.total_manu) / m2.total_manu) * 100, 2) 
+                        ELSE NULL 
+                    END AS variation_manu,
+                    CASE 
+                        WHEN m2.total_superficie > 0 THEN ROUND(((m1.total_superficie - m2.total_superficie) / m2.total_superficie) * 100, 2) 
+                        ELSE NULL 
+                    END AS variation_superficie
+                FROM 
+                    MonthlyData m1
+                LEFT JOIN MonthlyData m2 
+                    ON m1.client_nom = m2.client_nom 
+                    AND m1.Annee = m2.Annee 
+                    AND m1.Mois = m2.Mois + 1
+            )
+            SELECT 
+                client_nom,
+                Mois,
+                Annee,
+                total_facture,
+                total_entrep,
+                total_manu,
+                total_superficie,
+                NULL AS prev_total_facture,
+                NULL AS prev_total_entrep,
+                NULL AS prev_total_manu,
+                NULL AS variation_facture,
+                NULL AS variation_entrep,
+                NULL AS variation_manu,
+                NULL AS variation_superficie,
+                total_entrep + total_manu AS superficie_totale
+            FROM TotalData
+            UNION ALL
+            SELECT 
+                client_nom,
+                Mois,
+                Annee,
+                total_facture,
+                total_entrep,
+                total_manu,
+                total_superficie,
+                prev_total_facture,
+                prev_total_entrep,
+                prev_total_manu,
+                variation_facture,
+                variation_entrep,
+                variation_manu,
+                variation_superficie,
+                total_entrep + total_manu AS superficie_totale
+            FROM VariationData
+            ORDER BY client_nom, Annee, Mois;
+        `;
+
+        db.query(q, (error, data) => {
+            if (error) {
+                console.error("SQL Error:", error);
+                return res.status(500).json({ message: "Erreur serveur", error });
+            }
+            return res.status(200).json(data);
+        });
+    } catch (err) {
+        console.error("Request Error:", err);
+        return res.status(500).json({ message: "Erreur serveur", error: err });
+    }
 };
 
 
