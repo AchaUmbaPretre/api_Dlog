@@ -3118,6 +3118,284 @@ exports.getRapportEntreposage = (req, res) => {
     });
 };
 
+//Rapport de template
+exports.getRapportTemplate = (req, res) => {
+    const { period, status_batiment } = req.body;
+    let months = [];
+    let years = [];
+
+    if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
+        months = period.mois.map(Number);
+    }
+
+    if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
+        years = period.annees.map(Number);
+    }
+
+    let q = `
+                SELECT 
+                    tc.desc_template,
+                    client.nom,
+                    MONTH(ds.periode) AS Mois,
+                    YEAR(ds.periode) AS Année,
+                    SUM(ds.m2_facture) AS total_facture,
+                    SUM(ds.total_entreposage) AS total_entreposage,
+                    SUM(ds.ttc_entreposage) AS ttc_entreposage,
+                    SUM(ds.total_manutation) AS total_manutation,
+                    SUM(ds.ttc_manutation) AS ttc_manutation
+                FROM 
+                    declaration_super AS ds
+                    LEFT JOIN provinces p ON p.id = ds.id_ville
+                    LEFT JOIN client ON ds.id_client = client.id_client
+                    LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+                    LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
+                    LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+                    INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+                WHERE tc.status_template = 1 AND ds.est_supprime = 0
+            `;  
+
+            if (status_batiment) {
+                q += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+            }
+
+            if (months && Array.isArray(months) && months.length > 0) {
+                const escapedMonths = months.map(month => db.escape(month)).join(',');
+                q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+            }
+        
+                // Filter by years if provided
+                if (years && years.length > 0) {
+                    const escapedYears = years.map(year => db.escape(year)).join(',');
+                    q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+                }
+            q += `
+                    GROUP BY 
+                    ds.id_template, MONTH(ds.periode), YEAR(ds.periode)
+                    ORDER BY MONTH(ds.periode)
+                `
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data);
+    });
+};
+
+//Rapport de variation
+exports.getRapportVariation = (req, res) => {
+    const { period, status_batiment } = req.body;
+    let months = [];
+    let years = [];
+
+    if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
+        months = period.mois.map(Number);
+    }
+
+    if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
+        years = period.annees.map(Number);
+    }
+
+    let q = `
+                SELECT 
+                    MONTH(ds.periode) AS Mois,
+                    YEAR(ds.periode) AS Année,
+                    SUM(COALESCE(ds.m2_facture, 0)) AS total_facture,
+                    SUM(COALESCE(ds.m2_occupe, 0)) AS total_occupe,
+                    SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_entreManu,
+                    SUM(COALESCE(ds.ttc_entreposage, 0) + COALESCE(ds.ttc_manutation, 0)) AS ttc_entreManu
+                FROM 
+                    declaration_super AS ds
+                    LEFT JOIN provinces p ON p.id = ds.id_ville
+                    LEFT JOIN client ON ds.id_client = client.id_client
+                    LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+                    LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
+                    LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+                    INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+                WHERE tc.status_template = 1 AND ds.est_supprime = 0
+            `;  
+
+            if (status_batiment) {
+                q += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+            }
+
+            if (months && Array.isArray(months) && months.length > 0) {
+                const escapedMonths = months.map(month => db.escape(month)).join(',');
+                q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+            }
+        
+                // Filter by years if provided
+                if (years && years.length > 0) {
+                    const escapedYears = years.map(year => db.escape(year)).join(',');
+                    q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+                }
+            q += `
+                    GROUP BY 
+                    MONTH(ds.periode), YEAR(ds.periode)
+                    ORDER BY MONTH(ds.periode)
+                `
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data);
+    });
+};
+
+//Rapport de variation ville
+/* exports.getRapportVariationVille = (req, res) => {
+    const { mois, annees } = req.body;
+    let months = [];
+    let years = [];
+
+    if (mois) {
+        if (Array.isArray(mois)) {
+            months = mois.map(Number);
+        } else {
+            months = [Number(mois)];
+        }
+    }
+
+    if (annees) {
+        if (Array.isArray(annees)) {
+            years = annees.map(Number);
+        } else {
+            years = [Number(annees)];
+        }
+    }
+
+    let q = `
+        WITH current_month AS (
+            SELECT 
+                ds.periode,
+                p.capital,
+                SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
+                SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
+                SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_facture
+            FROM declaration_super ds
+            INNER JOIN provinces p ON ds.id_ville = p.id
+            WHERE ds.est_supprime = 0
+                ${months.length > 0 ? `AND MONTH(ds.periode) IN (${months.join(',')})` : ''}
+                ${years.length > 0 ? `AND YEAR(ds.periode) IN (${years.join(',')})` : ''}
+            GROUP BY ds.periode, p.capital
+        ), 
+        previous_month AS (
+            SELECT 
+                ds.periode,
+                p.capital,
+                SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
+                SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
+                SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_facture
+            FROM declaration_super ds
+            INNER JOIN provinces p ON ds.id_ville = p.id
+            WHERE ds.est_supprime = 0
+                ${months.length > 0 ? `AND MONTH(ds.periode) IN (${months.map(m => (m === 1 ? 12 : m - 1)).join(',')})` : ''}
+                ${years.length > 0 ? `AND YEAR(ds.periode) IN (${years.map(y => (months.includes(1) ? y - 1 : y)).join(',')})` : ''}
+            GROUP BY ds.periode, p.capital
+        )
+        SELECT 
+            cm.periode AS periode_actuelle,
+            cm.capital,
+            cm.total_entreposage AS total_entreposage_actuel,
+            pm.total_entreposage AS total_entreposage_precedent,
+            cm.total_manutation AS total_manutation_actuel,
+            pm.total_manutation AS total_manutation_precedent,
+            cm.total_facture AS total_facture_actuel,
+            pm.total_facture AS total_facture_precedent,
+            CASE 
+                WHEN pm.total_facture IS NULL OR pm.total_facture = 0 THEN NULL
+                ELSE ((cm.total_facture - pm.total_facture) / pm.total_facture) * 100
+            END AS variation_pourcentage
+        FROM current_month cm
+        LEFT JOIN previous_month pm ON cm.capital = pm.capital
+        ORDER BY YEAR(cm.periode), MONTH(cm.periode), cm.capital
+    `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+}; */
+
+exports.getRapportVariationVille = (req, res) => {
+    const { mois, annees } = req.body;
+    let months = [];
+    let years = [];
+
+    if (mois) {
+        months = Array.isArray(mois) ? mois.map(Number) : [Number(mois)];
+    }
+
+    if (annees) {
+        years = Array.isArray(annees) ? annees.map(Number) : [Number(annees)];
+    }
+
+    let q = `
+        WITH current_month AS (
+            SELECT 
+                ds.periode,
+                p.capital,
+                SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
+                SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
+                SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_facture,
+                'actuel' AS type_periode
+            FROM declaration_super ds
+            INNER JOIN provinces p ON ds.id_ville = p.id
+            WHERE ds.est_supprime = 0
+                ${months.length > 0 ? `AND MONTH(ds.periode) IN (${months.join(',')})` : ''}
+                ${years.length > 0 ? `AND YEAR(ds.periode) IN (${years.join(',')})` : ''}
+            GROUP BY ds.periode, p.capital
+        ), 
+        previous_month AS (
+            SELECT 
+                ds.periode,
+                p.capital,
+                SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
+                SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
+                SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_facture,
+                'precedent' AS type_periode
+            FROM declaration_super ds
+            INNER JOIN provinces p ON ds.id_ville = p.id
+            WHERE ds.est_supprime = 0
+                ${months.length > 0 ? `AND MONTH(ds.periode) IN (${months.map(m => (m === 1 ? 12 : m - 1)).join(',')})` : ''}
+                ${years.length > 0 ? `AND YEAR(ds.periode) IN (${years.map(y => (months.includes(1) ? y - 1 : y)).join(',')})` : ''}
+            GROUP BY ds.periode, p.capital
+        )
+        SELECT 
+            cm.periode,
+            cm.capital,
+            cm.total_entreposage,
+            cm.total_manutation,
+            cm.total_facture,
+            cm.type_periode,
+            CASE 
+                WHEN cm.type_periode = 'precedent' THEN NULL
+                WHEN pm.total_facture IS NULL OR pm.total_facture = 0 THEN NULL
+                ELSE ((cm.total_facture - pm.total_facture) / pm.total_facture) * 100
+            END AS variation_pourcentage
+        FROM (
+            SELECT * FROM current_month
+            UNION ALL
+            SELECT * FROM previous_month
+        ) cm
+        LEFT JOIN previous_month pm ON cm.capital = pm.capital AND cm.type_periode = 'actuel'
+        ORDER BY YEAR(cm.periode), MONTH(cm.periode), cm.capital;
+    `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+
+
+
 //ANNEE ET MOIS
 exports.getMois = (req, res) => {
     const { annee } = req.query; // Récupérer l'année depuis la requête

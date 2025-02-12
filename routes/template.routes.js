@@ -48,6 +48,9 @@ router.post('/rapport_externEtInterne', templateController.getRapportExterneEtIn
 router.post('/rapport_pays', templateController.getRapportPays)
 router.post('/rapport_manutentation', templateController.getRapportManutention)
 router.post('/rapport_entreposage', templateController.getRapportEntreposage)
+router.post('/rapport_template', templateController.getRapportTemplate)
+router.post('/rapport_variation', templateController.getRapportVariation)
+router.post('/rapport_variation_ville', templateController.getRapportVariationVille)
 
 router.get('/mois', templateController.getMois);
 router.get('/annee', templateController.getAnnee)
