@@ -1914,6 +1914,11 @@ exports.getRapportVille = (req, res) => {
         q += ` AND ds.id_ville IN (${escapedVilles})`;
     }
 
+    if (client && Array.isArray(client) && client.length > 0) {
+        const escapedClient = client.map(c => db.escape(c)).join(',');
+        q += ` AND ds.id_client IN (${escapedClient})`;
+    }
+
     // Filter by months if provided
     if (months && months.length > 0) {
         const escapedMonths = months.map(month => db.escape(month)).join(',');
@@ -1925,6 +1930,7 @@ exports.getRapportVille = (req, res) => {
         const escapedYears = years.map(year => db.escape(year)).join(',');
         q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
     }
+
 
     // Group by period and province
     q += `
