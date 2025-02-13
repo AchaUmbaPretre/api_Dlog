@@ -2086,6 +2086,11 @@ exports.getRapportPays = (req, res) => {
                 q += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
             }
 
+            if (client && Array.isArray(client) && client.length > 0) {
+                const escapedClient = client.map(c => db.escape(c)).join(',');
+                q += ` AND ds.id_client IN (${escapedClient})`;
+            }
+
             if (months && Array.isArray(months) && months.length > 0) {
                 const escapedMonths = months.map(month => db.escape(month)).join(',');
                 q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
