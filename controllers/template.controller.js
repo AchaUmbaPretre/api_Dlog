@@ -3142,7 +3142,9 @@ exports.getRapportTemplate = (req, res) => {
                     SUM(ds.total_entreposage) AS total_entreposage,
                     SUM(ds.ttc_entreposage) AS ttc_entreposage,
                     SUM(ds.total_manutation) AS total_manutation,
-                    SUM(ds.ttc_manutation) AS ttc_manutation
+                    SUM(ds.ttc_manutation) AS ttc_manutation,
+                    SUM(ds.m2_occupe) AS total_occupe,
+                    SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_entreManu
                 FROM 
                     declaration_super AS ds
                     LEFT JOIN provinces p ON p.id = ds.id_ville
