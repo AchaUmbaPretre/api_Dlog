@@ -3154,12 +3154,17 @@ exports.getRapportTemplate = (req, res) => {
             `;  
 
             if (status_batiment) {
-                q += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+                q += ` AND batiment.statut_batiment = ${db.escape(status_batiment)}`;
+            }
+
+            if (client && Array.isArray(client) && client.length > 0) {
+                const escapedClient = client.map(c => db.escape(c)).join(',');
+                q += ` AND ds.id_client IN (${escapedClient})`;
             }
 
             if (template && Array.isArray(template) && template.length > 0) {
                 const escapedTemplate = template.map(t => db.escape(t)).join(',');
-                q += ` AND ds.id_template IN (${escapedTemplate})}`;
+                q += ` AND ds.id_template IN (${escapedTemplate})`;
             }
 
             if (months && Array.isArray(months) && months.length > 0) {
