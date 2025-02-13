@@ -2073,7 +2073,7 @@ exports.getRapportFacture = (req, res) => {
     const { ville, client, montant, period, status_batiment } = req.body;
 
     let months = [];
-    let years = []; // Correction du nom
+    let years = [];
 
     // Extraction des mois et années
     if (period?.mois?.length) {
