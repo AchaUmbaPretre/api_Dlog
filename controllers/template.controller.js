@@ -1671,6 +1671,68 @@ exports.getRapportSuperficie = (req, res) => {
     });
 };
 
+//Rapport complet
+exports.getRapportComplet = (req, res) => {
+    const { client, montant, period, status_batiment, batiment } = req.body;
+    let months = [];
+    let years = [];
+
+    if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
+        months = period.mois.map(Number);
+    }
+
+    if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
+        years = period.annees.map(Number);
+    }
+
+    let q = `
+                SELECT 
+                    client.nom AS client_nom,
+                    SUM(COALESCE(ds.m2_occupe, 0)) AS total_occupe,
+                    SUM(COALESCE(ds.m2_facture, 0)) AS total_facture,
+                    SUM(COALESCE(ds.total_entreposage, 0)) AS total_entrep,
+                    SUM(COALESCE(ds.total_manutation, 0)) AS total_manu,
+                    SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_superficie
+                FROM 
+                    declaration_super AS ds
+                    LEFT JOIN provinces p ON p.id = ds.id_ville
+                    LEFT JOIN client ON ds.id_client = client.id_client
+                    INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+                    LEFT JOIN batiment b ON tc.id_batiment = b.id_batiment
+                GROUP BY client.id_client
+            `;  
+
+            if (status_batiment) {
+                q += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+            }
+
+            if (batiment?.length > 0) {
+                const escapedBatiments = batiment.map(b => db.escape(b)).join(',');
+                q += ` AND tco.id_batiment IN (${escapedBatiments})`;
+            }
+
+            if (months && Array.isArray(months) && months.length > 0) {
+                const escapedMonths = months.map(month => db.escape(month)).join(',');
+                q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+            }
+        
+            // Filter by years if provided
+            if (years && years.length > 0) {
+                const escapedYears = years.map(year => db.escape(year)).join(',');
+                q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+            }
+            q += `
+                    GROUP BY client.id_client
+                `
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getFactureClient = (req, res) => {
 
     const q = `SELECT c.nom FROM declaration_super ds
@@ -1684,6 +1746,8 @@ exports.getFactureClient = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+
 
 exports.getRapportFactureVille = (req, res) => {
     const { ville, client, montant, period, status_batiment } = req.body;
