@@ -3557,11 +3557,6 @@ exports.getRapportVariationClient = (req, res) => {
     }
 };
 
-
-
-
-
-
 //ANNEE ET MOIS
 exports.getMois = (req, res) => {
     const { annee } = req.query; // Récupérer l'année depuis la requête
