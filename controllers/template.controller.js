@@ -3147,14 +3147,20 @@ exports.getRapportTemplate = (req, res) => {
                     LEFT JOIN provinces p ON p.id = ds.id_ville
                     LEFT JOIN client ON ds.id_client = client.id_client
                     LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
-                    LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
                     LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
                     INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+                    INNER JOIN batiment b ON tc.id_batiment = b.id_batiment
+
                 WHERE tc.status_template = 1 AND ds.est_supprime = 0
             `;  
 
             if (status_batiment) {
-                q += ` AND batiment.statut_batiment = ${db.escape(status_batiment)}`;
+                q += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+            }
+
+            if (batiment && Array.isArray(batiment) && batiment.length > 0) {
+                const escapedBatiment = batiment.map(b => db.escape(b)).join(',');
+                q += ` AND b.id_batiment IN (${escapedBatiment})`;
             }
 
             if (client && Array.isArray(client) && client.length > 0) {
@@ -3172,7 +3178,6 @@ exports.getRapportTemplate = (req, res) => {
                 q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
             }
         
-            // Filter by years if provided
             if (years && years.length > 0) {
                 const escapedYears = years.map(year => db.escape(year)).join(',');
                 q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
