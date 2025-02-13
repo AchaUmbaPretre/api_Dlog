@@ -1179,9 +1179,6 @@ exports.getDeclarationClientOneAll = (req, res) => {
     });
 };
 
-
-
-
 exports.getDeclaration5derniers = (req, res) => { 
     let q = `
                 SELECT 
@@ -3120,7 +3117,7 @@ exports.getRapportEntreposage = (req, res) => {
 
 //Rapport de template
 exports.getRapportTemplate = (req, res) => {
-    const { period, status_batiment } = req.body;
+    const { period, status_batiment, client, batiment, template } = req.body;
     let months = [];
     let years = [];
 
@@ -3160,16 +3157,22 @@ exports.getRapportTemplate = (req, res) => {
                 q += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
             }
 
+            if (template && Array.isArray(template) && template.length > 0) {
+                const escapedTemplate = template.map(t => db.escape(t)).join(',');
+                q += ` AND ds.id_template IN (${escapedTemplate})}`;
+            }
+
             if (months && Array.isArray(months) && months.length > 0) {
                 const escapedMonths = months.map(month => db.escape(month)).join(',');
                 q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
             }
         
-                // Filter by years if provided
-                if (years && years.length > 0) {
-                    const escapedYears = years.map(year => db.escape(year)).join(',');
-                    q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
-                }
+            // Filter by years if provided
+            if (years && years.length > 0) {
+                const escapedYears = years.map(year => db.escape(year)).join(',');
+                q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+            }
+
             q += `
                     GROUP BY 
                     ds.id_template, MONTH(ds.periode), YEAR(ds.periode)
