@@ -2219,8 +2219,7 @@ exports.getRapportExterneEtInterne = (req, res) => {
             data: data,
             resume: datas[0] || {},
         });
-    })
-        
+    })        
     });
 };
 
