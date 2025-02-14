@@ -2567,7 +2567,7 @@ exports.getRapportEntreposage = (req, res) => {
 
 //Rapport de template
 exports.getRapportTemplate = (req, res) => {
-    const { period, status_batiment, client, batiment, template } = req.body;
+    const { period, status_batiment, ville, client, batiment, template } = req.body;
     let months = [];
     let years = [];
 
@@ -2606,6 +2606,11 @@ exports.getRapportTemplate = (req, res) => {
 
             if (status_batiment) {
                 q += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+            }
+
+            if (ville && Array.isArray(ville) && ville.length > 0) {
+                const escapedVilles = ville.map(c => db.escape(c)).join(',');
+                q += ` AND ds.id_ville IN (${escapedVilles})`;
             }
 
             if (batiment && Array.isArray(batiment) && batiment.length > 0) {
