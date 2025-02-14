@@ -2162,8 +2162,10 @@ exports.getRapportExterneEtInterne = (req, res) => {
                     SUM(ds.total_manutation) AS Total_manut,
                     SUM(ds.ttc_entreposage) AS Total_ttc_entre,
                     SUM(ds.ttc_manutation) AS Total_ttc_manu,
-                    SUM(CASE WHEN sb.nom_status_batiment = 'Non couvert' THEN ds.total_entreposage ELSE 0 END) AS Total_Extérieur,
-                    SUM(CASE WHEN sb.nom_status_batiment = 'Couvert' THEN ds.total_entreposage ELSE 0 END) AS Total_Intérieur      
+                    SUM(CASE WHEN sb.nom_status_batiment = 'Non couvert' THEN ds.total_entreposage ELSE 0 END) AS Total_Extérieur_entre,
+                    SUM(CASE WHEN sb.nom_status_batiment = 'Couvert' THEN ds.total_entreposage ELSE 0 END) AS Total_Intérieur_entre,
+                    SUM(CASE WHEN sb.nom_status_batiment = 'Non couvert' THEN ds.total_manutation ELSE 0 END) AS Total_Extérieur_manu,
+                    SUM(CASE WHEN sb.nom_status_batiment = 'Couvert' THEN ds.total_manutation ELSE 0 END) AS Total_Intérieur_manu 
                 FROM 
                     declaration_super AS ds
                     INNER JOIN template_occupation tco ON ds.id_template = tco.id_template
