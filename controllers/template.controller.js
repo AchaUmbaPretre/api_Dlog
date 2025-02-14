@@ -1676,18 +1676,74 @@ exports.getRapportComplet = (req, res) => {
     const { client, montant, period, status_batiment, batiment } = req.body;
     let months = [];
     let years = [];
+    let conditions = [];
+
 
     if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
         months = period.mois.map(Number);
+        if (months.length > 0) {
+            conditions.push(`MONTH(ds.periode) IN (${months.join(', ')})`);
+        }
     }
 
     if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
         years = period.annees.map(Number);
+        if (years.length > 0) {
+            conditions.push(`YEAR(ds.periode) IN (${years.join(', ')})`);
+        }
     }
 
+    // Condition pour le statut du bâtiment
+    if (status_batiment) {
+        conditions.push(`b.statut_batiment = ${db.escape(status_batiment)}`);
+    }
+
+    // Condition pour les bâtiments (tableau)
+    if (batiment && batiment.length > 0) {
+        const escapedBatiments = batiment.map(b => db.escape(b)).join(',');
+        conditions.push(`tco.id_batiment IN (${escapedBatiments})`);
+    }
+
+    if (client && client.length > 0) {
+        const escapedClient = client.map(c => db.escape(c)).join(',');
+        conditions.push(`ds.id_client IN (${escapedClient})`);
+    }
+
+    // Construction de la requête SQL
     let q = `
+        SELECT 
+            client.nom AS nom_client,
+            SUM(COALESCE(ds.m2_occupe, 0)) AS total_occupe,
+            SUM(COALESCE(ds.m2_facture, 0)) AS total_facture,
+            SUM(COALESCE(ds.total_entreposage, 0)) AS total_entrep,
+            SUM(COALESCE(ds.total_manutation, 0)) AS total_manu,
+            SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_superficie
+        FROM 
+            declaration_super AS ds
+            LEFT JOIN provinces p ON p.id = ds.id_ville
+            LEFT JOIN client ON ds.id_client = client.id_client
+            INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+            LEFT JOIN batiment b ON tc.id_batiment = b.id_batiment
+        ${conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''}
+        GROUP BY client.id_client
+    `;
+
+    // Exécution de la requête
+    db.query(q, (error, data) => {
+        if (error) {
+            console.error('Erreur SQL:', error.message);
+            return res.status(500).json({
+                error: 'Une erreur est survenue lors de la récupération des données.',
+                details: error.message,
+            });
+        }
+        if (data.length === 0) {
+            return res.status(404).json({ message: 'Aucune donnée trouvée pour les critères sélectionnés.' });
+        }
+        
+        let qResume = `
                 SELECT 
-                    client.nom AS client_nom,
+                    COUNT(ds.id_client) AS nbre_client,
                     SUM(COALESCE(ds.m2_occupe, 0)) AS total_occupe,
                     SUM(COALESCE(ds.m2_facture, 0)) AS total_facture,
                     SUM(COALESCE(ds.total_entreposage, 0)) AS total_entrep,
@@ -1699,39 +1755,22 @@ exports.getRapportComplet = (req, res) => {
                     LEFT JOIN client ON ds.id_client = client.id_client
                     INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
                     LEFT JOIN batiment b ON tc.id_batiment = b.id_batiment
-                GROUP BY client.id_client
-            `;  
+                    ${conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''}
 
-            if (status_batiment) {
-                q += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
-            }
+        `;
 
-            if (batiment?.length > 0) {
-                const escapedBatiments = batiment.map(b => db.escape(b)).join(',');
-                q += ` AND tco.id_batiment IN (${escapedBatiments})`;
+        db.query(qResume, (error, datas) => {
+            if (error) {
+                return res.status(500).json({ error: 'Erreur SQL (agrégats)', details: error.message });
             }
-
-            if (months && Array.isArray(months) && months.length > 0) {
-                const escapedMonths = months.map(month => db.escape(month)).join(',');
-                q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
-            }
-        
-            // Filter by years if provided
-            if (years && years.length > 0) {
-                const escapedYears = years.map(year => db.escape(year)).join(',');
-                q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
-            }
-            q += `
-                    GROUP BY client.id_client
-                `
-
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error)
-        }
-        return res.status(200).json(data);
+            return res.status(200).json({
+                data: data,
+                resume: datas[0] || {}, // Assurer un objet vide si aucun résultat
+            });
+        })
     });
 };
+
 
 exports.getFactureClient = (req, res) => {
 
