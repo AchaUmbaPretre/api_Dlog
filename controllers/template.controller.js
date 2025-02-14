@@ -1706,7 +1706,7 @@ exports.getRapportComplet = (req, res) => {
     // Condition pour les bâtiments (tableau)
     if (batiment && batiment.length > 0) {
         const escapedBatiments = batiment.map(b => db.escape(b)).join(',');
-        conditions.push(`tco.id_batiment IN (${escapedBatiments})`);
+        conditions.push(`tc.id_batiment IN (${escapedBatiments})`);
     }
 
     if (client && client.length > 0) {
