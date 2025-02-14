@@ -2101,7 +2101,7 @@ exports.getRapportVille = (req, res) => {
 
 //Rapport Interieure et Exterieure
 exports.getRapportExterneEtInterne = (req, res) => {
-    const { client, montant, period, status_batiment } = req.body;
+    const { client, montant, ville, period, status_batiment } = req.body;
     let months = [];
     let years = [];
 
@@ -2149,7 +2149,65 @@ exports.getRapportExterneEtInterne = (req, res) => {
         if (error) {
             return res.status(500).send(error)
         }
-        return res.status(200).json(data);
+
+        if (data.length === 0) {
+            return res.status(404).json({ message: 'Aucune donnée trouvée pour les critères sélectionnés.' });
+        }
+
+        let qResume = `
+                SELECT 
+                    COUNT(DISTINCT ds.id_client) AS Nbre_de_clients,
+                    COUNT(DISTINCT ds.id_ville) AS Nbre_de_villes,
+                    SUM(ds.total_entreposage) AS Total_entrep,
+                    SUM(ds.total_manutation) AS Total_manut,
+                    SUM(ds.ttc_entreposage) AS Total_ttc_entre,
+                    SUM(ds.ttc_manutation) AS Total_ttc_manu,
+                    SUM(CASE WHEN sb.nom_status_batiment = 'Non couvert' THEN ds.total_entreposage ELSE 0 END) AS Total_Extérieur,
+                    SUM(CASE WHEN sb.nom_status_batiment = 'Couvert' THEN ds.total_entreposage ELSE 0 END) AS Total_Intérieur      
+                FROM 
+                    declaration_super AS ds
+                    INNER JOIN template_occupation tco ON ds.id_template = tco.id_template
+                    INNER JOIN batiment b ON tco.id_batiment = b.id_batiment
+                    INNER JOIN status_batiment sb ON b.statut_batiment = sb.id_status_batiment
+                WHERE 
+                    tco.status_template = 1 
+                    AND ds.est_supprime = 0
+        `;
+                
+        if (ville && Array.isArray(ville) && ville.length > 0) {
+            const escapedVilles = ville.map(c => db.escape(c)).join(',');
+            qResume += ` AND ds.id_ville IN (${escapedVilles})`;
+        }
+
+        if (client?.length) {
+            const escapedClients = client.map(c => db.escape(c)).join(',');
+            qResume += ` AND ds.id_client IN (${escapedClients})`;
+        }
+
+        if (status_batiment) {
+            qResume += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+        }
+
+        if (months.length) {
+            const escapedMonths = months.map(month => db.escape(month)).join(',');
+            qResume += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+        }
+
+        if (years.length) {
+            const escapedYears = years.map(y => db.escape(y)).join(',');
+            qResume += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+        }
+
+    db.query(qResume, (error, datas) => {
+        if (error) {
+            return res.status(500).json({ error: 'Erreur SQL (agrégats)', details: error.message });
+        }
+        return res.status(200).json({
+            data: data,
+            resume: datas[0] || {},
+        });
+    })
+        
     });
 };
 
