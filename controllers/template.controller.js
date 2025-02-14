@@ -1694,7 +1694,7 @@ exports.getRapportComplet = (req, res) => {
     }
 
     if(ville && ville.length > 0) {
-        const escapedVille = ville.map(v => db.escape(v)).join('');
+        const escapedVille = ville.map(v => db.escape(v)).join(', ');
         conditions.push(`ds.id_ville IN (${escapedVille})`);
     }
 
