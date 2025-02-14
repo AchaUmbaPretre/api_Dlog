@@ -2126,6 +2126,16 @@ exports.getRapportExterneEtInterne = (req, res) => {
                 INNER JOIN status_batiment sb ON b.statut_batiment = sb.id_status_batiment
             `;  
 
+            if (client?.length) {
+                const escapedClients = client.map(c => db.escape(c)).join(',');
+                qResume += ` AND ds.id_client IN (${escapedClients})`;
+            }
+
+            if (ville && Array.isArray(ville) && ville.length > 0) {
+                const escapedVilles = ville.map(c => db.escape(c)).join(',');
+                q += ` AND ds.id_ville IN (${escapedVilles})`;
+            }
+
             if (status_batiment) {
                 q += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
             }
@@ -2135,11 +2145,12 @@ exports.getRapportExterneEtInterne = (req, res) => {
                 q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
             }
         
-                // Filter by years if provided
-                if (years && years.length > 0) {
-                    const escapedYears = years.map(year => db.escape(year)).join(',');
+            // Filter by years if provided
+            if (years && years.length > 0) {
+                const escapedYears = years.map(year => db.escape(year)).join(',');
                     q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
-                }
+            }
+
             q += `
                     GROUP BY MONTH(ds.periode), sb.id_status_batiment
                     ORDER BY MONTH(ds.periode), sb.id_status_batiment
