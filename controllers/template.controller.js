@@ -1698,12 +1698,10 @@ exports.getRapportComplet = (req, res) => {
         conditions.push(`ds.id_ville IN (${escapedVille})`);
     }
 
-    // Condition pour le statut du bâtiment
     if (status_batiment) {
         conditions.push(`b.statut_batiment = ${db.escape(status_batiment)}`);
     }
 
-    // Condition pour les bâtiments (tableau)
     if (batiment && batiment.length > 0) {
         const escapedBatiments = batiment.map(b => db.escape(b)).join(',');
         conditions.push(`tc.id_batiment IN (${escapedBatiments})`);
@@ -1714,7 +1712,6 @@ exports.getRapportComplet = (req, res) => {
         conditions.push(`ds.id_client IN (${escapedClient})`);
     }
 
-    // Construction de la requête SQL
     let q = `
         SELECT 
             client.nom AS nom_client,
@@ -1770,7 +1767,7 @@ exports.getRapportComplet = (req, res) => {
             }
             return res.status(200).json({
                 data: data,
-                resume: datas[0] || {}, // Assurer un objet vide si aucun résultat
+                resume: datas[0] || {},
             });
         })
     });
