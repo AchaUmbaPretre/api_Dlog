@@ -2128,7 +2128,7 @@ exports.getRapportExterneEtInterne = (req, res) => {
 
             if (client?.length) {
                 const escapedClients = client.map(c => db.escape(c)).join(',');
-                qResume += ` AND ds.id_client IN (${escapedClients})`;
+                q += ` AND ds.id_client IN (${escapedClients})`;
             }
 
             if (ville && Array.isArray(ville) && ville.length > 0) {
