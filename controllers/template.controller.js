@@ -1673,7 +1673,7 @@ exports.getRapportSuperficie = (req, res) => {
 
 //Rapport complet
 exports.getRapportComplet = (req, res) => {
-    const { client, montant, period, status_batiment, batiment } = req.body;
+    const { client, montant, ville, period, status_batiment, batiment } = req.body;
     let months = [];
     let years = [];
     let conditions = [];
@@ -1691,6 +1691,11 @@ exports.getRapportComplet = (req, res) => {
         if (years.length > 0) {
             conditions.push(`YEAR(ds.periode) IN (${years.join(', ')})`);
         }
+    }
+
+    if(ville && ville.length > 0) {
+        const escapedVille = ville.map(v => db.escape(v)).join('');
+        conditions.push(`ds.id_ville IN (${escapedVille})`);
     }
 
     // Condition pour le statut du bâtiment
