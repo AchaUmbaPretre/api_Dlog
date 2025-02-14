@@ -1772,7 +1772,6 @@ exports.getRapportComplet = (req, res) => {
     });
 };
 
-
 exports.getFactureClient = (req, res) => {
 
     const q = `SELECT c.nom FROM declaration_super ds
@@ -1786,8 +1785,6 @@ exports.getFactureClient = (req, res) => {
         return res.status(200).json(data);
     });
 };
-
-
 
 exports.getRapportFactureVille = (req, res) => {
     const { ville, client, montant, period, status_batiment } = req.body;
