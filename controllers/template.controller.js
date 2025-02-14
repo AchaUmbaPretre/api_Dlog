@@ -2110,7 +2110,7 @@ exports.getRapportExterneEtInterne = (req, res) => {
     }
 
     if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
-        years = period.annees.map(Number);  // Assuming multiple years can be provided
+        years = period.annees.map(Number);
     }
 
     let q = `
