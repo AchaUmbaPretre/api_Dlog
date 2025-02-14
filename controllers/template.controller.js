@@ -1758,7 +1758,6 @@ exports.getRapportComplet = (req, res) => {
                     INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
                     LEFT JOIN batiment b ON tc.id_batiment = b.id_batiment
                     ${conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''}
-
         `;
 
         db.query(qResume, (error, datas) => {
