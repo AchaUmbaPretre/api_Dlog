@@ -2721,7 +2721,7 @@ exports.getRapportTemplate = (req, res) => {
 
 //Rapport de variation
 exports.getRapportVariation = (req, res) => {
-    const { period, status_batiment } = req.body;
+    const { period, status_batiment, ville, client } = req.body;
     let months = [];
     let years = [];
 
@@ -2746,14 +2746,25 @@ exports.getRapportVariation = (req, res) => {
                     LEFT JOIN provinces p ON p.id = ds.id_ville
                     LEFT JOIN client ON ds.id_client = client.id_client
                     LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
-                    LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
                     LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
                     INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+                    LEFT JOIN batiment ON tc.id_batiment = batiment.id_batiment
+
                 WHERE tc.status_template = 1 AND ds.est_supprime = 0
             `;  
 
+            if (ville && Array.isArray(ville) && ville.length > 0) {
+                const escapedVilles = ville.map(c => db.escape(c)).join(',');
+                q += ` AND ds.id_ville IN (${escapedVilles})`;
+            }
+            
+            if (client && Array.isArray(client) && client.length > 0) {
+                const escapedClients = client.map(c => db.escape(c)).join(',');
+                q += ` AND ds.id_client IN (${escapedClients})`;
+            }
+
             if (status_batiment) {
-                q += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+                q += ` AND batiment.statut_batiment = ${db.escape(status_batiment)}`;
             }
 
             if (months && Array.isArray(months) && months.length > 0) {
@@ -2762,10 +2773,10 @@ exports.getRapportVariation = (req, res) => {
             }
         
                 // Filter by years if provided
-                if (years && years.length > 0) {
-                    const escapedYears = years.map(year => db.escape(year)).join(',');
+            if (years && years.length > 0) {
+                const escapedYears = years.map(year => db.escape(year)).join(',');
                     q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
-                }
+            }
             q += `
                     GROUP BY 
                     MONTH(ds.periode), YEAR(ds.periode)
