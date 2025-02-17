@@ -16,7 +16,6 @@ router.put('/template_update', templateController.putTemplate)
 router.get('/type_occupation', templateController.getTypeOccupation)
 router.get('/objet_facture', templateController.getObjetFacture)
 
-
 //Déclaration superficie
 router.get('/declaration_ID', templateController.getDeclarationsId)
 router.get('/declaration_count', templateController.getDeclarationCount)
