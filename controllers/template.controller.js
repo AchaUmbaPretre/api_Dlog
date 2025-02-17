@@ -1919,7 +1919,6 @@ exports.getRapportFactureExternEtInterne = (req, res) => {
             AND ds.est_supprime = 0
     `;
 
-    // Ajout des filtres dynamiques
     if (client && Array.isArray(client) && client.length > 0) {
         const escapedClients = client.map(c => db.escape(c)).join(',');
         q += ` AND ds.id_client IN (${escapedClients})`;
