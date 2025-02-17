@@ -2970,6 +2970,7 @@ exports.getRapportTemplate = (req, res) => {
 
         let qResume = `
             SELECT 
+            	COUNT(DISTINCT ds.id_client) AS nbre_client,
                 SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
                 SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
                 SUM(COALESCE(ds.ttc_entreposage, 0)) AS ttc_entreposage,
