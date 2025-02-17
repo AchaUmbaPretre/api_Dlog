@@ -2145,7 +2145,6 @@ exports.getRapportExterneEtInterne = (req, res) => {
                 q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
             }
         
-            // Filter by years if provided
             if (years && years.length > 0) {
                 const escapedYears = years.map(year => db.escape(year)).join(',');
                     q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
@@ -2269,7 +2268,6 @@ exports.getRapportExterneEtInterneAnnee = (req, res) => {
                 q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
             }
         
-            // Filter by years if provided
             if (years && years.length > 0) {
                 const escapedYears = years.map(year => db.escape(year)).join(',');
                     q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
