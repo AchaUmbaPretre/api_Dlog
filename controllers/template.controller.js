@@ -2459,6 +2459,10 @@ exports.getRapportExterneEtInterneClient = (req, res) => {
             const escapedYears = years.map(y => db.escape(y)).join(',');
             qResume += ` AND YEAR(ds.periode) IN (${escapedYears})`;
         }
+            qResume += `
+                        GROUP BY c.id_client
+                        ORDER BY c.id_client
+                    `
 
     db.query(qResume, (error, datas) => {
         if (error) {
