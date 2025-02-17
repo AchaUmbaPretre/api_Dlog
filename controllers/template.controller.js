@@ -2964,7 +2964,50 @@ exports.getRapportTemplate = (req, res) => {
         if (error) {
             return res.status(500).send(error)
         }
-        return res.status(200).json(data);
+        if (data.length === 0) {
+            return res.status(404).json({ message: 'Aucune donnée trouvée pour les critères sélectionnés.' });
+        }
+
+        let qResume = `
+            SELECT 
+                COUNT(DISTINCT pays.id_pays) AS nbre_pays,
+                SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
+                SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
+                SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total
+            FROM declaration_super ds
+                INNER JOIN template_occupation tco ON ds.id_template = tco.id_template
+                INNER JOIN batiment b ON tco.id_batiment = b.id_batiment
+                INNER JOIN status_batiment sb ON b.statut_batiment = sb.id_status_batiment
+                INNER JOIN provinces p ON b.ville = p.id
+                INNER JOIN pays ON p.id_pays = pays.id_pays
+            WHERE 
+            ds.est_supprime = 0
+        `;
+
+        if (ville && Array.isArray(ville) && ville.length > 0) {
+            const escapedVilles = ville.map(c => db.escape(c)).join(',');
+            qResume += ` AND ds.id_ville IN (${escapedVilles})`;
+        }
+
+        if (months && Array.isArray(months) && months.length > 0) {
+            const escapedMonths = months.map(month => db.escape(month)).join(',');
+            qResume += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+        }
+    
+        if (years && years.length > 0) {
+            const escapedYears = years.map(year => db.escape(year)).join(',');
+            qResume += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+        }
+
+        db.query(qResume, (error, datas) => {
+            if (error) {
+                return res.status(500).json({ error: 'Erreur SQL (agrégats)', details: error.message });
+            }
+            return res.status(200).json({
+                data: data,
+                resume: datas[0] || {},
+            });
+        });
     });
 };
 
