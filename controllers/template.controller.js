@@ -2972,6 +2972,8 @@ exports.getRapportTemplate = (req, res) => {
             SELECT 
                 SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
                 SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
+                SUM(COALESCE(ds.ttc_entreposage, 0)) AS ttc_entreposage,
+                SUM(COALESCE(ds.ttc_manutation, 0)) AS ttc_manutention,
                 SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total,
                 SUM(COALESCE(ds.m2_facture, 0)) AS total_facture,
                 SUM(COALESCE(ds.m2_occupe, 0)) AS total_occupe
