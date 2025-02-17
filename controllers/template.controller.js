@@ -1889,14 +1889,15 @@ exports.getRapportFactureExternEtInterne = (req, res) => {
     const { client, montant, period, status_batiment } = req.body;
 
     let months = [];
-    let year;
+    let years = [];
 
-    if (typeof period === 'string' && period.includes('-')) {
-        const [yr, mo] = period.split('-').map(Number);
-        year = yr;
-        months = [mo];
-    } else if (typeof period === 'number') {
-        year = period;
+
+    if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
+        months = period.mois.map(Number);
+    }
+
+    if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
+        years = period.annees.map(Number);
     }
 
     const montantMin = montant?.min || null;
@@ -1933,9 +1934,9 @@ exports.getRapportFactureExternEtInterne = (req, res) => {
         q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
     }
 
-    if (year) {
-        const escapedYear = db.escape(year);
-        q += ` AND YEAR(ds.periode) = ${escapedYear}`;
+    if (years && years.length > 0) {
+        const escapedYears = years.map(year => db.escape(year)).join(',');
+        q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
     }
 
     q += `
