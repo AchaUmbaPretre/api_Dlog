@@ -3030,9 +3030,189 @@ exports.getRapportTemplate = (req, res) => {
             WHERE ds.est_supprime = 0
         `;
 
+        if (status_batiment) {
+            qResume += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+        }
+
         if (ville && Array.isArray(ville) && ville.length > 0) {
             const escapedVilles = ville.map(c => db.escape(c)).join(',');
             qResume += ` AND ds.id_ville IN (${escapedVilles})`;
+        }
+
+        if (batiment && Array.isArray(batiment) && batiment.length > 0) {
+            const escapedBatiment = batiment.map(b => db.escape(b)).join(',');
+            qResume += ` AND b.id_batiment IN (${escapedBatiment})`;
+        }
+        
+        if (client && Array.isArray(client) && client.length > 0) {
+            const escapedClient = client.map(c => db.escape(c)).join(',');
+            qResume += ` AND ds.id_client IN (${escapedClient})`;
+        }
+
+        if (ville && Array.isArray(ville) && ville.length > 0) {
+            const escapedVilles = ville.map(c => db.escape(c)).join(',');
+            qResume += ` AND ds.id_ville IN (${escapedVilles})`;
+        }
+
+        if (template && Array.isArray(template) && template.length > 0) {
+            const escapedTemplate = template.map(t => db.escape(t)).join(',');
+            qResume += ` AND ds.id_template IN (${escapedTemplate})`;
+        }
+
+        if (months && Array.isArray(months) && months.length > 0) {
+            const escapedMonths = months.map(month => db.escape(month)).join(',');
+            qResume += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+        }
+    
+        if (years && years.length > 0) {
+            const escapedYears = years.map(year => db.escape(year)).join(',');
+            qResume += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+        }
+
+        db.query(qResume, (error, datas) => {
+            if (error) {
+                return res.status(500).json({ error: 'Erreur SQL (agrégats)', details: error.message });
+            }
+            return res.status(200).json({
+                data: data,
+                resume: datas[0] || {},
+            });
+        });
+    });
+};
+
+//Rapport de template batement
+exports.getRapportBatiment = (req, res) => {
+    const { period, status_batiment, ville, client, batiment, template } = req.body;
+    let months = [];
+    let years = [];
+
+    if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
+        months = period.mois.map(Number);
+    }
+
+    if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
+        years = period.annees.map(Number);
+    }
+
+    let q = `
+                SELECT 
+                  	b.nom_batiment,
+                    client.nom,
+                    MONTH(ds.periode) AS Mois,
+                    YEAR(ds.periode) AS Année,
+                    SUM(ds.m2_facture) AS total_facture,
+                    SUM(ds.total_entreposage) AS total_entreposage,
+                    SUM(ds.ttc_entreposage) AS ttc_entreposage,
+                    SUM(ds.total_manutation) AS total_manutation,
+                    SUM(ds.ttc_manutation) AS ttc_manutation,
+                    SUM(ds.m2_occupe) AS total_occupe,
+                    SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_entreManu
+                FROM 
+                    declaration_super AS ds
+                    LEFT JOIN provinces p ON p.id = ds.id_ville
+                    LEFT JOIN client ON ds.id_client = client.id_client
+                    LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+                    LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+                    INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+                    INNER JOIN batiment b ON tc.id_batiment = b.id_batiment
+                WHERE tc.status_template = 1 AND ds.est_supprime = 0
+            `;  
+
+            if (status_batiment) {
+                q += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+            }
+
+            if (ville && Array.isArray(ville) && ville.length > 0) {
+                const escapedVilles = ville.map(c => db.escape(c)).join(',');
+                q += ` AND ds.id_ville IN (${escapedVilles})`;
+            }
+
+            if (batiment && Array.isArray(batiment) && batiment.length > 0) {
+                const escapedBatiment = batiment.map(b => db.escape(b)).join(',');
+                q += ` AND b.id_batiment IN (${escapedBatiment})`;
+            }
+
+            if (client && Array.isArray(client) && client.length > 0) {
+                const escapedClient = client.map(c => db.escape(c)).join(',');
+                q += ` AND ds.id_client IN (${escapedClient})`;
+            }
+
+            if (template && Array.isArray(template) && template.length > 0) {
+                const escapedTemplate = template.map(t => db.escape(t)).join(',');
+                q += ` AND ds.id_template IN (${escapedTemplate})`;
+            }
+
+            if (months && Array.isArray(months) && months.length > 0) {
+                const escapedMonths = months.map(month => db.escape(month)).join(',');
+                q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+            }
+        
+            if (years && years.length > 0) {
+                const escapedYears = years.map(year => db.escape(year)).join(',');
+                q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+            }
+
+            q += `
+                    GROUP BY 
+                        tc.id_batiment, MONTH(ds.periode), YEAR(ds.periode)
+                    ORDER BY MONTH(ds.periode)
+                `
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error)
+        }
+        if (data.length === 0) {
+            return res.status(404).json({ message: 'Aucune donnée trouvée pour les critères sélectionnés.' });
+        }
+
+        let qResume = `
+            SELECT 
+            	COUNT(DISTINCT ds.id_client) AS nbre_client,
+                SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
+                SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
+                SUM(COALESCE(ds.ttc_entreposage, 0)) AS ttc_entreposage,
+                SUM(COALESCE(ds.ttc_manutation, 0)) AS ttc_manutention,
+                SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total,
+                SUM(COALESCE(ds.m2_facture, 0)) AS total_facture,
+                SUM(COALESCE(ds.m2_occupe, 0)) AS total_occupe
+            FROM declaration_super ds
+            	INNER JOIN template_occupation tco ON ds.id_template = tco.id_template
+                INNER JOIN batiment b ON tco.id_batiment = b.id_batiment
+                INNER JOIN status_batiment sb ON b.statut_batiment = sb.id_status_batiment
+                INNER JOIN provinces p ON b.ville = p.id
+                INNER JOIN pays ON p.id_pays = pays.id_pays
+            WHERE ds.est_supprime = 0
+        `;
+
+        if (status_batiment) {
+            qResume += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+        }
+
+        if (ville && Array.isArray(ville) && ville.length > 0) {
+            const escapedVilles = ville.map(c => db.escape(c)).join(',');
+            qResume += ` AND ds.id_ville IN (${escapedVilles})`;
+        }
+
+        if (batiment && Array.isArray(batiment) && batiment.length > 0) {
+            const escapedBatiment = batiment.map(b => db.escape(b)).join(',');
+            qResume += ` AND b.id_batiment IN (${escapedBatiment})`;
+        }
+        
+        if (client && Array.isArray(client) && client.length > 0) {
+            const escapedClient = client.map(c => db.escape(c)).join(',');
+            qResume += ` AND ds.id_client IN (${escapedClient})`;
+        }
+
+        if (ville && Array.isArray(ville) && ville.length > 0) {
+            const escapedVilles = ville.map(c => db.escape(c)).join(',');
+            qResume += ` AND ds.id_ville IN (${escapedVilles})`;
+        }
+
+        if (template && Array.isArray(template) && template.length > 0) {
+            const escapedTemplate = template.map(t => db.escape(t)).join(',');
+            qResume += ` AND ds.id_template IN (${escapedTemplate})`;
         }
 
         if (months && Array.isArray(months) && months.length > 0) {
