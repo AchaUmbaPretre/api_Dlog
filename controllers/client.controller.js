@@ -53,6 +53,27 @@ exports.getClients = (req, res) => {
     });
 };
 
+exports.getClientResume = (req, res) => {
+
+    const q = `
+        SELECT 
+            COUNT(CASE WHEN client.id_type_client = 1 THEN 1 END) AS Externe,
+            COUNT(CASE WHEN client.id_type_client = 2 THEN 1 END) AS Interne,
+            COUNT(DISTINCT client.id_client) AS nbre_client
+        FROM client
+        LEFT JOIN type_client tc ON client.id_type_client = tc.id_type_client
+        WHERE client.est_supprime = 0
+        GROUP BY tc.id_type_client;
+    `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getClientOne = (req, res) => {
     const id_client = req.query.id_client;
     const q = `
