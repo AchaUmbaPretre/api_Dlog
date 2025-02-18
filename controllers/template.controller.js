@@ -1667,7 +1667,54 @@ exports.getRapportSuperficie = (req, res) => {
         if (error) {
             return res.status(500).send(error)
         }
-        return res.status(200).json(data);
+        if (data.length === 0) {
+            return res.status(404).json({ message: 'Aucune donnée trouvée pour les critères sélectionnés.' });
+        }
+
+        let qResume = `
+                SELECT 
+                    COUNT(DISTINCT b.id_batiment) AS Nbre_de_clients,
+                    SUM(COALESCE(ds.m2_facture, 0)) AS total_facture,
+                    SUM(COALESCE(ds.m2_occupe, 0)) AS total_occupe,
+                    SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total      
+                FROM 
+                    declaration_super AS ds
+                    INNER JOIN template_occupation tco ON ds.id_template = tco.id_template
+                    INNER JOIN batiment b ON tco.id_batiment = b.id_batiment
+                    INNER JOIN status_batiment sb ON b.statut_batiment = sb.id_status_batiment
+                WHERE 
+                    tco.status_template = 1 
+                    AND ds.est_supprime = 0
+                `;
+
+                if (status_batiment) {
+                    qResume += ` AND b.statut_batiment = ${db.escape(status_batiment)}`;
+                }
+    
+                if (batiment?.length > 0) {
+                    const escapedBatiments = batiment.map(b => db.escape(b)).join(',');
+                    qResume += ` AND tco.id_batiment IN (${escapedBatiments})`;
+                }
+    
+                if (months && Array.isArray(months) && months.length > 0) {
+                    const escapedMonths = months.map(month => db.escape(month)).join(',');
+                    qResume += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+                }
+            
+                if (years && years.length > 0) {
+                    const escapedYears = years.map(year => db.escape(year)).join(',');
+                    qResume += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+                }
+
+                db.query(qResume, (error, datas) => {
+                    if (error) {
+                        return res.status(500).json({ error: 'Erreur SQL (agrégats)', details: error.message });
+                    }
+                    return res.status(200).json({
+                        data: data,
+                        resume: datas[0] || {},
+                    });
+                });
     });
 };
 
