@@ -2481,7 +2481,7 @@ exports.getRapportPays = (req, res) => {
     }
 
     if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
-        years = period.annees.map(Number);  // Assuming multiple years can be provided
+        years = period.annees.map(Number);
     }
 
     let q = `
@@ -2520,10 +2520,11 @@ exports.getRapportPays = (req, res) => {
                 q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
             }
         
-                if (years && years.length > 0) {
-                    const escapedYears = years.map(year => db.escape(year)).join(',');
-                    q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
-                }
+            if (years && years.length > 0) {
+                const escapedYears = years.map(year => db.escape(year)).join(',');
+                q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+            }
+
             q += `
                     GROUP BY MONTH(ds.periode), pays.id_pays
                     ORDER BY MONTH(ds.periode)
@@ -2762,9 +2763,9 @@ exports.getRapportEntreposage = (req, res) => {
                     SUM(COALESCE(ds.total_entreposage, 0)) AS Montant,
                     SUM(COALESCE(ds.ttc_entreposage, 0)) AS TTC_montant
                 FROM declaration_super ds
-                INNER JOIN client ON ds.id_client = client.id_client
-                INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
-                LEFT JOIN batiment ON tc.id_batiment = batiment.id_batiment
+                    INNER JOIN client ON ds.id_client = client.id_client
+                    INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+                    LEFT JOIN batiment ON tc.id_batiment = batiment.id_batiment
                 WHERE ds.est_supprime = 0
             `;  
 
@@ -2773,7 +2774,6 @@ exports.getRapportEntreposage = (req, res) => {
                 q += ` AND ds.id_ville IN (${escapedVilles})`;
             }
 
-                // Ajout des filtres dynamiques
             if (client && Array.isArray(client) && client.length > 0) {
                 const escapedClients = client.map(c => db.escape(c)).join(',');
                 q += ` AND ds.id_client IN (${escapedClients})`;
@@ -3375,7 +3375,7 @@ exports.getRapportVariationClient = (req, res) => {
 
 //ANNEE ET MOIS
 exports.getMois = (req, res) => {
-    const { annee } = req.query; // Récupérer l'année depuis la requête
+    const { annee } = req.query;
 
     const q = `
         SELECT 
