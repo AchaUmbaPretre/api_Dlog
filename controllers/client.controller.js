@@ -63,7 +63,7 @@ exports.getClientResume = (req, res) => {
         FROM client
         LEFT JOIN type_client tc ON client.id_type_client = tc.id_type_client
         WHERE client.est_supprime = 0
-        GROUP BY tc.id_type_client;
+        GROUP BY tc.id_type_client
     `;
 
     db.query(q, (error, data) => {
