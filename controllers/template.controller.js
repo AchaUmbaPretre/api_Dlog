@@ -1673,7 +1673,7 @@ exports.getRapportSuperficie = (req, res) => {
 
         let qResume = `
                 SELECT 
-                    COUNT(DISTINCT b.id_batiment) AS Nbre_de_clients,
+                    COUNT(DISTINCT b.id_batiment) AS nbre_batiment,
                     SUM(COALESCE(ds.m2_facture, 0)) AS total_facture,
                     SUM(COALESCE(ds.m2_occupe, 0)) AS total_occupe,
                     SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total      
