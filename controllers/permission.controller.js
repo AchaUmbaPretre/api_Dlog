@@ -502,7 +502,6 @@ exports.postPermissionDepartement = (req, res) => {
 };
 
 //Permission Déclaration
-
 exports.getPermissionVille = (req, res) => {
   const { id_declaration } = req.query;
   const q = `SELECT id_user, can_view, can_edit, can_comment FROM permissions_declaration WHERE id_permissions_declaration = ?`
@@ -515,6 +514,67 @@ exports.getPermissionVille = (req, res) => {
 });
 }
 
+exports.postPermissionDeclaration = (req, res) => {
+  const { id_declaration, id_user, can_view, can_edit, can_comment } = req.body;
+
+  if (!id_declaration || !id_user) {
+    return res.status(400).send({ error: "Les champs 'id_tache' et 'id_user' sont requis." });
+  }
+
+  try {
+    // Vérifiez si une ligne existe déjà pour id_tache et id_user
+    const qSelect = `SELECT * FROM permissions_declaration WHERE id_declaration = ? AND id_user = ?`;
+    const valuesSelect = [id_declaration , id_user];
+
+    db.query(qSelect, valuesSelect, (error, data) => {
+      if (error) {
+        console.error("Erreur lors de la récupération des permissions:", error);
+        return res.status(500).send({ error: "Erreur interne du serveur." });
+      }
+
+      if (data.length > 0) {
+        const qUpdate = `
+          UPDATE permissions_declaration 
+          SET can_view = ?, can_edit = ?, can_comment = ? 
+          WHERE id_declaration = ? AND id_user = ?
+        `;
+        const valuesUpdate = [can_view, can_edit, can_comment, id_declaration, id_user];
+
+        db.query(qUpdate, valuesUpdate, (errorUpdate) => {
+          if (errorUpdate) {
+            console.error("Erreur lors de la mise à jour des permissions:", errorUpdate);
+            return res.status(500).send({ error: "Erreur lors de la mise à jour des permissions." });
+          }
+
+          // Ajoutez une notification après la mise à jour des permissions
+          addNotification(id_user, "Vos permissions pour une declaration ont été mises à jour.", res);
+        });
+      } else {
+        // Insérez une nouvelle ligne
+        const qInsert = `
+          INSERT INTO permissions_declaration  (id_declaration, id_user, can_view, can_edit, can_comment) 
+          VALUES (?, ?, ?, ?, ?)
+        `;
+        const valuesInsert = [id_declaration, id_user, can_view, can_edit, can_comment];
+
+        db.query(qInsert, valuesInsert, (errorInsert) => {
+          if (errorInsert) {
+            console.error("Erreur lors de l'insertion des permissions:", errorInsert);
+            return res.status(500).send({ error: "Erreur lors de l'insertion des permissions." });
+          }
+
+          // Ajoutez une notification après l'insertion des permissions
+          addNotification(id_user,"Vous avez reçu un accès à une nouvelle tâche.", res);
+        });
+      }
+    });
+  } catch (error) {
+    console.error("Erreur inattendue:", error);
+    res.status(500).send({ error: "Erreur interne du serveur." });
+  }
+};
+
+//Permission Déclaration ville
 exports.getPermissionDeclarationVille = (req, res) => {
 
   const q = `SELECT * FROM user_declaration`;
