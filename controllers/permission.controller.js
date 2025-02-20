@@ -345,7 +345,6 @@ const addNotification = (userId, message, res) => {
   });
 };
 
-
 //Permission ville
 exports.getPermissionVille = (req, res) => {
 
@@ -423,7 +422,6 @@ exports.postPermissionVille = (req, res) => {
     return res.status(500).send({ error: "Erreur interne du serveur." });
   }
 };
-
 
 //Permission de departement
 exports.getPermissionDepartementOne = (req, res) => {
@@ -503,3 +501,8 @@ exports.postPermissionDepartement = (req, res) => {
   }
 };
 
+//Permission Déclaration
+exports.getPermissionDeclaration = (req, res) => {
+
+  let q = ``
+}
