@@ -595,6 +595,7 @@ exports.getPermissionDeclaration = (req, res) => {
 exports.postPermissionDeclaration = (req, res) => {
   const { id_declaration, id_user, can_view, can_edit, can_comment } = req.body;
 
+
   if (!id_declaration || !id_user) {
     return res.status(400).send({ error: "Les champs 'id_tache' et 'id_user' sont requis." });
   }
