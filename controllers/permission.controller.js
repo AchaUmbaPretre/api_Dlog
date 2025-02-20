@@ -582,7 +582,8 @@ exports.postPermissionDeclarationVille = (req, res) => {
 //Permission Déclaration
 exports.getPermissionDeclaration = (req, res) => {
   const { id_declaration } = req.query;
-  const q = `SELECT id_user, can_view, can_edit, can_comment FROM permissions_declaration WHERE id_permissions_declaration = ?`
+  console.log(id_declaration)
+  const q = `SELECT id_user, can_view, can_edit, can_comment FROM permissions_declaration WHERE id_declaration = ?`
 
   db.query(q, [id_declaration], (error, data) => {
     if (error) {
