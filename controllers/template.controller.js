@@ -58,7 +58,6 @@ exports.getTemplate = (req, res) => {
     });
 };
 
-
 exports.getTemplate5DerniersSS = (req, res) => {
     const { id_client, periode } = req.query;
 
