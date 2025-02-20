@@ -580,7 +580,7 @@ exports.postPermissionDeclarationVille = (req, res) => {
 };
 
 //Permission Déclaration
-exports.getPermissionVille = (req, res) => {
+exports.getPermissionDeclaration = (req, res) => {
   const { id_declaration } = req.query;
   const q = `SELECT id_user, can_view, can_edit, can_comment FROM permissions_declaration WHERE id_permissions_declaration = ?`
 
