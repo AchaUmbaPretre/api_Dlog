@@ -241,7 +241,6 @@ exports.getTache = (req, res) => {
             tache.est_supprime = 0
     `;
 
-    // Filtrage pour les rôles autres que Admin
     if (role !== 'Admin') {
         // Manager - filtrer par départements et villes accessibles
         if (role === 'Manager' && id_user) {
