@@ -716,18 +716,21 @@ exports.getDeclarationsId = (req, res) => {
 
 exports.getDeclaration = (req, res) => {
     const { ville, client, batiment, period } = req.body;
-    const { search } = req.query;
+    const { search, role, userId } = req.query;
+    const isAdmin = role === 'Admin';  
 
     let months = [];
-    let year;
+    let years = [];
 
-    if (typeof period === 'string' && period.includes('-')) {
-        const [yr, mo] = period.split('-').map(Number);
-        year = yr;
-        months = [mo];
-    } else if (typeof period === 'number') {
-        year = period;
-    }
+        // Extract months if provided
+        if (period && period.mois && Array.isArray(period.mois) && period.mois.length > 0) {
+            months = period.mois.map(Number);
+        }
+    
+        // Extract years if provided
+        if (period && period.annees && Array.isArray(period.annees) && period.annees.length > 0) {
+            years = period.annees.map(Number);  // Assuming multiple years can be provided
+        } 
 
     let q = `
         SELECT 
@@ -749,13 +752,23 @@ exports.getDeclaration = (req, res) => {
             tc.status_template = 1 
             AND ds.est_supprime = 0
     `;
+    
 
     // Ajout des filtres
     if (ville?.length > 0) q += ` AND ds.id_ville IN (${ville.map(v => db.escape(v)).join(',')})`;
     if (client?.length > 0) q += ` AND ds.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
     if (batiment?.length > 0) q += ` AND tc.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;
-    if (months.length > 0) q += ` AND MONTH(ds.periode) IN (${months.map(m => db.escape(m)).join(',')})`;
-    if (year) q += ` AND YEAR(ds.periode) = ${db.escape(year)}`;
+
+    if (months && Array.isArray(months) && months.length > 0) {
+        const escapedMonths = months.map(month => db.escape(month)).join(',');
+        q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;   
+    }
+
+    if (years && years.length > 0) {
+        const escapedYears = years.map(year => db.escape(year)).join(',');
+        q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+    }
+    
     if (search) q += ` AND (client.nom LIKE ${db.escape(`%${search}%`)} OR tc.desc_template LIKE ${db.escape(`%${search}%`)})`;
 
     q += ` ORDER BY ds.date_creation DESC`;
@@ -787,8 +800,15 @@ exports.getDeclaration = (req, res) => {
         if (ville?.length > 0) qTotal += ` AND ds.id_ville IN (${ville.map(v => db.escape(v)).join(',')})`;
         if (client?.length > 0) qTotal += ` AND ds.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
         if (batiment?.length > 0) qTotal += ` AND ds.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;
-        if (months.length > 0) qTotal += ` AND MONTH(ds.periode) IN (${months.map(m => db.escape(m)).join(',')})`;
-        if (year) qTotal += ` AND YEAR(ds.periode) = ${db.escape(year)}`;
+        if (months && Array.isArray(months) && months.length > 0) {
+        const escapedMonths = months.map(month => db.escape(month)).join(',');
+        qTotal += ` AND MONTH(ds.periode) IN (${escapedMonths})`;   
+        }
+
+        if (years && years.length > 0) {
+            const escapedYears = years.map(year => db.escape(year)).join(',');
+            qTotal += ` AND YEAR(ds.periode) IN (${escapedYears})`;
+        }
         if (search) qTotal += ` AND (client.nom LIKE ${db.escape(`%${search}%`)} OR tc.desc_template LIKE ${db.escape(`%${search}%`)})`;
 
         db.query(qTotal, (error, totals) => {
