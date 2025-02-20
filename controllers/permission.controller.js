@@ -502,7 +502,3 @@ exports.postPermissionDepartement = (req, res) => {
 };
 
 //Permission Déclaration
-exports.getPermissionDeclaration = (req, res) => {
-
-  let q = ``
-}
