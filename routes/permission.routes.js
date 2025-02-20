@@ -19,4 +19,7 @@ router.post('/permission_ville', postPermissionVille)
 router.get('/permission_departement', getPermissionDepartementOne)
 router.post('/permission_departement', postPermissionDepartement)
 
+//Permission declaration ville
+
+
 module.exports = router;
