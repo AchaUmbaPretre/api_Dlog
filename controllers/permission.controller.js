@@ -579,10 +579,76 @@ exports.postPermissionDeclarationVille = (req, res) => {
   }
 };
 
+//Permission declaration client
+exports.getPermissionDeclarationClientOne = (req, res) => {
+  const { id_client } = req.query;
+
+  const q = `SELECT * FROM user_client WHERE id_client = ?`;
+
+  db.query(q, [id_client], (error, data) => {
+      if (error) {
+          return res.status(500).send(error);
+      }
+      return res.status(200).json(data);
+  });
+};
+
+exports.postPermissionDeclarationClient = (req, res) => {
+  const { id_user, id_client, can_view } = req.body;
+
+  try {
+    // Vérifier si l'utilisateur a déjà cette permission pour la ville
+    const qSelect = `SELECT * FROM user_client WHERE id_client = ? AND id_user = ?`;
+    const valuesSelect = [id_ville, id_user];
+
+    db.query(qSelect, valuesSelect, (error, data) => {
+      if (error) {
+        console.error("Erreur lors de la récupération des permissions:", error);
+        return res.status(500).send({ error: "Erreur interne du serveur." });
+      }
+
+      // Si l'utilisateur a déjà cette permission, mettre à jour
+      if (data.length > 0) {
+        const qUpdate = `
+          UPDATE user_client 
+          SET can_view = ? 
+          WHERE id_user = ? AND id_client = ?
+        `;
+        const valuesUpdate = [can_view, id_user, id_ville]; // Mise à jour de la permission spécifique
+
+        db.query(qUpdate, valuesUpdate, (errorP, dataP) => {
+          if (errorP) {
+            console.error("Erreur lors de la mise à jour des permissions:", errorP);
+            return res.status(500).send({ error: "Erreur lors de la mise à jour des permissions." });
+          }
+
+          return res.status(200).send({ message: "Permissions mises à jour avec succès." });
+        });
+      } else {
+        // Si l'utilisateur n'a pas cette permission, insérer une nouvelle entrée
+        const qInsert = `INSERT INTO user_client (id_user, id_ville, can_view) VALUES (?, ?, ?)`;
+        const valuesInsert = [id_user, id_client, can_view];
+
+        db.query(qInsert, valuesInsert, (errorI, dataI) => {
+          if (errorI) {
+            console.error("Erreur lors de l'ajout des permissions:", errorI);
+            return res.status(500).send({ error: "Erreur lors de l'ajout des permissions." });
+          }
+
+          return res.status(200).send({ message: "Permissions ajoutées avec succès." });
+        });
+      }
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).send({ error: "Erreur interne du serveur." });
+  }
+};
+
 //Permission Déclaration
 exports.getPermissionDeclaration = (req, res) => {
   const { id_declaration } = req.query;
-  
+
   const q = `SELECT id_user, can_view, can_edit, can_comment FROM permissions_declaration WHERE id_declaration = ?`
 
   db.query(q, [id_declaration], (error, data) => {
