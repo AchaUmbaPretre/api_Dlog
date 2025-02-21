@@ -53,6 +53,27 @@ exports.getClients = (req, res) => {
     });
 };
 
+exports.getClientPermission = (req, res) => {
+    const {userId} = req.query;
+
+    const q = `
+    SELECT 
+        client.id_client, client.nom, client.adresse, client.telephone, client.email, provinces.capital, type_client.nom_type
+    FROM client
+        LEFT JOIN provinces ON client.ville = provinces.id
+        LEFT JOIN type_client ON client.id_type_client = type_client.id_type_client
+        LEFT JOIN user_client uc ON client.id_client = uc.id_client
+    WHERE client.est_supprime = 0 AND uc.can_view = 1 AND uc.id_user = ?
+    `;
+
+    db.query(q, [userId], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getClientResume = (req, res) => {
 
     const q = `
