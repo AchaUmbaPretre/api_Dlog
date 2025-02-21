@@ -1604,7 +1604,6 @@ exports.postDeclaration = async (req, res) => {
     }
 };
 
-
 exports.putDeclaration = (req, res) => {
     const { id_declaration } = req.query;
     const { periode } = req.body; // Ajout de la récupération de "periode" depuis le body
