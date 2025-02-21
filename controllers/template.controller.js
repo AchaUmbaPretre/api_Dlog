@@ -987,14 +987,12 @@ exports.getDeclaration = (req, res) => {
     if (isAdmin) {
         // Les admins ont un accès total
         selectFields += `,         
-        ds.id_declaration_super, 
-        ds.id_client, 
-        ds.id_ville,
-        ds.periode,
-        client.nom AS nom,
-        p.capital AS capital,
-        batiment.nom_batiment,
-        objet_fact.nom_objet_fact,`;
+            ds.*, 
+            client.nom, 
+            p.capital, 
+            batiment.nom_batiment, 
+            objet_fact.nom_objet_fact
+            `;
     } else {
         // Les utilisateurs restreints ou non-admin ne voient que certains champs
         selectFields += `, ds.m2_facture, ds.m2_occupe`;
@@ -1044,7 +1042,8 @@ exports.getDeclaration = (req, res) => {
         q += ` AND (client.nom LIKE ${db.escape(`%${search}%`)} OR tc.desc_template LIKE ${db.escape(`%${search}%`)})`;
     }
 
-    q += ` ORDER BY ds.date_creation DESC`;
+    q += `  GROUP BY ds.id_declaration_super
+            ORDER BY ds.date_creation DESC`;
 
     db.query(q, (error, data) => {
         if (error) return res.status(500).json({ error: 'Erreur SQL', details: error.message });
@@ -1080,8 +1079,8 @@ exports.getDeclaration = (req, res) => {
 
         if (!isAdmin) {
             qTotal += ` 
-                AND pd.id_user = ${db.escape(userId)}
-                AND pd.can_view = 1
+                AND ds.user_cr = ${userId}
+                OR uc.can_view = 1
                 AND ds.periode >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
                 AND (ud.id_user = ${db.escape(userId)} OR uc.id_user = ${db.escape(userId)})
             `;
@@ -1490,6 +1489,7 @@ exports.postDeclaration = async (req, res) => {
             total_manutation,
             ttc_manutation,
             desc_manutation,
+            user_cr,
             id_batiments = [],
         } = req.body;
 
@@ -1535,15 +1535,15 @@ exports.postDeclaration = async (req, res) => {
                     id_template, periode, m2_occupe, m2_facture, tarif_entreposage,
                     entreposage, debours_entreposage, total_entreposage, ttc_entreposage, desc_entreposage,
                     id_ville, id_client, id_objet, manutation, tarif_manutation,
-                    debours_manutation, total_manutation, ttc_manutation, desc_manutation
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    debours_manutation, total_manutation, ttc_manutation, desc_manutation, user_cr
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
             const declarationValues = [
                 id_template, fixedPeriode, m2_occupe, m2_facture, tarif_entreposage,
                 entreposage, debours_entreposage, total_entreposage, ttc_entreposage, desc_entreposage,
                 id_ville, id_client, id_objet, manutation, tarif_manutation,
-                debours_manutation, total_manutation, ttc_manutation, desc_manutation
+                debours_manutation, total_manutation, ttc_manutation, desc_manutation, user_cr
             ];
 
             db.query(declarationQuery, declarationValues, (declarationError, declarationResult) => {
