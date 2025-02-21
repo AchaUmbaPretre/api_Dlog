@@ -54,25 +54,35 @@ exports.getClients = (req, res) => {
 };
 
 exports.getClientPermission = (req, res) => {
-    const {userId} = req.query;
+    const { userId } = req.query; // Vérifiez si vous recevez bien userId dans req.query
 
-    const q = `
-    SELECT 
-        client.id_client, client.nom, client.adresse, client.telephone, client.email, provinces.capital, type_client.nom_type
-    FROM client
+    // Vérifier si userId est bien fourni
+    if (!userId) {
+        return res.status(400).json({ message: "L'ID utilisateur est requis." });
+    }
+
+    const query = `
+        SELECT 
+            client.id_client, client.nom, client.adresse, client.telephone, client.email, 
+            provinces.capital, type_client.nom_type
+        FROM client
         LEFT JOIN provinces ON client.ville = provinces.id
         LEFT JOIN type_client ON client.id_type_client = type_client.id_type_client
         LEFT JOIN user_client uc ON client.id_client = uc.id_client
-    WHERE client.est_supprime = 0 AND uc.can_view = 1 AND uc.id_user = ?
+        WHERE client.est_supprime = 0 
+        AND uc.can_view = 1 
+        AND uc.id_user = ?;
     `;
 
-    db.query(q, [userId], (error, data) => {
+    db.query(query, [userId], (error, data) => {
         if (error) {
-            return res.status(500).send(error);
+            console.error("Erreur lors de la récupération des clients :", error);
+            return res.status(500).json({ message: "Erreur serveur", error });
         }
         return res.status(200).json(data);
     });
 };
+
 
 exports.getClientResume = (req, res) => {
 
