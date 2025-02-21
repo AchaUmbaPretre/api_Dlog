@@ -963,7 +963,6 @@ exports.getDeclarationsId = (req, res) => {
     });
 }; */
 
-
 exports.getDeclaration = (req, res) => {
     const { ville, client, batiment, period } = req.body;
     const { search, role, userId } = req.query;
@@ -985,7 +984,7 @@ exports.getDeclaration = (req, res) => {
     `;
 
     if (isAdmin) {
-        // Les admins ont un accès total
+
         selectFields += `,         
             ds.*, 
             client.nom, 
@@ -1017,10 +1016,18 @@ exports.getDeclaration = (req, res) => {
     if (!isAdmin) {
         // Filtrage pour les utilisateurs non-admin
         q += `
-            AND ud.can_view = 1
-            AND ds.periode >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
-            AND (ud.id_user = ${db.escape(userId)} OR uc.id_user = ${db.escape(userId)})
-        `;
+        AND (
+        ds.user_cr = ${userId}  -- L'utilisateur voit toujours ses propres déclarations
+        OR (
+            ds.periode >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)  -- Seulement les 3 derniers mois
+            AND (
+                (uc.id_user = ${db.escape(userId)} AND uc.can_view = 1)  -- Permission pour voir les données d’un client
+                OR (ud.id_user = ${db.escape(userId)} AND ud.can_view = 1 AND ud.id_ville = ds.id_ville)  -- Permission sur une zone spécifique
+            )
+        )
+    )
+
+`;
     }
 
     // Application des filtres sur les villes et clients
@@ -1079,11 +1086,17 @@ exports.getDeclaration = (req, res) => {
 
         if (!isAdmin) {
             qTotal += ` 
-                AND ds.user_cr = ${userId}
-                OR uc.can_view = 1
-                AND ds.periode >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
-                AND (ud.id_user = ${db.escape(userId)} OR uc.id_user = ${db.escape(userId)})
-            `;
+                    AND (
+                        ds.user_cr = ${userId}  -- L'utilisateur voit toujours ses propres déclarations
+                        OR (
+                            ds.periode >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)  -- Seulement les 3 derniers mois
+                            AND (
+                                (uc.id_user = ${db.escape(userId)} AND uc.can_view = 1)  -- Permission pour voir les données d’un client
+                                OR (ud.id_user = ${db.escape(userId)} AND ud.can_view = 1 AND ud.id_ville = ds.id_ville)  -- Permission sur une zone spécifique
+                            )
+                        )
+                    )
+                `;
         }
 
         // Application des mêmes filtres dans la requête d'agrégats
@@ -1110,6 +1123,7 @@ exports.getDeclaration = (req, res) => {
         });
     });
 };
+
 
 
 /* exports.getDeclarationClientOneAll = (req, res) => { 
