@@ -822,7 +822,7 @@ exports.getDeclarationsId = (req, res) => {
     });
 }; */
 
-exports.getDeclaration = (req, res) => {
+/* exports.getDeclaration = (req, res) => {
     const { ville, client, batiment, period } = req.body;
     const { search, role, userId } = req.query;
     const isAdmin = role === 'Admin';
@@ -939,6 +939,155 @@ exports.getDeclaration = (req, res) => {
             `;
         }
 
+        if (ville?.length > 0) qTotal += ` AND ds.id_ville IN (${ville.map(v => db.escape(v)).join(',')})`;
+        if (client?.length > 0) qTotal += ` AND ds.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
+        if (batiment?.length > 0) qTotal += ` AND ds.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;
+        if (months.length > 0) {
+            qTotal += ` AND MONTH(ds.periode) IN (${months.map(m => db.escape(m)).join(',')})`;
+        }
+        if (years.length > 0) {
+            qTotal += ` AND YEAR(ds.periode) IN (${years.map(y => db.escape(y)).join(',')})`;
+        }
+        if (search) {
+            qTotal += ` AND (client.nom LIKE ${db.escape(`%${search}%`)} OR tc.desc_template LIKE ${db.escape(`%${search}%`)})`;
+        }
+
+        db.query(qTotal, (error, totals) => {
+            if (error) return res.status(500).json({ error: 'Erreur SQL (agrégats)', details: error.message });
+
+            return res.status(200).json({
+                declarations: data,
+                totals: totals[0],
+            });
+        });
+    });
+}; */
+
+
+exports.getDeclaration = (req, res) => {
+    const { ville, client, batiment, period } = req.body;
+    const { search, role, userId } = req.query;
+    const isAdmin = role === 'Admin';
+
+    let months = [];
+    let years = [];
+
+    if (period?.mois?.length > 0) {
+        months = period.mois.map(Number);
+    }
+    
+    if (period?.annees?.length > 0) {
+        years = period.annees.map(Number);
+    }
+
+    let selectFields = `
+        tc.desc_template
+    `;
+
+    if (isAdmin) {
+        // Les admins ont un accès total
+        selectFields += `,         
+        ds.id_declaration_super, 
+        ds.id_client, 
+        ds.id_ville,
+        ds.periode,
+        client.nom AS nom,
+        p.capital AS capital,
+        batiment.nom_batiment,
+        objet_fact.nom_objet_fact,`;
+    } else {
+        // Les utilisateurs restreints ou non-admin ne voient que certains champs
+        selectFields += `, ds.m2_facture, ds.m2_occupe`;
+    }
+
+    let q = `
+        SELECT ${selectFields}
+        FROM declaration_super AS ds
+        LEFT JOIN provinces p ON p.id = ds.id_ville
+        LEFT JOIN client ON ds.id_client = client.id_client
+        LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+        LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+        INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+        LEFT JOIN batiment ON tc.id_batiment = batiment.id_batiment
+        LEFT JOIN user_declaration ud ON ud.id_ville = ds.id_ville
+        LEFT JOIN user_client uc ON uc.id_client = ds.id_client
+        LEFT JOIN permissions_declaration pd ON pd.id_declaration = ds.id_declaration_super
+        WHERE tc.status_template = 1 
+        AND ds.est_supprime = 0 
+    `;
+
+    if (!isAdmin) {
+        // Filtrage pour les utilisateurs non-admin
+        q += `
+            AND ud.can_view = 1
+            AND ds.periode >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
+            AND (ud.id_user = ${db.escape(userId)} OR uc.id_user = ${db.escape(userId)})
+        `;
+    }
+
+    // Application des filtres sur les villes et clients
+    if (ville?.length > 0) q += ` AND ds.id_ville IN (${ville.map(v => db.escape(v)).join(',')})`;
+    if (client?.length > 0) q += ` AND ds.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
+    if (batiment?.length > 0) q += ` AND tc.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;
+
+    // Filtres sur le mois et l'année
+    if (months.length > 0) {
+        q += ` AND MONTH(ds.periode) IN (${months.map(m => db.escape(m)).join(',')})`;
+    }
+
+    if (years.length > 0) {
+        q += ` AND YEAR(ds.periode) IN (${years.map(y => db.escape(y)).join(',')})`;
+    }
+
+    // Recherche par client ou description du template
+    if (search) {
+        q += ` AND (client.nom LIKE ${db.escape(`%${search}%`)} OR tc.desc_template LIKE ${db.escape(`%${search}%`)})`;
+    }
+
+    q += ` ORDER BY ds.date_creation DESC`;
+
+    db.query(q, (error, data) => {
+        if (error) return res.status(500).json({ error: 'Erreur SQL', details: error.message });
+
+        if (!data?.length) return res.status(404).json({ message: 'Aucune déclaration trouvée.' });
+
+        let qTotal = `
+            SELECT 
+                COUNT(DISTINCT ds.id_client) AS nbre_client,
+                SUM(ds.m2_facture) AS total_m2_facture,
+                SUM(ds.m2_occupe) AS total_m2_occupe
+        `;
+
+        if (isAdmin) {
+            qTotal += `
+                , SUM(ds.total_entreposage) AS total_entreposage,
+                SUM(ds.ttc_entreposage) AS total_ttc_entreposage,
+                SUM(ds.total_manutation) AS total_manutation,
+                SUM(ds.ttc_manutation) AS total_ttc_manutation
+            `;
+        }
+
+        qTotal += ` 
+            FROM declaration_super AS ds
+            LEFT JOIN client ON ds.id_client = client.id_client
+            LEFT JOIN template_occupation tc ON tc.id_template = ds.id_template
+            LEFT JOIN user_declaration ud ON ud.id_ville = ds.id_ville
+            LEFT JOIN user_client uc ON uc.id_client = ds.id_client
+            LEFT JOIN permissions_declaration pd ON pd.id_declaration = ds.id_declaration_super
+            WHERE tc.status_template = 1 
+            AND ds.est_supprime = 0
+        `;
+
+        if (!isAdmin) {
+            qTotal += ` 
+                AND pd.id_user = ${db.escape(userId)}
+                AND pd.can_view = 1
+                AND ds.periode >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
+                AND (ud.id_user = ${db.escape(userId)} OR uc.id_user = ${db.escape(userId)})
+            `;
+        }
+
+        // Application des mêmes filtres dans la requête d'agrégats
         if (ville?.length > 0) qTotal += ` AND ds.id_ville IN (${ville.map(v => db.escape(v)).join(',')})`;
         if (client?.length > 0) qTotal += ` AND ds.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
         if (batiment?.length > 0) qTotal += ` AND ds.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;

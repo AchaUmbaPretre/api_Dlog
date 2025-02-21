@@ -599,7 +599,7 @@ exports.postPermissionDeclarationClient = (req, res) => {
   try {
     // Vérifier si l'utilisateur a déjà cette permission pour la ville
     const qSelect = `SELECT * FROM user_client WHERE id_client = ? AND id_user = ?`;
-    const valuesSelect = [id_ville, id_user];
+    const valuesSelect = [id_client, id_user];
 
     db.query(qSelect, valuesSelect, (error, data) => {
       if (error) {
@@ -614,7 +614,7 @@ exports.postPermissionDeclarationClient = (req, res) => {
           SET can_view = ? 
           WHERE id_user = ? AND id_client = ?
         `;
-        const valuesUpdate = [can_view, id_user, id_ville]; // Mise à jour de la permission spécifique
+        const valuesUpdate = [can_view, id_user, id_client]; // Mise à jour de la permission spécifique
 
         db.query(qUpdate, valuesUpdate, (errorP, dataP) => {
           if (errorP) {
@@ -626,7 +626,7 @@ exports.postPermissionDeclarationClient = (req, res) => {
         });
       } else {
         // Si l'utilisateur n'a pas cette permission, insérer une nouvelle entrée
-        const qInsert = `INSERT INTO user_client (id_user, id_ville, can_view) VALUES (?, ?, ?)`;
+        const qInsert = `INSERT INTO user_client (id_user, id_client, can_view) VALUES (?, ?, ?)`;
         const valuesInsert = [id_user, id_client, can_view];
 
         db.query(qInsert, valuesInsert, (errorI, dataI) => {
