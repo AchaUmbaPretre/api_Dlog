@@ -994,7 +994,7 @@ exports.getDeclaration = (req, res) => {
             `;
     } else {
         // Les utilisateurs restreints ou non-admin ne voient que certains champs
-        selectFields += `, ds.m2_facture, ds.m2_occupe`;
+        selectFields += `, ds.m2_facture, ds.m2_occupe, ds.periode, client.nom `;
     }
 
     let q = `
