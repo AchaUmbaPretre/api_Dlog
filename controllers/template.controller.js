@@ -994,7 +994,7 @@ exports.getDeclaration = (req, res) => {
             `;
     } else {
         // Les utilisateurs restreints ou non-admin ne voient que certains champs
-        selectFields += `, ds.m2_facture, ds.m2_occupe, ds.periode, client.nom `;
+        selectFields += `, ds.m2_facture, ds.m2_occupe, ds.periode, client.id_client, client.nom, ds.id_template, ds.id_declaration_super`;
     }
 
     let q = `
@@ -1366,7 +1366,7 @@ exports.getDeclarationOneClient = (req, res) => {
             LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
             LEFT JOIN batiment ON dsb.id_batiment = batiment.id_batiment
             LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
-            LEFT JOIN template_occupation tc ON tc.id_template = ds.id_template
+            INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
         WHERE 
             tc.status_template = 1 
             AND ds.est_supprime = 0 
@@ -1394,6 +1394,15 @@ exports.getDeclarationOneClient = (req, res) => {
             YEAR(ds.periode) DESC, 
             MONTH(ds.periode) DESC
     `;
+
+    db.query(query, params, (error, results) => {
+        if (error) {
+            console.error("Erreur lors de l'exécution de la requête :", error);
+            return res.status(500).json({ message: "Une erreur est survenue lors de l'extraction des données.", error });
+        }
+
+        return res.status(200).json(results);
+    });
 };
 
 /* exports.postDeclaration = async (req, res) => {
