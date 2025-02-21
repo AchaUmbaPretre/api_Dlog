@@ -56,7 +56,6 @@ exports.getClients = (req, res) => {
 exports.getClientPermission = (req, res) => {
     const { userId } = req.query; // Vérifiez si vous recevez bien userId dans req.query
 
-    // Vérifier si userId est bien fourni
     if (!userId) {
         return res.status(400).json({ message: "L'ID utilisateur est requis." });
     }
