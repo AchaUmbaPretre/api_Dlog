@@ -1545,7 +1545,7 @@ exports.getDeclarationOneClient = (req, res) => {
 
     const params = [id_client];
 
-    // Ajout de la condition pour idProvince si elle est fournie
+/*     // Ajout de la condition pour idProvince si elle est fournie
     if (idProvince) {
         if (isNaN(parseInt(idProvince))) {
             return res.status(400).json({ message: "L'identifiant de la province (idProvince) doit être un nombre valide." });
@@ -1557,7 +1557,7 @@ exports.getDeclarationOneClient = (req, res) => {
      if(periode !== 'null') {
         query += ` AND YEAR(ds.periode) = ? AND MONTH(ds.periode) = ? `;
         params.push(year, month);
-    }
+    } */
 
     query += `
         ORDER BY 
