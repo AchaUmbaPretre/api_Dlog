@@ -1172,7 +1172,6 @@ exports.getDeclaration = (req, res) => {
                 ds.periode >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
                 AND (
                     (pd.id_user = ${db.escape(userId)} AND pd.can_view = 1)
-                    OR (pd.id_user = ${db.escape(userId)} AND pd.can_view = 1)
                 )
             )
         )
