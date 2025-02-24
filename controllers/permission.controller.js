@@ -701,7 +701,7 @@ exports.postPermissionDeclaration = (req, res) => {
         // Insérez une nouvelle ligne
         const qInsert = `
           INSERT INTO permissions_declaration  (id_declaration, id_user, id_client, id_ville, can_view, can_edit, can_comment) 
-          VALUES (?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
         const valuesInsert = [id_declaration, id_user, id_client,	id_ville, can_view, can_edit, can_comment];
 
