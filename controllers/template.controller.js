@@ -1140,7 +1140,7 @@ exports.getDeclaration = (req, res) => {
         years = period.annees.map(Number);
     }
 
-    let selectFields = `tc.desc_template`;
+    let selectFields = `tc.desc_template, pd.can_view, pd.can_edit, pd.can_comment, ds.user_cr`;
 
     if (isAdmin) {
         selectFields += `, ds.*, client.nom, p.capital, batiment.nom_batiment, objet_fact.nom_objet_fact`;
