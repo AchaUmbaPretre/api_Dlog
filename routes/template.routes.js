@@ -23,7 +23,8 @@ router.post('/declaration_superficies', templateController.getDeclaration)
 router.post('/declaration_superficies_client_OneAll', templateController.getDeclarationClientOneAll)
 router.get('/declaration_superficies_5derniers', templateController.getDeclaration5derniers)
 router.get('/declaration_superficie/one', templateController.getDeclarationOne);
-router.get('/declaration_superficie/oneClient', templateController.getDeclarationOneClient)
+router.get('/declaration_superficie/oneClient', templateController.getDeclarationOneClient);
+router.get('/declaration_superficie/oneVille', templateController.getDeclarationVilleOne)
 router.post('/declaration_superficie', templateController.postDeclaration)
 router.put('/declaration_superficie_delete', templateController.deleteUpdateDeclaration)
 router.put('/declaration_superficie', templateController.putDeclaration)
