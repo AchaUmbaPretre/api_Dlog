@@ -589,7 +589,7 @@ exports.getPermissionDeclarationClientOne = (req, res) => {
       if (error) {
           return res.status(500).send(error);
       }
-      
+
       return res.status(200).json(data);
   });
 };
@@ -663,7 +663,7 @@ exports.getPermissionDeclaration = (req, res) => {
 }
 
 exports.postPermissionDeclaration = (req, res) => {
-  const { id_declaration, id_user,	id_ville, can_view, can_edit, can_comment } = req.body;
+  const { id_declaration, id_user, id_client,	id_ville, can_view, can_edit, can_comment } = req.body;
 
   if (!id_declaration || !id_user) {
     return res.status(400).send({ error: "Les champs 'id_tache' et 'id_user' sont requis." });
@@ -700,10 +700,10 @@ exports.postPermissionDeclaration = (req, res) => {
       } else {
         // Insérez une nouvelle ligne
         const qInsert = `
-          INSERT INTO permissions_declaration  (id_declaration, id_user, id_ville, can_view, can_edit, can_comment) 
+          INSERT INTO permissions_declaration  (id_declaration, id_user, id_client, id_ville, can_view, can_edit, can_comment) 
           VALUES (?, ?, ?, ?, ?, ?)
         `;
-        const valuesInsert = [id_declaration, id_user,	id_ville, can_view, can_edit, can_comment];
+        const valuesInsert = [id_declaration, id_user, id_client,	id_ville, can_view, can_edit, can_comment];
 
         db.query(qInsert, valuesInsert, (errorInsert) => {
           if (errorInsert) {
