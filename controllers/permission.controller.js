@@ -647,11 +647,11 @@ exports.postPermissionDeclarationClient = (req, res) => {
 
 //Permission Déclaration
 exports.getPermissionDeclaration = (req, res) => {
-  const { id_declaration } = req.query;
+  const { userId } = req.query;
 
-  const q = `SELECT id_user, can_view, can_edit, can_comment FROM permissions_declaration WHERE id_declaration = ?`
+  const q = `SELECT id_user, can_view, can_edit, can_comment, id_declaration FROM permissions_declaration pd WHERE pd.id_user  = ?`
 
-  db.query(q, [id_declaration], (error, data) => {
+  db.query(q, [userId], (error, data) => {
     if (error) {
         return  res.status(500).send(error);
     }
@@ -660,7 +660,7 @@ exports.getPermissionDeclaration = (req, res) => {
 }
 
 exports.postPermissionDeclaration = (req, res) => {
-  const { id_declaration, id_user, can_view, can_edit, can_comment } = req.body;
+  const { id_declaration, id_user,	id_ville, can_view, can_edit, can_comment } = req.body;
 
 
   if (!id_declaration || !id_user) {
@@ -698,10 +698,10 @@ exports.postPermissionDeclaration = (req, res) => {
       } else {
         // Insérez une nouvelle ligne
         const qInsert = `
-          INSERT INTO permissions_declaration  (id_declaration, id_user, can_view, can_edit, can_comment) 
-          VALUES (?, ?, ?, ?, ?)
+          INSERT INTO permissions_declaration  (id_declaration, id_user, id_ville, can_view, can_edit, can_comment) 
+          VALUES (?, ?, ?, ?, ?, ?)
         `;
-        const valuesInsert = [id_declaration, id_user, can_view, can_edit, can_comment];
+        const valuesInsert = [id_declaration, id_user,	id_ville, can_view, can_edit, can_comment];
 
         db.query(qInsert, valuesInsert, (errorInsert) => {
           if (errorInsert) {
