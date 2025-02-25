@@ -1140,7 +1140,7 @@ exports.getDeclaration = (req, res) => {
         years = period.annees.map(Number);
     }
 
-    let selectFields = `tc.desc_template, pd.can_view, pd.can_edit, pd.can_comment, ds.user_cr`;
+    let selectFields = `tc.desc_template, pd.can_view, pd.can_edit, pd.can_comment, ds.user_cr, sd.nom_statut_decl`;
 
     if (isAdmin) {
         selectFields += `, ds.*, client.nom, p.capital, batiment.nom_batiment, objet_fact.nom_objet_fact`;
@@ -1151,15 +1151,16 @@ exports.getDeclaration = (req, res) => {
     let q = `
         SELECT ${selectFields}
         FROM declaration_super AS ds
-        LEFT JOIN provinces p ON p.id = ds.id_ville
-        LEFT JOIN client ON ds.id_client = client.id_client
-        LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
-        LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
-        INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
-        LEFT JOIN batiment ON tc.id_batiment = batiment.id_batiment
-        LEFT JOIN user_declaration ud ON ud.id_ville = ds.id_ville
-        LEFT JOIN user_client uc ON uc.id_client = ds.id_client
-        LEFT JOIN permissions_declaration pd ON pd.id_declaration = ds.id_declaration_super
+            LEFT JOIN provinces p ON p.id = ds.id_ville
+            LEFT JOIN client ON ds.id_client = client.id_client
+            LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+            LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+            INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+            LEFT JOIN batiment ON tc.id_batiment = batiment.id_batiment
+            LEFT JOIN user_declaration ud ON ud.id_ville = ds.id_ville
+            LEFT JOIN user_client uc ON uc.id_client = ds.id_client
+            LEFT JOIN permissions_declaration pd ON pd.id_declaration = ds.id_declaration_super
+            LEFT JOIN statut_declaration sd ON ds.id_statut_decl = sd.id_statut_declaration
         WHERE tc.status_template = 1 
         AND ds.est_supprime = 0
     `;
@@ -1543,20 +1544,6 @@ exports.getDeclarationOneClient = (req, res) => {
     `;
 
     const params = [id_client];
-
-/*     // Ajout de la condition pour idProvince si elle est fournie
-    if (idProvince) {
-        if (isNaN(parseInt(idProvince))) {
-            return res.status(400).json({ message: "L'identifiant de la province (idProvince) doit être un nombre valide." });
-        }
-        query += ` AND ds.id_ville = ?`;
-        params.push(idProvince);
-    }
-
-     if(periode !== 'null') {
-        query += ` AND YEAR(ds.periode) = ? AND MONTH(ds.periode) = ? `;
-        params.push(year, month);
-    } */
 
     query += `
         ORDER BY 
