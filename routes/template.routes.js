@@ -4,6 +4,7 @@ const router = express.Router();
 
 router.get('/count', templateController.getTemplateCount)
 router.get('/', templateController.getTemplate)
+router.get('/templateClientOne', templateController.getTemplateClientOne)
 router.get('/5derniers', templateController.getTemplate5Derniers);
 router.get('/2mois_precedents', templateController.getTemplateDeuxPrecedent);
 router.get('/one', templateController.getTemplateOne)

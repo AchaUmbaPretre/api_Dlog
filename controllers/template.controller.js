@@ -58,6 +58,39 @@ exports.getTemplate = (req, res) => {
     });
 };
 
+exports.getTemplateClientOne = (req, res) => {
+
+    const { id_client } = req.query;
+
+    // Validation de l'identifiant du client
+    if (!id_client) {
+            return res.status(400).json({ message: "L'identifiant (id_client) est requis." });
+        }
+
+    const q = `
+            SELECT 
+                tm.id_template, 
+                tm.date_actif,
+                tm.date_inactif,
+                tm.desc_template
+            FROM 
+                template_occupation tm
+                INNER JOIN client ON tm.id_client = client.id_client
+                WHERE tm.est_supprime = 0 AND tm.id_client = ?
+                GROUP BY tm.id_template
+                ORDER BY tm.date_actif DESC   
+                `;
+
+    const params = [id_client];
+
+    db.query(q, params, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getTemplate5DerniersSS = (req, res) => {
     const { id_client, periode } = req.query;
 
