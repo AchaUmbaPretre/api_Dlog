@@ -1930,7 +1930,6 @@ exports.putDeclarationStatutCloture = async (req, res) => {
 };
 
 
-
 //Contrat
 exports.getContrat = (req, res) => {
 
