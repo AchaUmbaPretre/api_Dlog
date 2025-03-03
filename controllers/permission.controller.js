@@ -697,6 +697,7 @@ exports.postPermissionDeclaration = (req, res) => {
           // Ajoutez une notification après la mise à jour des permissions
           addNotification(id_user, "Vos permissions pour une declaration ont été mises à jour.", res);
         });
+        
       } else {
         // Insérez une nouvelle ligne
         const qInsert = `
