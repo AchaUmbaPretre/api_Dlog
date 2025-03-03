@@ -652,7 +652,7 @@ exports.postPermissionDeclarationClient = (req, res) => {
 exports.getPermissionDeclaration = (req, res) => {
   const { userId } = req.query;
 
-  const q = `SELECT id_user, can_view, can_edit, can_comment, id_declaration FROM permissions_declaration pd WHERE pd.id_user  = ?`
+  const q = `SELECT id_user, can_view, can_edit, can_comment, id_template FROM permissions_declaration pd WHERE pd.id_user  = ?`
 
   db.query(q, [userId], (error, data) => {
     if (error) {
@@ -663,16 +663,16 @@ exports.getPermissionDeclaration = (req, res) => {
 }
 
 exports.postPermissionDeclaration = (req, res) => {
-  const { id_declaration, id_user, id_client,	id_ville, can_view, can_edit, can_comment } = req.body;
+  const { id_template, id_user, id_client,	id_ville, can_view, can_edit, can_comment } = req.body;
 
-  if (!id_declaration || !id_user) {
+  if (!id_template || !id_user) {
     return res.status(400).send({ error: "Les champs 'id_tache' et 'id_user' sont requis." });
   }
 
   try {
     // Vérifiez si une ligne existe déjà pour id_declaration et id_user
-    const qSelect = `SELECT * FROM permissions_declaration WHERE id_declaration = ? AND id_user = ?`;
-    const valuesSelect = [id_declaration , id_user];
+    const qSelect = `SELECT * FROM permissions_declaration WHERE id_template = ? AND id_user = ?`;
+    const valuesSelect = [id_template, id_user];
 
     db.query(qSelect, valuesSelect, (error, data) => {
       if (error) {
@@ -684,9 +684,9 @@ exports.postPermissionDeclaration = (req, res) => {
         const qUpdate = `
           UPDATE permissions_declaration 
           SET can_view = ?, can_edit = ?, can_comment = ? 
-          WHERE id_declaration = ? AND id_user = ?
+          WHERE id_template = ? AND id_user = ?
         `;
-        const valuesUpdate = [can_view, can_edit, can_comment, id_declaration, id_user];
+        const valuesUpdate = [can_view, can_edit, can_comment, id_template, id_user];
 
         db.query(qUpdate, valuesUpdate, (errorUpdate) => {
           if (errorUpdate) {
@@ -700,10 +700,10 @@ exports.postPermissionDeclaration = (req, res) => {
       } else {
         // Insérez une nouvelle ligne
         const qInsert = `
-          INSERT INTO permissions_declaration  (id_declaration, id_user, id_client, id_ville, can_view, can_edit, can_comment) 
+          INSERT INTO permissions_declaration  (id_template, id_user, id_client, id_ville, can_view, can_edit, can_comment) 
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
-        const valuesInsert = [id_declaration, id_user, id_client,	id_ville, can_view, can_edit, can_comment];
+        const valuesInsert = [id_template, id_user, id_client,	id_ville, can_view, can_edit, can_comment];
 
         db.query(qInsert, valuesInsert, (errorInsert) => {
           if (errorInsert) {
