@@ -1145,7 +1145,7 @@ exports.getDeclaration = (req, res) => {
     if (isAdmin) {
         selectFields += `, ds.*, client.nom, p.capital, batiment.nom_batiment, objet_fact.nom_objet_fact`;
     } else {
-        selectFields += `, ds.m2_facture, ds.m2_occupe, ds.periode, client.id_client, client.nom, ds.id_template, ds.id_declaration_super`;
+        selectFields += `, ds.m2_facture, ds.m2_occupe, ds.periode, client.id_client, client.nom, ds.id_template, ds.id_declaration_super, ds.id_statut_decl, sd.nom_statut_decl`;
     }
 
     let q = `
@@ -1860,6 +1860,76 @@ exports.deleteUpdateDeclaration = (req, res) => {
     });
   
 }
+
+//Statut declaration
+exports.putDeclarationStatut = async (req, res) => {
+    const { id_declarations } = req.query;
+
+    if (!id_declarations || isNaN(id_declarations)) {
+        return res.status(400).json({ error: 'Invalid declaration ID provided' });
+    }
+
+    const { status_decl } = req.body;
+    if (typeof status_decl === 'undefined' || isNaN(status_decl)) {
+        return res.status(400).json({ error: 'Invalid status value provided' });
+    }
+
+    try {
+        let query = `
+            UPDATE declaration_super
+            SET id_statut_decl = ?
+            WHERE id_declaration_super = ?
+        `;
+
+        const values = [parseInt(status_decl), parseInt(id_declarations)];
+
+        db.query(query, values, (error, results) => {
+            if (error) {
+                console.error("Error executing query:", error);
+                return res.status(500).json({ error: 'Failed to update declaration status' });
+            }
+
+            if (results.affectedRows === 0) {
+                return res.status(404).json({ error: 'Declaration not found' });
+            }
+
+            return res.json({ message: 'Declaration status updated successfully' });
+        });
+    } catch (err) {
+        console.error("Error updating Declaration status:", err);
+        return res.status(500).json({ error: 'Failed to update Declaration status' });
+    }
+};
+
+exports.putDeclarationStatutCloture = async (req, res) => {
+    const { declarations } = req.body;
+
+    if (!Array.isArray(declarations) || declarations.length === 0) {
+        return res.status(400).json({ error: 'Liste des déclarations invalide' });
+    }
+
+    try {
+        const values = declarations.map(({ annee, mois }) => [parseInt(annee), parseInt(mois)]);
+        
+        let query = `
+            UPDATE declaration_super
+            SET id_statut_decl = 2
+            WHERE YEAR(periode) = ? AND MONTH(periode) = ?
+        `;
+
+        for (const value of values) {
+            await db.query(query, value);
+        }
+
+        return res.json({ message: 'Déclarations clôturées avec succès' });
+
+    } catch (err) {
+        console.error("Erreur lors de la clôture des déclarations:", err);
+        return res.status(500).json({ error: 'Erreur interne du serveur' });
+    }
+};
+
+
 
 //Contrat
 exports.getContrat = (req, res) => {

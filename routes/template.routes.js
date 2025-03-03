@@ -29,6 +29,10 @@ router.post('/declaration_superficie', templateController.postDeclaration)
 router.put('/declaration_superficie_delete', templateController.deleteUpdateDeclaration)
 router.put('/declaration_superficie', templateController.putDeclaration)
 
+// statut declarations
+router.put('/statut_declaration', templateController.putDeclarationStatut)
+router.put('/statut_declaration_cloture', templateController.putDeclarationStatutCloture)
+
 //Contrat
 router.get('/contrat', templateController.getContrat)
 router.get('/contratOne', templateController.getContratClientOne)
