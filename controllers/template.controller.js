@@ -58,6 +58,70 @@ exports.getTemplate = (req, res) => {
     });
 };
 
+exports.getTemplateBatimentOne = async (req, res) => {
+    try {
+        const { id_batiment } = req.query;
+
+        if (!id_batiment) {
+            return res.status(400).json({ message: "L'identifiant du bâtiment est requis." });
+        }
+
+        const query = `
+            SELECT 
+                tm.id_template, 
+                tm.date_actif,
+                tm.date_inactif,
+                tm.desc_template,
+                client.nom AS nom_client, 
+                td.nom_type_d_occupation, 
+                batiment.nom_batiment, 
+                dn.nom_denomination_bat, 
+                b.nom_batiment AS nom_whse_fact,
+                objet_fact.nom_objet_fact,
+                statut_template.nom_statut_template,
+                statut_template.id_statut_template,
+                niveau_batiment.nom_niveau,
+                ct.conditions
+            FROM 
+                template_occupation tm
+                INNER JOIN client ON tm.id_client = client.id_client
+                INNER JOIN type_d_occupation td ON tm.id_type_occupation = td.id_type_d_occupation
+                INNER JOIN batiment ON tm.id_batiment = batiment.id_batiment
+                INNER JOIN denomination_bat dn ON tm.id_denomination = dn.id_denomination_bat
+                INNER JOIN whse_fact ON tm.id_whse_fact = whse_fact.id_whse_fact
+                INNER JOIN objet_fact ON tm.id_objet_fact = objet_fact.id_objet_fact
+                INNER JOIN batiment b ON whse_fact.id_batiment = b.id_batiment
+                INNER JOIN statut_template ON tm.status_template = statut_template.id_statut_template
+                INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau
+                LEFT JOIN contrat ct ON tm.id_contrat = ct.id_contrat 
+            WHERE 
+                tm.est_supprime = 0 
+                AND tm.id_batiment = ?
+            ORDER BY 
+                tm.date_actif DESC
+        `;
+
+        const params = [id_batiment];
+
+        db.query(query, params, (error, results) => {
+            if (error) {
+                console.error("Erreur lors de l'exécution de la requête :", error);
+                return res.status(500).json({ message: "Erreur serveur", error });
+            }
+
+            if (results.length === 0) {
+                return res.status(404).json({ message: "Aucun template trouvé pour ce bâtiment." });
+            }
+
+            return res.status(200).json(results);
+        });
+    } catch (err) {
+        console.error("Erreur interne :", err);
+        return res.status(500).json({ message: "Erreur interne du serveur" });
+    }
+};
+
+
 exports.getTemplateClientOne = (req, res) => {
 
     const { id_client } = req.query;
