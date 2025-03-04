@@ -3013,7 +3013,7 @@ exports.getRapportExterneEtInterne = (req, res) => {
 
             q += `
                     GROUP BY MONTH(ds.periode), sb.id_status_batiment
-                    ORDER BY MONTH(ds.periode), sb.id_status_batiment
+                    ORDER BY MONTH(ds.periode), sb.id_status_batiment DESC
                 `
 
     db.query(q, (error, data) => {
