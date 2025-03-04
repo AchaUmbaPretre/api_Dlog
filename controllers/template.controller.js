@@ -96,14 +96,10 @@ exports.getTemplate = (req, res) => {
                 `;
         if (!isAdmin && userId) {
             q+= `
-                AND (
+                AND 
                     tm.user_cr = ${db.escape(userId)}
-                    OR (
-                        AND (
-                            (pd.id_user = ${db.escape(userId)} AND pd.can_view = 1)
-                        )
-                        )
-                    )
+                    OR 
+                        (pd.id_user = ${db.escape(userId)} AND pd.can_view = 1)
                 `
         }
 
