@@ -69,6 +69,7 @@ exports.getTemplateBatimentOne = async (req, res) => {
         const query = `
                 SELECT 
                     tc.desc_template,
+                    b.nom_batiment,
                     client.nom,
                     MONTH(ds.periode) AS Mois,
                     YEAR(ds.periode) AS Année,
