@@ -67,38 +67,31 @@ exports.getTemplateBatimentOne = async (req, res) => {
         }
 
         const query = `
-            SELECT 
-                tm.id_template, 
-                tm.date_actif,
-                tm.date_inactif,
-                tm.desc_template,
-                client.nom AS nom_client, 
-                td.nom_type_d_occupation, 
-                batiment.nom_batiment, 
-                dn.nom_denomination_bat, 
-                b.nom_batiment AS nom_whse_fact,
-                objet_fact.nom_objet_fact,
-                statut_template.nom_statut_template,
-                statut_template.id_statut_template,
-                niveau_batiment.nom_niveau,
-                ct.conditions
-            FROM 
-                template_occupation tm
-                INNER JOIN client ON tm.id_client = client.id_client
-                INNER JOIN type_d_occupation td ON tm.id_type_occupation = td.id_type_d_occupation
-                INNER JOIN batiment ON tm.id_batiment = batiment.id_batiment
-                INNER JOIN denomination_bat dn ON tm.id_denomination = dn.id_denomination_bat
-                INNER JOIN whse_fact ON tm.id_whse_fact = whse_fact.id_whse_fact
-                INNER JOIN objet_fact ON tm.id_objet_fact = objet_fact.id_objet_fact
-                INNER JOIN batiment b ON whse_fact.id_batiment = b.id_batiment
-                INNER JOIN statut_template ON tm.status_template = statut_template.id_statut_template
-                INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau
-                LEFT JOIN contrat ct ON tm.id_contrat = ct.id_contrat 
-            WHERE 
-                tm.est_supprime = 0 
-                AND tm.id_batiment = ?
-            ORDER BY 
-                tm.date_actif DESC
+SELECT 
+                    tc.desc_template,
+                    client.nom,
+                    MONTH(ds.periode) AS Mois,
+                    YEAR(ds.periode) AS Année,
+                    SUM(ds.m2_facture) AS total_facture,
+                    SUM(ds.total_entreposage) AS total_entreposage,
+                    SUM(ds.ttc_entreposage) AS ttc_entreposage,
+                    SUM(ds.total_manutation) AS total_manutation,
+                    SUM(ds.ttc_manutation) AS ttc_manutation,
+                    SUM(ds.m2_occupe) AS total_occupe,
+                    SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_entreManu
+                FROM 
+                    declaration_super AS ds
+                    LEFT JOIN provinces p ON p.id = ds.id_ville
+                    LEFT JOIN client ON ds.id_client = client.id_client
+                    LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+                    LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+                    INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+                    INNER JOIN batiment b ON tc.id_batiment = b.id_batiment
+                WHERE tc.status_template = 1 AND ds.est_supprime = 0 AND tc.id_batiment = ?
+                GROUP BY 
+                    tc.id_template, MONTH(ds.periode), YEAR(ds.periode)
+                ORDER BY 
+                    MONTH(ds.periode), YEAR(ds.periode) DESC
         `;
 
         const params = [id_batiment];
@@ -3918,6 +3911,7 @@ exports.getRapportBatiment = (req, res) => {
     let q = `
                 SELECT 
                   	b.nom_batiment,
+                    b.id_batiment,
                     client.nom,
                     MONTH(ds.periode) AS Mois,
                     YEAR(ds.periode) AS Année,
@@ -3976,7 +3970,7 @@ exports.getRapportBatiment = (req, res) => {
             q += `
                     GROUP BY 
                         tc.id_batiment, MONTH(ds.periode), YEAR(ds.periode)
-                    ORDER BY MONTH(ds.periode)
+                    ORDER BY MONTH(ds.periode) DESC
                 `
 
     db.query(q, (error, data) => {
