@@ -60,7 +60,10 @@ exports.getTemplateCount = (req, res) => {
 
 exports.getTemplate = (req, res) => {
 
-    const q = `
+    const { role, userId} = req.query;
+    const isAdmin = role === 'Admin';
+
+    let q = `
             SELECT 
                 tm.id_template, 
                 tm.date_actif,
@@ -88,9 +91,24 @@ exports.getTemplate = (req, res) => {
                 INNER JOIN statut_template ON tm.status_template = statut_template.id_statut_template
                 INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau
                 LEFT JOIN contrat ct ON tm.id_contrat = ct.id_contrat 
-                WHERE tm.est_supprime = 0    
-                ORDER BY tm.date_actif DESC   
+                INNER JOIN permissions_declaration pd ON pd.id_template = tm.id_template
+                WHERE tm.est_supprime = 0      
                 `;
+        if (!isAdmin && userId) {
+            q+= `
+                AND (
+                    tm.user_cr = ${db.escape(userId)}
+                    OR (
+                        AND (
+                            (pd.id_user = ${db.escape(userId)} AND pd.can_view = 1)
+                        )
+                        )
+                    )
+                `
+        }
+
+        q += ` GROUP BY tm.id_template ORDER BY tm.date_actif DESC `;
+
 
     db.query(q, (error, data) => {
         if (error) {
