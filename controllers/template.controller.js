@@ -1770,9 +1770,6 @@ exports.getDeclarationOneClient = (req, res) => {
         return res.status(400).json({ message: "L'identifiant (id_client) est requis." });
     }
 
-    // Extraire l'année et le mois de la période
-    const [year, month] = periode.split('-');
-
     if (isNaN(parseInt(id_client))) {
         return res.status(400).json({ message: "L'identifiant (id_client) doit être un nombre valide." });
     }
@@ -1803,6 +1800,7 @@ exports.getDeclarationOneClient = (req, res) => {
     const params = [id_client];
 
     query += `
+        GROUP BY tc.id_template
         ORDER BY 
             YEAR(ds.periode) DESC, 
             MONTH(ds.periode) DESC
