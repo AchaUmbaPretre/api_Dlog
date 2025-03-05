@@ -2348,6 +2348,7 @@ exports.getRapportFacture = (req, res) => {
 
     let q = `
         SELECT 
+            client.id_client,
             client.nom AS Client,
             MONTH(ds.periode) AS Mois,
             YEAR(ds.periode) AS Année,
@@ -2482,10 +2483,22 @@ exports.getRapportFacture = (req, res) => {
 };
 
 exports.getRapportFactureClientOne = (req, res) => {
-    const { ville, id_client } = req.body;
+    const { ville, period } = req.body;
+    const { id_client } = req.query;
 
     if (!id_client) {
         return res.status(400).json({ message: "L'identifiant de client est requis" })
+    }
+
+    let months = [];
+    let years = [];
+
+    // Extraction des mois et années
+    if (period?.mois?.length) {
+        months = period.mois.map(Number);
+    }
+    if (period?.annees?.length) {
+        years = period.annees.map(Number);
     }
 
     let q = `
@@ -2514,6 +2527,16 @@ exports.getRapportFactureClientOne = (req, res) => {
 
     if (id_client) {
         q += ` AND ds.id_client = (${db.escape(id_client)})`;
+    }
+
+    if (months.length) {
+        const escapedMonths = months.map(month => db.escape(month)).join(',');
+        q += ` AND MONTH(ds.periode) IN (${escapedMonths})`;
+    }
+
+    if (years.length) {
+        const escapedYears = years.map(y => db.escape(y)).join(',');
+        q += ` AND YEAR(ds.periode) IN (${escapedYears})`;
     }
 
     q += `
