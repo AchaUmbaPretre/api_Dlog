@@ -18,6 +18,7 @@ router.delete('/:id', clientController.deleteClient)
 router.get('/province', clientController.getProvince)
 router.get('/provinceOne', clientController.getProvinceOne)
 router.get('/provinceClientOne', clientController.getProvinceClientOne)
+router.get('/provinceClient', clientController.getProvinceClient)
 router.get('/type_client', clientController.getClientType)
  
 module.exports = router;
