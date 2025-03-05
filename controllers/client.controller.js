@@ -266,6 +266,22 @@ exports.getProvinceClientOne = (req, res) => {
     });
 };
 
+exports.getProvinceClient = (req, res) => {
+
+    const q = `SELECT p.* FROM provinces p
+                    INNER JOIN declaration_super ds ON ds.id_ville = p.id
+                    WHERE ds.id_ville = p.id
+                    GROUP BY p.id
+                `;
+    
+    db.query(q , (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getClientType = (req, res) => {
 
     const q = `SELECT * FROM type_client
