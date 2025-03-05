@@ -91,7 +91,7 @@ exports.getTemplate = (req, res) => {
                 INNER JOIN statut_template ON tm.status_template = statut_template.id_statut_template
                 INNER JOIN niveau_batiment ON tm.id_niveau = niveau_batiment.id_niveau
                 LEFT JOIN contrat ct ON tm.id_contrat = ct.id_contrat 
-                INNER JOIN permissions_declaration pd ON pd.id_template = tm.id_template
+                LEFT JOIN permissions_declaration pd ON pd.id_template = tm.id_template
                 WHERE tm.est_supprime = 0      
                 `;
         if (!isAdmin && userId) {
@@ -170,7 +170,6 @@ exports.getTemplateBatimentOne = async (req, res) => {
         return res.status(500).json({ message: "Erreur interne du serveur" });
     }
 };
-
 
 exports.getTemplateClientOne = (req, res) => {
 
@@ -419,6 +418,8 @@ exports.getTemplateOne = (req, res) => {
 };
 
 exports.postTemplate = (req, res) => {
+    const { userId } = req.query;
+
     db.getConnection((err, connection) => {
         if (err) {
             console.error("Erreur de connexion à la base de données:", err);
@@ -452,8 +453,8 @@ exports.postTemplate = (req, res) => {
                 // Insérer dans la table template_occupation avec le nouvel id_whse_fact
                 const qTemplate = `
                     INSERT INTO template_occupation 
-                    (id_client, id_type_occupation, id_batiment, id_niveau, id_denomination, id_whse_fact, id_contrat, id_objet_fact, desc_template, status_template, date_actif) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (id_client, id_type_occupation, id_batiment, id_niveau, id_denomination, id_whse_fact, id_contrat, id_objet_fact, desc_template, status_template, user_cr, date_actif) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `;
                 const templateValues = [
                     req.body.id_client,
@@ -466,6 +467,7 @@ exports.postTemplate = (req, res) => {
                     req.body.id_objet_fact,
                     req.body.desc_template,
                     req.body.status_template || 1,
+                    userId,
                     req.body.date_actif || new Date()
                 ];
 
@@ -2476,6 +2478,66 @@ exports.getRapportFacture = (req, res) => {
                 resume: datas[0] || {}, // Assurer un objet vide si aucun résultat
             });
         });
+    });
+};
+
+exports.getRapportFactureClientOne = (req, res) => {
+    const { ville, id_client } = req.body;
+
+    if (!id_client) {
+        return res.status(400).json({ message: "L'identifiant de client est requis" })
+    }
+
+    let q = `
+        SELECT 
+            client.nom AS Client,
+            MONTH(ds.periode) AS Mois,
+            YEAR(ds.periode) AS Année,
+            SUM(ds.m2_facture) AS Montant
+        FROM 
+            declaration_super AS ds
+            LEFT JOIN provinces p ON p.id = ds.id_ville
+            LEFT JOIN client ON ds.id_client = client.id_client
+            LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+            LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+            INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+            LEFT JOIN batiment ON tc.id_batiment = batiment.id_batiment
+        WHERE 
+            tc.status_template = 1 
+            AND ds.est_supprime = 0
+    `;
+
+    if (ville && Array.isArray(ville) && ville.length > 0) {
+        const escapedVilles = ville.map(c => db.escape(c)).join(',');
+        q += ` AND ds.id_ville IN (${escapedVilles})`;
+    }
+
+    if (id_client) {
+        q += ` AND ds.id_client = (${db.escape(id_client)})`;
+    }
+
+    q += `
+        GROUP BY 
+            client.nom, MONTH(ds.periode), YEAR(ds.periode)
+    `;
+
+    q += `
+        ORDER BY 
+            YEAR(ds.periode) DESC, MONTH(ds.periode) DESC
+    `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            console.error('Erreur SQL:', error.message);
+            return res.status(500).json({
+                error: 'Une erreur est survenue lors de la récupération des données.',
+                details: error.message,
+            });
+        }
+        if (data.length === 0) {
+            return res.status(404).json({ message: 'Aucune donnée trouvée pour les critères sélectionnés.' });
+        }
+        return res.status(200).json(data);
     });
 };
 
