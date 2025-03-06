@@ -223,6 +223,7 @@ exports.getBatimentOne = (req, res) => {
     });
 };
 
+
 exports.postBatiment = async (req, res) => {
 
     try {

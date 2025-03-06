@@ -1869,10 +1869,87 @@ exports.getDeclarationOneClient = (req, res) => {
             console.error("Erreur lors de l'exécution de la requête :", error);
             return res.status(500).json({ message: "Une erreur est survenue lors de l'extraction des données.", error });
         }
-
         return res.status(200).json(results);
     });
 };
+
+exports.getDeclarationOneClientV = (req, res) => {
+    try {
+        const { id_client } = req.query;
+        const { ville, period } = req.body || {};
+
+        // Validation de l'identifiant du client
+        if (!id_client || isNaN(parseInt(id_client))) {
+            return res.status(400).json({ message: "L'identifiant (id_client) est requis et doit être un nombre valide." });
+        }
+
+        // Extraction et validation des paramètres
+        const clientId = parseInt(id_client);
+        const villes = Array.isArray(ville) ? ville.map(v => parseInt(v)).filter(v => !isNaN(v)) : [];
+        const months = Array.isArray(period?.mois) ? period.mois.map(m => parseInt(m)).filter(m => !isNaN(m)) : [];
+        const years = Array.isArray(period?.annees) ? period.annees.map(y => parseInt(y)).filter(y => !isNaN(y)) : [];
+
+        // Début de la requête SQL
+        let query = `
+            SELECT 
+                ds.*, 
+                client.nom AS nom_client, 
+                p.capital, 
+                batiment.nom_batiment, 
+                objet_fact.nom_objet_fact,
+                tc.desc_template
+            FROM 
+                declaration_super AS ds
+                LEFT JOIN provinces p ON p.id = ds.id_ville
+                LEFT JOIN client ON ds.id_client = client.id_client
+                LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+                INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+                LEFT JOIN batiment ON tc.id_batiment = batiment.id_batiment
+            WHERE 
+                tc.status_template = 1 
+                AND ds.est_supprime = 0 
+                AND ds.id_client = ?
+        `;
+
+        const params = [clientId];
+
+        // Ajout des filtres optionnels
+        if (villes.length > 0) {
+            query += ` AND ds.id_ville IN (${villes.map(() => "?").join(",")})`;
+            params.push(...villes);
+        }
+        if (months.length > 0) {
+            query += ` AND MONTH(ds.periode) IN (${months.map(() => "?").join(",")})`;
+            params.push(...months);
+        }
+        if (years.length > 0) {
+            query += ` AND YEAR(ds.periode) IN (${years.map(() => "?").join(",")})`;
+            params.push(...years);
+        }
+
+        // Ajout du groupement et tri
+        query += `
+            GROUP BY ds.id_declaration_super
+            ORDER BY 
+                YEAR(ds.periode) DESC, 
+                MONTH(ds.periode) DESC
+        `;
+
+        // Exécution de la requête
+        db.query(query, params, (error, results) => {
+            if (error) {
+                console.error("Erreur SQL :", error);
+                return res.status(500).json({ message: "Une erreur est survenue lors de l'extraction des données.", error });
+            }
+            return res.status(200).json(results);
+        });
+
+    } catch (error) {
+        console.error("Erreur serveur :", error);
+        return res.status(500).json({ message: "Erreur interne du serveur.", error });
+    }
+};
+
 
 /* exports.postDeclaration = async (req, res) => {
 
