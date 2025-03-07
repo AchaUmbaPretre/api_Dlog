@@ -1874,6 +1874,7 @@ exports.getDeclarationOneClient = (req, res) => {
 };
 
 exports.getDeclarationOneClientV = (req, res) => {
+    
     try {
         const { id_client } = req.query;
         const { ville, period } = req.body || {};
