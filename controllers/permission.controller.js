@@ -86,6 +86,7 @@ exports.menusAllOne = (req, res) => {
           permission.can_read AS menu_can_read,
           submenu_permission.can_read AS submenu_can_read,
           permission.can_edit,
+          permission.can_comment,
           permission.can_delete
       FROM menus 
           LEFT JOIN submenus ON menus.id = submenus.menu_id
@@ -117,6 +118,7 @@ exports.menusAllOne = (req, res) => {
                   subMenus: [],
                   can_read: row.menu_can_read,
                   can_edit: row.can_edit,
+                  can_comment: row.can_comment,
                   can_delete: row.can_delete
               };
               menus.push(currentMenu);
@@ -136,6 +138,7 @@ exports.menusAllOne = (req, res) => {
                           submenu_icon: row.submenu_icon,
                           can_read: row.submenu_can_read,
                           can_edit: row.can_edit,
+                          can_comment: row.can_comment,
                           can_delete: row.can_delete
                       });
                   }
@@ -147,8 +150,6 @@ exports.menusAllOne = (req, res) => {
       res.json(menus);
   });
 };
-
-
 
 
 exports.menusAll = (req, res) => {
