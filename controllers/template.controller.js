@@ -3112,8 +3112,8 @@ exports.getRapportVille = (req, res) => {
 
     // Group by period and province
     q += `
-        GROUP BY ds.periode, p.capital
-        ORDER BY ds.periode, p.capital
+        GROUP BY MONTH(ds.periode),YEAR(ds.periode), p.capital
+        ORDER BY YEAR(ds.periode) DESC, MONTH(ds.periode) DESC
     `;
 
     // Execute the query
