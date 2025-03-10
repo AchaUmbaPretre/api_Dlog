@@ -2373,9 +2373,9 @@ exports.postContrat = async (req, res) => {
             date_fin,
             montant,
             type_contrat,
-            statut || 'actif', // Si 'statut' est manquant, on attribue 'actif' par défaut
+            statut || 'actif',
             date_signature,
-            conditions || '' // Si 'conditions' est manquant, on attribue une chaîne vide
+            conditions || '' 
         ];
 
         // Exécution de la requête SQL
