@@ -1874,7 +1874,7 @@ exports.getDeclarationOneClient = (req, res) => {
 };
 
 exports.getDeclarationOneClientV = (req, res) => {
-    
+
     try {
         const { id_client } = req.query;
         const { ville, period } = req.body || {};
@@ -2153,7 +2153,7 @@ exports.postDeclaration = async (req, res) => {
 
 exports.putDeclaration = (req, res) => {
     const { id_declaration } = req.query;
-    const { periode } = req.body; // Ajout de la récupération de "periode" depuis le body
+    const { periode } = req.body;
 
     if (!id_declaration || isNaN(id_declaration)) {
         return res.status(400).json({ error: 'Invalid declaration ID provided' });
