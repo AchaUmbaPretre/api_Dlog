@@ -343,7 +343,7 @@ exports.putPermission = (req, res) => {
 //Permission Tache
 exports.getPermissionTache = (req, res) => {
   const { id_tache } = req.query;
-  const q = `SELECT id_user, can_view, can_edit, can_comment FROM permissions_tache WHERE id_tache = ?`
+  const q = `SELECT id_user, can_view, can_edit, can_comment, can_delete FROM permissions_tache WHERE id_tache = ?`
 
   db.query(q, [id_tache], (error, data) => {
     if (error) {
@@ -412,8 +412,9 @@ exports.getPermissionTache = (req, res) => {
 }; */
 
 exports.postPermissionTache = (req, res) => {
-  const { id_tache, id_user, can_view, can_edit, can_comment } = req.body;
+  const { id_tache, id_user, id_ville, id_departement, can_view, can_edit, can_comment, can_delete } = req.body;
 
+  console.log(req.body)
   if (!id_tache || !id_user) {
     return res.status(400).send({ error: "Les champs 'id_tache' et 'id_user' sont requis." });
   }
@@ -432,10 +433,10 @@ exports.postPermissionTache = (req, res) => {
       if (data.length > 0) {
         const qUpdate = `
           UPDATE permissions_tache 
-          SET can_view = ?, can_edit = ?, can_comment = ? 
+          SET can_view = ?, can_edit = ?, can_comment = ?, can_delete = ?
           WHERE id_tache = ? AND id_user = ?
         `;
-        const valuesUpdate = [can_view, can_edit, can_comment, id_tache, id_user];
+        const valuesUpdate = [can_view, can_edit, can_comment, can_delete, id_tache, id_user];
 
         db.query(qUpdate, valuesUpdate, (errorUpdate) => {
           if (errorUpdate) {
@@ -449,10 +450,10 @@ exports.postPermissionTache = (req, res) => {
       } else {
         // Insérez une nouvelle ligne
         const qInsert = `
-          INSERT INTO permissions_tache (id_tache, id_user, can_view, can_edit, can_comment) 
-          VALUES (?, ?, ?, ?, ?)
+          INSERT INTO permissions_tache (id_tache, id_user, id_ville, id_departement, can_view, can_edit, can_comment, can_delete) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
-        const valuesInsert = [id_tache, id_user, can_view, can_edit, can_comment];
+        const valuesInsert = [id_tache, id_user, id_ville, id_departement, can_view, can_edit, can_comment, can_delete];
 
         db.query(qInsert, valuesInsert, (errorInsert) => {
           if (errorInsert) {
@@ -506,7 +507,7 @@ exports.getPermissionVille = (req, res) => {
 exports.getPermissionVilleOne = (req, res) => {
   const { id_ville } = req.query;
 
-  const q = `SELECT * FROM user_villes WHERE id_ville = ?`;
+  const q = `SELECT * FROM permissions_tache WHERE id_ville = ?`;
 
   db.query(q, [id_ville], (error, data) => {
       if (error) {
