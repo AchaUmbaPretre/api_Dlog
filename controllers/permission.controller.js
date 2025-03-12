@@ -516,6 +516,19 @@ exports.getPermissionVilleOne = (req, res) => {
   });
 };
 
+exports.getPermissionVilleOne = (req, res) => {
+  const { id_departement } = req.query;
+
+  const q = `SELECT * FROM permissions_tache WHERE id_departemeent = ?`;
+
+  db.query(q, [id_departement], (error, data) => {
+      if (error) {
+          return res.status(500).send(error);
+      }
+      return res.status(200).json(data);
+  });
+};
+
 exports.postPermissionVille = (req, res) => {
   const { id_user, id_ville, can_view } = req.body;
 
@@ -572,7 +585,7 @@ exports.postPermissionVille = (req, res) => {
 exports.getPermissionDepartementOne = (req, res) => {
   const { id_departement } = req.query;
 
-  const q = `SELECT * FROM user_departements WHERE id_departement  = ?`;
+  const q = `SELECT * FROM permissions_tache WHERE id_departement  = ?`;
 
   db.query(q, [id_departement], (error, data) => {
       if (error) {
