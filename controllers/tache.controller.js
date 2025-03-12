@@ -635,6 +635,56 @@ exports.getTacheVille = (req, res) => {
     });
 };
 
+exports.getTacheDepartement = (req, res) => {
+    const { id_departement } = req.query;
+
+    // Vérification de l'entrée
+    if (!id_departement) {
+        return res.status(400).json({ error: "L'identifiant de departement est requis." });
+    }
+
+    const q = `
+        SELECT 
+            tache.id_tache, 
+            tache.description, 
+            tache.date_debut, 
+            tache.date_fin,
+            tache.nom_tache, 
+            typeC.nom_type_statut AS statut, 
+            client.nom AS nom_client, 
+            frequence.nom AS frequence, 
+            utilisateur.nom AS owner, 
+            provinces.name AS ville, 
+            departement.nom_departement AS departement,
+            cb.controle_de_base,
+            cb.id_controle
+        FROM tache
+            LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+            LEFT JOIN client ON tache.id_client = client.id_client
+            INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
+            LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
+            LEFT JOIN provinces ON tache.id_ville = provinces.id
+            LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
+            LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
+            LEFT JOIN departement ON tache.id_departement = departement.id_departement
+        WHERE tache.id_departement = ?
+        GROUP BY tache.id_departement
+    `;
+
+    db.query(q, [id_departement], (error, results) => {
+        if (error) {
+            console.error("Erreur lors de la récupération des tâches :", error);
+            return res.status(500).json({ error: "Erreur interne du serveur." });
+        }
+
+        if (results.length === 0) {
+            return res.status(404).json({ message: "Aucune tâche trouvée pour ce departement." });
+        }
+
+        return res.status(200).json(results);
+    });
+};
+
 /* exports.getTacheOne = (req, res) => {
     const {id_tache} = req.query;
 

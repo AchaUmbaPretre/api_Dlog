@@ -414,7 +414,6 @@ exports.getPermissionTache = (req, res) => {
 exports.postPermissionTache = (req, res) => {
   const { id_tache, id_user, id_ville, id_departement, can_view, can_edit, can_comment, can_delete } = req.body;
 
-  console.log(req.body)
   if (!id_tache || !id_user) {
     return res.status(400).send({ error: "Les champs 'id_tache' et 'id_user' sont requis." });
   }
