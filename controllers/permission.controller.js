@@ -504,11 +504,11 @@ exports.getPermissionVille = (req, res) => {
 };
 
 exports.getPermissionVilleOne = (req, res) => {
-  const { id_ville } = req.query;
+  const { id_user } = req.query;
 
-  const q = `SELECT * FROM permissions_tache WHERE id_ville = ?`;
+  const q = `SELECT * FROM permissions_tache WHERE id_user = ?`;
 
-  db.query(q, [id_ville], (error, data) => {
+  db.query(q, [id_user], (error, data) => {
       if (error) {
           return res.status(500).send(error);
       }
@@ -516,12 +516,12 @@ exports.getPermissionVilleOne = (req, res) => {
   });
 };
 
-exports.getPermissionVilleOne = (req, res) => {
-  const { id_departement } = req.query;
+exports.getPermissionDepartementOne = (req, res) => {
+  const { id_user } = req.query;
 
-  const q = `SELECT * FROM permissions_tache WHERE id_departemeent = ?`;
+  const q = `SELECT * FROM permissions_tache WHERE id_user = ?`;
 
-  db.query(q, [id_departement], (error, data) => {
+  db.query(q, [id_user], (error, data) => {
       if (error) {
           return res.status(500).send(error);
       }
@@ -582,7 +582,7 @@ exports.postPermissionVille = (req, res) => {
 };
 
 //Permission de departement
-exports.getPermissionDepartementOne = (req, res) => {
+/* exports.getPermissionDepartementOne = (req, res) => {
   const { id_departement } = req.query;
 
   const q = `SELECT * FROM permissions_tache WHERE id_departement  = ?`;
@@ -593,7 +593,7 @@ exports.getPermissionDepartementOne = (req, res) => {
       }
       return res.status(200).json(data);
   });
-};
+}; */
 
 exports.postPermissionDepartement = (req, res) => {
   const { id_user, id_departement, id_ville, can_view } = req.body;
