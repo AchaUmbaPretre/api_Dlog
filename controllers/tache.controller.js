@@ -781,7 +781,6 @@ exports.getTacheVille = (req, res) => {
 exports.getTacheDepartement = (req, res) => {
     const { id_departement } = req.query;
 
-    // Vérification de l'entrée
     if (!id_departement) {
         return res.status(400).json({ error: "L'identifiant de departement est requis." });
     }
