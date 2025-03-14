@@ -2,7 +2,7 @@ const xlsx = require('xlsx');
 const fs = require('fs');
 const path = require('path');
 const { db } = require("./../config/database");
-const { getSocketIO, onlineUsers, notifyAdmin } = require('../socket'); // Importer la fonction et la map
+const { getSocketIO, onlineUsers, notifyAdmin } = require('../socket');
 
 // Exemple d'implémentation dans un contrôleur ou un service
 exports.getTacheChart = (req, res) => {
