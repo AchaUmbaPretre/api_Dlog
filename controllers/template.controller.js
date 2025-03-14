@@ -78,7 +78,11 @@ exports.getTemplate = (req, res) => {
                 statut_template.nom_statut_template,
                 statut_template.id_statut_template,
                 niveau_batiment.nom_niveau,
-                ct.conditions
+                ct.conditions,
+                pd.can_view,
+                pd.can_edit,
+                pd.can_comment,
+                pd.can_delete
             FROM 
                 template_occupation tm
                 INNER JOIN client ON tm.id_client = client.id_client

@@ -151,7 +151,6 @@ exports.menusAllOne = (req, res) => {
   });
 };
 
-
 exports.menusAll = (req, res) => {
     const {userId} = req.query;
 
