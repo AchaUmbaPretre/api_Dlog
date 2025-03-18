@@ -1422,7 +1422,7 @@ exports.getDeclaration = (req, res) => {
         years = period.annees.map(Number);
     }
 
-    let selectFields = `tc.desc_template, pd.can_view, pd.can_edit, pd.can_comment, ds.user_cr, sd.nom_statut_decl`;
+    let selectFields = `tc.desc_template, pd.can_view, pd.can_edit, pd.can_comment, ds.user_cr, sd.nom_statut_decl, u.nom AS person_veroui, ds.verrouille_par`;
 
     if (isAdmin) {
         selectFields += `, ds.*, client.nom, p.capital, batiment.nom_batiment, objet_fact.nom_objet_fact`;
@@ -1443,6 +1443,7 @@ exports.getDeclaration = (req, res) => {
             LEFT JOIN user_client uc ON uc.id_client = ds.id_client
             LEFT JOIN permissions_declaration pd ON pd.id_template = ds.id_template
             LEFT JOIN statut_declaration sd ON ds.id_statut_decl = sd.id_statut_declaration
+            LEFT JOIN utilisateur u ON ds.verrouille_par = u.id_utilisateur
         WHERE tc.status_template = 1 
         AND ds.est_supprime = 0
     `;
@@ -2155,6 +2156,74 @@ exports.postDeclaration = async (req, res) => {
     }
 };
 
+exports.lockDeclaration = (req, res) => {
+    const { userId, id } = req.query;
+
+    let q = `UPDATE declaration_super SET verrouille_par = ?, verrouille_le = NOW() WHERE id_declaration_super = ? AND verrouille_par IS NULL`;
+    const params = [userId, id];
+
+    db.query(q, params, (error, results) => {
+        if (error) {
+            console.error("Erreur lors de l'exécution de la requête :", error);
+            return res.status(500).json({ message: "Erreur serveur", error });
+        }
+
+        if (results.affectedRows > 0) {
+            return res.status(200).json({message: 'Déclaration verrouillée'});
+        } else {
+            return res.status(400).send('Déclaration déjà verrouillée ou ID invalide');
+        }
+    });
+}
+
+exports.DelockDeclaration = (req, res) => {
+    const { userId, idDeclaration } = req.body;
+
+    let q = `UPDATE declaration_super SET verrouille_par = NULL, verrouille_le = NULL WHERE id_declaration_super = ? AND verrouille_par = ?`;
+    const params = [ idDeclaration,userId ];
+
+    db.query(q, params, (error, results) => {
+        if (error) {
+            console.error("Erreur lors de l'exécution de la requête :", error);
+            return res.status(500).json({ message: "Erreur serveur", error });
+        }
+
+        if (results.affectedRows > 0) {
+            return res.status(200).send('Déclaration Déverrouillée');
+        } else {
+            return res.status(400).send('Déclaration déjà Déverrouillée ou ID invalide');
+        }
+    });
+}
+
+exports.checkAndUnlock = async(req, res) => {
+    try {
+        const maxLockDuration = 1800; // 30 minutes en secondes
+        const currentTime = Math.floor(Date.now() / 1000); // Heure actuelle en secondes
+        
+        // Récupérer tous les enregistrements verrouillés depuis plus longtemps que la durée maximale
+        const query = `
+            SELECT id_declaration_super, verrouille_le
+            FROM declaration_super
+            WHERE verrouille_par IS NOT NULL
+        `;
+        
+        const result = await db.query(query);
+        const staleRecords = result.rows.filter(record => {
+            const lockTimestamp = Math.floor(new Date(record.verrouille_le).getTime() / 1000); // Convertir en secondes
+            const lockDuration = currentTime - lockTimestamp;
+            return lockDuration >= maxLockDuration;
+        });
+
+        // Retourner les enregistrements à déverrouiller
+        res.json(staleRecords);
+    } catch (error) {
+        console.error('Erreur lors de la vérification des enregistrements verrouillés', error);
+        res.status(500).send('Erreur serveur');
+    }
+}
+
+
 exports.putDeclaration = (req, res) => {
     const { id_declaration } = req.query;
     const { periode } = req.body;
@@ -2241,6 +2310,158 @@ exports.putDeclaration = (req, res) => {
         return res.status(500).json({ error: 'Failed to update declaration record' });
     }
 };
+
+/* exports.putDeclaration = (req, res) => {
+    const { id_declaration, version } = req.query;
+    const { periode } = req.body;
+
+    if (!id_declaration || isNaN(id_declaration)) {
+        return res.status(400).json({ error: 'ID de déclaration invalide' });
+    }
+
+    if (!periode) {
+        return res.status(400).json({ error: 'La période est requise' });
+    }
+
+    if (version === undefined) {
+        return res.status(400).json({ error: 'La version est requise' });
+    }
+
+    const periodeDate = new Date(periode);
+    if (isNaN(periodeDate.getTime())) {
+        return res.status(400).json({ error: "Format de période invalide." });
+    }
+
+    // Formatage de la période au format attendu YYYY-MM-DD
+    const year = periodeDate.getUTCFullYear();
+    const month = String(periodeDate.getUTCMonth() + 1).padStart(2, '0');
+    const fixedPeriode = `${year}-${month}-03`; // Supposition que le jour est toujours le 03
+
+    // Obtenir une connexion du pool
+    db.getConnection((err, connection) => {
+        if (err) {
+            console.error('Erreur de connexion à la base de données :', err);
+            return res.status(500).json({ error: 'Erreur de connexion à la base de données' });
+        }
+
+        // Démarrer une transaction
+        connection.beginTransaction((transactionErr) => {
+            if (transactionErr) {
+                connection.release();
+                return res.status(500).json({ error: 'Erreur lors du démarrage de la transaction' });
+            }
+
+            // Verrouiller l'enregistrement pour éviter d'autres modifications simultanées
+            const lockQuery = `SELECT * FROM declaration_super WHERE id_declaration_super = ? FOR UPDATE`;
+            connection.query(lockQuery, [id_declaration], (lockErr, lockData) => {
+                if (lockErr) {
+                    connection.rollback(() => {
+                        connection.release();
+                    });
+                    return res.status(500).json({ error: 'Erreur lors du verrouillage de l\'enregistrement' });
+                }
+
+                // Si l'enregistrement n'existe pas
+                if (lockData.length === 0) {
+                    connection.rollback(() => {
+                        connection.release();
+                    });
+                    return res.status(404).json({ error: 'Enregistrement de déclaration non trouvé' });
+                }
+
+                const currentVersion = lockData[0].version;
+
+                // Vérifier si la version correspond
+                if (currentVersion !== version) {
+                    connection.rollback(() => {
+                        connection.release();
+                    });
+                    return res.status(409).json({ error: 'Conflit de version. La déclaration a été modifiée par un autre utilisateur.' });
+                }
+
+                // Requête UPDATE avec incrément de la version
+                const updateQuery = `
+                    UPDATE declaration_super
+                    SET 
+                        id_template = ?,
+                        periode = ?,
+                        m2_occupe = ?,
+                        m2_facture = ?,
+                        tarif_entreposage = ?,
+                        entreposage = ?,
+                        debours_entreposage = ?,
+                        total_entreposage = ?,
+                        ttc_entreposage = ?,
+                        desc_entreposage = ?,
+                        id_ville = ?,
+                        id_client = ?,
+                        id_objet = ?,
+                        manutation = ?,
+                        tarif_manutation = ?,
+                        debours_manutation = ?,
+                        total_manutation = ?,
+                        ttc_manutation = ?,
+                        desc_manutation = ?,
+                        version = version + 1 -- Incrément de la version
+                    WHERE id_declaration_super = ?
+                `;
+                const values = [
+                    req.body.id_template,
+                    fixedPeriode,
+                    req.body.m2_occupe,
+                    req.body.m2_facture,
+                    req.body.tarif_entreposage,
+                    req.body.entreposage,
+                    req.body.debours_entreposage,
+                    req.body.total_entreposage,
+                    req.body.ttc_entreposage,
+                    req.body.desc_entreposage,
+                    req.body.id_ville,
+                    req.body.id_client,
+                    req.body.id_objet,
+                    req.body.manutation,
+                    req.body.tarif_manutation,
+                    req.body.debours_manutation,
+                    req.body.total_manutation,
+                    req.body.ttc_manutation,
+                    req.body.desc_manutation,
+                    id_declaration
+                ];
+
+                // Exécution de la requête de mise à jour
+                connection.query(updateQuery, values, (updateErr, updateData) => {
+                    if (updateErr) {
+                        connection.rollback(() => {
+                            connection.release();
+                        });
+                        return res.status(500).json({ error: 'Erreur lors de la mise à jour de l\'enregistrement' });
+                    }
+
+                    if (updateData.affectedRows === 0) {
+                        connection.rollback(() => {
+                            connection.release();
+                        });
+                        return res.status(404).json({ error: 'Enregistrement de déclaration non trouvé' });
+                    }
+
+                    // Commit de la transaction
+                    connection.commit((commitErr) => {
+                        if (commitErr) {
+                            connection.rollback(() => {
+                                connection.release();
+                            });
+                            return res.status(500).json({ error: 'Erreur lors de la validation de la transaction' });
+                        }
+
+                        // Transaction réussie, renvoyer une réponse
+                        connection.release();
+                        return res.json({ message: 'Enregistrement de déclaration mis à jour avec succès' });
+                    });
+                });
+            });
+        });
+    });
+}; */
 
 exports.deleteUpdateDeclaration = (req, res) => {
     const {id} = req.query;

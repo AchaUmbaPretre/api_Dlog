@@ -29,6 +29,11 @@ router.get('/declaration_superficie/oneClient', templateController.getDeclaratio
 router.post('/declaration_superficie/oneClientV', templateController.getDeclarationOneClientV);
 router.get('/declaration_superficie/oneVille', templateController.getDeclarationVilleOne)
 router.post('/declaration_superficie', templateController.postDeclaration)
+//Lock declaration
+router.post('/lock_declaration', templateController.lockDeclaration)
+router.post('/Delock_declaration', templateController.DelockDeclaration)
+router.post('/check_and_unlock', templateController.checkAndUnlock)
+
 router.put('/declaration_superficie_delete', templateController.deleteUpdateDeclaration)
 router.put('/declaration_superficie', templateController.putDeclaration)
 
