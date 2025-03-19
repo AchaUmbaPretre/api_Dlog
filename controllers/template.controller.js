@@ -2171,12 +2171,12 @@ exports.lockDeclaration = (req, res) => {
         if (results.affectedRows > 0) {
             return res.status(200).json({message: 'Déclaration verrouillée'});
         } else {
-            return res.status(400).send('Déclaration déjà verrouillée ou ID invalide');
+            return res.status(400).json({message: 'Déclaration déjà verrouillée ou ID invalide'});
         }
     });
 }
 
-exports.DelockDeclaration = (req, res) => {
+exports.unlockDeclaration = (req, res) => {
     const { userId, idDeclaration } = req.body;
 
     let q = `UPDATE declaration_super SET verrouille_par = NULL, verrouille_le = NULL WHERE id_declaration_super = ? AND verrouille_par = ?`;
@@ -2189,14 +2189,69 @@ exports.DelockDeclaration = (req, res) => {
         }
 
         if (results.affectedRows > 0) {
-            return res.status(200).send('Déclaration Déverrouillée');
+            return res.status(200).json({message: 'Déclaration Déverrouillée'});
         } else {
-            return res.status(400).send('Déclaration déjà Déverrouillée ou ID invalide');
+            return res.status(400).json({message: 'Déclaration déjà Déverrouillée ou ID invalide'});
         }
     });
 }
 
-exports.checkAndUnlock = async(req, res) => {
+exports.checkAndUnlock = (req, res) => {
+    try {
+        const maxLockDuration = 600; // 10 minutes en secondes
+        const currentTime = Math.floor(Date.now() / 1000); // Heure actuelle en secondes
+
+        // 🔹 Récupérer tous les enregistrements verrouillés
+        const query = `
+            SELECT id_declaration_super, verrouille_le
+            FROM declaration_super
+            WHERE verrouille_par IS NOT NULL
+        `;
+
+        db.query(query, (error, results) => {
+            if (error) {
+                console.error('❌ Erreur lors de la récupération des enregistrements verrouillés', error);
+                return res.status(500).send('Erreur serveur');
+            }
+
+            if (!results || results.length === 0) {
+                return res.json({ message: "Aucun enregistrement verrouillé." });
+            }
+
+            const staleRecords = results.filter(record => {
+                const lockTimestamp = Math.floor(new Date(record.verrouille_le).getTime() / 1000);
+                const lockDuration = currentTime - lockTimestamp;
+                return lockDuration >= maxLockDuration;
+            });
+
+            if (staleRecords.length > 0) {
+                const unlockQuery = `
+                    UPDATE declaration_super
+                    SET verrouille_par = NULL, verrouille_le = NULL
+                    WHERE id_declaration_super IN (${staleRecords.map(r => r.id_declaration_super).join(",")})
+                `;
+
+                db.query(unlockQuery, (unlockError) => {
+                    if (unlockError) {
+                        console.error('❌ Erreur lors du déverrouillage', unlockError);
+                        return res.status(500).send('Erreur serveur lors du déverrouillage');
+                    }
+
+                    res.json({ message: `${staleRecords.length} enregistrements déverrouillés.`, unlockedRecords: staleRecords });
+                });
+            } else {
+                res.json({ message: "Aucun enregistrement à déverrouiller." });
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur lors de la vérification/déverrouillage des enregistrements', error);
+        res.status(500).send('Erreur serveur');
+    }
+};
+
+
+/* exports.checkAndUnlock = async(req, res) => {
     try {
         const maxLockDuration = 1800; // 30 minutes en secondes
         const currentTime = Math.floor(Date.now() / 1000); // Heure actuelle en secondes
@@ -2221,7 +2276,7 @@ exports.checkAndUnlock = async(req, res) => {
         console.error('Erreur lors de la vérification des enregistrements verrouillés', error);
         res.status(500).send('Erreur serveur');
     }
-}
+} */
 
 
 exports.putDeclaration = (req, res) => {
