@@ -74,4 +74,7 @@ router.post('/rapport_variation_client', templateController.getRapportVariationC
 router.get('/mois', templateController.getMois);
 router.get('/annee', templateController.getAnnee)
 
+//Audit Logs Déclaration
+router.get('/audit_logs_declaration', templateController.getAuditLogsDeclaration);
+
 module.exports = router;

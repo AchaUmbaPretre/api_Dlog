@@ -73,7 +73,6 @@ dotenv.config();
 exports.menusAllOne = (req, res) => {
   const { userId } = req.query;
 
-  // Vérifier le rôle de l'utilisateur
   const roleQuery = `SELECT role FROM utilisateur WHERE id_utilisateur = ?`;
 
   db.query(roleQuery, [userId], (roleErr, roleResults) => {

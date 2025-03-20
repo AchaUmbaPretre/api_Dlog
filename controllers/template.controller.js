@@ -1,4 +1,7 @@
 const { db } = require("./../config/database");
+const { promisify } = require('util');
+const query = promisify(db.query).bind(db);
+
 
 //Template
 exports.getTemplateCount = (req, res) => {
@@ -2042,7 +2045,7 @@ exports.getDeclarationOneClientV = (req, res) => {
     }
 }; */
 
-exports.postDeclaration = async (req, res) => {
+/* exports.postDeclaration = async (req, res) => {
     try {
         const {
             id_template,
@@ -2142,6 +2145,18 @@ exports.postDeclaration = async (req, res) => {
                             return res.status(500).json({ error: "Erreur lors de l'association des bâtiments." });
                         }
 
+                        const auditLogQuery = `
+                            INSERT INTO audit_logs_declaration (action, user_id, id_declaration_super, timestamp)
+                            VALUES ('Création', ?, ?, NOW())
+                        `;
+
+                        console.log(user_cr, declarationId)
+
+                        db.query(auditLogQuery, [user_cr, declarationId], (auditError) => {
+                            if (auditError) {
+                                console.error("Erreur lors de l'ajout des logs d'audit :", auditError);
+                            }
+                        });
                         return res.status(201).json({ message: 'Déclaration ajoutée avec succès et bâtiments associés.' });
                     });
                 } else {
@@ -2150,6 +2165,100 @@ exports.postDeclaration = async (req, res) => {
                 }
             });
         });
+    } catch (error) {
+        console.error("Erreur inattendue lors de l'ajout de la déclaration:", error);
+        return res.status(500).json({ error: "Une erreur inattendue s'est produite lors de l'ajout de la déclaration." });
+    }
+}; */
+
+exports.postDeclaration = async (req, res) => {
+    try {
+        const {
+            id_template,
+            periode,
+            m2_occupe,
+            m2_facture,
+            tarif_entreposage,
+            entreposage,
+            debours_entreposage,
+            total_entreposage,
+            ttc_entreposage,
+            desc_entreposage,
+            id_ville,
+            id_client,
+            id_objet,
+            manutation,
+            tarif_manutation,
+            debours_manutation,
+            total_manutation,
+            ttc_manutation,
+            desc_manutation,
+            user_cr,
+            id_batiments = [],
+        } = req.body;
+
+        // Vérifications des champs obligatoires
+        if (!id_ville || !id_client) {
+            return res.status(400).json({ error: "Veuillez ouvrir la section Manutention pour vérifier si la ville et le client sont remplis." });
+        }
+
+        if (!id_template || !periode) {
+            return res.status(400).json({ error: "Les champs obligatoires sont manquants." });
+        }
+
+        // Normalisation de la période
+        const periodeDate = new Date(periode);
+        if (isNaN(periodeDate.getTime())) {
+            return res.status(400).json({ error: "Format de période invalide." });
+        }
+        const year = periodeDate.getUTCFullYear();
+        const month = String(periodeDate.getUTCMonth() + 1).padStart(2, '0');
+        const fixedPeriode = `${year}-${month}-03`;
+
+        // Vérifier l'existence d'une déclaration avec le même id_template et période
+        const checkQuery = `SELECT COUNT(*) AS count FROM declaration_super WHERE id_template = ? AND periode = ?`;
+        const [checkResult] = await query(checkQuery, [id_template, fixedPeriode]);
+
+        if (checkResult.count > 0) {
+            return res.status(409).json({ error: "Une déclaration avec cet id_template et cette période existe déjà." });
+        }
+
+        // Insérer la déclaration
+        const declarationQuery = `
+            INSERT INTO declaration_super (
+                id_template, periode, m2_occupe, m2_facture, tarif_entreposage,
+                entreposage, debours_entreposage, total_entreposage, ttc_entreposage, desc_entreposage,
+                id_ville, id_client, id_objet, manutation, tarif_manutation,
+                debours_manutation, total_manutation, ttc_manutation, desc_manutation, user_cr
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const declarationValues = [
+            id_template, fixedPeriode, m2_occupe, m2_facture, tarif_entreposage,
+            entreposage, debours_entreposage, total_entreposage, ttc_entreposage, desc_entreposage,
+            id_ville, id_client, id_objet, manutation, tarif_manutation,
+            debours_manutation, total_manutation, ttc_manutation, desc_manutation, user_cr
+        ];
+
+        const declarationResult = await query(declarationQuery, declarationValues);
+        const declarationId = declarationResult.insertId;
+
+        // Insérer les bâtiments associés
+        if (id_batiments.length > 0) {
+            const batimentValues = id_batiments.map((id_batiment) => [declarationId, id_batiment]);
+            const batimentQuery = `INSERT INTO declaration_super_batiment (id_declaration_super, id_batiment) VALUES ?`;
+            await query(batimentQuery, [batimentValues]);
+        }
+
+        // Insérer l'action dans les logs d'audit
+        const auditLogQuery = `
+            INSERT INTO audit_logs_declaration (action, user_id, id_declaration_super, timestamp)
+            VALUES ('Création', ?, ?, NOW())
+        `;
+        await query(auditLogQuery, [user_cr, declarationId]);
+
+        return res.status(201).json({ message: 'Déclaration ajoutée avec succès.' });
+
     } catch (error) {
         console.error("Erreur inattendue lors de l'ajout de la déclaration:", error);
         return res.status(500).json({ error: "Une erreur inattendue s'est produite lors de l'ajout de la déclaration." });
@@ -2249,7 +2358,6 @@ exports.checkAndUnlock = (req, res) => {
         res.status(500).send('Erreur serveur');
     }
 };
-
 
 /* exports.checkAndUnlock = async(req, res) => {
     try {
@@ -2358,6 +2466,25 @@ exports.putDeclaration = (req, res) => {
             if (data.affectedRows === 0) {
                 return res.status(404).json({ error: 'Declaration record not found' });
             }
+
+            // Log l'action dans la table `audit_logs`
+            const logQuery = `
+            INSERT INTO audit_logs_declaration (action, user_id, id_declaration_super, timestamp)
+            VALUES (?, ?, ?, NOW())
+        `;
+
+        const logValues = [
+            'Modification',
+            req.body.user_cr,
+            id_declaration
+        ];
+
+        db.query(logQuery, logValues, (logError) => {
+            if (logError) {
+                console.error("Error logging action:", logError);
+            }
+        });
+
             return res.json({ message: 'Declaration record updated successfully' });
         });
     } catch (err) {
@@ -2520,6 +2647,7 @@ exports.putDeclaration = (req, res) => {
 
 exports.deleteUpdateDeclaration = (req, res) => {
     const {id} = req.query;
+    const userId = req.body.user_id;
   
     const q = "UPDATE declaration_super SET est_supprime = 1 WHERE id_declaration_super = ?";
   
@@ -2527,7 +2655,23 @@ exports.deleteUpdateDeclaration = (req, res) => {
       if (err) {
         console.log(err)
       }
-      return res.json(data);
+      const logQuery = `
+                INSERT INTO audit_logs_declaration (action, user_id, id_declaration_super, timestamp)
+                VALUES (?, ?, ?, NOW())
+            `;
+            const logValues = [
+                'Suppression',
+                userId,
+                id
+            ];
+            db.query(logQuery, logValues, (logError) => {
+                if (logError) {
+                    console.log("Erreur lors de l'ajout du log d'audit:", logError);
+                }
+            });
+
+            return res.json({ message: "Déclaration supprimée avec succès"});
+
     });
   
 }
@@ -4942,6 +5086,24 @@ exports.getAnnee = (req, res) => {
             GROUP BY YEAR(ds.periode)
             ORDER BY YEAR(ds.periode)
             `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+//Audit Logs Déclaration
+exports.getAuditLogsDeclaration = (req, res) => {
+
+    const q = `SELECT audit_logs_declaration.*, tc.desc_template, declaration_super.periode, utilisateur.nom, utilisateur.prenom FROM audit_logs_declaration
+                    LEFT JOIN declaration_super ON audit_logs_declaration.id_declaration_super = declaration_super.id_declaration_super
+                    LEFT JOIN template_occupation tc ON declaration_super.id_template = tc.id_template
+                    LEFT JOIN utilisateur ON audit_logs_declaration.user_id = utilisateur.id_utilisateur
+                    ORDER BY audit_logs_declaration.timestamp DESC
+                `;
 
     db.query(q, (error, data) => {
         if (error) {
