@@ -77,4 +77,8 @@ router.get('/annee', templateController.getAnnee)
 //Audit Logs Déclaration
 router.get('/audit_logs_declaration', templateController.getAuditLogsDeclaration);
 
+//Corbeille
+router.get('/declaration_corbeille', templateController.getDeclarationCorbeille);
+router.put('/declaration_corbeille', templateController.putDeclarationCorbeille)
+
 module.exports = router;

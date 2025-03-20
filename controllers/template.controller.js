@@ -5112,3 +5112,63 @@ exports.getAuditLogsDeclaration = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+//Corbeille
+exports.getDeclarationCorbeille = (req, res) => {
+
+    const q = ` SELECT  ds.*, client.nom, p.capital, 
+                    batiment.nom_batiment, objet_fact.nom_objet_fact, 
+                    tc.desc_template, pd.can_view, pd.can_edit, 
+                    pd.can_comment, ds.user_cr, sd.nom_statut_decl, 
+                    u.nom AS person_veroui, ds.verrouille_par
+                FROM declaration_super AS ds
+                    LEFT JOIN provinces p ON p.id = ds.id_ville
+                    LEFT JOIN client ON ds.id_client = client.id_client
+                    LEFT JOIN declaration_super_batiment dsb ON ds.id_declaration_super = dsb.id_declaration_super
+                    LEFT JOIN objet_fact ON ds.id_objet = objet_fact.id_objet_fact
+                    INNER JOIN template_occupation tc ON tc.id_template = ds.id_template
+                    LEFT JOIN batiment ON tc.id_batiment = batiment.id_batiment
+                    LEFT JOIN user_declaration ud ON ud.id_ville = ds.id_ville
+                    LEFT JOIN user_client uc ON uc.id_client = ds.id_client
+                    LEFT JOIN permissions_declaration pd ON pd.id_template = ds.id_template
+                    LEFT JOIN statut_declaration sd ON ds.id_statut_decl = sd.id_statut_declaration
+                    LEFT JOIN utilisateur u ON ds.verrouille_par = u.id_utilisateur
+                WHERE tc.status_template = 1 
+                    AND ds.est_supprime = 1
+                    GROUP BY ds.id_declaration_super ORDER BY ds.date_creation DESC`
+
+    db.query(q, (error, results) => {
+        if(error) {
+            console.error('Erreur lors de la récupération des corbeilles:', err);
+            return res.status(500).json({ error: 'Erreur lors de la récupération des corbeilles' });
+        }
+        res.json(results);
+    })
+}
+
+exports.putDeclarationCorbeille = (req, res) => {
+    const { id_declaration } = req.query;
+
+    if (!id_declaration || isNaN(id_declaration)) {
+        return res.status(400).json({ error: 'Invalid declaration ID provided' });
+    }
+
+    const q = `
+        UPDATE declaration_super 
+        SET est_supprime = 0
+        WHERE id_declaration_super = ?
+    `;
+
+    db.query(q, [id_declaration], (error, result) => {
+        if (error) {
+            console.error("Database error:", error);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Déclaration non trouvée ou déjà supprimée' });
+        }
+
+        return res.status(200).json({ message: 'Déclaration a été modifiée avec succès' });
+    });
+};
