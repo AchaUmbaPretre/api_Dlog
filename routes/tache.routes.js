@@ -25,6 +25,9 @@ router.get('/tache_filter_chart', tacheController.getTacheFilter)
 router.get('/count', tacheController.getTacheCount)
 router.get('/tache_doc', tacheController.getTacheDoc)
 router.post('/tache', tacheController.getTache)
+//corbeille
+router.get('/corbeille_tache', tacheController.getTacheCorbeille)
+
 router.post('/tache_permissionAll', tacheController.getTachePermiAll)
 router.get('/all_tache', tacheController.getAllTache)
 router.get('/detail_tache_doc', tacheController.getDetailTacheDoc)
