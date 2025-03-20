@@ -529,6 +529,34 @@ exports.getTacheCorbeille = (req, res) => {
     })
 }
 
+exports.putTacheCorbeille = (req, res) => {
+    const { id_tache } = req.query;
+
+    if (!id_tache || isNaN(id_tache)) {
+        return res.status(400).json({ error: 'ID de tache non valide fourni' });
+    }
+
+    const q = `
+        UPDATE tache 
+        SET est_supprime = 1
+        WHERE id_tache = ?
+    `;
+
+    db.query(q, [id_tache], (error, result) => {
+        if (error) {
+            console.error("Database error:", error);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Tache non trouvée ou déjà supprimée' });
+        }
+
+        return res.status(200).json({ message: 'Tache a été modifiée avec succès' });
+    });
+};
+
+
 exports.getTachePermiAll = (req, res) => {
     const { departement, client, statut, priorite, dateRange, owners } = req.body;
 
