@@ -102,7 +102,7 @@ exports.menusAllOne = (req, res) => {
             submenus.icon AS submenu_icon
         FROM menus
         LEFT JOIN submenus ON menus.id = submenus.menu_id
-        ORDER BY menus.id, submenus.id
+        ORDER BY menus.index ASC
       `;
     } else {
       query = `
