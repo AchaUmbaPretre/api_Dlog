@@ -2265,6 +2265,18 @@ exports.postDeclaration = async (req, res) => {
     }
 };
 
+exports.deleteDeclaration = (req, res) => {
+    const id = req.params.id;
+  
+    const q = "DELETE FROM declaration_super WHERE id_declaration_super = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) return res.send(err);
+      return res.json(data);
+    });
+  
+  }
+
 exports.lockDeclaration = (req, res) => {
     const { userId, id } = req.query;
 
