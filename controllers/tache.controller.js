@@ -517,7 +517,7 @@ exports.getTacheCorbeille = (req, res) => {
             LEFT JOIN permissions_tache pt ON tache.id_tache = pt.id_tache
             WHERE 
                 tache.est_supprime = 1
-                
+                GROUP BY tache.id_tache
                 ORDER BY tache.date_creation DESC`
 
     db.query(q, (error, results) => {
@@ -538,7 +538,7 @@ exports.putTacheCorbeille = (req, res) => {
 
     const q = `
         UPDATE tache 
-        SET est_supprime = 1
+        SET est_supprime = 0
         WHERE id_tache = ?
     `;
 
