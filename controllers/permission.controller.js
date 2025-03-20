@@ -105,7 +105,6 @@ exports.menusAllOne = (req, res) => {
         ORDER BY menus.id, submenus.id
       `;
     } else {
-      // Pour les autres utilisateurs, filtrer en fonction des permissions
       query = `
         SELECT 
             menus.id AS menu_id, 
