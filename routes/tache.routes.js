@@ -28,6 +28,7 @@ router.post('/tache', tacheController.getTache)
  
 //corbeille
 router.get('/corbeille_tache', tacheController.getTacheCorbeille)
+router.put('/corbeille_tache', tacheController.putTacheCorbeille)
 
 router.post('/tache_permissionAll', tacheController.getTachePermiAll)
 router.get('/all_tache', tacheController.getAllTache)
