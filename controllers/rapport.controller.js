@@ -2,7 +2,10 @@ const { db } = require("./../config/database");
 
 exports.getRapport = (req, res) => {
 
-    const q = `SELECT * FROM rapport_special`
+    const q = `SELECT rs.*, c.nom 
+                FROM 
+                rapport_special rs
+                INNER JOIN client c ON c.id_client = rs.id_client`
 
     db.query(q, (error, results) => {
         if(error) {
