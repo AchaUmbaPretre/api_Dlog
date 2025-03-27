@@ -28,12 +28,12 @@ exports.getRapportOne = (req, res) => {
 }
 
 exports.postRapport = async (req, res) => {
-    
+
     try {
         const {
             periode, id_client, superficie, entreposage, transport_nrj, teu, lourd, tonnage, 
             peage_camion, teu_retour, camions_manut, sacs_manut_IN, sacs_manut_OUT, 
-            bouteilles_intrants, camions_charge_decharge, sacs_tonne, user_cr
+            bouteilles_intrants, camions_charge_decharge, sacs_tonne, palettes_mise_en_bac, bout, palettes_avenant, camions_livres, user_cr
         } = req.body;
 
         if (!periode || !id_client || !user_cr) {
@@ -52,7 +52,8 @@ exports.postRapport = async (req, res) => {
         const values = [
             periode, id_client, superficie, entreposage, transport_nrj, teu, lourd, tonnage, 
             peage_camion, teu_retour, camions_manut, sacs_manut_IN, sacs_manut_OUT, 
-            bouteilles_intrants, camions_charge_decharge, sacs_tonne, user_cr
+            bouteilles_intrants, camions_charge_decharge, sacs_tonne, palettes_mise_en_bac, 
+            bout, palettes_avenant, camions_livres, user_cr
         ];
 
         // Exécution de la requête avec une promesse
