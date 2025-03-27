@@ -16,7 +16,7 @@ exports.getRapport = (req, res) => {
 exports.getRapportOne = (req, res) => {
     const { rapport } = req.query;
 
-    const q = `SELECT * FROM rapport_special WHERE 	id_rapport_special = ?`
+    const q = `SELECT * FROM rapport_special WHERE id_rapport_special = ?`
 
     db.query(q, [rapport], (error, results) => {
         if(error) {
