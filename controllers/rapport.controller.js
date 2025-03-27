@@ -28,6 +28,7 @@ exports.getRapportOne = (req, res) => {
 }
 
 exports.postRapport = async (req, res) => {
+    
     try {
         const {
             periode, id_client, superficie, entreposage, transport_nrj, teu, lourd, tonnage, 
