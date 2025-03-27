@@ -5,4 +5,8 @@ const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
-router.get('/', rapportController.rapportController )
+router.get('/', rapportController.getRapport)
+router.get('/one', rapportController.getRapportOne)
+router.post('/', rapportController.postRapport)
+
+module.exports = router;
