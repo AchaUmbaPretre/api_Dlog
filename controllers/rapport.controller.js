@@ -95,12 +95,13 @@ exports.getContratRapport = (req, res) => {
 
 exports.postContratRapport = async(req, res) => {
     try {
-        const { nom_contrat, tarif_camion, tarif_tonne, tarif_palette } = req.body;
+        const { nom_contrat, superfice, tarif_camion, tarif_tonne, tarif_palette } = req.body;
         
-        const q = 'INSERT INTO contrats_rapport(`nom_contrat`, `tarif_camion`, `tarif_tonne`, `tarif_palette`) VALUES(?)';
+        const q = 'INSERT INTO contrats_rapport(`nom_contrat`, `superfice`, `tarif_camion`, `tarif_tonne`, `tarif_palette`) VALUES(?)';
 
         const values = [
             nom_contrat, 
+            superfice,
             tarif_camion, 
             tarif_tonne, 
             tarif_palette
@@ -111,7 +112,6 @@ exports.postContratRapport = async(req, res) => {
         return res.status(201).json({ message: 'Contrat ajouté avec succès' });
     } catch (error) {
         console.error('Erreur lors de l\'ajout du contrat:', error.message);
-
         // Réponse en cas d'erreur
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du contrat." });
     }
