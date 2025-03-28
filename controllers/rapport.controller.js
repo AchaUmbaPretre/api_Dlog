@@ -78,3 +78,41 @@ exports.postRapport = async (req, res) => {
         return res.status(500).json({ error: "Une erreur interne s'est produite." });
     }
 };
+
+//Contrat
+exports.getContratRapport = (req, res) => {
+
+    const q = `SELECT * FROM contrats_rapport`
+
+    db.query(q, (error, results) => {
+        if(error) {
+            console.error('Erreur lors de la récupération des rapports:', err);
+            return res.status(500).json({ error: 'Erreur lors de la récupération des rapports' });
+        }
+        res.json(results);
+    })
+}
+
+exports.postContratRapport = async(req, res) => {
+    try {
+        const { nom_contrat, tarif_camion, tarif_tonne, tarif_palette } = req.body;
+        
+        const q = 'INSERT INTO contrats_rapport(`nom_contrat`, `tarif_camion`, `tarif_tonne`, `tarif_palette`) VALUES(?)';
+
+        const values = [
+            nom_contrat, 
+            tarif_camion, 
+            tarif_tonne, 
+            tarif_palette
+        ]
+
+        await db.query(q, [values]);
+        // Réponse en cas de succès
+        return res.status(201).json({ message: 'Contrat ajouté avec succès' });
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout du contrat:', error.message);
+
+        // Réponse en cas d'erreur
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du contrat." });
+    }
+}
