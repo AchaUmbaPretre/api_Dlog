@@ -48,8 +48,9 @@ exports.postRapport = async (req, res) => {
                 periode, id_client, superficie, entreposage, 
                 transport_nrj, teu, lourd, tonnage, peage_camion, 
                 teu_retour, camions_manut, sacs_manut_IN, sacs_manut_OUT, 
-                bouteilles_intrants, camions_charge_decharge, sacs_tonne, user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                bouteilles_intrants, camions_charge_decharge, sacs_tonne, 
+                palettes_mise_en_bac, bout, palettes_avenant, camions_livres, user_cr
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
         `;
 
         const values = [
