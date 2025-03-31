@@ -11,6 +11,7 @@ router.get('/contrat_rapport', rapportController.getContratRapport)
 router.post('/contrat_rapport', rapportController.postContratRapport)
 
 router.get('/declarationTemplate', rapportController.getDeclarationTemplateOne)
+router.get('/cloture', rapportController.getClotureRapport)
 router.post('/cloture', rapportController.postClotureRapport)
 
 module.exports = router;
