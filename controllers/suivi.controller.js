@@ -130,7 +130,6 @@ exports.getSuiviTacheUn = (req, res) => {
         return res.status(200).json(data);
     });
 } */
-
     
 exports.getSuiviTacheOne = (req, res) => {
     const { id_user, role } = req.query;
@@ -171,7 +170,7 @@ exports.getSuiviTacheOne = (req, res) => {
             return res.status(200).json(data);
         });
     };
-    
+
 /* exports.getSuiviTacheOneV = (req, res) => {
     const {id_tache} = req.query;
 
@@ -368,7 +367,7 @@ exports.postDocGeneral = async (req, res) => {
             db.query(query, [doc.nom_document, doc.type_document, doc.chemin_document], (err, result) => {
                 if (err) {
                     console.error('Erreur lors de l\'insertion du document:', err);
-                    throw err; // Lancer une erreur pour capturer cette erreur dans le catch
+                    throw err;
                 }
             });
         });
