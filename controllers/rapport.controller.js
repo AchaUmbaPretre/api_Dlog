@@ -120,10 +120,11 @@ exports.postContratRapport = async(req, res) => {
 // TEMPLATE DECLARATION
 exports.getDeclarationTemplateOne = (req, res) => {
     const { id_template } = req.query;
+
     const q = ` SELECT 
                 ds.periode,
-                SUM(COALESCE(ds.m2_occupe)) AS total_occupe,
-                SUM(COALESCE(ds.m2_facture)) AS total_factue,
+                SUM(COALESCE(ds.m2_occupe)) AS m2_occupe,
+                SUM(COALESCE(ds.m2_facture)) AS m2_facture,
                 SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
                 SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
                 SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total
@@ -138,3 +139,98 @@ exports.getDeclarationTemplateOne = (req, res) => {
         res.json(results);
     })
 }
+
+exports.postClotureRapport = (req, res) => {
+    // Récupérer les données envoyées dans la requête
+    const dataArray = req.body;
+
+    // Transformation des périodes pour fixer le jour à "03"
+    const transformedData = dataArray.map(item => {
+        const date = new Date(item.periode);
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const newPeriode = `${year}-${month}-03`; // Fixe toujours le jour à "03"
+
+        return {
+            periode: newPeriode,
+            m2_occupe: item.m2_occupe,
+            m2_facture: item.m2_facture,
+            total_entreposage: item.total_entreposage,
+            total_manutation: item.total_manutation
+        };
+    });
+
+    db.getConnection((err, connection) => {
+        if (err) {
+            console.error('Erreur de connexion à la base de données:', err.message);
+            return res.status(500).json({ error: 'Erreur de connexion à la base de données.' });
+        }
+
+        connection.beginTransaction((err) => {
+            if (err) {
+                console.error('Erreur lors du démarrage de la transaction:', err.message);
+                connection.release(); // Libérer la connexion
+                return res.status(500).json({ error: 'Erreur lors du démarrage de la transaction.' });
+            }
+
+            // Vérification des périodes existantes dans la base de données
+            connection.query('SELECT periode FROM cloture', (err, results) => {
+                if (err) {
+                    console.error('Erreur lors de la récupération des périodes:', err.message);
+                    connection.rollback(() => {
+                        connection.release(); // Libérer la connexion en cas d'erreur
+                    });
+                    return res.status(500).json({ error: 'Erreur lors de la récupération des périodes.' });
+                }
+
+                const existingPeriodes = new Set(results.map(row => row.periode));
+
+                // Filtrer les nouvelles périodes à insérer
+                const newData = transformedData.filter(item => !existingPeriodes.has(item.periode));
+
+                if (newData.length === 0) {
+                    connection.rollback(() => {
+                        connection.release(); // Libérer la connexion si aucune donnée n'est à insérer
+                    });
+                    return res.status(200).json({ message: 'Aucune nouvelle période à ajouter.' });
+                }
+
+                // Préparer les données pour l'insertion
+                const values = newData.map(item => [
+                    item.periode, 
+                    item.m2_occupe, 
+                    item.m2_facture, 
+                    item.total_entreposage, 
+                    item.total_manutation
+                ]);
+
+                const q = 'INSERT INTO cloture (`periode`, `m2_occupe`, `m2_facture`, `entreposage`, `manutation`) VALUES ?';
+
+                connection.query(q, [values], (err, result) => {
+                    if (err) {
+                        console.error('Erreur lors de l\'insertion des données:', err.message);
+                        connection.rollback(() => {
+                            connection.release(); // Libérer la connexion en cas d'erreur
+                        });
+                        return res.status(500).json({ error: 'Erreur lors de l\'insertion des données.' });
+                    }
+
+                    // Commit la transaction si tout est bien inséré
+                    connection.commit((err) => {
+                        if (err) {
+                            console.error('Erreur lors du commit de la transaction:', err.message);
+                            connection.rollback(() => {
+                                connection.release(); // Libérer la connexion
+                            });
+                            return res.status(500).json({ error: 'Erreur lors du commit de la transaction.' });
+                        }
+
+                        connection.release(); // Libérer la connexion une fois la transaction réussie
+                        return res.status(201).json({ message: 'Clôture ajoutée avec succès' });
+                    });
+                });
+            });
+        });
+    });
+};
+
