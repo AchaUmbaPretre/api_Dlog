@@ -1959,7 +1959,6 @@ exports.getDeclarationOneClientV = (req, res) => {
     }
 };
 
-
 /* exports.postDeclaration = async (req, res) => {
 
     try {

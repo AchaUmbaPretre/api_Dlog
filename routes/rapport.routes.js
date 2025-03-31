@@ -10,4 +10,7 @@ router.post('/', rapportController.postRapport)
 router.get('/contrat_rapport', rapportController.getContratRapport)
 router.post('/contrat_rapport', rapportController.postContratRapport)
 
+router.get('/declarationTemplate', rapportController.getDeclarationTemplateOne)
+
+
 module.exports = router;

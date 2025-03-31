@@ -116,3 +116,25 @@ exports.postContratRapport = async(req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du contrat." });
     }
 }
+
+// TEMPLATE DECLARATION
+exports.getDeclarationTemplateOne = (req, res) => {
+    const { id_template } = req.query;
+    const q = ` SELECT 
+                ds.periode,
+                SUM(COALESCE(ds.m2_occupe)) AS total_occupe,
+                SUM(COALESCE(ds.m2_facture)) AS total_factue,
+                SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
+                SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
+                SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total
+            FROM declaration_super ds
+            WHERE ds.id_template = ?
+              GROUP BY ds.periode`
+    db.query(q, [id_template], (error, results) => {
+        if(error){
+            console.error('Erreur lors de la récupération des rapports:', err);
+            return res.status(500).json({ error: 'Erreur lors de la récupération des rapport' });
+        }
+        res.json(results);
+    })
+}
