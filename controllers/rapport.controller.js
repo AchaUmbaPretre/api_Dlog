@@ -143,9 +143,7 @@ exports.getDeclarationTemplateOne = (req, res) => {
 
 exports.getClotureRapport = (req, res) => {
 
-    const q = `SELECT * 
-                FROM 
-                cloture
+    const q = `SELECT * FROM cloture
                 `
 
     db.query(q, (error, results) => {
