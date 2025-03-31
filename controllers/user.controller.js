@@ -2,7 +2,6 @@ const { db } = require("./../config/database");
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
-const nodemailer = require('nodemailer');
 
 dotenv.config();
 
@@ -15,7 +14,6 @@ exports.getUserCount = (req, res) => {
         FROM utilisateur
         `;
 
-     
     db.query(q,(error, data) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
