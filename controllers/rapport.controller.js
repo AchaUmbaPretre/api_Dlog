@@ -119,7 +119,7 @@ exports.postContratRapport = async(req, res) => {
 
 // TEMPLATE DECLARATION
 exports.getDeclarationTemplateOne = (req, res) => {
-    const { id_template } = req.query;
+    const { id_template, id_province } = req.query;
 
     const q = ` SELECT 
                 ds.periode,
@@ -129,9 +129,9 @@ exports.getDeclarationTemplateOne = (req, res) => {
                 SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
                 SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total
             FROM declaration_super ds
-            WHERE ds.id_template = ?
+            WHERE ds.id_template = ? OR ds.id_ville = ?
               GROUP BY MONTH(ds.periode)`
-    db.query(q, [id_template], (error, results) => {
+    db.query(q, [id_template, id_province], (error, results) => {
         if(error){
             console.error('Erreur lors de la récupération des rapports:', err);
             return res.status(500).json({ error: 'Erreur lors de la récupération des rapport' });
@@ -140,7 +140,7 @@ exports.getDeclarationTemplateOne = (req, res) => {
     })
 }
 
-
+//Rapport cloturé
 exports.getClotureRapport = (req, res) => {
 
     const q = `SELECT 
