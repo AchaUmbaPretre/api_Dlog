@@ -15,5 +15,4 @@ router.get('/cloture', rapportController.getClotureRapport)
 router.post('/cloture', rapportController.postClotureRapport)
 router.post('/cloture_simple', rapportController.postClotureRapportSimple)
 
-
 module.exports = router;
