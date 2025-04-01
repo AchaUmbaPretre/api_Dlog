@@ -143,7 +143,17 @@ exports.getDeclarationTemplateOne = (req, res) => {
 
 exports.getClotureRapport = (req, res) => {
 
-    const q = `SELECT * FROM cloture
+    const q = `SELECT 
+                c.id_cloture, 
+                c.periode, 
+                c.m2_occupe, 
+                c.m2_facture, 
+                c.entreposage, 
+                c.manutation, 
+                SUM(COALESCE(c.entreposage, 0) + COALESCE(c.manutation, 0)) AS total
+              FROM 
+                cloture c
+                GROUP BY c.id_cloture
                 `
 
     db.query(q, (error, results) => {
