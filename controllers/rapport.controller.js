@@ -107,6 +107,27 @@ exports.getParametreRapport = (req, res) => {
     })
 }
 
+exports.postParametreRapport = async(req, res) => {
+    try {
+        const { id_contrat, superfice, tarif_camion, tarif_tonne, tarif_palette } = req.body;
+        
+        const q = 'INSERT INTO parametre(`id_contrat`, `nom_parametre`) VALUES(?)';
+
+        const values = [
+            id_contrat, 
+            nom_parametre
+        ]
+
+        await db.query(q, [values]);
+        // Réponse en cas de succès
+        return res.status(201).json({ message: 'Parametre ajouté avec succès' });
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout du parametre:', error.message);
+        // Réponse en cas d'erreur
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du parametre." });
+    }
+}
+
 //Contrat
 exports.getContratRapport = (req, res) => {
 
