@@ -10,7 +10,11 @@ router.post('/', rapportController.postRapport)
 //Categorie rapport
 router.get('/cat_rapport', rapportController.getCatRapport)
 
+//Parametre
+router.get('/contrat_parametre', rapportController.getParametreRapport)
+router.post('/contrat_parametre', rapportController.postParametreRapport)
 
+//Contrat
 router.get('/contrat_rapport', rapportController.getContratRapport)
 router.post('/contrat_rapport', rapportController.postContratRapport)
 
