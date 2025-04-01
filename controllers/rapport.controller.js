@@ -79,6 +79,20 @@ exports.postRapport = async (req, res) => {
     }
 };
 
+//Categorie rapport
+exports.getCatRapport = (req, res) => {
+
+    const q = `SELECT * FROM cat_rapport`
+
+    db.query(q, (error, results) => {
+        if(error) {
+            console.error('Erreur lors de la récupération des rapports:', err);
+            return res.status(500).json({ error: 'Erreur lors de la récupération des rapports' });
+        }
+        res.json(results);
+    })
+}
+
 //Contrat
 exports.getContratRapport = (req, res) => {
 

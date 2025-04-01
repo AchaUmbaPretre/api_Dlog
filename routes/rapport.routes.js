@@ -7,6 +7,9 @@ router.get('/', rapportController.getRapport)
 router.get('/one', rapportController.getRapportOne)
 router.post('/', rapportController.postRapport)
 
+//Categorie rapport
+
+
 router.get('/contrat_rapport', rapportController.getContratRapport)
 router.post('/contrat_rapport', rapportController.postContratRapport)
 
