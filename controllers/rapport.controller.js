@@ -128,6 +128,42 @@ exports.postParametreRapport = async(req, res) => {
     }
 }
 
+//Element contrat
+exports.getElementContrat = (req, res) => {
+
+    const q = `SELECT * FROM element_contrat`
+
+    db.query(q, (error, results) => {
+        if(error) {
+            console.error('Erreur lors de la récupération des rapports:', err);
+            return res.status(500).json({ error: 'Erreur lors de la récupération des rapports' });
+        }
+        res.json(results);
+    })
+}
+
+exports.postElementContrat = async(req, res) => {
+    try {
+        const { id_contrat, id_cat, nom_element } = req.body;
+        
+        const q = 'INSERT INTO element_contrat(`id_contrat`, `id_cat`, `nom_element`) VALUES(?)';
+
+        const values = [
+            id_contrat, 
+            id_cat, 
+            nom_element
+        ]
+
+        await db.query(q, [values]);
+        // Réponse en cas de succès
+        return res.status(201).json({ message: 'Parametre ajouté avec succès' });
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout du parametre:', error.message);
+        // Réponse en cas d'erreur
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du parametre." });
+    }
+}
+
 //Contrat
 exports.getContratRapport = (req, res) => {
 
