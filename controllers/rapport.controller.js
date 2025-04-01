@@ -262,5 +262,52 @@ exports.postClotureRapport = (req, res) => {
     });
 };
 
+exports.postClotureRapportSimple = (req, res) => {
+    const { periode, m2_occupe, m2_facture, total_entreposage, total_manutation} = req.body;
+
+    db.getConnection((err, connection) => {
+        if(err) {
+            console.error('Erreur de connexion à la base de données:', err.message);
+            return res.status(500).json({ error: 'Erreur de connexion à la base de données.' });
+        }
+
+        connection.beginTransaction((err) => {
+            if(err) {
+                console.error('Erreur lors du démarrage de la transaction:', err.message);
+                connection.release();
+                return res.status(500).json({ error: 'Erreur lors du démarrage de la transaction.' });
+            }
+
+            connection.query('SELECT periode FROM cloture', (err, results) => {
+                if (err) {
+                    console.error('Erreur lors de la récupération des périodes:', err.message);
+                    connection.rollback(() => {
+                        connection.release();
+                    });
+                    return res.status(500).json({ error: 'Erreur lors de la récupération des périodes.' });
+                }
+
+                const existingPeriode = new Set(results[0].periode === periode)
+
+                if(existingPeriode) {
+                    return res.status(200).json({ message: 'Cette periode existe deja' });
+                }
+
+                const values = [
+                    periode, 
+                    m2_occupe, 
+                    m2_facture, 
+                    total_entreposage, 
+                    total_manutation
+                ]
+                const insertQuery = 'INSERT INTO cloture (`periode`, `m2_occupe`, `m2_facture`, `entreposage`, `manutation`) VALUES ?';
+
+                connection.query(insertQuery, [])
+
+            })
+        })
+    })
+}
+
 
 
