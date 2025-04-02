@@ -13,6 +13,9 @@ router.get('/cat_rapport', rapportController.getCatRapport)
 //Parametre
 router.get('/contrat_parametre', rapportController.getParametreRapport)
 router.post('/contrat_parametre', rapportController.postParametreRapport)
+router.get('/contrat_parametre/one', rapportController.getParametreRapportOne)
+router.get('/contrat_parametreContratCat', rapportController.getParametreContratCat)
+
 
 //Element contrat
 router.get('/element_contrat', rapportController.getElementContrat)
