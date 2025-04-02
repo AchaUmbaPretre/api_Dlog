@@ -162,6 +162,20 @@ exports.postElementContrat = async(req, res) => {
     }
 }
 
+//Etiquette
+exports.getEtiquette = (req, res) => {
+
+    const q = `SELECT * FROM etiquette`
+
+    db.query(q, (error, results) => {
+        if(error) {
+            console.error('Erreur lors de la récupération des étiquettes:', err);
+            return res.status(500).json({ error: 'Erreur lors de la récupération des étiquettes' });
+        }
+        res.json(results);
+    })
+}
+
 //Contrat
 exports.getContratRapport = (req, res) => {
 
