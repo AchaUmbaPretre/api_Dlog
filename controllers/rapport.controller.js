@@ -174,13 +174,13 @@ exports.getElementContrat = (req, res) => {
 
 exports.postElementContrat = async(req, res) => {
     try {
-        const { id_contrat, id_cat, nom_element, id_etiquette } = req.body;
+        const { id_contrat, id_cat, nom_element } = req.body;
         
         const q = 'INSERT INTO element_contrat(`id_contrat`, `id_cat`, `nom_element`, `id_etiquette`) VALUES(?)';
 
         const values = [
             id_contrat, 
-            id_cat, 
+            id_cat,
             nom_element
         ]
 
