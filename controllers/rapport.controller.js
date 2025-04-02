@@ -169,18 +169,42 @@ exports.getElementContrat = (req, res) => {
 }
 
 exports.getElementContratCat = (req, res) => {
-    const { id_contrat, id_cat_rapport } = req.query
+    try {
+        const { id_contrat, id_cat_rapport } = req.query;
 
-    const q = `SELECT * FROM element_contrat ec WHERE ec.id_contrat = ? AND ec.id_cat ?`
-
-    db.query(q, [id_contrat, id_cat_rapport], (error, results) => {
-        if(error) {
-            console.error('Erreur lors de la récupération des rapports:', err);
-            return res.status(500).json({ error: 'Erreur lors de la récupération des rapports' });
+        // Vérification des paramètres requis
+        if (!id_contrat) {
+            return res.status(400).json({ error: "Le paramètre 'id_contrat' est requis." });
         }
-        res.json(results);
-    })
-}
+
+        let query = `SELECT * FROM element_contrat WHERE id_contrat = ?`;
+        let queryParams = [id_contrat];
+
+        // Appliquer un filtre supplémentaire si id_cat_rapport est fourni
+        if (id_cat_rapport) {
+            query += ` AND id_cat = ?`;
+            queryParams.push(id_cat_rapport);
+        } else {
+            // Si seul id_contrat est présent, on trie par défaut
+            query += ` ORDER BY id_cat ASC`;
+        }
+
+        // Exécution de la requête SQL
+        db.query(query, queryParams, (error, results) => {
+            if (error) {
+                console.error("Erreur SQL:", error);
+                return res.status(500).json({ error: "Erreur lors de la récupération des éléments du contrat." });
+            }
+
+            res.status(200).json(results);
+        });
+
+    } catch (error) {
+        console.error("Erreur serveur:", error);
+        res.status(500).json({ error: "Une erreur inattendue est survenue." });
+    }
+};
+
 
 exports.postElementContrat = async(req, res) => {
     try {
