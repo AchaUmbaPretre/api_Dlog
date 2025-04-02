@@ -176,6 +176,24 @@ exports.getEtiquette = (req, res) => {
     })
 }
 
+exports.postEtiquette = async(req, res) => {
+    try {
+        const { nom_etiquette } = req.body;
+        
+        const q = 'INSERT INTO etiquette(`nom_etiquette`) VALUES(?)';
+
+        const values = [
+            nom_etiquette
+        ]
+
+        await db.query(q, [values]);
+        return res.status(201).json({ message: 'L etiquette a été ajoutée avec succès' });
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout d une etiquette:', error.message);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout d une etiquette." });
+    }
+}
+
 //Contrat
 exports.getContratRapport = (req, res) => {
 
