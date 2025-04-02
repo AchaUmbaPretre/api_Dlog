@@ -36,16 +36,18 @@ exports.postRapport = async (req, res) => {
         const {
             id_contrat,
             id_parametre,
-            valeur_parametre
+            valeur_parametre,
+            periode
         } = req.body;
 
         if (!id_contrat || !id_parametre) {
             return res.status(400).json({ error: "Les champs 'periode', 'id_client' et 'user_cr' sont obligatoires." });
         }
 
-        const insertRapport = 'INSERT INTO contrat_parametres(`id_contrat`, `id_parametre`, `valeur_parametre`)'
+        const insertRapport = 'INSERT INTO contrat_parametres(`periode`, `id_contrat`, `id_parametre`, `valeur_parametre`)'
 
         const values = [
+            periode,
             id_contrat,
             id_parametre,
             valeur_parametre
