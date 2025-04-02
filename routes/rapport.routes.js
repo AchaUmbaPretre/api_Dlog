@@ -18,6 +18,10 @@ router.post('/contrat_parametre', rapportController.postParametreRapport)
 router.get('/element_contrat', rapportController.getElementContrat)
 router.post('/element_contrat', rapportController.postElementContrat)
 
+//Etiquette
+router.get('/etiquette', rapportController.getElementContrat)
+router.post('/etiquette', rapportController.postElementContrat)
+
 //Contrat
 router.get('/contrat_rapport', rapportController.getContratRapport)
 router.post('/contrat_rapport', rapportController.postContratRapport)
