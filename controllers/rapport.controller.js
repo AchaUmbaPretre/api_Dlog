@@ -122,11 +122,11 @@ exports.getParametreRapportOne = (req, res) => {
 }
 
 exports.getParametreContratCat = (req, res) => {
-    const { id_contrat, id_cat_rapport } = req.query;
+    const { id_element_contrat } = req.query;
 
-    const q = `SELECT * FROM parametre WHERE id_parametre = ?`
+    const q = `SELECT * FROM parametre WHERE id_element_contrat = ?`
 
-    db.query(q, [id_parametre], (error, results) => {
+    db.query(q, [id_element_contrat], (error, results) => {
         if(error) {
             console.error('Erreur lors de la récupération des rapports:', err);
             return res.status(500).json({ error: 'Erreur lors de la récupération des rapports' });
