@@ -181,8 +181,7 @@ exports.postElementContrat = async(req, res) => {
         const values = [
             id_contrat, 
             id_cat, 
-            nom_element,
-            id_etiquette
+            nom_element
         ]
 
         await db.query(q, [values]);
