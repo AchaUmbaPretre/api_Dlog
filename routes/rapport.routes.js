@@ -19,8 +19,8 @@ router.get('/element_contrat', rapportController.getElementContrat)
 router.post('/element_contrat', rapportController.postElementContrat)
 
 //Etiquette
-router.get('/etiquette', rapportController.getElementContrat)
-router.post('/etiquette', rapportController.postElementContrat)
+router.get('/etiquette', rapportController.getEtiquette)
+router.post('/etiquette', rapportController.postEtiquette)
 
 //Contrat
 router.get('/contrat_rapport', rapportController.getContratRapport)
