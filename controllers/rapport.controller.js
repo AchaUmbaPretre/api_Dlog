@@ -200,7 +200,7 @@ exports.postContratRapport = async(req, res) => {
     }
 }
 
-// TEMPLATE DECLARATION
+//TEMPLATE DECLARATION
 exports.getDeclarationTemplateOne = (req, res) => {
     const { id_template, id_province } = req.query;
 
@@ -214,6 +214,7 @@ exports.getDeclarationTemplateOne = (req, res) => {
                 FROM declaration_super ds
                 WHERE ds.id_template = ? OR ds.id_ville = ?
                 GROUP BY MONTH(ds.periode)`
+
     db.query(q, [id_template, id_province], (error, results) => {
         if(error){
             console.error('Erreur lors de la récupération des rapports:', err);
@@ -418,7 +419,3 @@ exports.postClotureRapportSimple = (req, res) => {
         });
     });
 };
-
-
-
-
