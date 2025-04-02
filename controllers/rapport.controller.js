@@ -34,30 +34,21 @@ exports.postRapport = async (req, res) => {
 
     try {
         const {
-            periode, id_client, superficie, entreposage, transport_nrj, teu, lourd, tonnage, 
-            peage_camion, teu_retour, camions_manut, sacs_manut_IN, sacs_manut_OUT, 
-            bouteilles_intrants, camions_charge_decharge, sacs_tonne, palettes_mise_en_bac, bout, palettes_avenant, camions_livres, user_cr
+            id_contrat,
+            id_parametre,
+            valeur_parametre
         } = req.body;
 
-        if (!periode || !id_client || !user_cr) {
+        if (!id_contrat || !id_parametre) {
             return res.status(400).json({ error: "Les champs 'periode', 'id_client' et 'user_cr' sont obligatoires." });
         }
 
-        const insertRapport = `
-            INSERT INTO rapport_special (
-                periode, id_client, superficie, entreposage, 
-                transport_nrj, teu, lourd, tonnage, peage_camion, 
-                teu_retour, camions_manut, sacs_manut_IN, sacs_manut_OUT, 
-                bouteilles_intrants, camions_charge_decharge, sacs_tonne, 
-                palettes_mise_en_bac, bout, palettes_avenant, camions_livres, user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `;
+        const insertRapport = 'INSERT INTO contrat_parametres(`id_contrat`, `id_parametre`, `valeur_parametre`)'
 
         const values = [
-            periode, id_client, superficie, entreposage, transport_nrj, teu, lourd, tonnage, 
-            peage_camion, teu_retour, camions_manut, sacs_manut_IN, sacs_manut_OUT, 
-            bouteilles_intrants, camions_charge_decharge, sacs_tonne, palettes_mise_en_bac, 
-            bout, palettes_avenant, camions_livres, user_cr
+            id_contrat,
+            id_parametre,
+            valeur_parametre
         ];
 
         // Exécution de la requête avec une promesse
