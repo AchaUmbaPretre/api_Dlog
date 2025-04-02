@@ -205,15 +205,15 @@ exports.getDeclarationTemplateOne = (req, res) => {
     const { id_template, id_province } = req.query;
 
     const q = ` SELECT 
-                ds.periode,
-                SUM(COALESCE(ds.m2_occupe)) AS m2_occupe,
-                SUM(COALESCE(ds.m2_facture)) AS m2_facture,
-                SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
-                SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
-                SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total
-            FROM declaration_super ds
-            WHERE ds.id_template = ? OR ds.id_ville = ?
-              GROUP BY MONTH(ds.periode)`
+                    ds.periode,
+                    SUM(COALESCE(ds.m2_occupe)) AS m2_occupe,
+                    SUM(COALESCE(ds.m2_facture)) AS m2_facture,
+                    SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
+                    SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
+                    SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total
+                FROM declaration_super ds
+                WHERE ds.id_template = ? OR ds.id_ville = ?
+                GROUP BY MONTH(ds.periode)`
     db.query(q, [id_template, id_province], (error, results) => {
         if(error){
             console.error('Erreur lors de la récupération des rapports:', err);
