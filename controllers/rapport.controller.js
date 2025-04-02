@@ -31,31 +31,24 @@ exports.getRapportOne = (req, res) => {
 }
 
 exports.postRapport = async (req, res) => {
-
     try {
-        const {
-            id_contrat,
-            id_parametre,
-            valeur_parametre,
-            periode
-        } = req.body;
-
-        if (!id_contrat || !id_parametre) {
-            return res.status(400).json({ error: "Les champs 'periode', 'id_client' et 'user_cr' sont obligatoires." });
+        const parametres = req.body; // Récupérer la liste complète
+        if (!Array.isArray(parametres) || parametres.length === 0) {
+            return res.status(400).json({ error: "Données invalides." });
         }
 
-        const insertRapport = 'INSERT INTO contrat_parametres(`periode`, `id_contrat`, `id_parametre`, `valeur_parametre`)'
+        // Ajout de "-03" à chaque periode avant insertion
+        const values = parametres.map(({ periode, id_contrat, id_parametre, valeur }) => 
+            [`${periode}-03`, id_contrat, id_parametre, valeur] // Ici, on modifie periode
+        );
 
-        const values = [
-            periode,
-            id_contrat,
-            id_parametre,
-            valeur_parametre
-        ];
+        const insertRapport = `
+            INSERT INTO contrat_parametres (periode, id_contrat, id_parametre, valeur_parametre) 
+            VALUES ?
+        `;
 
-        // Exécution de la requête avec une promesse
         const result = await new Promise((resolve, reject) => {
-            db.query(insertRapport, values, (error, results) => {
+            db.query(insertRapport, [values], (error, results) => {
                 if (error) reject(error);
                 else resolve(results);
             });
@@ -63,7 +56,7 @@ exports.postRapport = async (req, res) => {
 
         return res.status(201).json({ 
             message: "Rapport ajouté avec succès.",
-            id: result.insertId 
+            affectedRows: result.affectedRows
         });
 
     } catch (error) {
@@ -71,6 +64,8 @@ exports.postRapport = async (req, res) => {
         return res.status(500).json({ error: "Une erreur interne s'est produite." });
     }
 };
+
+
 
 //Categorie rapport
 exports.getCatRapport = (req, res) => {
