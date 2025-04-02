@@ -83,7 +83,7 @@ exports.postRapport = async (req, res) => {
 exports.getCatRapport = (req, res) => {
 
     const q = `SELECT * FROM cat_rapport`
-
+ 
     db.query(q, (error, results) => {
         if(error) {
             console.error('Erreur lors de la récupération des rapports:', err);
