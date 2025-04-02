@@ -108,17 +108,19 @@ exports.getParametreRapport = (req, res) => {
 }
 
 exports.postParametreRapport = async(req, res) => {
-    try {
-        const { id_contrat, superfice, tarif_camion, tarif_tonne, tarif_palette } = req.body;
-        
+    try {   
+             
         const q = 'INSERT INTO parametre(`id_contrat`, `nom_parametre`) VALUES(?)';
 
-        const values = [
-            id_contrat, 
-            nom_parametre
-        ]
+        req.body.map(d => {
+            const values = [
+                d.id_contrat, 
+                d.nom_parametre
+            ]
 
-        await db.query(q, [values]);
+            db.query(q, [values]);
+        }
+        )
         // Réponse en cas de succès
         return res.status(201).json({ message: 'Parametre ajouté avec succès' });
     } catch (error) {
