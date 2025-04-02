@@ -107,6 +107,20 @@ exports.getParametreRapport = (req, res) => {
     })
 }
 
+exports.getParametreRapportOne = (req, res) => {
+    const { id_parametre } = req.query;
+
+    const q = `SELECT * FROM parametre WHERE id_parametre = ?`
+
+    db.query(q, [id_parametre], (error, results) => {
+        if(error) {
+            console.error('Erreur lors de la récupération des rapports:', err);
+            return res.status(500).json({ error: 'Erreur lors de la récupération des rapports' });
+        }
+        res.json(results);
+    })
+}
+
 exports.postParametreRapport = async(req, res) => {
     try {   
 
