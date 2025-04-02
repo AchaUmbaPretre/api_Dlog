@@ -109,7 +109,7 @@ exports.getParametreRapport = (req, res) => {
 
 exports.postParametreRapport = async(req, res) => {
     try {   
-             
+
         const q = 'INSERT INTO parametre(`id_contrat`, `nom_parametre`) VALUES(?)';
 
         req.body.map(d => {
@@ -146,20 +146,21 @@ exports.getElementContrat = (req, res) => {
 
 exports.postElementContrat = async(req, res) => {
     try {
-        const { id_contrat, id_cat, nom_element } = req.body;
+        const { id_contrat, id_cat, nom_element, id_etiquette } = req.body;
         
-        const q = 'INSERT INTO element_contrat(`id_contrat`, `id_cat`, `nom_element`) VALUES(?)';
+        const q = 'INSERT INTO element_contrat(`id_contrat`, `id_cat`, `nom_element`, `id_etiquette`) VALUES(?)';
 
         const values = [
             id_contrat, 
             id_cat, 
-            nom_element
+            nom_element,
+            id_etiquette
         ]
 
         await db.query(q, [values]);
         return res.status(201).json({ message: 'Parametre ajouté avec succès' });
     } catch (error) {
-        console.error('Erreur lors de l\'ajout du parametre:', error.message);
+        console.error('Erreur lors de l\'ajout d  un element:', error.message);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du parametre." });
     }
 }
