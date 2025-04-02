@@ -121,28 +121,54 @@ exports.getParametreRapportOne = (req, res) => {
     })
 }
 
-exports.postParametreRapport = async(req, res) => {
-    try {   
+exports.getParametreContratCat = (req, res) => {
+    const { id_contrat, id_cat_rapport } = req.query;
 
-        const q = 'INSERT INTO parametre(`id_contrat`, `nom_parametre`) VALUES(?)';
+    const q = `SELECT * FROM parametre WHERE id_parametre = ?`
 
-        req.body.map(d => {
-            const values = [
-                d.id_contrat, 
-                d.nom_parametre
-            ]
-
-            db.query(q, [values]);
+    db.query(q, [id_parametre], (error, results) => {
+        if(error) {
+            console.error('Erreur lors de la récupération des rapports:', err);
+            return res.status(500).json({ error: 'Erreur lors de la récupération des rapports' });
         }
-        )
-        // Réponse en cas de succès
-        return res.status(201).json({ message: 'Parametre ajouté avec succès' });
-    } catch (error) {
-        console.error('Erreur lors de l\'ajout du parametre:', error.message);
-        // Réponse en cas d'erreur
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du parametre." });
-    }
+        res.json(results);
+    })
 }
+
+exports.postParametreRapport = async (req, res) => {
+    try {
+        const q = 'INSERT INTO parametre(`id_contrat`, `nom_parametre`, `id_element_contrat`, `id_etiquette`) VALUES(?)';
+
+        // Vérification si req.body est bien un tableau
+        if (!Array.isArray(req.body)) {
+            return res.status(400).json({ error: 'Données invalides. Un tableau est requis.' });
+        }
+
+        // Exécution de toutes les requêtes SQL en parallèle
+        await Promise.all(req.body.map(async (d) => {
+            try {
+                const values = [
+                    d.id_contrat,
+                    d.nom_parametre,
+                    d.id_element_contrat,
+                    d.id_etiquette
+                ];
+
+                await db.query(q, [values]);
+            } catch (err) {
+                console.error('Erreur lors de l\'ajout du paramètre:', err.message);
+            }
+        }));
+
+        // Réponse en cas de succès
+        return res.status(201).json({ message: 'Paramètres ajoutés avec succès' });
+
+    } catch (error) {
+        console.error('Erreur générale lors de l\'ajout des paramètres:', error.message);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout des paramètres." });
+    }
+};
+
 
 //Element contrat
 exports.getElementContrat = (req, res) => {
