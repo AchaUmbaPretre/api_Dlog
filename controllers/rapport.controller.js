@@ -2,10 +2,7 @@ const { db } = require("./../config/database");
 
 exports.getRapport = (req, res) => {
 
-    const q = `SELECT rs.*, c.nom 
-                FROM 
-                rapport_special rs
-                INNER JOIN client c ON c.id_client = rs.id_client`
+    const q = `SELECT * FROM contrat_parametres`
 
     db.query(q, (error, results) => {
         if(error) {
@@ -17,11 +14,11 @@ exports.getRapport = (req, res) => {
 }
 
 exports.getRapportOne = (req, res) => {
-    const { rapport } = req.query;
+    const { id_contrat_parametre } = req.query;
 
-    const q = `SELECT * FROM rapport_special WHERE id_rapport_special = ?`
+    const q = `SELECT * FROM contrat_parametres WHERE id_contrat_parametre = ?`
 
-    db.query(q, [rapport], (error, results) => {
+    db.query(q, [id_contrat_parametre], (error, results) => {
         if(error) {
             console.error('Erreur lors de la récupération des rapports:', err);
             return res.status(500).json({ error: 'Erreur lors de la récupération des rapport special' });
@@ -37,13 +34,12 @@ exports.postRapport = async (req, res) => {
             return res.status(400).json({ error: "Données invalides." });
         }
 
-        // Ajout de "-03" à chaque periode avant insertion
         const values = parametres.map(({ periode, id_contrat, id_parametre, valeur }) => 
             [`${periode}-03`, id_contrat, id_parametre, valeur] // Ici, on modifie periode
         );
 
         const insertRapport = `
-            INSERT INTO contrat_parametres (periode, id_contrat, id_parametre, valeur_parametre) 
+            INSERT INTO contrat_parametres(periode, id_contrat, id_parametre, valeur_parametre) 
             VALUES ?
         `;
 
