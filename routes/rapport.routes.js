@@ -19,6 +19,7 @@ router.get('/contrat_parametreContratCat', rapportController.getParametreContrat
 
 //Element contrat
 router.get('/element_contrat', rapportController.getElementContrat)
+router.get('/element_contratCat', rapportController.getElementContratCat)
 router.post('/element_contrat', rapportController.postElementContrat)
 
 //Etiquette

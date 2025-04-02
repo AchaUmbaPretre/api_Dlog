@@ -168,6 +168,20 @@ exports.getElementContrat = (req, res) => {
     })
 }
 
+exports.getElementContratCat = (req, res) => {
+    const { id_contrat, id_cat_rapport } = req.query
+
+    const q = `SELECT * FROM element_contrat ec WHERE ec.id_contrat = ? AND ec.id_cat ?`
+
+    db.query(q, [id_contrat, id_cat_rapport], (error, results) => {
+        if(error) {
+            console.error('Erreur lors de la récupération des rapports:', err);
+            return res.status(500).json({ error: 'Erreur lors de la récupération des rapports' });
+        }
+        res.json(results);
+    })
+}
+
 exports.postElementContrat = async(req, res) => {
     try {
         const { id_contrat, id_cat, nom_element } = req.body;
