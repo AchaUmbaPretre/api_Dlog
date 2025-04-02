@@ -169,40 +169,17 @@ exports.getElementContrat = (req, res) => {
 }
 
 exports.getElementContratCat = (req, res) => {
-    try {
-        const { id_contrat, id_cat_rapport } = req.query;
+    const { id_contrat, id_cat_rapport } = req.query;
 
-        // Vérification des paramètres requis
-        if (!id_contrat) {
-            return res.status(400).json({ error: "Le paramètre 'id_contrat' est requis." });
+    const q = `SELECT * FROM element_contrat ec WHERE ec.id_contrat = ? AND ec.id_cat = ?`;
+
+    db.query(q, [id_contrat, id_cat_rapport], (error, results) => {
+        if (error) {
+            console.error('Erreur lors de la récupération des rapports:', error);
+            return res.status(500).json({ error: 'Erreur lors de la récupération des rapports' });
         }
-
-        let query = `SELECT * FROM element_contrat WHERE id_contrat = ?`;
-        let queryParams = [id_contrat];
-
-        // Appliquer un filtre supplémentaire si id_cat_rapport est fourni
-        if (id_cat_rapport) {
-            query += ` AND id_cat = ?`;
-            queryParams.push(id_cat_rapport);
-        } else {
-            // Si seul id_contrat est présent, on trie par défaut
-            query += ` ORDER BY id_cat ASC`;
-        }
-
-        // Exécution de la requête SQL
-        db.query(query, queryParams, (error, results) => {
-            if (error) {
-                console.error("Erreur SQL:", error);
-                return res.status(500).json({ error: "Erreur lors de la récupération des éléments du contrat." });
-            }
-
-            res.status(200).json(results);
-        });
-
-    } catch (error) {
-        console.error("Erreur serveur:", error);
-        res.status(500).json({ error: "Une erreur inattendue est survenue." });
-    }
+        res.json(results);
+    });
 };
 
 
@@ -210,7 +187,7 @@ exports.postElementContrat = async(req, res) => {
     try {
         const { id_contrat, id_cat, nom_element } = req.body;
         
-        const q = 'INSERT INTO element_contrat(`id_contrat`, `id_cat`, `nom_element`, `id_etiquette`) VALUES(?)';
+        const q = 'INSERT INTO element_contrat(`id_contrat`, `id_cat`, `nom_element`) VALUES(?)';
 
         const values = [
             id_contrat, 
@@ -218,8 +195,13 @@ exports.postElementContrat = async(req, res) => {
             nom_element
         ]
 
-        await db.query(q, [values]);
-        return res.status(201).json({ message: 'Parametre ajouté avec succès' });
+        db.query(q, [values], (err, result)=> {
+            if(err) {
+                console.log(err)
+            }
+            return res.status(201).json({ message: 'Parametre ajouté avec succès' });
+
+        });
     } catch (error) {
         console.error('Erreur lors de l\'ajout d  un element:', error.message);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du parametre." });
@@ -261,7 +243,14 @@ exports.postEtiquette = async(req, res) => {
 //Contrat
 exports.getContratRapport = (req, res) => {
 
-    const q = `SELECT * FROM contrats_rapport`
+    const q = `SELECT cr.nom_contrat, 
+                      cr.superfice, 
+                      cr.tarif_camion, 
+                      cr.tarif_tonne, 
+                      cr.tarif_palette, 
+                      client.nom 
+                FROM contrats_rapport cr
+                INNER JOIN client ON cr.id_client = client.id_client`
 
     db.query(q, (error, results) => {
         if(error) {
@@ -274,11 +263,12 @@ exports.getContratRapport = (req, res) => {
 
 exports.postContratRapport = async(req, res) => {
     try {
-        const { nom_contrat, superfice, tarif_camion, tarif_tonne, tarif_palette } = req.body;
+        const { nom_contrat, id_client, superfice, tarif_camion, tarif_tonne, tarif_palette } = req.body;
         
-        const q = 'INSERT INTO contrats_rapport(`nom_contrat`, `superfice`, `tarif_camion`, `tarif_tonne`, `tarif_palette`) VALUES(?)';
+        const q = 'INSERT INTO contrats_rapport(`id_client`, `nom_contrat`, `superfice`, `tarif_camion`, `tarif_tonne`, `tarif_palette`) VALUES(?)';
 
         const values = [
+            id_client,
             nom_contrat, 
             superfice,
             tarif_camion, 
