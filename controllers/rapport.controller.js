@@ -155,11 +155,9 @@ exports.postElementContrat = async(req, res) => {
         ]
 
         await db.query(q, [values]);
-        // Réponse en cas de succès
         return res.status(201).json({ message: 'Parametre ajouté avec succès' });
     } catch (error) {
         console.error('Erreur lors de l\'ajout du parametre:', error.message);
-        // Réponse en cas d'erreur
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du parametre." });
     }
 }
