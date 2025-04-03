@@ -2,7 +2,22 @@ const { db } = require("./../config/database");
 
 exports.getRapport = (req, res) => {
 
-    const q = `SELECT * FROM contrat_parametres`
+    const q = `
+            SELECT 
+                cp.periode, 
+                cp.valeur_parametre,
+                p.nom_parametre,
+                cr.nom_contrat,
+                cat.nom_cat
+            FROM 
+                contrat_parametres cp 
+            INNER JOIN cat_rapport cat ON cp.id_cat = cat.id_cat_rapport
+            INNER JOIN contrats_rapport cr ON cp.id_contrat = cr.id_contrats_rapport
+            INNER JOIN parametre p ON cp.id_parametre = p.id_parametre
+            GROUP BY p.id_parametre, cp.periode
+            ORDER BY 
+                cp.periode,cp.id_cat, cr.nom_contrat 
+                `
 
     db.query(q, (error, results) => {
         if(error) {
@@ -34,12 +49,12 @@ exports.postRapport = async (req, res) => {
             return res.status(400).json({ error: "Données invalides." });
         }
 
-        const values = parametres.map(({ periode, id_contrat, id_parametre, valeur }) => 
-            [`${periode}-03`, id_contrat, id_parametre, valeur] // Ici, on modifie periode
+        const values = parametres.map(({ periode, id_contrat, id_parametre, id_cat, valeur }) => 
+            [`${periode}-03`, id_contrat, id_parametre, id_cat, valeur] // Ici, on modifie periode
         );
 
         const insertRapport = `
-            INSERT INTO contrat_parametres(periode, id_contrat, id_parametre, valeur_parametre) 
+            INSERT INTO contrat_parametres(periode, id_contrat, id_parametre, id_cat, valeur_parametre) 
             VALUES ?
         `;
 
