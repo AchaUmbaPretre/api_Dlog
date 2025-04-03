@@ -243,7 +243,8 @@ exports.postEtiquette = async(req, res) => {
 //Contrat
 exports.getContratRapport = (req, res) => {
 
-    const q = `SELECT cr.nom_contrat, 
+    const q = `SELECT cr.id_contrats_rapport,
+					  cr.nom_contrat, 
                       cr.superfice, 
                       cr.tarif_camion, 
                       cr.tarif_tonne, 
