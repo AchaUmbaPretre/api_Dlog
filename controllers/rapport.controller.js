@@ -61,8 +61,6 @@ exports.postRapport = async (req, res) => {
     }
 };
 
-
-
 //Categorie rapport
 exports.getCatRapport = (req, res) => {
 
