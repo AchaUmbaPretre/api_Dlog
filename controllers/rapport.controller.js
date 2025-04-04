@@ -1,6 +1,11 @@
 const { db } = require("./../config/database");
 
 exports.getRapport = (req, res) => {
+    const { id_client } = req.query;
+
+    if (!id_client) {
+        return res.status(400).json({ error: "L'ID de client est requis." });
+    }
 
     const q = `
             SELECT 
@@ -15,13 +20,13 @@ exports.getRapport = (req, res) => {
             INNER JOIN cat_rapport cat ON cp.id_cat = cat.id_cat_rapport
             INNER JOIN contrats_rapport cr ON cp.id_contrat = cr.id_contrats_rapport
             INNER JOIN parametre p ON cp.id_parametre = p.id_parametre
-            WHERE cr.id_client = 1
+            WHERE cr.id_client = ?
             GROUP BY p.id_parametre, cp.periode
             ORDER BY 
                 cp.periode,cp.id_cat, cr.nom_contrat 
                 `
 
-    db.query(q, (error, results) => {
+    db.query(q, [id_client], (error, results) => {
         if(error) {
             console.error('Erreur lors de la récupération des rapports:', err);
             return res.status(500).json({ error: 'Erreur lors de la récupération des rapport special' });
@@ -279,7 +284,14 @@ exports.getContratRapport = (req, res) => {
 
 exports.getContratRapportClient = (req, res) => {
 
-    const q = ``
+    const q = `SELECT
+                    cr.id_client,
+                    client.nom,
+                    COUNT(cr.id_client) AS nbre
+                FROM contrats_rapport cr
+                INNER JOIN client ON cr.id_client = client.id_client
+                GROUP BY client.id_client
+`
 
     db.query(q, (error, results) => {
         if(error) {
