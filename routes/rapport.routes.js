@@ -28,6 +28,7 @@ router.post('/etiquette', rapportController.postEtiquette)
 
 //Contrat
 router.get('/contrat_rapport', rapportController.getContratRapport)
+router.get('/contrat_rapportClient', rapportController.getContratRapportClient)
 router.get('/contrat_rapportClientOne', rapportController.getContratRapportClientOne)
 router.post('/contrat_rapport', rapportController.postContratRapport)
 
