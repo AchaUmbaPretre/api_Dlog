@@ -175,7 +175,6 @@ exports.postParametreRapport = async (req, res) => {
     }
 };
 
-
 //Element contrat
 exports.getElementContrat = (req, res) => {
 
@@ -203,7 +202,6 @@ exports.getElementContratCat = (req, res) => {
         res.json(results);
     });
 };
-
 
 exports.postElementContrat = async(req, res) => {
     try {
