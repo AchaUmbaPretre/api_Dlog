@@ -15,6 +15,7 @@ exports.getRapport = (req, res) => {
             INNER JOIN cat_rapport cat ON cp.id_cat = cat.id_cat_rapport
             INNER JOIN contrats_rapport cr ON cp.id_contrat = cr.id_contrats_rapport
             INNER JOIN parametre p ON cp.id_parametre = p.id_parametre
+            WHERE cr.id_client = 1
             GROUP BY p.id_parametre, cp.periode
             ORDER BY 
                 cp.periode,cp.id_cat, cr.nom_contrat 
@@ -268,6 +269,35 @@ exports.getContratRapport = (req, res) => {
                 INNER JOIN client ON cr.id_client = client.id_client`
 
     db.query(q, (error, results) => {
+        if(error) {
+            console.error('Erreur lors de la récupération des rapports:', err);
+            return res.status(500).json({ error: 'Erreur lors de la récupération des rapports' });
+        }
+        res.json(results);
+    })
+}
+
+exports.getContratRapportClientOne = (req, res) => {
+    const { id_client } = req.query;
+
+    if (!id_client) {
+        return res.status(400).json({ error: "L'ID de client est requis." });
+    }
+
+    const q = `SELECT 
+                    cr.id_contrats_rapport,
+					cr.nom_contrat, 
+                    cr.superfice, 
+                    cr.tarif_camion, 
+                    cr.tarif_tonne, 
+                    cr.tarif_palette, 
+                    client.nom 
+                FROM contrats_rapport cr
+                INNER JOIN client ON cr.id_client = client.id_client
+                WHERE cr.id_client = ?
+                `
+
+    db.query(q, [id_client], (error, results) => {
         if(error) {
             console.error('Erreur lors de la récupération des rapports:', err);
             return res.status(500).json({ error: 'Erreur lors de la récupération des rapports' });
