@@ -277,6 +277,19 @@ exports.getContratRapport = (req, res) => {
     })
 }
 
+exports.getContratRapportClient = (req, res) => {
+
+    const q = ``
+
+    db.query(q, (error, results) => {
+        if(error) {
+            console.error('Erreur lors de la récupération des rapports:', err);
+            return res.status(500).json({ error: 'Erreur lors de la récupération des rapports' });
+        }
+        res.json(results);
+    })
+}
+
 exports.getContratRapportClientOne = (req, res) => {
     const { id_client } = req.query;
 
