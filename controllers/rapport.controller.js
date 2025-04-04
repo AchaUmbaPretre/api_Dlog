@@ -8,7 +8,8 @@ exports.getRapport = (req, res) => {
                 cp.valeur_parametre,
                 p.nom_parametre,
                 cr.nom_contrat,
-                cat.nom_cat
+                cat.nom_cat,
+                cr.id_client
             FROM 
                 contrat_parametres cp 
             INNER JOIN cat_rapport cat ON cp.id_cat = cat.id_cat_rapport
