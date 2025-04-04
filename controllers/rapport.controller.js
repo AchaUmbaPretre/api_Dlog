@@ -14,12 +14,14 @@ exports.getRapport = (req, res) => {
                 p.nom_parametre,
                 cr.nom_contrat,
                 cat.nom_cat,
-                cr.id_client
+                cr.id_client,
+                c.nom
             FROM 
                 contrat_parametres cp 
             INNER JOIN cat_rapport cat ON cp.id_cat = cat.id_cat_rapport
             INNER JOIN contrats_rapport cr ON cp.id_contrat = cr.id_contrats_rapport
             INNER JOIN parametre p ON cp.id_parametre = p.id_parametre
+            INNER JOIN client c ON cr.id_client = c.id_client
             WHERE cr.id_client = ?
             GROUP BY p.id_parametre, cp.periode
             ORDER BY 
