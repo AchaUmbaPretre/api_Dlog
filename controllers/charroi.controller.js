@@ -62,3 +62,27 @@ exports.getCouleur = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+exports.getTypeCarburant = (req, res) => {
+
+    const q = `SELECT * FROM type_carburant`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getTypePneus = (req, res) => {
+
+    const q = `SELECT * FROM type_pneus`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
