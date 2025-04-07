@@ -23,6 +23,8 @@ const batimentRoutes = require('./routes/batiment.routes');
 const permissionRoutes = require('./routes/permission.routes');
 const templateRoutes = require('./routes/template.routes');
 const rapportRoutes = require('./routes/rapport.routes');
+const charroiRoutes = require('./routes/charroi.routes');
+
 
 const app = express();
 
@@ -79,6 +81,8 @@ app.use('/api/batiment', batimentRoutes)
 app.use('/api/permission', permissionRoutes)
 app.use('/api/template', templateRoutes)
 app.use('/api/rapport', rapportRoutes)
+app.use('/api/charroi', charroiRoutes)
+
 
 app.listen(port, () => {
     console.log(
