@@ -26,7 +26,6 @@ exports.getMarque = (req, res) => {
     });
 };
 
-
 exports.getModele = (req, res) => {
     const { id_marque } = req.query;
 
@@ -40,10 +39,21 @@ exports.getModele = (req, res) => {
     });
 };
 
-
 exports.getDisposition = (req, res) => {
 
     const q = `SELECT * FROM disposition_cylindre`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getCouleur = (req, res) => {
+
+    const q = `SELECT * FROM couleurs`;
 
     db.query(q, (error, data) => {
         if (error) {
