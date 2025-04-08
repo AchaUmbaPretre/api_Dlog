@@ -55,6 +55,7 @@ router.get('/site', charroiController.getSites)
 router.post('/site', charroiController.postSites)
 
 //Affectation
-
+router.get('/affectation', charroiController.getAffectation)
+router.post('/affectation', charroiController.postAffectation)
 
 module.exports = router;
