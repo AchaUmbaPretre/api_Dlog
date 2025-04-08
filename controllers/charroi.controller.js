@@ -577,7 +577,7 @@ exports.postAffectation = async (req, res) => {
     const { id_site, id_chauffeur, commentaire, user_cr } = req.body;
 
     try {
-        const q = 'INSERT INTO sites(`CodeSite`, `IdVille`, `nom_site`, `IdZone`, `adress`, `tel`, `state`, `ref_site`) VALUES(?, ?, ?, ?, ?, ?, ?, ?)';
+        const q = 'INSERT INTO affectations(`id_site`, `id_chauffeur`, `commentaire`, `user_cr`) VALUES(?, ?, ?, ?)';
 
         const values = [
             id_site,
