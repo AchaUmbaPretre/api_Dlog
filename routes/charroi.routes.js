@@ -52,6 +52,6 @@ router.get('/type_fonction', charroiController.getTypeFonction)
 
 //Sites
 router.get('/site', charroiController.getSites)
-
+router.post('/site', charroiController.postSites)
 
 module.exports = router;
