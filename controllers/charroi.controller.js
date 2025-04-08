@@ -549,3 +549,60 @@ exports.postSites = async (req, res) => {
         });
     }
 }
+
+//Affectation
+exports.getAffectation = async (req, res) => {
+
+    try {
+        const query = `SELECT 
+                            *
+                        FROM 
+                            affectations`;
+    
+        const typeTache = await queryAsync(query);
+        
+        return res.status(200).json({
+            message: 'Liste d affectation récupérée avec succès',
+            data: typeTache,
+        });
+    } catch (error) {
+        console.error('Erreur lors de la récupération des sites:', error);
+        return res.status(500).json({
+            error: "Une erreur s'est produite lors de la récupération des sites",
+        });
+    }
+}
+
+exports.postAffectation = async (req, res) => {
+    const { CodeSite, IdVille, nom_site, IdZone, adress, tel, state, ref_site  } = req.body;
+
+    try {
+        const q = 'INSERT INTO sites(`CodeSite`, `IdVille`, `nom_site`, `IdZone`, `adress`, `tel`, `state`, `ref_site`) VALUES(?, ?, ?, ?, ?, ?, ?, ?)';
+
+        const values = [
+            CodeSite,
+            IdVille,
+            nom_site,
+            IdZone,
+            adress,
+            tel,
+            state,
+            ref_site
+        ]
+        
+        await db.query(q, values, (error, result) => {
+            if(error) {
+                console.log(error)
+            }
+
+            return res.status(201).json({ message: 'Le site ete ajouté avec succès'})
+
+        });
+
+    } catch (error) {
+        console.error('Erreur lors de la récupération des sites:', error);
+        return res.status(500).json({
+            error: "Une erreur s'est produite lors de la récupération des sites",
+        });
+    }
+}
