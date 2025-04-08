@@ -491,7 +491,16 @@ exports.getTypeFonction = (req, res) => {
 exports.getSites = async (req, res) => {
 
     try {
-        const query = `SELECT * FROM sites`;
+        const query = `SELECT 
+                            s.id_site,
+                            s.CodeSite, 
+                            s.nom_site, 
+                            s.adress, 
+                            s.tel,
+                            p.name
+                        FROM 
+                            sites s
+                            INNER JOIN provinces p ON s.IdVille = p.id`;
     
         const typeTache = await queryAsync(query);
         
