@@ -560,7 +560,7 @@ exports.getAffectation = async (req, res) => {
                             c.nom, 
                             c.prenom, 
                             s.nom_site, 
-                            u.nom 
+                            u.nom AS user
                             FROM affectations a 
                         INNER JOIN chauffeurs c ON a.id_chauffeur = c.id_chauffeur
                         INNER JOIN sites s ON a.id_site = s.id_site
