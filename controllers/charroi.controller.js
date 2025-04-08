@@ -554,16 +554,17 @@ exports.postSites = async (req, res) => {
 exports.getAffectation = async (req, res) => {
 
     try {
-        const query = `SELECT 
-                            a.id_affectations, 
+        const query = `SELECT a.id_affectations, 
                             a.created_at, 
                             a.commentaire, 
                             c.nom, 
                             c.prenom, 
-                            s.nom_site 
-                        FROM affectations a 
+                            s.nom_site, 
+                            u.nom 
+                            FROM affectations a 
                         INNER JOIN chauffeurs c ON a.id_chauffeur = c.id_chauffeur
-                        INNER JOIN sites s ON a.id_site = s.id_site`;
+                        INNER JOIN sites s ON a.id_site = s.id_site
+                        INNER JOIN utilisateur u ON a.user_cr = u.id_utilisateur`;
     
         const typeTache = await queryAsync(query);
         
