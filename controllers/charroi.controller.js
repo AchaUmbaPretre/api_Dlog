@@ -344,7 +344,7 @@ exports.deleteVehicule = async (req, res) => {
       console.error("Erreur inattendue:", error);
       return res.status(500).json({ message: "Une erreur inattendue s'est produite." });
     }
-  };
+};
 
 //Chauffeur
 exports.getChauffeurCount = async(req, res) => {
@@ -486,4 +486,3 @@ exports.getTypeFonction = (req, res) => {
         return res.status(200).json(data);
     });
 };
-
