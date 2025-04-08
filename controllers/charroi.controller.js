@@ -486,3 +486,23 @@ exports.getTypeFonction = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+//Site
+exports.getSites = async (req, res) => {
+
+    try {
+        const query = `SELECT * FROM sites`;
+    
+        const typeTache = await queryAsync(query);
+        
+        return res.status(200).json({
+            message: 'Liste des sites récupérées avec succès',
+            data: typeTache,
+        });
+    } catch (error) {
+        console.error('Erreur lors de la récupération des sites:', error);
+        return res.status(500).json({
+            error: "Une erreur s'est produite lors de la récupération des sites",
+        });
+    }
+}
