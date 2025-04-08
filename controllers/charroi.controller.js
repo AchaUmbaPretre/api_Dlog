@@ -511,7 +511,7 @@ exports.postSites = async (req, res) => {
     const { CodeSite, IdVille, nom_site, IdZone, adress, tel, state, ref_site  } = req.body;
 
     try {
-        const q = 'INSERT INTO sites(`CodeSite`, `IdVille`, `nom_site`, `IdZone`, `adress`, `tel`, `state`, `ref_site`) VALUES(?)';
+        const q = 'INSERT INTO sites(`CodeSite`, `IdVille`, `nom_site`, `IdZone`, `adress`, `tel`, `state`, `ref_site`) VALUES(?, ?, ?, ?, ?, ?, ?, ?)';
 
         const values = [
             CodeSite,
@@ -523,9 +523,15 @@ exports.postSites = async (req, res) => {
             state,
             ref_site
         ]
+        
+        await db.query(q, values, (error, result) => {
+            if(error) {
+                console.log(error)
+            }
 
-        await db.query(q, values);
-        return res.status(201).json({ message: 'Le site ete ajouté avec succès'})
+            return res.status(201).json({ message: 'Le site ete ajouté avec succès'})
+
+        });
 
     } catch (error) {
         console.error('Erreur lors de la récupération des sites:', error);
