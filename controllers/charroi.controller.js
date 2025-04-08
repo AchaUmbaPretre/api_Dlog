@@ -574,20 +574,16 @@ exports.getAffectation = async (req, res) => {
 }
 
 exports.postAffectation = async (req, res) => {
-    const { CodeSite, IdVille, nom_site, IdZone, adress, tel, state, ref_site  } = req.body;
+    const { id_site, id_chauffeur, commentaire, user_cr } = req.body;
 
     try {
         const q = 'INSERT INTO sites(`CodeSite`, `IdVille`, `nom_site`, `IdZone`, `adress`, `tel`, `state`, `ref_site`) VALUES(?, ?, ?, ?, ?, ?, ?, ?)';
 
         const values = [
-            CodeSite,
-            IdVille,
-            nom_site,
-            IdZone,
-            adress,
-            tel,
-            state,
-            ref_site
+            id_site,
+            id_chauffeur,
+            commentaire,
+            user_cr
         ]
         
         await db.query(q, values, (error, result) => {
