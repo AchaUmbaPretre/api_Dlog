@@ -1,4 +1,5 @@
 const { db } = require("./../config/database");
+const moment = require('moment');
 
 const queryAsync = (query, values = []) =>
     new Promise((resolve, reject) => {
@@ -673,11 +674,11 @@ exports.getControleTechnique = async (req, res) => {
 
 exports.postControlTechnique = async (req, res) => {
     try {
+        const date_controle = moment(req.body.date_controle).format('YYYY-MM-DD');
+        const date_validite = moment(req.body.date_validite).format('YYYY-MM-DD');
 
         const {
             id_vehicule,
-            date_controle,
-            date_validite,
             kilometrage,
             ref_controle,
             id_agent,
