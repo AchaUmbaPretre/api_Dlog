@@ -636,7 +636,7 @@ exports.getControleTechnique = async (req, res) => {
         const query = `
             SELECT ct.id_controle_tech, ct.date_controle, ct.date_validite, ct.kilometrage, 
                    ct.ref_controle, ct.resultat, ct.cout_device, ct.cout_ttc, ct.taxe, 
-                   ct.commentaire, v.immatriculation, f.nom AS nom_fournisseur, 
+                   ct.commentaire, v.immatriculation, f.nom_fournisseur, 
                    c.nom AS nom_chauffeur, m.nom_marque, tr.type_rep, sct.description,
                     CASE
                         WHEN CURDATE() <= ct.date_validite THEN
@@ -646,10 +646,10 @@ exports.getControleTechnique = async (req, res) => {
                             END
                         ELSE 'Expiré'
                     END AS statut
-            FROM controle_tech ct
+            FROM controle_technique ct
             INNER JOIN vehicules v ON ct.id_vehicule = v.id_vehicule
             INNER JOIN marque m ON v.id_marque = m.id_marque
-            INNER JOIN fournisseurs f ON ct.id_fournisseur = f.id_fournisseur
+            INNER JOIN fournisseur f ON ct.id_fournisseur = f.id_fournisseur
             INNER JOIN chauffeurs c ON ct.id_chauffeur = c.id_chauffeur
             INNER JOIN reparation_controle_tech rct ON ct.id_controle_tech = rct.id_controle_technique
             INNER JOIN type_reparations tr ON sct.id_type_reparation = tr.id_type_reparation

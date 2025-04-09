@@ -65,5 +65,4 @@ router.post('/controle_technique', charroiController.postControlTechnique)
 //Type de reparation
 router.get('/type_reparation', charroiController.getTypeReparation)
 
-
 module.exports = router;
