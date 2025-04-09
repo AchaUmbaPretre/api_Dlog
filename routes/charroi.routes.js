@@ -59,6 +59,7 @@ router.get('/affectation', charroiController.getAffectation)
 router.post('/affectation', charroiController.postAffectation)
 
 //Controle technique
+router.get('/controle_technique', charroiController.getControleTechnique)
 router.post('/controle_technique', charroiController.postControlTechnique)
 
 //Type de reparation
