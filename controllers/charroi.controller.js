@@ -637,7 +637,7 @@ exports.getControleTechnique = async (req, res) => {
             SELECT ct.id_controle_tech, ct.date_controle, ct.date_validite, ct.kilometrage, 
                    ct.ref_controle, ct.resultat, ct.cout_device, ct.cout_ttc, ct.taxe, 
                    ct.commentaire, v.immatriculation, f.nom_fournisseur, 
-                   c.nom AS nom_chauffeur, m.nom_marque, tr.type_rep, sct.description,
+                   c.nom AS nom_chauffeur, m.nom_marque, tr.type_rep, rct.description,
                     CASE
                         WHEN CURDATE() <= ct.date_validite THEN
                             CASE
@@ -652,7 +652,7 @@ exports.getControleTechnique = async (req, res) => {
             INNER JOIN fournisseur f ON ct.id_fournisseur = f.id_fournisseur
             INNER JOIN chauffeurs c ON ct.id_chauffeur = c.id_chauffeur
             INNER JOIN reparation_controle_tech rct ON ct.id_controle_tech = rct.id_controle_technique
-            INNER JOIN type_reparations tr ON sct.id_type_reparation = tr.id_type_reparation
+            INNER JOIN type_reparations tr ON rct.id_type_reparation = tr.id_type_reparation
             ${whereClause} 
             ORDER BY ct.date_validite ASC
         `;
