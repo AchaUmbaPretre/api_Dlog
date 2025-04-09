@@ -609,3 +609,86 @@ exports.postAffectation = async (req, res) => {
         });
     }
 }
+
+//Controle technique
+exports.postControlTechnique = async (req, res) => {
+    try {
+
+        const {
+            id_vehicule,
+            date_controle,
+            date_validite,
+            kilometrage,
+            ref_controle,
+            id_agent,
+            resultat,
+            cout_device,
+            cout_ttc,
+            taxe,
+            id_fournisseur,
+            id_chauffeur,
+            commentaire,
+            reparations
+        } = req.body;
+
+        const insertQuery = `
+            INSERT INTO controle_technique (
+                id_vehicule, date_controle, date_validite, kilometrage, ref_controle, id_agent,
+                 resultat, cout_device, cout_ttc, taxe, id_fournisseur, id_chauffeur, commentaire
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const controleValues = [
+            id_vehicule,
+            date_controle,
+            date_validite,
+            kilometrage,
+            ref_controle,
+            id_agent,
+            resultat,
+            cout_device,
+            cout_ttc,
+            taxe,
+            id_fournisseur,
+            id_chauffeur,
+            commentaire
+        ];
+
+        const result = await queryAsync(insertQuery, controleValues);
+        const insertId = result.insertId;
+
+        if (!Array.isArray(reparations)) {
+            return res.status(400).json({
+                error: "Le champ `réparations` doit être un tableau."
+            });
+        }
+
+        const insertSudReparationQuery = `
+            INSERT INTO reparation_controle_tech (
+                id_controle_technique, id_type_reparation, visite, description
+            ) VALUES (?, ?, ?, ?)
+        `;
+
+        const sudReparationPromises = reparations.map((sud) => {
+            const sudValues = [insertId, sud.id_type_reparation, sud.visite, sud.description];
+            return queryAsync(insertSudReparationQuery, sudValues);
+        });
+
+        await Promise.all(sudReparationPromises);
+
+        return res.status(201).json({
+            message: 'Le controle technique a été ajouté avec succès',
+            data: { id: insertId },
+        });
+    } catch (error) {
+        console.error('Erreur lors de l’ajout de maintenance :', error);
+
+        const statusCode = error.code === 'ER_DUP_ENTRY' ? 409 : 500;
+        const errorMessage =
+            error.code === 'ER_DUP_ENTRY'
+                ? "Une réparation avec ces informations existe déjà."
+                : "Une erreur s'est produite lors de l'ajout de la réparation.";
+
+        return res.status(statusCode).json({ error: errorMessage });
+    }
+};
