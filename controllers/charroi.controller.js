@@ -688,14 +688,15 @@ exports.postControlTechnique = async (req, res) => {
             id_fournisseur,
             id_chauffeur,
             commentaire,
-            reparations
+            reparations,
+            user_cr
         } = req.body;
 
         const insertQuery = `
             INSERT INTO controle_technique (
                 id_vehicule, date_controle, date_validite, kilometrage, ref_controle, id_agent,
-                 resultat, cout_device, cout_ttc, taxe, id_fournisseur, id_chauffeur, commentaire
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 resultat, cout_device, cout_ttc, taxe, id_fournisseur, id_chauffeur, commentaire, user_cr
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const controleValues = [
@@ -711,7 +712,8 @@ exports.postControlTechnique = async (req, res) => {
             taxe,
             id_fournisseur,
             id_chauffeur,
-            commentaire
+            commentaire,
+            user_cr
         ];
 
         const result = await queryAsync(insertQuery, controleValues);
