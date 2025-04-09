@@ -58,4 +58,11 @@ router.post('/site', charroiController.postSites)
 router.get('/affectation', charroiController.getAffectation)
 router.post('/affectation', charroiController.postAffectation)
 
+//Controle technique
+router.post('/controle_technique', charroiController.postControlTechnique)
+
+//Type de reparation
+router.get('/type_reparation', charroiController.getTypeReparation)
+
+
 module.exports = router;
