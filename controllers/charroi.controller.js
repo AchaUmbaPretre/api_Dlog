@@ -780,7 +780,30 @@ exports.getTypeReparation = async (req, res) => {
 exports.getReparation = async (req, res) => {
 
     try {
-        const query = `SELECT * FROM reparations`;
+        const query = `SELECT 
+                            r.id_reparation, 
+                            r.date_reparation, 
+                            r.date_sortie, 
+                            r.date_prevu, 
+                            r.cout, 
+                            r.commentaire, 
+                            r.code_rep, 
+                            v.immatriculation, 
+                            m.nom_marque, 
+                            f.nom_fournisseur, 
+                            tss.nom_type_statut,
+                            DATEDIFF(r.date_sortie, r.date_reparation) AS nb_jours_au_garage
+                        FROM 
+                            reparations r
+                        INNER JOIN 
+                            vehicules v ON r.id_vehicule = v.id_vehicule
+                        INNER JOIN 
+                            marque m ON v.id_marque = m.id_marque
+                        INNER JOIN 
+                            fournisseur f ON r.id_fournisseur = f.id_fournisseur
+                        INNER JOIN 
+                            type_statut_suivi tss ON r.id_etat = tss.id_type_statut_suivi;
+                        `;
     
         const typeFonction = await queryAsync(query);
         
@@ -797,7 +820,7 @@ exports.getReparation = async (req, res) => {
 }
 
 exports.postReparation = async (req, res) => {
-    
+
     try {
         const date_reparation = moment(req.body.date_reparation).format('YYYY-MM-DD');
         const date_sortie = moment(req.body.date_sortie).format('YYYY-MM-DD');
