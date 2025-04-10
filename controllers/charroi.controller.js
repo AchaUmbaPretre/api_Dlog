@@ -792,7 +792,9 @@ exports.getReparation = async (req, res) => {
                             m.nom_marque, 
                             f.nom_fournisseur, 
                             tss.nom_type_statut,
-                            DATEDIFF(r.date_sortie, r.date_reparation) AS nb_jours_au_garage
+                            DATEDIFF(r.date_sortie, r.date_reparation) AS nb_jours_au_garage,
+                            sr.id_type_reparation,
+                            tr.type_rep
                         FROM 
                             reparations r
                         INNER JOIN 
@@ -802,7 +804,10 @@ exports.getReparation = async (req, res) => {
                         INNER JOIN 
                             fournisseur f ON r.id_fournisseur = f.id_fournisseur
                         INNER JOIN 
-                            type_statut_suivi tss ON r.id_etat = tss.id_type_statut_suivi;
+                            type_statut_suivi tss ON r.id_etat = tss.id_type_statut_suivi
+                        INNER JOIN 
+                        	sud_reparation sr ON r.id_reparation = sr.id_reparation
+                        INNER JOIN type_reparations tr ON sr.id_type_reparation = tr.id_type_reparation
                         `;
     
         const typeFonction = await queryAsync(query);
