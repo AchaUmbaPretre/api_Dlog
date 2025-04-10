@@ -797,10 +797,11 @@ exports.getReparation = async (req, res) => {
 }
 
 exports.postReparation = async (req, res) => {
-    console.log(req.body)
+    
     try {
         const date_reparation = moment(req.body.date_reparation).format('YYYY-MM-DD');
         const date_sortie = moment(req.body.date_sortie).format('YYYY-MM-DD');
+        const date_prevu = moment(req.body.date_prevu).format('YYYY-MM-DD')
 
         const {
             id_vehicule,
@@ -816,8 +817,8 @@ exports.postReparation = async (req, res) => {
         const insertQuery = `
             INSERT INTO reparations (
                 id_vehicule, date_reparation, date_sortie, date_prevu, cout, id_fournisseur,
-                montant, commentaire, id_etat, code_rep, user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                commentaire, id_etat, code_rep, user_cr
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const controleValues = [
@@ -827,8 +828,6 @@ exports.postReparation = async (req, res) => {
             date_prevu,
             cout,
             id_fournisseur,
-            id_type_reparation,
-            montant,
             commentaire,
             id_etat,
             code_rep,
@@ -851,7 +850,7 @@ exports.postReparation = async (req, res) => {
         `;
 
         const sudReparationPromises = reparations.map((sud) => {
-            const sudValues = [insertId, sud.id_type_reparation, sud.visite, sud.description];
+            const sudValues = [insertId, sud.id_type_reparation, sud.montant, sud.description];
             return queryAsync(insertSudReparationQuery, sudValues);
         });
 

@@ -67,6 +67,6 @@ router.get('/type_reparation', charroiController.getTypeReparation)
 
 //Réparation
 router.get('/reparation', charroiController.getReparation)
-
+router.post('/reparation', charroiController.postReparation)
 
 module.exports = router;
