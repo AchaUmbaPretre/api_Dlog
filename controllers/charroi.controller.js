@@ -780,18 +780,18 @@ exports.getTypeReparation = async (req, res) => {
 exports.getReparation = async (req, res) => {
 
     try {
-        const query = `SELECT * FROM reparation_controle_tech`;
+        const query = `SELECT * FROM reparations`;
     
         const typeFonction = await queryAsync(query);
         
         return res.status(200).json({
-            message: 'Liste de type des réparations récupérées avec succès',
+            message: 'Liste des réparations récupérées avec succès',
             data: typeFonction,
         });
     } catch (error) {
-        console.error('Erreur lors de la récupération des dispositions:', error);
+        console.error('Erreur lors de la récupération des réparations:', error);
         return res.status(500).json({
-            error: "Une erreur s'est produite lors de la récupération des dispositions.",
+            error: "Une erreur s'est produite lors de la récupération des réparations.",
         });
     }
 }
