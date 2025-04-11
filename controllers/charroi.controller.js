@@ -848,6 +848,19 @@ exports.getTypeReparation = async (req, res) => {
     }
 }
 
+//Statut vehicule
+exports.getStatutVille = (req, res) => {
+
+    const q = `SELECT * FROM statut_vehicule`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 //Reparation
 exports.getReparation = async (req, res) => {
 
