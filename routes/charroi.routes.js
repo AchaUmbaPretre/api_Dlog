@@ -21,6 +21,7 @@ const upload = multer({ storage });
 
 router.get('/cat_vehicule', charroiController.getCatVehicule)
 router.get('/marque', charroiController.getMarque)
+router.get('/modeleAll', charroiController.getModeleAll)
 router.get('/modele', charroiController.getModele)
 router.get('/disposition', charroiController.getDisposition)
 router.get('/couleur', charroiController.getCouleur)
