@@ -96,20 +96,29 @@ exports.getModele = (req, res) => {
 
 exports.postModele = async (req, res) => {
     try {
-        const q = 'INSERT INTO modeles(`id_marque, modele`) VALUES(?)';
+        const { id_marque, modele } = req.body;
 
-        const values = [
-            req.body.id_marque,
-            req.body.modele
-        ];
+        if (!id_marque || !modele) {
+            return res.status(400).json({ error: "Les champs 'id_marque' et 'modele' sont requis." });
+        }
 
-        await db.query(q, values);
-        return res.json('Processus réussi');
+        const query = 'INSERT INTO modeles (id_marque, modele) VALUES (?, ?)';
+        const values = [id_marque, modele];
+
+        await db.query(query, values);
+
+        return res.status(201).json({ message: 'Modèle enregistré avec succès.' });
+
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du vehicule." });
+        console.error('Erreur dans postModele:', error);
+
+        return res.status(500).json({
+            error: "Une erreur s'est produite lors de l'ajout du véhicule.",
+            details: error?.message || null,
+        });
     }
-}
+};
+
 
 exports.getDisposition = (req, res) => {
 
