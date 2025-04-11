@@ -70,6 +70,9 @@ router.post('/controle_technique', charroiController.postControlTechnique)
 //Type de reparation
 router.get('/type_reparation', charroiController.getTypeReparation)
 
+//Statut véhicule
+router.get('/statut_vehicule', charroiController.getStatutVehicule)
+
 //Réparation
 router.get('/reparation', charroiController.getReparation)
 router.post('/reparation', charroiController.postReparation)

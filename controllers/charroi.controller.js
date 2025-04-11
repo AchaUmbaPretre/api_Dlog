@@ -849,7 +849,7 @@ exports.getTypeReparation = async (req, res) => {
 }
 
 //Statut vehicule
-exports.getStatutVille = (req, res) => {
+exports.getStatutVehicule = (req, res) => {
 
     const q = `SELECT * FROM statut_vehicule`;
 
