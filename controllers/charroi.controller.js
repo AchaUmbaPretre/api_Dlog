@@ -987,10 +987,26 @@ exports.postReparation = async (req, res) => {
 };
 
 //Inspection generale
-exports.postReparation = async (req, res) => {
+exports.getInspectionGen = (req, res) => {
+
+    const q = `SELECT ig.id_inspection_gen, ig.date_reparation, ig.date_prevu, ig.date_validation, ig.commentaire, ig.avis, ig.created_at, v.immatriculation, c.nom, m.nom_marque FROM inspection_gen ig
+                    INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
+                    INNER JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
+                    INNER JOIN marque m ON v.id_marque = m.id_marque`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+
+exports.postInspectionGen = async (req, res) => {
 
     try {
-        const date_reparation = moment(req.body.date_reparation).format('YYYY-MM-DD');
+        const date_inspection = moment(req.body.date_inspection).format('YYYY-MM-DD');
         const date_prevu = moment(req.body.date_prevu).format('YYYY-MM-DD')
 
         const {
@@ -1000,20 +1016,21 @@ exports.postReparation = async (req, res) => {
             id_statut_vehicule,
             commentaire,
             avis,
-            user_cr
+            user_cr,
+            reparations
         } = req.body;
 
         const insertQuery = `
             INSERT INTO inspection_gen (
-                id_vehicule, id_chauffeur, date_reparation, date_prevu, date_validation, id_fournisseur,
+                id_vehicule, id_chauffeur, date_inspection, date_prevu, id_fournisseur,
                 id_statut_vehicule, commentaire, avis, user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const controleValues = [
             id_vehicule,
             id_chauffeur,
-            date_reparation,
+            date_inspection,
             date_prevu,
             id_fournisseur,
             id_statut_vehicule,
