@@ -1104,16 +1104,35 @@ exports.postInspectionGen = async (req, res) => {
 
 //Sub Inspection
 exports.getSubInspection = (req, res) => {
+    const { idInspection } = req.query;
 
-    const q = `SELECT ig.id_inspection_gen, ig.date_reparation, ig.date_prevu, ig.date_validation, ig.commentaire, ig.avis, ig.created_at, v.immatriculation, c.nom, m.nom_marque FROM inspection_gen ig
-                    INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
-                    INNER JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
-                    INNER JOIN marque m ON v.id_marque = m.id_marque`;
+    if (!idInspection) {
+        return res.status(400).json({ error: "L'identifiant de l'inspection est requis." });
+    }
 
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
+    const query = `
+        SELECT 
+            sig.id_sub_inspection_gen,
+            sig.montant,
+            tr.type_rep,
+            ci.nom_cat_inspection,
+            cr.nom_carateristique_rep
+        FROM sub_inspection_gen AS sig
+        INNER JOIN type_reparations AS tr 
+            ON sig.id_type_reparation = tr.id_type_reparation
+        INNER JOIN cat_inspection AS ci 
+            ON sig.id_cat_inspection = ci.id_cat_inspection
+        INNER JOIN carateristique_rep AS cr 
+            ON sig.id_carateristique_rep = cr.id_carateristique_rep
+        WHERE sig.id_inspection_gen = ?
+    `;
+
+    db.query(query, [idInspection], (err, results) => {
+        if (err) {
+            console.error("Erreur lors de la récupération des sous-inspections :", err);
+            return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
         }
-        return res.status(200).json(data);
+
+        return res.status(200).json(results);
     });
 };

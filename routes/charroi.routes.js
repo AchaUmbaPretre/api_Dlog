@@ -85,7 +85,6 @@ router.get('/inspection_gen', charroiController.getInspectionGen)
 router.post('/inspection_gen', upload.any(), charroiController.postInspectionGen)
 
 //Sub Inspection
-router.get('/sub_inspection_gen', charroiController.getInspectionGen)
-
+router.get('/sub_inspection_gen', charroiController.getSubInspection)
 
 module.exports = router;
