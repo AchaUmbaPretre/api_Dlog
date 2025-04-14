@@ -84,4 +84,8 @@ router.get('/carateristique_rep', charroiController.getCarateristiqueRep)
 router.get('/inspection_gen', charroiController.getInspectionGen)
 router.post('/inspection_gen', upload.any(), charroiController.postInspectionGen)
 
+//Sub Inspection
+router.get('/sub_inspection_gen', charroiController.getInspectionGen)
+
+
 module.exports = router;

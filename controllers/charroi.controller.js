@@ -1101,3 +1101,19 @@ exports.postInspectionGen = async (req, res) => {
         return res.status(statusCode).json({ error: errorMessage });
     }
 };
+
+//Sub Inspection
+exports.getSubInspection = (req, res) => {
+
+    const q = `SELECT ig.id_inspection_gen, ig.date_reparation, ig.date_prevu, ig.date_validation, ig.commentaire, ig.avis, ig.created_at, v.immatriculation, c.nom, m.nom_marque FROM inspection_gen ig
+                    INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
+                    INNER JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
+                    INNER JOIN marque m ON v.id_marque = m.id_marque`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
