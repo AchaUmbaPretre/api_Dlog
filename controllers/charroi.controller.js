@@ -986,6 +986,19 @@ exports.postReparation = async (req, res) => {
     }
 };
 
+//Carateristique rep
+exports.getCarateristiqueRep = (req, res) => {
+
+    const q = `SELECT * FROM carateristique_rep`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 //Inspection generale
 exports.getInspectionGen = (req, res) => {
 
@@ -1002,9 +1015,7 @@ exports.getInspectionGen = (req, res) => {
     });
 };
 
-
 exports.postInspectionGen = async (req, res) => {
-
     try {
         const date_inspection = moment(req.body.date_inspection).format('YYYY-MM-DD');
         const date_prevu = moment(req.body.date_prevu).format('YYYY-MM-DD')
@@ -1042,7 +1053,22 @@ exports.postInspectionGen = async (req, res) => {
         const result = await queryAsync(insertQuery, controleValues);
         const insertId = result.insertId;
 
-        if (!Array.isArray(reparations)) {
+        // Transforme reparations[] depuis JSON si nécessaire
+        let parsedReparations = reparations;
+        if (typeof reparations === 'string') {
+            parsedReparations = JSON.parse(reparations);
+        }
+
+        // Associe chaque image reçue au bon objet "reparation"
+        parsedReparations.forEach((rep, index) => {
+            const fieldName = `img_${index}`;
+            const file = req.files.find(f => f.fieldname === fieldName);
+            rep.img = file ? `public/uploads/${file.filename}` : null;
+        });
+        
+
+
+        if (!Array.isArray(parsedReparations)) {
             return res.status(400).json({
                 error: "Le champ `réparations` doit être un tableau."
             });
@@ -1050,12 +1076,12 @@ exports.postInspectionGen = async (req, res) => {
 
         const insertSudReparationQuery = `
             INSERT INTO sub_inspection_gen (
-                id_inspection_gen, id_type_reparation, montant
-            ) VALUES (?, ?, ?)
+                id_inspection_gen, id_type_reparation, montant, img
+            ) VALUES (?, ?, ?, ?)
         `;
 
-        const sudReparationPromises = reparations.map((sud) => {
-            const sudValues = [insertId, sud.id_type_reparation, sud.montant];
+        const sudReparationPromises = parsedReparations.map((sud) => {
+            const sudValues = [insertId, sud.id_type_reparation, sud.montant, sud.img];
             return queryAsync(insertSudReparationQuery, sudValues);
         });
 

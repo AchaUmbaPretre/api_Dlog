@@ -77,8 +77,11 @@ router.get('/statut_vehicule', charroiController.getStatutVehicule)
 router.get('/reparation', charroiController.getReparation)
 router.post('/reparation', charroiController.postReparation)
 
+//Carateristique Rep
+router.get('/carateristique_rep', charroiController.getCarateristiqueRep)
+
 //Inspection generale
 router.get('/inspection_gen', charroiController.getInspectionGen)
-router.post('/inspection_gen', charroiController.postInspectionGen)
+router.post('/inspection_gen', upload.any(), charroiController.postInspectionGen)
 
 module.exports = router;
