@@ -1023,7 +1023,6 @@ exports.postInspectionGen = async (req, res) => {
         const {
             id_vehicule,
             id_chauffeur,
-            id_fournisseur,
             id_statut_vehicule,
             commentaire,
             avis,
@@ -1033,9 +1032,9 @@ exports.postInspectionGen = async (req, res) => {
 
         const insertQuery = `
             INSERT INTO inspection_gen (
-                id_vehicule, id_chauffeur, date_inspection, date_prevu, id_fournisseur,
+                id_vehicule, id_chauffeur, date_inspection, date_prevu,
                 id_statut_vehicule, commentaire, avis, user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const controleValues = [
@@ -1043,7 +1042,6 @@ exports.postInspectionGen = async (req, res) => {
             id_chauffeur,
             date_inspection,
             date_prevu,
-            id_fournisseur,
             id_statut_vehicule,
             commentaire,
             avis,
@@ -1076,12 +1074,12 @@ exports.postInspectionGen = async (req, res) => {
 
         const insertSudReparationQuery = `
             INSERT INTO sub_inspection_gen (
-                id_inspection_gen, id_type_reparation, montant, img
+                id_inspection_gen, id_type_reparation, id_cat_inspection, id_carateristique_rep, montant, img
             ) VALUES (?, ?, ?, ?)
         `;
 
         const sudReparationPromises = parsedReparations.map((sud) => {
-            const sudValues = [insertId, sud.id_type_reparation, sud.montant, sud.img];
+            const sudValues = [insertId, sud.id_type_reparation, sud.id_cat_inspection, sud.id_carateristique_rep, sud.montant, sud.img];
             return queryAsync(insertSudReparationQuery, sudValues);
         });
 
