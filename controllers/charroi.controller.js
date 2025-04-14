@@ -1075,7 +1075,7 @@ exports.postInspectionGen = async (req, res) => {
         const insertSudReparationQuery = `
             INSERT INTO sub_inspection_gen (
                 id_inspection_gen, id_type_reparation, id_cat_inspection, id_carateristique_rep, montant, img
-            ) VALUES (?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?)
         `;
 
         const sudReparationPromises = parsedReparations.map((sud) => {
