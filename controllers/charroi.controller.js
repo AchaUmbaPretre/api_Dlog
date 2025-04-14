@@ -1002,10 +1002,11 @@ exports.getCarateristiqueRep = (req, res) => {
 //Inspection generale
 exports.getInspectionGen = (req, res) => {
 
-    const q = `SELECT ig.id_inspection_gen, ig.date_reparation, ig.date_prevu, ig.date_validation, ig.commentaire, ig.avis, ig.created_at, v.immatriculation, c.nom, m.nom_marque FROM inspection_gen ig
+    const q = `SELECT ig.id_inspection_gen, ig.date_reparation, ig.date_prevu, ig.date_validation, sug.commentaire, sug.avis, ig.created_at, v.immatriculation, c.nom, m.nom_marque, sug.montant FROM inspection_gen ig
                     INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
                     INNER JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
-                    INNER JOIN marque m ON v.id_marque = m.id_marque`;
+                    INNER JOIN marque m ON v.id_marque = m.id_marque
+                    INNER JOIN sub_inspection_gen sug ON ig.id_inspection_gen = sug.id_inspection_gen`;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -1024,8 +1025,6 @@ exports.postInspectionGen = async (req, res) => {
             id_vehicule,
             id_chauffeur,
             id_statut_vehicule,
-            commentaire,
-            avis,
             user_cr,
             reparations
         } = req.body;
@@ -1033,8 +1032,8 @@ exports.postInspectionGen = async (req, res) => {
         const insertQuery = `
             INSERT INTO inspection_gen (
                 id_vehicule, id_chauffeur, date_inspection, date_prevu,
-                id_statut_vehicule, commentaire, avis, user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                id_statut_vehicule, user_cr
+            ) VALUES (?, ?, ?, ?, ?, ?)
         `;
 
         const controleValues = [
@@ -1043,8 +1042,6 @@ exports.postInspectionGen = async (req, res) => {
             date_inspection,
             date_prevu,
             id_statut_vehicule,
-            commentaire,
-            avis,
             user_cr
         ];
 
@@ -1065,7 +1062,6 @@ exports.postInspectionGen = async (req, res) => {
         });
         
 
-
         if (!Array.isArray(parsedReparations)) {
             return res.status(400).json({
                 error: "Le champ `réparations` doit être un tableau."
@@ -1074,12 +1070,12 @@ exports.postInspectionGen = async (req, res) => {
 
         const insertSudReparationQuery = `
             INSERT INTO sub_inspection_gen (
-                id_inspection_gen, id_type_reparation, id_cat_inspection, id_carateristique_rep, montant, img
-            ) VALUES (?, ?, ?, ?, ?, ?)
+                id_inspection_gen, id_type_reparation, id_cat_inspection, id_carateristique_rep, montant, commentaire, avis, img
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const sudReparationPromises = parsedReparations.map((sud) => {
-            const sudValues = [insertId, sud.id_type_reparation, sud.id_cat_inspection, sud.id_carateristique_rep, sud.montant, sud.img];
+            const sudValues = [insertId, sud.id_type_reparation, sud.id_cat_inspection, sud.id_carateristique_rep, sud.montant, sud.commentaire, sud.avis, sud.img];
             return queryAsync(insertSudReparationQuery, sudValues);
         });
 
@@ -1111,19 +1107,13 @@ exports.getSubInspection = (req, res) => {
     }
 
     const query = `
-        SELECT 
-            sig.id_sub_inspection_gen,
-            sig.montant,
-            tr.type_rep,
-            ci.nom_cat_inspection,
-            cr.nom_carateristique_rep
-        FROM sub_inspection_gen AS sig
-        INNER JOIN type_reparations AS tr 
-            ON sig.id_type_reparation = tr.id_type_reparation
-        INNER JOIN cat_inspection AS ci 
-            ON sig.id_cat_inspection = ci.id_cat_inspection
-        INNER JOIN carateristique_rep AS cr 
-            ON sig.id_carateristique_rep = cr.id_carateristique_rep
+        SELECT sig.id_sub_inspection_gen, sig.montant, tr.type_rep, ci.nom_cat_inspection, cr.nom_carateristique_rep, ig.date_inspection, v.immatriculation, m.nom_marque FROM sub_inspection_gen sig
+            INNER JOIN type_reparations tr ON sig.id_type_reparation = tr.id_type_reparation
+            INNER JOIN cat_inspection ci ON sig.id_cat_inspection = ci.id_cat_inspection
+            INNER JOIN carateristique_rep cr ON sig.id_carateristique_rep = cr.id_carateristique_rep
+            INNER JOIN inspection_gen ig ON sig.id_inspection_gen = ig.id_inspection_gen
+            INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
+            INNER JOIN marque m ON v.id_marque = m.id_marque
         WHERE sig.id_inspection_gen = ?
     `;
 
