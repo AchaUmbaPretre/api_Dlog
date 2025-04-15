@@ -1133,40 +1133,36 @@ exports.postValidationInspection = async (req, res) => {
     const { id_sub_inspection_gen, id_cat_inspection, id_carateristique_rep, cout, manoeuvre } = req.body;
 
     try {
-        const q = 'INSERT INTO inspection_valide(`id_sub_inspection_gen`, `id_cat_inspection`, `id_carateristique_rep`, `cout`, `manoeuvre`) VALUES(?, ?, ?, ?, ?)';
-
-        const values = [
+        const insertQuery = `
+            INSERT INTO inspection_valide 
+            (id_sub_inspection_gen, id_cat_inspection, id_carateristique_rep, cout, manoeuvre)
+            VALUES (?, ?, ?, ?, ?)`;
+        
+        const insertValues = [
             id_sub_inspection_gen,
             id_cat_inspection,
             id_carateristique_rep,
             cout,
             manoeuvre
-        ]
-        
-        await db.query(q, values, (error, result) => {
-            if(error) {
-                console.log(error)
-            }
-            const qM = `UPDATE sub_inspection_gen 
-                        SET 
-                            date_validation = ? 
-                        WHERE id_sub_inspection_gen = ?`
-                const values = [moment(),  id_sub_inspection_gen]
+        ];
 
-                db.query(qM, values, (error, result) => {
-                    if(error) {
-                        console.error('Erreur lors de la mise à jour :', error);
-                        return res.status(500).json({ error: 'Erreur lors de la mise à jour de l\'inspection.' });
-                    }
-                    return res.status(201).json({ message: 'L inspection été validée avec succès'})
-                })
+        await queryAsync(insertQuery, insertValues);
 
-        });
+        const updateQuery = `
+            UPDATE sub_inspection_gen 
+            SET date_validation = ? 
+            WHERE id_sub_inspection_gen = ?`;
+
+        const updateValues = [moment().format('YYYY-MM-DD'), id_sub_inspection_gen];
+
+        await queryAsync(updateQuery, updateValues);
+
+        return res.status(201).json({ message: 'L’inspection a été validée avec succès.' });
 
     } catch (error) {
-        console.error('Erreur lors de validation d inspection:', error);
+        console.error('Erreur lors de la validation de l’inspection :', error);
         return res.status(500).json({
-            error: "Une erreur s'est produite lors de la récupération des inspections",
+            error: "Une erreur s'est produite lors de la validation de l’inspection.",
         });
     }
-}
+};
