@@ -1146,6 +1146,30 @@ exports.getSubInspection = (req, res) => {
 };
 
 //Validation inspection
+exports.getValidationInspection = (req, res) => {
+    const { id_sub_inspection_gen } = req.query;
+
+    if (!id_sub_inspection_gen) {
+        return res.status(400).json({ error: "L'identifiant de l'inspection est requis." });
+    }
+
+    const query = `
+               SELECT iv.id_sub_inspection_gen, iv.id_type_reparation, iv.manoeuvre, iv.cout, ig.id_vehicule FROM inspection_valide iv
+                    INNER JOIN sub_inspection_gen sub ON iv.id_sub_inspection_gen = sub.id_sub_inspection_gen
+                    INNER JOIN inspection_gen ig ON sub.id_inspection_gen = ig.id_inspection_gen
+                    WHERE iv.id_sub_inspection_gen =  ?
+                        `;
+
+    db.query(query, [id_sub_inspection_gen], (err, results) => {
+        if (err) {
+            console.error("Erreur lors de la récupération des sous-inspections :", err);
+            return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+        }
+
+        return res.status(200).json(results);
+    });
+};
+
 exports.postValidationInspection = async (req, res) => {
     try {
         const inspections = req.body;
