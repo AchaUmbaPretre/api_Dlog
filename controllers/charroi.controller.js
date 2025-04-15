@@ -890,10 +890,11 @@ exports.getReparation = async (req, res) => {
                         INNER JOIN 
                             fournisseur f ON r.id_fournisseur = f.id_fournisseur
                         INNER JOIN 
-                            type_statut_suivi tss ON r.id_etat = tss.id_type_statut_suivi
-                        INNER JOIN 
                         	sud_reparation sr ON r.id_reparation = sr.id_reparation
-                        INNER JOIN type_reparations tr ON sr.id_type_reparation = tr.id_type_reparation
+                        INNER JOIN 
+                        	type_reparations tr ON sr.id_type_reparation = tr.id_type_reparation
+                        INNER JOIN 
+                            type_statut_suivi tss ON sr.id_statut = tss.id_type_statut_suivi
                        `;
     
         const typeFonction = await queryAsync(query);
