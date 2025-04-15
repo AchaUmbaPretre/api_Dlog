@@ -1147,15 +1147,26 @@ exports.postValidationInspection = async (req, res) => {
             if(error) {
                 console.log(error)
             }
+            const qM = `UPDATE sub_inspection_gen 
+                        SET 
+                            date_validation = ? 
+                        WHERE id_sub_inspection_gen = ?`
+                const values = [moment(),  id_sub_inspection_gen]
 
-            return res.status(201).json({ message: 'Le site ete ajouté avec succès'})
+                db.query(qM, values, (error, result) => {
+                    if(error) {
+                        console.error('Erreur lors de la mise à jour :', error);
+                        return res.status(500).json({ error: 'Erreur lors de la mise à jour de l\'inspection.' });
+                    }
+                })
 
+            return res.status(201).json({ message: 'L inspection été validée avec succès'})
         });
 
     } catch (error) {
-        console.error('Erreur lors de la récupération des sites:', error);
+        console.error('Erreur lors de validation d inspection:', error);
         return res.status(500).json({
-            error: "Une erreur s'est produite lors de la récupération des sites",
+            error: "Une erreur s'est produite lors de la récupération des inspections",
         });
     }
 }
