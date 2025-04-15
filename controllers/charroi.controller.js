@@ -869,6 +869,7 @@ exports.getReparation = async (req, res) => {
                             r.id_reparation, 
                             sr.date_reparation, 
                             sr.date_sortie, 
+                            sr.id_sud_reparation,
                             r.date_prevu, 
                             r.date_entree,
                             r.cout, 
