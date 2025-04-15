@@ -867,9 +867,10 @@ exports.getReparation = async (req, res) => {
     try {
         const query = `SELECT 
                             r.id_reparation, 
-                            r.date_reparation, 
-                            r.date_sortie, 
+                            sr.date_reparation, 
+                            sr.date_sortie, 
                             r.date_prevu, 
+                            r.date_entree,
                             r.cout, 
                             r.commentaire, 
                             r.code_rep, 
@@ -877,7 +878,7 @@ exports.getReparation = async (req, res) => {
                             m.nom_marque, 
                             f.nom_fournisseur, 
                             tss.nom_type_statut,
-                            DATEDIFF(r.date_sortie, r.date_reparation) AS nb_jours_au_garage,
+                            DATEDIFF(r.date_entree,sr.date_reparation) AS nb_jours_au_garage,
                             sr.id_type_reparation,
                             tr.type_rep
                         FROM 
@@ -893,7 +894,7 @@ exports.getReparation = async (req, res) => {
                         INNER JOIN 
                         	sud_reparation sr ON r.id_reparation = sr.id_reparation
                         INNER JOIN type_reparations tr ON sr.id_type_reparation = tr.id_type_reparation
-                        `;
+                       `;
     
         const typeFonction = await queryAsync(query);
         
@@ -913,7 +914,6 @@ exports.postReparation = async (req, res) => {
 
     try {
         const date_entree = moment(req.body.date_entree).format('YYYY-MM-DD');
-        const date_sortie = moment(req.body.date_sortie).format('YYYY-MM-DD');
         const date_prevu = moment(req.body.date_prevu).format('YYYY-MM-DD')
 
         const {
@@ -1005,6 +1005,7 @@ exports.getInspectionGen = (req, res) => {
                     ig.id_inspection_gen, 
                     sug.date_reparation, 
                     sug.date_validation, 
+                    sug.id_sub_inspection_gen,
                     ig.date_prevu, 
                     sug.commentaire, 
                     sug.avis, 
