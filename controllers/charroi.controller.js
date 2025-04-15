@@ -931,8 +931,8 @@ exports.postReparation = async (req, res) => {
         const insertQuery = `
             INSERT INTO reparations (
                 id_vehicule, date_entree, date_prevu, cout, id_fournisseur,
-                commentaire, id_etat, code_rep, user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                commentaire, code_rep, user_cr
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const controleValues = [
@@ -942,7 +942,6 @@ exports.postReparation = async (req, res) => {
             cout,
             id_fournisseur,
             commentaire,
-            id_etat,
             code_rep,
             user_cr
         ];
