@@ -1135,11 +1135,12 @@ exports.postValidationInspection = async (req, res) => {
     try {
         const insertQuery = `
             INSERT INTO inspection_valide 
-            (id_sub_inspection_gen, id_cat_inspection, id_carateristique_rep, cout, manoeuvre)
-            VALUES (?, ?, ?, ?, ?)`;
+            (id_sub_inspection_gen, id_type_reparation, id_cat_inspection, id_carateristique_rep, cout, manoeuvre)
+            VALUES (?, ?, ?, ?, ?, ?)`;
         
         const insertValues = [
             id_sub_inspection_gen,
+            id_type_reparation,
             id_cat_inspection,
             id_carateristique_rep,
             cout,
