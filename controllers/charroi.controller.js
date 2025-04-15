@@ -1158,9 +1158,9 @@ exports.postValidationInspection = async (req, res) => {
                         console.error('Erreur lors de la mise à jour :', error);
                         return res.status(500).json({ error: 'Erreur lors de la mise à jour de l\'inspection.' });
                     }
+                    return res.status(201).json({ message: 'L inspection été validée avec succès'})
                 })
 
-            return res.status(201).json({ message: 'L inspection été validée avec succès'})
         });
 
     } catch (error) {
