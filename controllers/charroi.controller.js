@@ -1127,3 +1127,35 @@ exports.getSubInspection = (req, res) => {
         return res.status(200).json(results);
     });
 };
+
+//Validation inspection
+exports.postValidationInspection = async (req, res) => {
+    const { id_sub_inspection_gen, id_cat_inspection, id_carateristique_rep, cout, manoeuvre } = req.body;
+
+    try {
+        const q = 'INSERT INTO inspection_valide(`id_sub_inspection_gen`, `id_cat_inspection`, `id_carateristique_rep`, `cout`, `manoeuvre`) VALUES(?, ?, ?, ?, ?)';
+
+        const values = [
+            id_sub_inspection_gen,
+            id_cat_inspection,
+            id_carateristique_rep,
+            cout,
+            manoeuvre
+        ]
+        
+        await db.query(q, values, (error, result) => {
+            if(error) {
+                console.log(error)
+            }
+
+            return res.status(201).json({ message: 'Le site ete ajouté avec succès'})
+
+        });
+
+    } catch (error) {
+        console.error('Erreur lors de la récupération des sites:', error);
+        return res.status(500).json({
+            error: "Une erreur s'est produite lors de la récupération des sites",
+        });
+    }
+}
