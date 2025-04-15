@@ -1002,11 +1002,12 @@ exports.getCarateristiqueRep = (req, res) => {
 //Inspection generale
 exports.getInspectionGen = (req, res) => {
 
-    const q = `SELECT ig.id_inspection_gen, ig.date_reparation, ig.date_prevu, ig.date_validation, sug.commentaire, sug.avis, ig.created_at, v.immatriculation, c.nom, m.nom_marque, sug.montant FROM inspection_gen ig
+    const q = `SELECT ig.id_inspection_gen, ig.date_reparation, ig.date_prevu, ig.date_validation, sug.commentaire, sug.avis, ig.created_at, v.immatriculation, c.nom, m.nom_marque, sug.montant, tss.nom_type_statut FROM inspection_gen ig
                     INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
                     INNER JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
                     INNER JOIN marque m ON v.id_marque = m.id_marque
-                    INNER JOIN sub_inspection_gen sug ON ig.id_inspection_gen = sug.id_inspection_gen`;
+                    INNER JOIN sub_inspection_gen sug ON ig.id_inspection_gen = sug.id_inspection_gen
+                    INNER JOIN type_statut_suivi tss ON sug.statut = tss.id_type_statut_suivi`;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -1070,12 +1071,12 @@ exports.postInspectionGen = async (req, res) => {
 
         const insertSudReparationQuery = `
             INSERT INTO sub_inspection_gen (
-                id_inspection_gen, id_type_reparation, id_cat_inspection, id_carateristique_rep, montant, commentaire, avis, img
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                id_inspection_gen, id_type_reparation, id_cat_inspection, id_carateristique_rep, montant, commentaire, avis, img, statut
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const sudReparationPromises = parsedReparations.map((sud) => {
-            const sudValues = [insertId, sud.id_type_reparation, sud.id_cat_inspection, sud.id_carateristique_rep, sud.montant, sud.commentaire, sud.avis, sud.img];
+            const sudValues = [insertId, sud.id_type_reparation, sud.id_cat_inspection, sud.id_carateristique_rep, sud.montant, sud.commentaire, sud.avis, sud.img, 1];
             return queryAsync(insertSudReparationQuery, sudValues);
         });
 
