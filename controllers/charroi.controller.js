@@ -912,7 +912,7 @@ exports.getReparation = async (req, res) => {
 exports.postReparation = async (req, res) => {
 
     try {
-        const date_reparation = moment(req.body.date_reparation).format('YYYY-MM-DD');
+        const date_entree = moment(req.body.date_entree).format('YYYY-MM-DD');
         const date_sortie = moment(req.body.date_sortie).format('YYYY-MM-DD');
         const date_prevu = moment(req.body.date_prevu).format('YYYY-MM-DD')
 
@@ -929,15 +929,14 @@ exports.postReparation = async (req, res) => {
 
         const insertQuery = `
             INSERT INTO reparations (
-                id_vehicule, date_reparation, date_sortie, date_prevu, cout, id_fournisseur,
+                id_vehicule, date_entree, date_prevu, cout, id_fournisseur,
                 commentaire, id_etat, code_rep, user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const controleValues = [
             id_vehicule,
-            date_reparation,
-            date_sortie,
+            date_entree,
             date_prevu,
             cout,
             id_fournisseur,
