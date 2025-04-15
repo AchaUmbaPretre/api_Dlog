@@ -1125,14 +1125,15 @@ exports.getSubInspection = (req, res) => {
     }
 
     const query = `
-        SELECT sig.id_sub_inspection_gen, sig.montant, tr.type_rep, ci.nom_cat_inspection, cr.nom_carateristique_rep, ig.date_inspection, v.immatriculation, m.nom_marque, sig.id_type_reparation, sig.id_cat_inspection, sig.id_carateristique_rep FROM sub_inspection_gen sig
-            INNER JOIN type_reparations tr ON sig.id_type_reparation = tr.id_type_reparation
-            INNER JOIN cat_inspection ci ON sig.id_cat_inspection = ci.id_cat_inspection
-            INNER JOIN carateristique_rep cr ON sig.id_carateristique_rep = cr.id_carateristique_rep
-            INNER JOIN inspection_gen ig ON sig.id_inspection_gen = ig.id_inspection_gen
-            INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
-            INNER JOIN marque m ON v.id_marque = m.id_marque
-        WHERE sig.id_inspection_gen = ?
+                SELECT sig.id_sub_inspection_gen, sig.montant, tr.type_rep, ci.nom_cat_inspection, cr.nom_carateristique_rep, ig.date_inspection, v.immatriculation, m.nom_marque, sig.id_type_reparation, sig.id_cat_inspection, sig.id_carateristique_rep, sig.img, sig.commentaire, sig.avis, sig.img, tss.nom_type_statut FROM sub_inspection_gen sig
+                    INNER JOIN type_reparations tr ON sig.id_type_reparation = tr.id_type_reparation
+                    INNER JOIN cat_inspection ci ON sig.id_cat_inspection = ci.id_cat_inspection
+                    INNER JOIN carateristique_rep cr ON sig.id_carateristique_rep = cr.id_carateristique_rep
+                    INNER JOIN inspection_gen ig ON sig.id_inspection_gen = ig.id_inspection_gen
+                    INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
+                    INNER JOIN marque m ON v.id_marque = m.id_marque
+                    INNER JOIN type_statut_suivi tss ON sig.statut = tss.id_type_statut_suivi
+                WHERE sig.id_inspection_gen = ?
     `;
 
     db.query(query, [idInspection], (err, results) => {
