@@ -911,6 +911,58 @@ exports.getReparation = async (req, res) => {
     }
 }
 
+
+exports.getReparationOne = async (req, res) => {
+    const { id_sud_reparation } = req.query;
+    try {
+        const query = `SELECT 
+                            r.id_reparation, 
+                            sr.date_reparation, 
+                            sr.date_sortie, 
+                            sr.id_sud_reparation,
+                            r.date_prevu, 
+                            r.date_entree,
+                            r.cout, 
+                            r.commentaire, 
+                            r.code_rep, 
+                            v.immatriculation, 
+                            m.nom_marque, 
+                            f.nom_fournisseur, 
+                            tss.nom_type_statut,
+                            DATEDIFF(r.date_entree,sr.date_reparation) AS nb_jours_au_garage,
+                            sr.id_type_reparation,
+                            tr.type_rep
+                        FROM 
+                            reparations r
+                        INNER JOIN 
+                            vehicules v ON r.id_vehicule = v.id_vehicule
+                        INNER JOIN 
+                            marque m ON v.id_marque = m.id_marque
+                        INNER JOIN 
+                            fournisseur f ON r.id_fournisseur = f.id_fournisseur
+                        INNER JOIN 
+                        	sud_reparation sr ON r.id_reparation = sr.id_reparation
+                        INNER JOIN 
+                        	type_reparations tr ON sr.id_type_reparation = tr.id_type_reparation
+                        INNER JOIN 
+                            type_statut_suivi tss ON sr.id_statut = tss.id_type_statut_suivi
+                            WHERE sr.id_sud_reparation = ?
+                       `;
+    
+        const typeFonction = await queryAsync(query, id_sud_reparation);
+        
+        return res.status(200).json({
+            message: 'Liste des réparations récupérées avec succès',
+            data: typeFonction,
+        });
+    } catch (error) {
+        console.error('Erreur lors de la récupération des réparations:', error);
+        return res.status(500).json({
+            error: "Une erreur s'est produite lors de la récupération des réparations.",
+        });
+    }
+}
+
 exports.postReparation = async (req, res) => {
 
     try {
