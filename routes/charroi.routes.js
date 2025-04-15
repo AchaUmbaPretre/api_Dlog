@@ -87,4 +87,8 @@ router.post('/inspection_gen', upload.any(), charroiController.postInspectionGen
 //Sub Inspection
 router.get('/sub_inspection_gen', charroiController.getSubInspection)
 
+
+//Validation inspection
+router.post('/inspection_validation', charroiController.postValidationInspection)
+
 module.exports = router;

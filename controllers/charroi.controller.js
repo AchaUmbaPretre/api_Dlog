@@ -1002,12 +1002,29 @@ exports.getCarateristiqueRep = (req, res) => {
 //Inspection generale
 exports.getInspectionGen = (req, res) => {
 
-    const q = `SELECT ig.id_inspection_gen, ig.date_reparation, ig.date_prevu, ig.date_validation, sug.commentaire, sug.avis, ig.created_at, v.immatriculation, c.nom, m.nom_marque, sug.montant, tss.nom_type_statut FROM inspection_gen ig
-                    INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
-                    INNER JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
-                    INNER JOIN marque m ON v.id_marque = m.id_marque
-                    INNER JOIN sub_inspection_gen sug ON ig.id_inspection_gen = sug.id_inspection_gen
-                    INNER JOIN type_statut_suivi tss ON sug.statut = tss.id_type_statut_suivi`;
+    const q = `SELECT 
+                    ig.id_inspection_gen, 
+                    sug.date_reparation, 
+                    sug.date_validation, 
+                    ig.date_prevu, 
+                    sug.commentaire, 
+                    sug.avis, 
+                    ig.date_inspection, 
+                    v.immatriculation, 
+                    c.nom, m.nom_marque, 
+                    sug.montant, 
+                    tss.nom_type_statut 
+                FROM inspection_gen ig
+                    INNER JOIN 
+                        vehicules v ON ig.id_vehicule = v.id_vehicule
+                    INNER JOIN 
+                        chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
+                    INNER JOIN 
+                        marque m ON v.id_marque = m.id_marque
+                    INNER JOIN 
+                        sub_inspection_gen sug ON ig.id_inspection_gen = sug.id_inspection_gen
+                    INNER JOIN 
+                        type_statut_suivi tss ON sug.statut = tss.id_type_statut_suivi`;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -1130,40 +1147,59 @@ exports.getSubInspection = (req, res) => {
 
 //Validation inspection
 exports.postValidationInspection = async (req, res) => {
-    const { id_sub_inspection_gen, id_cat_inspection, id_carateristique_rep, cout, manoeuvre } = req.body;
-
     try {
-        const insertQuery = `
-            INSERT INTO inspection_valide 
-            (id_sub_inspection_gen, id_type_reparation, id_cat_inspection, id_carateristique_rep, cout, manoeuvre)
-            VALUES (?, ?, ?, ?, ?, ?)`;
-        
-        const insertValues = [
-            id_sub_inspection_gen,
-            id_type_reparation,
-            id_cat_inspection,
-            id_carateristique_rep,
-            cout,
-            manoeuvre
-        ];
+        const inspections = req.body;
 
-        await queryAsync(insertQuery, insertValues);
+        if (!Array.isArray(inspections) || inspections.length === 0) {
+            return res.status(400).json({ error: 'Aucune donnée reçue.' });
+        }
 
-        const updateQuery = `
-            UPDATE sub_inspection_gen 
-            SET date_validation = ? 
-            WHERE id_sub_inspection_gen = ?`;
+        for (const inspection of inspections) {
+            const {
+                id_sub_inspection_gen,
+                id_type_reparation,
+                id_cat_inspection,
+                id_carateristique_rep,
+                montant,
+                manoeuvre
+            } = inspection;
 
-        const updateValues = [moment().format('YYYY-MM-DD'), id_sub_inspection_gen];
+            const cout = montant;
 
-        await queryAsync(updateQuery, updateValues);
+            const insertQuery = `
+                INSERT INTO inspection_valide 
+                (id_sub_inspection_gen, id_type_reparation, id_cat_inspection, id_carateristique_rep, cout, manoeuvre)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `;
 
-        return res.status(201).json({ message: 'L’inspection a été validée avec succès.' });
+            const insertValues = [
+                id_sub_inspection_gen,
+                id_type_reparation,
+                id_cat_inspection,
+                id_carateristique_rep,
+                cout,
+                manoeuvre
+            ];
+
+            await queryAsync(insertQuery, insertValues);
+
+            const updateQuery = `
+                UPDATE sub_inspection_gen 
+                SET date_validation = ? 
+                WHERE id_sub_inspection_gen = ?
+            `;
+
+            const updateValues = [moment().format('YYYY-MM-DD'), id_sub_inspection_gen];
+
+            await queryAsync(updateQuery, updateValues);
+        }
+
+        return res.status(201).json({ message: 'Les inspections ont été validées avec succès.' });
 
     } catch (error) {
-        console.error('Erreur lors de la validation de l’inspection :', error);
+        console.error('Erreur lors de la validation des inspections :', error);
         return res.status(500).json({
-            error: "Une erreur s'est produite lors de la validation de l’inspection.",
+            error: "Une erreur s'est produite lors de la validation des inspections.",
         });
     }
 };
