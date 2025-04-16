@@ -1,5 +1,7 @@
 const { db } = require("./../config/database");
 const moment = require('moment');
+const util = require('util');
+
 
 const queryAsync = (query, values = []) =>
     new Promise((resolve, reject) => {
@@ -1285,3 +1287,116 @@ exports.postValidationInspection = async (req, res) => {
         });
     }
 };
+
+//Suivi d'inspection
+exports.getSuiviInspection = (req, res) => {
+    const { id_sub_inspection_gen } = req.query;
+
+    const q = `
+                SELECT 
+                    si.*, 
+                    type_statut_suivi.nom_type_statut,
+                    CASE 
+                        WHEN si.est_termine = 0 THEN 'Non' 
+                        ELSE 'Oui' 
+                    END AS est_termine,
+                    utilisateur.nom, 
+                    -- Récupération de la date du dernier suivi
+                    (SELECT MAX(date_suivi) 
+                    FROM suivi_inspection si 
+                    WHERE si.id_sub_inspection_gen = sug.id_sub_inspection_gen
+                    ) AS date_dernier_suivi
+                FROM 
+                    suivi_inspection si
+                INNER JOIN 
+                    utilisateur ON si.effectue_par = utilisateur.id_utilisateur
+                INNER JOIN 
+                    sub_inspection_gen sug ON si.id_sub_inspection_gen = sug.id_sub_inspection_gen
+                INNER JOIN 
+                    type_statut_suivi ON si.status = type_statut_suivi.id_type_statut_suivi
+                WHERE si.id_sub_inspection_gen = ? AND si.est_supprime = 0
+            `;
+
+    db.query(q, [id_sub_inspection_gen], (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+};
+
+exports.postSuiviInspection = async (req, res) => {
+    let connection;
+
+    try {
+        const {
+            id_sub_inspection_gen,
+            status,
+            commentaire,
+            pourcentage_avancement,
+            effectue_par,
+            est_termine
+        } = req.body;
+
+        if (!id_sub_inspection_gen || !status || !effectue_par) {
+            return res.status(400).json({ error: 'Champs requis manquants.' });
+        }
+
+        connection = await new Promise((resolve, reject) => {
+            db.getConnection((err, conn) => {
+                if (err) return reject(err);
+                resolve(conn);
+            });
+        });
+
+        const beginTransaction = util.promisify(connection.beginTransaction).bind(connection);
+        const commit = util.promisify(connection.commit).bind(connection);
+        const connQuery = util.promisify(connection.query).bind(connection);
+
+        await beginTransaction();
+
+        const insertQuery = `
+            INSERT INTO suivi_inspection (
+                id_sub_inspection_gen, status, commentaire, pourcentage_avancement, effectue_par, est_termine
+            ) VALUES (?, ?, ?, ?, ?, ?)
+        `;
+
+        await connQuery(insertQuery, [
+            id_sub_inspection_gen,
+            status,
+            commentaire,
+            pourcentage_avancement,
+            effectue_par,
+            est_termine ? 1 : 0
+        ]);
+
+        const updateQuery = `
+            UPDATE sub_inspection_gen
+            SET statut = ?
+            WHERE id_sub_inspection_gen = ?
+        `;
+
+        await connQuery(updateQuery, [status, id_sub_inspection_gen]);
+
+        await commit();
+        connection.release();
+
+        return res.status(201).json({ message: 'Suivi d’inspection ajouté avec succès.' });
+
+    } catch (error) {
+        // 🔥 connection est maintenant bien définie même ici
+        if (connection) {
+            try {
+                await connection.rollback();
+                connection.release();
+            } catch (rollbackError) {
+                console.error('Erreur pendant le rollback :', rollbackError);
+            }
+        }
+
+        console.error('[postSuiviInspection] Erreur :', error);
+        return res.status(500).json({
+            error: "Une erreur s’est produite lors de l’ajout du suivi.",
+            details: error.message
+        });
+    }
+};
+

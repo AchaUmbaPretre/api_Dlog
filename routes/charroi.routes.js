@@ -93,4 +93,8 @@ router.get('/sub_inspection_gen', charroiController.getSubInspection)
 router.get('/inspection_validation', charroiController.getValidationInspection)
 router.post('/inspection_validation', charroiController.postValidationInspection)
 
+//Suivi inspection
+router.get('/suivi_inspections', charroiController.getSuiviInspection)
+router.post('/suivi_inspections', charroiController.postSuiviInspection)
+
 module.exports = router;
