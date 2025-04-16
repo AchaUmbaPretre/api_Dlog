@@ -1402,6 +1402,40 @@ exports.postSuiviInspection = async (req, res) => {
 };
 
 //Suivi réparation
+exports.getSuiviReparation = (req, res) => {
+    const { id_sud_reparation } = req.query;
+
+    const q = `
+                SELECT 
+                    si.*, 
+                    type_statut_suivi.nom_type_statut,
+                    CASE 
+                        WHEN si.est_termine = 0 THEN 'Non' 
+                        ELSE 'Oui' 
+                    END AS est_termine,
+                    utilisateur.nom, 
+                    -- Récupération de la date du dernier suivi
+                    (SELECT MAX(date_suivi) 
+                    FROM suivi_inspection si 
+                    WHERE si.id_reparation = sud.id_sud_reparation
+                    ) AS date_dernier_suivi
+                FROM 
+                    suivi_inspection si
+                INNER JOIN 
+                    utilisateur ON si.effectue_par = utilisateur.id_utilisateur
+                INNER JOIN 
+                    sud_reparation sud ON si.id_reparation = sud.id_sud_reparation
+                INNER JOIN 
+                    type_statut_suivi ON si.status = type_statut_suivi.id_type_statut_suivi
+                WHERE si.id_reparation = ? AND si.est_supprime = 0
+            `;
+
+    db.query(q, [id_sud_reparation], (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+};
+
 exports.postSuiviReparation = async (req, res) => {
     let connection;
 
