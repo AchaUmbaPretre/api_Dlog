@@ -1066,7 +1066,8 @@ exports.getInspectionGen = (req, res) => {
                     v.immatriculation, 
                     c.nom, m.nom_marque, 
                     sug.montant, 
-                    tss.nom_type_statut 
+                    tss.nom_type_statut,
+                    tr.type_rep
                 FROM inspection_gen ig
                     INNER JOIN 
                         vehicules v ON ig.id_vehicule = v.id_vehicule
@@ -1077,7 +1078,9 @@ exports.getInspectionGen = (req, res) => {
                     INNER JOIN 
                         sub_inspection_gen sug ON ig.id_inspection_gen = sug.id_inspection_gen
                     INNER JOIN 
-                        type_statut_suivi tss ON sug.statut = tss.id_type_statut_suivi`;
+                        type_statut_suivi tss ON sug.statut = tss.id_type_statut_suivi
+                    INNER JOIN 
+                    	type_reparations tr ON sug.id_type_reparation = tr.id_type_reparation`;
 
     db.query(q, (error, data) => {
         if (error) {
