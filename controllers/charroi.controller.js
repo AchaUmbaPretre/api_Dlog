@@ -481,6 +481,7 @@ exports.postChauffeur = async (req, res) => {
             statut,
             sexe,
             id_type_contrat,
+            id_fonction,
             type_travail,
             id_permis,
             id_ville,
@@ -493,14 +494,14 @@ exports.postChauffeur = async (req, res) => {
         const query = `
             INSERT INTO chauffeurs (
                 matricule, nom, prenom, telephone, adresse, id_etat_civil,
-                statut, profil, sexe, id_type_contrat, type_travail,
+                statut, profil, sexe, id_type_contrat, id_fonction, type_travail,
                 id_permis, id_ville, date_naissance, date_engagement, user_cr, tel_service
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const values = [
             matricule, nom, prenom, telephone, adresse, id_etat_civil,
-            statut, profil, sexe, id_type_contrat, type_travail,
+            statut, profil, sexe, id_type_contrat, id_fonction, type_travail,
             id_permis, id_ville, date_naissance, date_engagement, user_cr, tel_service,
         ];
 
