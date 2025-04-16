@@ -978,7 +978,8 @@ exports.postReparation = async (req, res) => {
             id_etat,
             reparations,
             code_rep,
-            user_cr
+            user_cr,
+            id_sub_inspection_gen
         } = req.body;
 
         const insertQuery = `
@@ -1010,12 +1011,12 @@ exports.postReparation = async (req, res) => {
 
         const insertSudReparationQuery = `
             INSERT INTO sud_reparation (
-                id_reparation, id_type_reparation, montant, description
-            ) VALUES (?, ?, ?, ?)
+                id_reparation, id_type_reparation, id_sub_inspection_gen, montant, description
+            ) VALUES (?, ?, ?, ?, ?)
         `;
 
         const sudReparationPromises = reparations.map((sud) => {
-            const sudValues = [insertId, sud.id_type_reparation, sud.montant, sud.description];
+            const sudValues = [insertId, sud.id_type_reparation, id_sub_inspection_gen, sud.montant, sud.description];
             return queryAsync(insertSudReparationQuery, sudValues);
         });
 
