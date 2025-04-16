@@ -1400,3 +1400,80 @@ exports.postSuiviInspection = async (req, res) => {
     }
 };
 
+//Suivi réparation
+exports.postSuiviReparation = async (req, res) => {
+    let connection;
+
+    try {
+        const {
+            id_sud_reparation,
+            status,
+            commentaire,
+            pourcentage_avancement,
+            effectue_par,
+            est_termine
+        } = req.body;
+
+        if (!id_sud_reparation || !status || !effectue_par) {
+            return res.status(400).json({ error: 'Champs requis manquants.' });
+        }
+
+        connection = await new Promise((resolve, reject) => {
+            db.getConnection((err, conn) => {
+                if (err) return reject(err);
+                resolve(conn);
+            });
+        });
+
+        const beginTransaction = util.promisify(connection.beginTransaction).bind(connection);
+        const commit = util.promisify(connection.commit).bind(connection);
+        const connQuery = util.promisify(connection.query).bind(connection);
+
+        await beginTransaction();
+
+        const insertQuery = `
+            INSERT INTO suivi_inspection (
+                id_sud_reparation, status, commentaire, pourcentage_avancement, effectue_par, est_termine
+            ) VALUES (?, ?, ?, ?, ?, ?)
+        `;
+
+        await connQuery(insertQuery, [
+            id_sud_reparation,
+            status,
+            commentaire,
+            pourcentage_avancement,
+            effectue_par,
+            est_termine ? 1 : 0
+        ]);
+
+        const updateQuery = `
+            UPDATE sud_reparation
+            SET id_statut = ?
+            WHERE id_sud_reparation = ?
+        `;
+
+        await connQuery(updateQuery, [status, id_sud_reparation]);
+
+        await commit();
+        connection.release();
+
+        return res.status(201).json({ message: 'Suivi de reparation ajouté avec succès.' });
+
+    } catch (error) {
+        // 🔥 connection est maintenant bien définie même ici
+        if (connection) {
+            try {
+                await connection.rollback();
+                connection.release();
+            } catch (rollbackError) {
+                console.error('Erreur pendant le rollback :', rollbackError);
+            }
+        }
+
+        console.error('[postSuiviInspection] Erreur :', error);
+        return res.status(500).json({
+            error: "Une erreur s’est produite lors de l’ajout du suivi.",
+            details: error.message
+        });
+    }
+};
