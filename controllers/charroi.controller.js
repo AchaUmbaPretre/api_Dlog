@@ -465,11 +465,11 @@ exports.getChauffeur = async (req, res) => {
 exports.postChauffeur = async (req, res) => {
     
     try {
-        if (!req.files || req.files.length === 0) {
+/*         if (!req.files || req.files.length === 0) {
             return res.status(400).json({ error: 'Aucun fichier téléchargé' });
-        }
+        } */
 
-        const profil = req.files.map((file) => file.path.replace(/\\/g, '/')).join(',');
+        const profil = req?.files.map((file) => file.path.replace(/\\/g, '/')).join(',');
 
         const {
             matricule,
