@@ -851,6 +851,28 @@ exports.getTypeReparation = async (req, res) => {
     }
 }
 
+
+exports.postTypeReparation = async (req, res) => {
+    try {
+        const q = 'INSERT INTO type_reparations(`type_rep`) VALUES(?)';
+
+        const values = [
+            req.body.type_rep
+        ];
+
+        await db.query(q, values, (error, data) => {
+
+            if(error) {
+                console.log(error)
+            }
+            return res.json('Processus réussi');
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du vehicule." });
+    }
+}
+
 //Statut vehicule
 exports.getStatutVehicule = (req, res) => {
 
@@ -1243,7 +1265,6 @@ exports.postValidationInspection = async (req, res) => {
                 id_sub_inspection_gen,
                 id_type_reparation,
                 id_cat_inspection,
-                id_carateristique_rep,
                 montant,
                 manoeuvre
             } = inspection;
@@ -1252,15 +1273,14 @@ exports.postValidationInspection = async (req, res) => {
 
             const insertQuery = `
                 INSERT INTO inspection_valide 
-                (id_sub_inspection_gen, id_type_reparation, id_cat_inspection, id_carateristique_rep, cout, manoeuvre)
-                VALUES (?, ?, ?, ?, ?, ?)
+                (id_sub_inspection_gen, id_type_reparation, id_cat_inspection, cout, manoeuvre)
+                VALUES (?, ?, ?, ?, ?)
             `;
 
             const insertValues = [
                 id_sub_inspection_gen,
                 id_type_reparation,
                 id_cat_inspection,
-                id_carateristique_rep,
                 cout,
                 manoeuvre
             ];
