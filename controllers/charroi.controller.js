@@ -1148,6 +1148,23 @@ exports.getInspectionGen = (req, res) => {
     });
 };
 
+exports.getInspectionResume = (req, res) => {
+
+    const q = `SELECT 
+                    COUNT(sub.id_sub_inspection_gen) AS nbre_inspection,
+                    SUM(sub.montant) AS budget_total,
+                    COUNT(DISTINCT ig.id_vehicule) AS nbre_vehicule
+                FROM sub_inspection_gen sub
+                INNER JOIN inspection_gen ig ON sub.id_inspection_gen = ig.id_inspection_gen;`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.postInspectionGen = async (req, res) => {
     try {
         const date_inspection = moment(req.body.date_inspection).format('YYYY-MM-DD');
