@@ -1292,10 +1292,11 @@ exports.getSubInspectionOne = (req, res) => {
                     INNER JOIN marque m ON v.id_marque = m.id_marque
                     INNER JOIN type_statut_suivi tss ON sig.statut = tss.id_type_statut_suivi
                 WHERE sig.id_sub_inspection_gen = ?
-    `;
+                `;
 
     db.query(query, [id_sub_inspection_gen], (err, results) => {
         if (err) {
+        
             console.error("Erreur lors de la récupération des sous-inspections :", err);
             return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
         }
