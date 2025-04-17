@@ -1276,6 +1276,34 @@ exports.getSubInspection = (req, res) => {
     });
 };
 
+exports.getSubInspectionOne = (req, res) => {
+    const { id_sub_inspection_gen } = req.query;
+
+    if (!id_sub_inspection_gen) {
+        return res.status(400).json({ error: "L'identifiant de l'inspection est requis." });
+    }
+
+    const query = `
+                SELECT sig.id_sub_inspection_gen, sig.montant, tr.type_rep, ci.nom_cat_inspection, ig.date_inspection, v.immatriculation, m.nom_marque, sig.id_type_reparation, sig.id_cat_inspection, sig.img, sig.commentaire, sig.avis, sig.img, tss.nom_type_statut FROM sub_inspection_gen sig
+                    INNER JOIN type_reparations tr ON sig.id_type_reparation = tr.id_type_reparation
+                    INNER JOIN cat_inspection ci ON sig.id_cat_inspection = ci.id_cat_inspection
+                    INNER JOIN inspection_gen ig ON sig.id_inspection_gen = ig.id_inspection_gen
+                    INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
+                    INNER JOIN marque m ON v.id_marque = m.id_marque
+                    INNER JOIN type_statut_suivi tss ON sig.statut = tss.id_type_statut_suivi
+                WHERE sig.id_sub_inspection_gen = ?
+    `;
+
+    db.query(query, [id_sub_inspection_gen], (err, results) => {
+        if (err) {
+            console.error("Erreur lors de la récupération des sous-inspections :", err);
+            return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+        }
+
+        return res.status(200).json(results);
+    });
+};
+
 //Validation inspection
 exports.getValidationInspection = (req, res) => {
     const { id_sub_inspection_gen } = req.query;
@@ -1373,7 +1401,8 @@ exports.postValidationInspection = async (req, res) => {
                 id_cat_inspection,
                 montant,
                 budget_valide,
-                manoeuvre
+                manoeuvre,
+                user_cr
             } = inspection;
 
             const cout = montant;
@@ -1396,8 +1425,8 @@ exports.postValidationInspection = async (req, res) => {
             // Si pas encore validé, on insère
             const insertQuery = `
                 INSERT INTO inspection_valide 
-                (id_sub_inspection_gen, id_type_reparation, id_cat_inspection, cout, budget_valide, manoeuvre)
-                VALUES (?, ?, ?, ?, ?, ?)
+                (id_sub_inspection_gen, id_type_reparation, id_cat_inspection, cout, budget_valide, manoeuvre, user_cr)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             `;
 
             const insertValues = [
@@ -1406,7 +1435,8 @@ exports.postValidationInspection = async (req, res) => {
                 id_cat_inspection,
                 cout,
                 budget_valide,
-                manoeuvre
+                manoeuvre,
+                user_cr
             ];
 
             await queryAsync(insertQuery, insertValues);
