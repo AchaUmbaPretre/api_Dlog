@@ -228,7 +228,39 @@ exports.getVehiculeOne = async (req, res) => {
     const { id_vehicule } = req.query;
 
     try {
-        const query = `SELECT v.* FROM vehicules v WHERE v.id_vehicule = ?`;
+        const query = `
+            SELECT 
+                v.id_vehicule, 
+                v.immatriculation, 
+                v.variante, 
+                v.num_chassis, 
+                v.annee_fabrication, 
+                v.annee_circulation, 
+                v.img, 
+                v.longueur, 
+                v.largeur,
+                v.hauteur,
+                v.poids,
+                v.capacite_carburant,
+                v.capacite_radiateur,
+                v.capacite_carter,
+                v.nbre_place,
+                v.nbre_portes,
+                v.nbre_moteur,
+                v.date_service,
+                v.pneus,
+                marque.nom_marque, 
+                modeles.modele, 
+                cv.nom_cat, 
+                c.nom_couleur, 
+                u.nom
+            FROM vehicules v
+                LEFT JOIN marque ON v.id_marque = marque.id_marque
+                LEFT JOIN modeles ON v.id_modele = modeles.id_modele
+                LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+                LEFT JOIN couleurs c ON v.id_couleur = c.id_couleur
+                LEFT JOIN utilisateur u ON v.user_cr = u.id_utilisateur
+            WHERE v.id_vehicule = ?`;
 
             const chauffeurs = await queryAsync(query, id_vehicule);
     
