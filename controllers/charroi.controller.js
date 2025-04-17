@@ -1301,6 +1301,63 @@ exports.getValidationInspection = (req, res) => {
     });
 };
 
+/* exports.postValidationInspection = async (req, res) => {
+    try {
+        const inspections = req.body;
+
+        if (!Array.isArray(inspections) || inspections.length === 0) {
+            return res.status(400).json({ error: 'Aucune donnée reçue.' });
+        }
+
+        for (const inspection of inspections) {
+            const {
+                id_sub_inspection_gen,
+                id_type_reparation,
+                id_cat_inspection,
+                montant,
+                manoeuvre
+            } = inspection;
+
+            const cout = montant;
+
+            const insertQuery = `
+                INSERT INTO inspection_valide 
+                (id_sub_inspection_gen, id_type_reparation, id_cat_inspection, cout, manoeuvre)
+                VALUES (?, ?, ?, ?, ?)
+            `;
+
+            const insertValues = [
+                id_sub_inspection_gen,
+                id_type_reparation,
+                id_cat_inspection,
+                cout,
+                manoeuvre
+            ];
+
+            await queryAsync(insertQuery, insertValues);
+
+            const updateQuery = `
+                UPDATE sub_inspection_gen 
+                SET date_validation = ? 
+                WHERE id_sub_inspection_gen = ?
+            `;
+
+            const updateValues = [moment().format('YYYY-MM-DD'), id_sub_inspection_gen];
+
+            await queryAsync(updateQuery, updateValues);
+        }
+
+        return res.status(201).json({ message: 'Les inspections ont été validées avec succès.' });
+
+    } catch (error) {
+        console.error('Erreur lors de la validation des inspections :', error);
+        return res.status(500).json({
+            error: "Une erreur s'est produite lors de la validation des inspections.",
+        });
+    }
+}; */
+
+
 exports.postValidationInspection = async (req, res) => {
     try {
         const inspections = req.body;
@@ -1320,6 +1377,22 @@ exports.postValidationInspection = async (req, res) => {
 
             const cout = montant;
 
+            // Vérifie si cette réparation a déjà été validée pour cette sous-inspection
+            const checkQuery = `
+                SELECT COUNT(*) AS count 
+                FROM inspection_valide 
+                WHERE id_sub_inspection_gen = ? AND id_type_reparation = ?
+            `;
+            const [checkResult] = await queryAsync(checkQuery, [id_sub_inspection_gen, id_type_reparation]);
+
+            if (checkResult.count > 0) {
+                // On ignore ou on peut aussi renvoyer une erreur
+                return res.status(400).json({
+                    error: `Le type de réparation a déjà été validé pour la sous-inspection).`
+                });
+            }
+
+            // Si pas encore validé, on insère
             const insertQuery = `
                 INSERT INTO inspection_valide 
                 (id_sub_inspection_gen, id_type_reparation, id_cat_inspection, cout, manoeuvre)
