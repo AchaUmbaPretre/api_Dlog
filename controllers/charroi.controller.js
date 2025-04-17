@@ -1372,6 +1372,7 @@ exports.postValidationInspection = async (req, res) => {
                 id_type_reparation,
                 id_cat_inspection,
                 montant,
+                budget_valide,
                 manoeuvre
             } = inspection;
 
@@ -1395,7 +1396,7 @@ exports.postValidationInspection = async (req, res) => {
             // Si pas encore validé, on insère
             const insertQuery = `
                 INSERT INTO inspection_valide 
-                (id_sub_inspection_gen, id_type_reparation, id_cat_inspection, cout, manoeuvre)
+                (id_sub_inspection_gen, id_type_reparation, id_cat_inspection, cout, budget_valide, manoeuvre)
                 VALUES (?, ?, ?, ?, ?)
             `;
 
@@ -1404,6 +1405,7 @@ exports.postValidationInspection = async (req, res) => {
                 id_type_reparation,
                 id_cat_inspection,
                 cout,
+                budget_valide,
                 manoeuvre
             ];
 
