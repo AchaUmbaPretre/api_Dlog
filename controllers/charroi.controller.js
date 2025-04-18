@@ -1141,7 +1141,6 @@ exports.postReparation = (req, res) => {
           id_sub_inspection_gen
         } = req.body;
 
-        // Validation des champs principaux
         if (!id_vehicule || !cout || !Array.isArray(reparations)) {
           throw new Error("Certains champs obligatoires sont manquants ou invalides.");
         }
@@ -1167,7 +1166,6 @@ exports.postReparation = (req, res) => {
         const [mainResult] = await queryPromise(connection, insertMainQuery, mainValues);
         const insertedRepairId = mainResult.insertId;
 
-        // Insertion des réparations liées
         const insertSubQuery = `
           INSERT INTO sud_reparation (
             id_reparation, id_type_reparation, id_sub_inspection_gen, montant, description
@@ -1219,6 +1217,8 @@ exports.postReparation = (req, res) => {
     });
   });
 };
+
+
 //Carateristique rep
 exports.getCarateristiqueRep = (req, res) => {
 
