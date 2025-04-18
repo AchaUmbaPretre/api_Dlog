@@ -1013,14 +1013,22 @@ exports.getReparationOne = async (req, res) => {
                         	type_reparations tr ON sr.id_type_reparation = tr.id_type_reparation
                         INNER JOIN 
                             type_statut_suivi tss ON sr.id_statut = tss.id_type_statut_suivi
-                            WHERE sr.id_sud_reparation = ?
+                            WHERE r.id_reparation = ?
                        `;
     
         const typeFonction = await queryAsync(query, id_sud_reparation);
-        
+
+        const q = `SELECT r.id_reparation, r.date_entree, r.date_prevu, r.cout, r.commentaire, f.nom_fournisseur FROM reparations r
+                        INNER JOIN fournisseur f ON r.id_fournisseur = f.id_fournisseur
+                        WHERE r.id_reparation = ?
+                    `
+
+        const type = await queryAsync(query, id_sud_reparation)
+
         return res.status(200).json({
             message: 'Liste des réparations récupérées avec succès',
             data: typeFonction,
+            dataGen: type
         });
     } catch (error) {
         console.error('Erreur lors de la récupération des réparations:', error);
