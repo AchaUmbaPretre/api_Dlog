@@ -1163,7 +1163,7 @@ exports.getInspectionResume = (req, res) => {
                     COUNT(DISTINCT ig.id_vehicule) AS nbre_vehicule
                 FROM sub_inspection_gen sub
                 INNER JOIN inspection_gen ig ON sub.id_inspection_gen = ig.id_inspection_gen
-                INNER JOIN inspection_valide iv ON sub.id_sub_inspection_gen = iv.id_sub_inspection_gen`;
+                LEFT JOIN inspection_valide iv ON sub.id_sub_inspection_gen = iv.id_sub_inspection_gen`;
 
     db.query(q, (error, data) => {
         if (error) {
