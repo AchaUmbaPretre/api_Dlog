@@ -998,6 +998,7 @@ exports.getReparationOne = async (req, res) => {
                             tss.nom_type_statut,
                             DATEDIFF(r.date_entree,sr.date_reparation) AS nb_jours_au_garage,
                             sr.id_type_reparation,
+                            sr.description,
                             tr.type_rep
                         FROM 
                             reparations r
@@ -1007,7 +1008,7 @@ exports.getReparationOne = async (req, res) => {
                             marque m ON v.id_marque = m.id_marque
                         INNER JOIN 
                             fournisseur f ON r.id_fournisseur = f.id_fournisseur
-                        INNER JOIN 
+                        LEFT JOIN 
                         	sud_reparation sr ON r.id_reparation = sr.id_reparation
                         INNER JOIN 
                         	type_reparations tr ON sr.id_type_reparation = tr.id_type_reparation
@@ -1018,8 +1019,10 @@ exports.getReparationOne = async (req, res) => {
     
         const typeFonction = await queryAsync(query, id_sud_reparation);
 
-        const q = `SELECT r.id_reparation, r.date_entree, r.date_prevu, r.cout, r.commentaire, f.nom_fournisseur FROM reparations r
-                        INNER JOIN fournisseur f ON r.id_fournisseur = f.id_fournisseur
+        const q = `SELECT r.id_reparation, r.date_entree, r.date_prevu, r.cout, r.commentaire, f.nom_fournisseur, v.immatriculation, m.nom_marque FROM reparations r
+                        LEFT JOIN fournisseur f ON r.id_fournisseur = f.id_fournisseur
+                        INNER JOIN vehicules v ON r.id_vehicule = v.id_vehicule
+                        LEFT JOIN marque m ON v.id_marque = m.id_marque
                         WHERE r.id_reparation = ?
                     `
 
@@ -1030,6 +1033,7 @@ exports.getReparationOne = async (req, res) => {
             data: typeFonction,
             dataGen: type
         });
+
     } catch (error) {
         console.error('Erreur lors de la récupération des réparations:', error);
         return res.status(500).json({
