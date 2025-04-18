@@ -1142,6 +1142,8 @@ exports.getInspectionGen = (req, res) => {
                     	type_reparations tr ON sug.id_type_reparation = tr.id_type_reparation
                     LEFT JOIN 
                     	inspection_valide iv ON sug.id_sub_inspection_gen = iv.id_sub_inspection_gen
+                    INNER JOIN 
+                    	utilisateur u ON ig.user_cr = u.id_utilisateur
                      GROUP BY ig.created_at DESC`;
 
     db.query(q, (error, data) => {
