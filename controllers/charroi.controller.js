@@ -1159,9 +1159,11 @@ exports.getInspectionResume = (req, res) => {
     const q = `SELECT 
                     COUNT(sub.id_sub_inspection_gen) AS nbre_inspection,
                     SUM(sub.montant) AS budget_total,
+                    SUM(iv.budget_valide) AS budget_valide,
                     COUNT(DISTINCT ig.id_vehicule) AS nbre_vehicule
                 FROM sub_inspection_gen sub
-                INNER JOIN inspection_gen ig ON sub.id_inspection_gen = ig.id_inspection_gen;`;
+                INNER JOIN inspection_gen ig ON sub.id_inspection_gen = ig.id_inspection_gen
+                INNER JOIN inspection_valide iv ON sub.id_sub_inspection_gen = iv.id_sub_inspection_gen`;
 
     db.query(q, (error, data) => {
         if (error) {
