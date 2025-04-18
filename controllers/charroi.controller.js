@@ -1168,8 +1168,8 @@ exports.postReparation = (req, res) => {
 
         const insertSubQuery = `
           INSERT INTO sud_reparation (
-            id_reparation, id_type_reparation, id_sub_inspection_gen, montant, description
-          ) VALUES (?, ?, ?, ?, ?)
+            id_reparation, id_type_reparation, id_sub_inspection_gen, montant, description, id_statut
+          ) VALUES (?, ?, ?, ?, ?, ?)
         `;
 
         for (const sud of reparations) {
@@ -1178,7 +1178,8 @@ exports.postReparation = (req, res) => {
             sud.id_type_reparation,
             id_sub_inspection_gen,
             sud.montant,
-            sud.description
+            sud.description,
+            2
           ];
           await queryPromise(connection, insertSubQuery, subValues);
         }
@@ -1265,9 +1266,9 @@ exports.getInspectionGen = (req, res) => {
                     	type_reparations tr ON sug.id_type_reparation = tr.id_type_reparation
                     LEFT JOIN 
                     	inspection_valide iv ON sug.id_sub_inspection_gen = iv.id_sub_inspection_gen
-                    INNER JOIN 
+                    LEFT JOIN 
                     	utilisateur u ON ig.user_cr = u.id_utilisateur
-                     GROUP BY ig.created_at DESC`;
+                     ORDER BY ig.created_at DESC`;
 
     db.query(q, (error, data) => {
         if (error) {
