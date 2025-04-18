@@ -1296,7 +1296,7 @@ exports.getSubInspectionOne = (req, res) => {
 
     db.query(query, [id_sub_inspection_gen], (err, results) => {
         if (err) {
-        
+
             console.error("Erreur lors de la récupération des sous-inspections :", err);
             return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
         }
@@ -1386,7 +1386,6 @@ exports.getValidationInspection = (req, res) => {
     }
 }; */
 
-
 exports.postValidationInspection = async (req, res) => {
     try {
         const inspections = req.body;
@@ -1444,11 +1443,11 @@ exports.postValidationInspection = async (req, res) => {
 
             const updateQuery = `
                 UPDATE sub_inspection_gen 
-                SET date_validation = ? 
+                SET date_validation = ?, statut = ?
                 WHERE id_sub_inspection_gen = ?
             `;
 
-            const updateValues = [moment().format('YYYY-MM-DD'), id_sub_inspection_gen];
+            const updateValues = [moment().format('YYYY-MM-DD'), 8, id_sub_inspection_gen];
 
             await queryAsync(updateQuery, updateValues);
         }
