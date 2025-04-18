@@ -1120,6 +1120,7 @@ exports.getInspectionGen = (req, res) => {
                     ig.date_prevu, 
                     sug.commentaire, 
                     sug.avis, 
+                    iv.budget_valide,
                     ig.date_inspection, 
                     v.immatriculation, 
                     c.nom, m.nom_marque, 
@@ -1138,7 +1139,10 @@ exports.getInspectionGen = (req, res) => {
                     INNER JOIN 
                         type_statut_suivi tss ON sug.statut = tss.id_type_statut_suivi
                     INNER JOIN 
-                    	type_reparations tr ON sug.id_type_reparation = tr.id_type_reparation`;
+                    	type_reparations tr ON sug.id_type_reparation = tr.id_type_reparation
+                    LEFT JOIN 
+                    	inspection_valide iv ON sug.id_sub_inspection_gen = iv.id_sub_inspection_gen
+                     GROUP BY ig.created_at DESC`;
 
     db.query(q, (error, data) => {
         if (error) {
