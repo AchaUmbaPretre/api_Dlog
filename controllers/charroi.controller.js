@@ -1180,7 +1180,7 @@ exports.postReparation = (req, res) => {
 
         const insertSubQuery = `
           INSERT INTO sud_reparation (
-            id_reparation, id_type_reparation, id_sub_inspection_gen, montant, description, id_statut
+            id_reparation, id_type_reparation, id_sub_inspection_gen, montant, description, id_evaluation
           ) VALUES (?, ?, ?, ?, ?, ?)
         `;
 
