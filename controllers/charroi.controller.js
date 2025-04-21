@@ -1872,14 +1872,15 @@ exports.postSuiviInspection = async (req, res) => {
 };
  */
 exports.getSuiviReparation = (req, res) => {
-    const { id_sud_reparation } = req.query;
+    const { id_reparation } = req.query;
 
     const q = `SELECT sr.id_suivi_reparation, 
                     sr.budget, 
                     sr.commentaire, 
                     tr.type_rep, 
                     ci.nom_cat_inspection, 
-                    e.nom_evaluation 
+                    e.nom_evaluation,
+                    u.nom
                     FROM 
                     suivi_reparation sr 
                     INNER JOIN
@@ -1888,10 +1889,14 @@ exports.getSuiviReparation = (req, res) => {
                         cat_inspection ci ON sr.id_tache_rep = ci.id_cat_inspection
                     INNER JOIN 
                         evaluation e ON sr.id_evaluation = e.id_evaluation
-                    WHERE sr.id_sud_reparation = ?
+                    INNER JOIN 
+                    	sud_reparation sud ON sr.id_sud_reparation = sud.id_sud_reparation
+                    INNER JOIN 
+                    	utilisateur u ON sr.user_cr = u.id_utilisateur
+                    WHERE sud.id_reparation = ?
             `;
 
-    db.query(q, [id_sud_reparation], (error, data) => {
+    db.query(q, [id_reparation], (error, data) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
