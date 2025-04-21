@@ -102,6 +102,7 @@ router.post('/suivi_inspections', charroiController.postSuiviInspection)
 
 //Suivi réparation
 router.get('/suivi_reparation', charroiController.getSuiviReparation)
+router.get('/suivi_reparationOne', charroiController.getSuiviReparationOne)
 router.post('/suivi_reparation', charroiController.postSuiviReparation)
 
 
