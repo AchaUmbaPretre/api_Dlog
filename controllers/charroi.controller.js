@@ -1879,7 +1879,6 @@ exports.getSuiviReparation = (req, res) => {
                     sr.commentaire, 
                     tr.type_rep, 
                     ci.nom_cat_inspection, 
-                    e.nom_evaluation,
                     u.nom
                     FROM 
                     suivi_reparation sr 
@@ -1887,8 +1886,6 @@ exports.getSuiviReparation = (req, res) => {
                         type_reparations tr ON sr.id_piece = tr.id_type_reparation
                     INNER JOIN 
                         cat_inspection ci ON sr.id_tache_rep = ci.id_cat_inspection
-                    INNER JOIN 
-                        evaluation e ON sr.id_evaluation = e.id_evaluation
                     INNER JOIN 
                     	sud_reparation sud ON sr.id_sud_reparation = sud.id_sud_reparation
                     INNER JOIN 
@@ -1907,7 +1904,7 @@ exports.getSuiviReparationOne = (req, res) => {
     const { id_sud_reparation } = req.query;
 
     const q = `
-            SELECT 
+           SELECT 
             	sr.id_sud_reparation, 
                 sr.id_reparation, 
                 sr.montant, 
@@ -1919,7 +1916,8 @@ exports.getSuiviReparationOne = (req, res) => {
                 r.date_prevu,
                 f.nom_fournisseur,
                 v.immatriculation,
-                m.nom_marque
+                m.nom_marque,
+                e.nom_evaluation
             FROM 
             sud_reparation sr 
             INNER JOIN 
@@ -1932,7 +1930,8 @@ exports.getSuiviReparationOne = (req, res) => {
             	vehicules v ON r.id_vehicule = v.id_vehicule
             INNER JOIN 
             	marque m ON v.id_marque = m.id_marque
-                
+            LEFT JOIN 
+            	evaluation e ON sr.id_evaluation = e.id_evaluation
             WHERE sr.id_sud_reparation = ?
             `;
 
@@ -2047,18 +2046,16 @@ exports.postSuiviReparation = async (req, res) => {
                 id_sud_reparation,
                 id_tache_rep,
                 id_piece,
-                id_evaluation,
                 budget,
                 commentaire,
                 user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+            ) VALUES (?, ?, ?, ?, ?, ?)`;
 
             for (const rep of info) {
                 const repValues = [
                     id_sud_reparation,
                     rep.id_tache_rep,
                     rep.id_piece,
-                    id_evaluation,
                     rep.budget,
                     rep.commentaire,
                     user_cr
@@ -2066,6 +2063,13 @@ exports.postSuiviReparation = async (req, res) => {
 
                 await connQuery(insertQuery,repValues)
             }
+
+            const updateQuery = `
+                UPDATE sud_reparation 
+                SET id_evaluation = ?
+                WHERE id_sud_reparation = ?
+            `;
+            await connQuery(updateQuery, [id_evaluation, id_sud_reparation])
 
             await commit();
             connection.release();
