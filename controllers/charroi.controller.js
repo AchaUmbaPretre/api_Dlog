@@ -1280,6 +1280,7 @@ exports.getInspectionGen = (req, res) => {
                     	inspection_valide iv ON sug.id_sub_inspection_gen = iv.id_sub_inspection_gen
                     LEFT JOIN 
                     	utilisateur u ON ig.user_cr = u.id_utilisateur
+                     GROUP BY sug.id_sub_inspection_gen
                      ORDER BY ig.created_at DESC`;
 
     db.query(q, (error, data) => {
