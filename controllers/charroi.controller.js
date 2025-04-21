@@ -1873,7 +1873,24 @@ exports.getSuiviReparation = (req, res) => {
     });
 };
 
-exports.postSuiviReparation = async (req, res) => {
+
+exports.getSuiviReparationOne = (req, res) => {
+    const { id_sud_reparation } = req.query;
+
+    const q = `
+            SELECT * 
+            FROM 
+            suivi_reparation sr 
+            WHERE sr.id_sud_reparation = ?
+            `;
+
+    db.query(q, [id_sud_reparation], (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+};
+
+/* exports.postSuiviReparation = async (req, res) => {
     let connection;
 
     try {
@@ -1932,7 +1949,6 @@ exports.postSuiviReparation = async (req, res) => {
         return res.status(201).json({ message: 'Suivi de reparation ajouté avec succès.' });
 
     } catch (error) {
-        // 🔥 connection est maintenant bien définie même ici
         if (connection) {
             try {
                 await connection.rollback();
@@ -1948,4 +1964,80 @@ exports.postSuiviReparation = async (req, res) => {
             details: error.message
         });
     }
-};
+}; */
+
+exports.postSuiviReparation = async (req, res) => {
+    let connection;
+
+    try {
+        const {
+            id_sud_reparation,
+            id_tache_rep,
+            id_piece,
+            id_evaluation,
+            budget,
+            statut,
+            statut_fin,
+            commentaire,
+            user_cr
+        } = req.body
+        
+        if(!id_sud_reparation || !statut) {
+            return res.status(400).json({ error: 'Champs requis manquants.'});
+        }
+
+        connection = await new Promise((resolve, reject) => {
+            db.getConnection((err, conn) => {
+                if(err) return reject(err);
+                resolve(conn)
+            });
+        });
+
+        const beginTransaction = util.promisify(connection.beginTransaction).bind(connection);
+        const commit = util.promisify(connection.commit).bind(connection);
+        const connQuery = util.promisify(connection.query).bind(connection);
+
+        await beginTransaction();
+
+        const insertQuery = `
+            INSERT INTO suivi_reparation (
+                id_sud_reparation,
+                id_tache_rep,
+                id_piece,
+                id_evaluation,
+                budget,
+                statut,
+                statut_fin,
+                commentaire,
+                user_cr
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+            await connQuery(insertQuery,[
+                id_sud_reparation,
+                id_tache_rep,
+                id_piece,
+                id_evaluation,
+                budget,
+                statut,
+                statut_fin,
+                commentaire,
+                user_cr
+            ])
+
+            await commit();
+            connection.release();
+
+            return res.status(201).json({ message: 'Suivi de reparation ajouté avec succès.' });
+
+    } catch (error) {
+        if(connection) {
+            try {
+                await connection.rollback();
+                connection.release();
+            } catch (rollbackError) {
+                console.error('Erreur pendant le rollback :', rollbackError);
+            }
+        }
+    }
+}
+
