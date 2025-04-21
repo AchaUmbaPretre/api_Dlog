@@ -1463,9 +1463,8 @@ exports.postInspectionGen = (req, res) => {
         // Insertion réparations une par une
         const insertReparationSQL = `
           INSERT INTO sub_inspection_gen (
-            id_inspection_gen, id_type_reparation, id_cat_inspection, 
-            id_carateristique_rep, montant, commentaire, avis, img, statut
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            id_inspection_gen, id_type_reparation, id_cat_inspection, montant, commentaire, avis, img, statut
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         for (const rep of parsedReparations) {
@@ -1473,7 +1472,6 @@ exports.postInspectionGen = (req, res) => {
             insertId,
             rep.id_type_reparation,
             rep.id_cat_inspection,
-            rep.id_carateristique_rep,
             rep.montant,
             rep.commentaire,
             rep.avis,
@@ -1839,7 +1837,7 @@ exports.postSuiviInspection = async (req, res) => {
 };
 
 //Suivi réparation
-exports.getSuiviReparation = (req, res) => {
+/* exports.getSuiviReparation = (req, res) => {
     const { id_sud_reparation } = req.query;
 
     const q = `
@@ -1872,13 +1870,39 @@ exports.getSuiviReparation = (req, res) => {
         return res.status(200).json(data);
     });
 };
+ */
+exports.getSuiviReparation = (req, res) => {
+    const { id_sud_reparation } = req.query;
+
+    const q = `SELECT sr.id_suivi_reparation, 
+                    sr.budget, 
+                    sr.commentaire, 
+                    tr.type_rep, 
+                    ci.nom_cat_inspection, 
+                    e.nom_evaluation 
+                    FROM 
+                    suivi_reparation sr 
+                    INNER JOIN
+                        type_reparations tr ON sr.id_piece = tr.id_type_reparation
+                    INNER JOIN 
+                        cat_inspection ci ON sr.id_tache_rep = ci.id_cat_inspection
+                    INNER JOIN 
+                        evaluation e ON sr.id_evaluation = e.id_evaluation
+                    WHERE sr.id_sud_reparation = ?
+            `;
+
+    db.query(q, [id_sud_reparation], (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+};
 
 
 exports.getSuiviReparationOne = (req, res) => {
     const { id_sud_reparation } = req.query;
 
     const q = `
-                        SELECT 
+            SELECT 
             	sr.id_sud_reparation, 
                 sr.id_reparation, 
                 sr.montant, 
@@ -1993,19 +2017,10 @@ exports.postSuiviReparation = async (req, res) => {
     let connection;
 
     try {
-        const {
-            id_sud_reparation,
-            id_tache_rep,
-            id_piece,
-            id_evaluation,
-            budget,
-            statut,
-            statut_fin,
-            commentaire,
-            user_cr
-        } = req.body
+
+        const {id_evaluation, id_sud_reparation, user_cr, info} = req.body
         
-        if(!id_sud_reparation || !statut) {
+        if(!id_evaluation) {
             return res.status(400).json({ error: 'Champs requis manquants.'});
         }
 
@@ -2029,23 +2044,23 @@ exports.postSuiviReparation = async (req, res) => {
                 id_piece,
                 id_evaluation,
                 budget,
-                statut,
-                statut_fin,
                 commentaire,
                 user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
-            await connQuery(insertQuery,[
-                id_sud_reparation,
-                id_tache_rep,
-                id_piece,
-                id_evaluation,
-                budget,
-                statut,
-                statut_fin,
-                commentaire,
-                user_cr
-            ])
+            for (const rep of info) {
+                const repValues = [
+                    id_sud_reparation,
+                    rep.id_tache_rep,
+                    rep.id_piece,
+                    id_evaluation,
+                    rep.budget,
+                    rep.commentaire,
+                    user_cr
+                ]
+
+                await connQuery(insertQuery,repValues)
+            }
 
             await commit();
             connection.release();
