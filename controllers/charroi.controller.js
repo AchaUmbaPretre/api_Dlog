@@ -1878,7 +1878,7 @@ exports.getSuiviReparationOne = (req, res) => {
     const { id_sud_reparation } = req.query;
 
     const q = `
-            SELECT 
+                        SELECT 
             	sr.id_sud_reparation, 
                 sr.id_reparation, 
                 sr.montant, 
@@ -1887,13 +1887,22 @@ exports.getSuiviReparationOne = (req, res) => {
                 sr.id_statut,
                 tr.type_rep,
                 r.date_entree,
-                r.date_prevu
+                r.date_prevu,
+                f.nom_fournisseur,
+                v.immatriculation,
+                m.nom_marque
             FROM 
             sud_reparation sr 
             INNER JOIN 
             	reparations r ON sr.id_reparation = r.id_reparation
             INNER JOIN
             	type_reparations tr ON sr.id_type_reparation = tr.id_type_reparation
+            INNER JOIN 
+            	fournisseur f ON r.id_fournisseur = f.id_fournisseur
+            INNER JOIN 
+            	vehicules v ON r.id_vehicule = v.id_vehicule
+            INNER JOIN 
+            	marque m ON v.id_marque = m.id_marque
                 
             WHERE sr.id_sud_reparation = ?
             `;
