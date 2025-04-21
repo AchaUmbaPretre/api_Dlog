@@ -2064,3 +2064,26 @@ exports.postSuiviReparation = async (req, res) => {
     }
 }
 
+exports.getEvaluation = (req, res) => {
+
+    const q = `
+                SELECT * FROM evaluation
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+};
+
+exports.getPiece = (req, res) => {
+
+    const q = `
+                SELECT * FROM piece
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+};

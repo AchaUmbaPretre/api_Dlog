@@ -106,4 +106,8 @@ router.get('/suivi_reparationOne', charroiController.getSuiviReparationOne)
 router.post('/suivi_reparation', charroiController.postSuiviReparation)
 
 
+//Evaluation
+router.get('/evaluation', charroiController.getEvaluation)
+router.get('/piece', charroiController.getPiece)
+
 module.exports = router;
