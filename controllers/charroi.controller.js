@@ -1027,9 +1027,9 @@ exports.getReparationOne = async (req, res) => {
                         INNER JOIN vehicules v ON r.id_vehicule = v.id_vehicule
                         LEFT JOIN marque m ON v.id_marque = m.id_marque
                         WHERE r.id_reparation = ?
-                    `
+                    `;
 
-        const type = await queryAsync(query, id_sud_reparation)
+        const type = await queryAsync(q, id_sud_reparation)
 
         return res.status(200).json({
             message: 'Liste des réparations récupérées avec succès',
