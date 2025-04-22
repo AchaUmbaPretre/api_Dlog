@@ -962,6 +962,7 @@ exports.getReparation = async (req, res) => {
                         	type_reparations tr ON sr.id_type_reparation = tr.id_type_reparation
                         INNER JOIN 
                             type_statut_suivi tss ON sr.id_statut = tss.id_type_statut_suivi
+                        ORDER BY sr.created_at DESC
                        `;
     
         const typeFonction = await queryAsync(query);
@@ -2195,6 +2196,47 @@ exports.getPieceOne = (req, res) => {
                 WHERE p.id = ?`;
 
     db.query(q, [id_cat], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+//TRACKING GEN
+exports.getTrackingGen = (req, res) => {
+
+    const q = `SELECT 
+                    sr.id_suivi_reparation, 
+                    sr.budget, 
+                    sr.statut_fin, 
+                    sr.commentaire, 
+                    sr.created_at, 
+                    p.nom, 
+                    cp.titre, 
+                    v.immatriculation, 
+                    m.nom_marque,
+                    u.nom AS username,
+                    e.nom_evaluation
+                    FROM 
+                    suivi_reparation sr
+                    INNER JOIN 
+                        categorie_pieces cp ON sr.id_tache_rep = cp.id
+                    LEFT JOIN 
+                        pieces p ON sr.id_piece = p.id
+                    LEFT JOIN 
+                        sud_reparation sud ON sr.id_sud_reparation = sud.id_sud_reparation
+                    LEFT JOIN 
+                        reparations r ON sud.id_reparation = r.id_reparation
+                    LEFT JOIN 
+                        vehicules v ON r.id_vehicule = v.id_vehicule
+                    INNER JOIN 
+                        marque m ON v.id_marque = m.id_marque
+                    LEFT JOIN 
+                        utilisateur u ON sr.user_cr = u.id_utilisateur
+                    LEFT JOIN evaluation e ON sr.id_evaluation = e.id_evaluation`;
+
+    db.query(q, (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
