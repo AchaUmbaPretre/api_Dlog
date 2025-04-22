@@ -109,4 +109,9 @@ router.post('/suivi_reparation', charroiController.postSuiviReparation)
 //Evaluation
 router.get('/evaluation', charroiController.getEvaluation)
 
+//Document réparation
+router.get('/document_reparation', charroiController.getDocumentReparation)
+router.post('/document_reparation', charroiController.postDocumentReparation)
+
+
 module.exports = router;
