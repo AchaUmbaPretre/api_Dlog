@@ -1249,7 +1249,8 @@ exports.getCarateristiqueRep = (req, res) => {
 };
 
 //Inspection generale
-exports.getInspectionGen = (req, res) => {
+/* exports.getInspectionGen = (req, res) => {
+    const {searchValue} = req.query;
 
     const q = `SELECT 
                     ig.id_inspection_gen, 
@@ -1291,9 +1292,191 @@ exports.getInspectionGen = (req, res) => {
         if (error) {
             return res.status(500).send(error);
         }
-        return res.status(200).json(data);
+
+        const qCount = `SELECT 
+        COUNT(sub.id_sub_inspection_gen) AS nbre_inspection,
+        SUM(sub.montant) AS budget_total,
+        SUM(iv.budget_valide) AS budget_valide,
+        COUNT(DISTINCT ig.id_vehicule) AS nbre_vehicule
+    FROM sub_inspection_gen sub
+    INNER JOIN inspection_gen ig ON sub.id_inspection_gen = ig.id_inspection_gen
+    LEFT JOIN inspection_valide iv ON sub.id_sub_inspection_gen = iv.id_sub_inspection_gen`;
+
+        db.query(qCount, (error, data) => {
+            if(error){
+                console.log(error)
+            }
+            return res.status(200).json(data);
+
+        })
+    });
+}; */
+
+/* exports.getInspectionGen = (req, res) => {
+    const { searchValue } = req.query;
+
+    console.log(searchValue)
+
+    // Construction dynamique de la condition WHERE si searchValue est fourni
+    let filterCondition = '';
+    let values = [];
+
+    if (searchValue) {
+        filterCondition = `
+            WHERE 
+                v.immatriculation LIKE ? OR 
+                c.nom LIKE ? OR 
+                m.nom_marque LIKE ?
+        `;
+        const likeValue = `%${searchValue}%`;
+        values.push(likeValue, likeValue, likeValue);
+    }
+
+    const queryInspections = `
+        SELECT 
+            ig.id_inspection_gen, 
+            sug.date_reparation, 
+            sug.date_validation, 
+            sug.id_sub_inspection_gen,
+            ig.date_prevu, 
+            ig.kilometrage,
+            sug.commentaire, 
+            sug.avis, 
+            iv.budget_valide,
+            ig.date_inspection, 
+            v.immatriculation, 
+            c.nom, 
+            m.nom_marque, 
+            sug.montant, 
+            tss.nom_type_statut,
+            tr.type_rep
+        FROM inspection_gen ig
+        INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
+        INNER JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
+        INNER JOIN marque m ON v.id_marque = m.id_marque
+        INNER JOIN sub_inspection_gen sug ON ig.id_inspection_gen = sug.id_inspection_gen
+        INNER JOIN type_statut_suivi tss ON sug.statut = tss.id_type_statut_suivi
+        INNER JOIN type_reparations tr ON sug.id_type_reparation = tr.id_type_reparation
+        LEFT JOIN inspection_valide iv ON sug.id_sub_inspection_gen = iv.id_sub_inspection_gen
+        LEFT JOIN utilisateur u ON ig.user_cr = u.id_utilisateur
+        ${filterCondition}
+        GROUP BY sug.id_sub_inspection_gen
+        ORDER BY ig.created_at DESC
+    `;
+
+    db.query(queryInspections, values, (error, inspections) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+
+        const queryStats = `
+            SELECT 
+                COUNT(sub.id_sub_inspection_gen) AS nbre_inspection,
+                SUM(sub.montant) AS budget_total,
+                SUM(iv.budget_valide) AS budget_valide,
+                COUNT(DISTINCT ig.id_vehicule) AS nbre_vehicule
+            FROM sub_inspection_gen sub
+            INNER JOIN inspection_gen ig ON sub.id_inspection_gen = ig.id_inspection_gen
+            LEFT JOIN inspection_valide iv ON sub.id_sub_inspection_gen = iv.id_sub_inspection_gen
+        `;
+
+        db.query(queryStats, (err, stats) => {
+            if (err) {
+                return res.status(500).send(err);
+            }
+
+            return res.status(200).json({
+                inspections,
+                stats: stats[0]
+            });
+        });
+    });
+}; */
+
+
+exports.getInspectionGen = (req, res) => {
+    const { searchValue } = req.query;
+
+    // Construction dynamique de la condition WHERE si searchValue est fourni
+    let filterCondition = '';
+    let values = [];
+
+    if (searchValue) {
+        filterCondition = `
+            WHERE 
+                v.immatriculation LIKE ? OR 
+                c.nom LIKE ? OR 
+                m.nom_marque LIKE ?
+        `;
+        const likeValue = `%${searchValue}%`;
+        values.push(likeValue, likeValue, likeValue);
+    }
+
+    const queryInspections = `
+        SELECT 
+            ig.id_inspection_gen, 
+            sug.date_reparation, 
+            sug.date_validation, 
+            sug.id_sub_inspection_gen,
+            ig.date_prevu, 
+            ig.kilometrage,
+            sug.commentaire, 
+            sug.avis, 
+            iv.budget_valide,
+            ig.date_inspection, 
+            v.immatriculation, 
+            c.nom, 
+            m.nom_marque, 
+            sug.montant, 
+            tss.nom_type_statut,
+            tr.type_rep
+        FROM inspection_gen ig
+        INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
+        INNER JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
+        INNER JOIN marque m ON v.id_marque = m.id_marque
+        INNER JOIN sub_inspection_gen sug ON ig.id_inspection_gen = sug.id_inspection_gen
+        INNER JOIN type_statut_suivi tss ON sug.statut = tss.id_type_statut_suivi
+        INNER JOIN type_reparations tr ON sug.id_type_reparation = tr.id_type_reparation
+        LEFT JOIN inspection_valide iv ON sug.id_sub_inspection_gen = iv.id_sub_inspection_gen
+        LEFT JOIN utilisateur u ON ig.user_cr = u.id_utilisateur
+        ${filterCondition}
+        GROUP BY sug.id_sub_inspection_gen
+        ORDER BY ig.created_at DESC
+    `;
+
+    db.query(queryInspections, values, (error, inspections) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+
+        const queryStats = `
+            SELECT 
+                COUNT(sub.id_sub_inspection_gen) AS nbre_inspection,
+                SUM(sub.montant) AS budget_total,
+                SUM(iv.budget_valide) AS budget_valide,
+                COUNT(DISTINCT ig.id_vehicule) AS nbre_vehicule
+            FROM sub_inspection_gen sub
+            INNER JOIN inspection_gen ig ON sub.id_inspection_gen = ig.id_inspection_gen
+            INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
+            INNER JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
+            INNER JOIN marque m ON v.id_marque = m.id_marque
+            LEFT JOIN inspection_valide iv ON sub.id_sub_inspection_gen = iv.id_sub_inspection_gen
+            ${filterCondition}
+        `;
+
+        db.query(queryStats, values, (err, stats) => {
+            if (err) {
+                return res.status(500).send(err);
+            }
+
+            return res.status(200).json({
+                inspections,
+                stats: stats[0]
+            });
+        });
     });
 };
+
 
 exports.getInspectionResume = (req, res) => {
 
