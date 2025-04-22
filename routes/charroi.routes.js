@@ -113,4 +113,8 @@ router.get('/evaluation', charroiController.getEvaluation)
 router.get('/document_reparation', charroiController.getDocumentReparation)
 router.post('/document_reparation',upload.array('chemin_document', 10), charroiController.postDocumentReparation)
 
+//Piece
+router.get('/cat_piece', charroiController.getCatPiece)
+router.get('/pieceOne', charroiController.getPieceOne)
+
 module.exports = router;

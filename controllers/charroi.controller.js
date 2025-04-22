@@ -2168,3 +2168,36 @@ exports.postDocumentReparation = async (req, res) => {
         res.status(500).json({ message: 'Erreur interne du serveur', error });
     }
 };
+
+//PIECE
+exports.getCatPiece = (req, res) => {
+
+    const q = `SELECT * FROM categorie_pieces`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getPieceOne = (req, res) => {
+    const { id_cat } = req.query;
+
+    const q = `SELECT 
+                    p.nom, 
+                    p.id 
+                    FROM 
+                pieces p
+                INNER JOIN 
+                    categorie_pieces cp ON p.id = cp.id
+                WHERE p.id = ?`;
+
+    db.query(q, [id_cat], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
