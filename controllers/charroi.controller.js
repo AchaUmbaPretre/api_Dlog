@@ -1256,6 +1256,7 @@ exports.getInspectionGen = (req, res) => {
                     sug.date_validation, 
                     sug.id_sub_inspection_gen,
                     ig.date_prevu, 
+                    ig.	kilometrage,
                     sug.commentaire, 
                     sug.avis, 
                     iv.budget_valide,
@@ -1417,6 +1418,7 @@ exports.postInspectionGen = (req, res) => {
           id_vehicule,
           id_chauffeur,
           id_statut_vehicule,
+          kilometrage,
           user_cr,
           reparations
         } = req.body;
@@ -1428,8 +1430,8 @@ exports.postInspectionGen = (req, res) => {
 
         const insertControleSQL = `
           INSERT INTO inspection_gen (
-            id_vehicule, id_chauffeur, date_inspection, date_prevu, id_statut_vehicule, user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?)
+            id_vehicule, id_chauffeur, date_inspection, date_prevu, id_statut_vehicule, kilometrage, user_cr
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
 
         const controleValues = [
@@ -1438,6 +1440,7 @@ exports.postInspectionGen = (req, res) => {
           date_inspection,
           date_prevu,
           id_statut_vehicule,
+          kilometrage,
           user_cr
         ];
 
@@ -2129,7 +2132,7 @@ exports.getDocumentReparation = (req, res) => {
 
 exports.postDocumentReparation = async (req, res) => {
     const { id_sud_reparation, id_sub_inspection, nom_document, type_document, chemin_document } = req.body;
-
+    
     if (!req.files || req.files.length === 0) {
         return res.status(400).json({ message: 'Aucun fichier téléchargé' });
     }
@@ -2139,9 +2142,9 @@ exports.postDocumentReparation = async (req, res) => {
         id_sud_reparation,
         id_sub_inspection,
         nom_document,
-        type_document,
-        chemin_document
+        type_document
     }));
+    
 
     try {
         await Promise.all(
