@@ -978,7 +978,6 @@ exports.getReparation = async (req, res) => {
     }
 }
 
-
 exports.getReparationOne = async (req, res) => {
     const { id_sud_reparation } = req.query;
     try {
@@ -2104,4 +2103,65 @@ exports.getEvaluation = (req, res) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
+};
+
+//Document réparation
+exports.getDocumentReparation = (req, res) => {
+    const {id_sud_reparation} = req.query;
+    const q = `
+                SELECT 
+                    dr.nom_document, 
+                    dr.type_document, 
+                    dr.chemin_document, 
+                    dr.created_at
+                FROM 
+                    document_reparation dr
+                WHERE dr.id_sud_reparation = ?
+            `;
+
+    db.query(q, [id_sud_reparation], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postDocumentReparation = async (req, res) => {
+    const { id_sud_reparation, id_sub_inspection, nom_document, type_document, chemin_document } = req.body;
+
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ message: 'Aucun fichier téléchargé' });
+    }
+
+    const documents = req.files.map(file => ({
+        chemin_document: file.path.replace(/\\/g, '/'),
+        id_sud_reparation,
+        id_sub_inspection,
+        nom_document,
+        type_document,
+        chemin_document
+    }));
+
+    try {
+        await Promise.all(
+            documents.map((doc) => {
+                return new Promise((resolve, reject) => {
+                    const query = 'INSERT INTO document_reparation(`id_sud_reparation`, `id_sub_inspection`, `nom_document`, `type_document`, `chemin_document`) VALUES(?,?,?,?,?)';
+                    db.query(query, [doc.id_sud_reparation, doc.id_sub_inspection, doc.nom_document, doc.type_document, doc.chemin_document], (err, result) => {
+                        if (err) {
+                            console.error('Erreur lors de l\'insertion du document:', err);
+                            reject(err);
+                        } else {
+                            resolve(result); 
+                        }
+                    });
+                });
+            })
+        );
+
+        res.status(200).json({ message: 'Documents ajoutés avec succès' });
+    } catch (error) {
+        res.status(500).json({ message: 'Erreur interne du serveur', error });
+    }
 };
