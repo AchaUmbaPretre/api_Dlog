@@ -1879,7 +1879,8 @@ exports.getSuiviReparation = (req, res) => {
                     sr.commentaire, 
                     tr.type_rep, 
                     ci.nom_cat_inspection, 
-                    u.nom
+                    u.nom,
+                    e.nom_evaluation
                     FROM 
                     suivi_reparation sr 
                     INNER JOIN
@@ -1890,6 +1891,8 @@ exports.getSuiviReparation = (req, res) => {
                     	sud_reparation sud ON sr.id_sud_reparation = sud.id_sud_reparation
                     INNER JOIN 
                     	utilisateur u ON sr.user_cr = u.id_utilisateur
+                    LEFT JOIN 
+            			evaluation e ON sr.id_evaluation = e.id_evaluation
                     WHERE sud.id_reparation = ?
             `;
 
