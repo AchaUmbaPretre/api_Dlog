@@ -892,7 +892,6 @@ exports.getTypeReparation = async (req, res) => {
     }
 }
 
-
 exports.postTypeReparation = async (req, res) => {
     try {
         const q = 'INSERT INTO type_reparations(`type_rep`) VALUES(?)';
@@ -1238,7 +1237,6 @@ exports.postReparation = (req, res) => {
   });
 };
 
-
 //Carateristique rep
 exports.getCarateristiqueRep = (req, res) => {
 
@@ -1253,69 +1251,6 @@ exports.getCarateristiqueRep = (req, res) => {
 };
 
 //Inspection generale
-/* exports.getInspectionGen = (req, res) => {
-    const {searchValue} = req.query;
-
-    const q = `SELECT 
-                    ig.id_inspection_gen, 
-                    sug.date_reparation, 
-                    sug.date_validation, 
-                    sug.id_sub_inspection_gen,
-                    ig.date_prevu, 
-                    ig.	kilometrage,
-                    sug.commentaire, 
-                    sug.avis, 
-                    iv.budget_valide,
-                    ig.date_inspection, 
-                    v.immatriculation, 
-                    c.nom, m.nom_marque, 
-                    sug.montant, 
-                    tss.nom_type_statut,
-                    tr.type_rep
-                FROM inspection_gen ig
-                    INNER JOIN 
-                        vehicules v ON ig.id_vehicule = v.id_vehicule
-                    INNER JOIN 
-                        chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
-                    INNER JOIN 
-                        marque m ON v.id_marque = m.id_marque
-                    INNER JOIN 
-                        sub_inspection_gen sug ON ig.id_inspection_gen = sug.id_inspection_gen
-                    INNER JOIN 
-                        type_statut_suivi tss ON sug.statut = tss.id_type_statut_suivi
-                    INNER JOIN 
-                    	type_reparations tr ON sug.id_type_reparation = tr.id_type_reparation
-                    LEFT JOIN 
-                    	inspection_valide iv ON sug.id_sub_inspection_gen = iv.id_sub_inspection_gen
-                    LEFT JOIN 
-                    	utilisateur u ON ig.user_cr = u.id_utilisateur
-                     GROUP BY sug.id_sub_inspection_gen
-                     ORDER BY ig.created_at DESC`;
-
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-
-        const qCount = `SELECT 
-        COUNT(sub.id_sub_inspection_gen) AS nbre_inspection,
-        SUM(sub.montant) AS budget_total,
-        SUM(iv.budget_valide) AS budget_valide,
-        COUNT(DISTINCT ig.id_vehicule) AS nbre_vehicule
-    FROM sub_inspection_gen sub
-    INNER JOIN inspection_gen ig ON sub.id_inspection_gen = ig.id_inspection_gen
-    LEFT JOIN inspection_valide iv ON sub.id_sub_inspection_gen = iv.id_sub_inspection_gen`;
-
-        db.query(qCount, (error, data) => {
-            if(error){
-                console.log(error)
-            }
-            return res.status(200).json(data);
-
-        })
-    });
-}; */
-
 /* exports.getInspectionGen = (req, res) => {
     const { searchValue } = req.query;
 
@@ -1396,7 +1331,6 @@ exports.getCarateristiqueRep = (req, res) => {
         });
     });
 }; */
-
 
 exports.getInspectionGen = (req, res) => {
     const { searchValue } = req.query;
@@ -1480,7 +1414,6 @@ exports.getInspectionGen = (req, res) => {
         });
     });
 };
-
 
 exports.getInspectionResume = (req, res) => {
 
@@ -1701,7 +1634,6 @@ exports.postInspectionGen = (req, res) => {
   });
 };
 
-
 //Sub Inspection
 exports.getSubInspection = (req, res) => {
     const { idInspection } = req.query;
@@ -1723,6 +1655,32 @@ exports.getSubInspection = (req, res) => {
 
     db.query(query, [idInspection], (err, results) => {
         if (err) {
+            console.error("Erreur lors de la récupération des sous-inspections :", err);
+            return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+        }
+
+        return res.status(200).json(results);
+    });
+};
+
+exports.getSubInspectionOneV = (req, res) => {
+    const { id_sub_inspection_gen } = req.query;
+
+    if (!id_sub_inspection_gen) {
+        return res.status(400).json({ error: "L'identifiant de l'inspection est requis." });
+    }
+
+    const query = `
+                SELECT sub.*, ig.*
+                    FROM 
+                    sub_inspection_gen sub 
+                    INNER JOIN inspection_gen ig ON sub.id_inspection_gen = ig.id_inspection_gen
+                    WHERE sub.id_sub_inspection_gen = ?
+                `;
+
+    db.query(query, [id_sub_inspection_gen], (err, results) => {
+        if (err) {
+
             console.error("Erreur lors de la récupération des sous-inspections :", err);
             return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
         }
@@ -1759,6 +1717,10 @@ exports.getSubInspectionOne = (req, res) => {
         return res.status(200).json(results);
     });
 };
+
+exports.putInspectionGen = (req, res) => {
+    const { id_sub_inspection } = req.query
+}
 
 //Validation inspection
 exports.getValidationInspection = (req, res) => {

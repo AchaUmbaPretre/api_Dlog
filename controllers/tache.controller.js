@@ -556,11 +556,11 @@ exports.putTacheCorbeille = (req, res) => {
     });
 };
 
-
 exports.getTachePermiAll = (req, res) => {
     const { departement, client, statut, priorite, dateRange, owners } = req.body;
 
-    let query = `SELECT 
+    let query = `
+    SELECT 
         tache.id_tache, 
         tache.description, 
         tache.date_debut, 
