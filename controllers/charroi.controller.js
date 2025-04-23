@@ -2390,54 +2390,91 @@ exports.getPieceOne = (req, res) => {
 
 //TRACKING GEN
 exports.getTrackingGen = (req, res) => {
-
-    const q = `
-                SELECT 
-                    v.id_vehicule,
-                    v.immatriculation,
-                    m.nom_marque,
-                    ig.date_inspection,
-                    sub.montant AS montant_inspection,
-                    sub.commentaire,
-                    sub.avis,
-                    r.date_entree AS date_entree_reparation,
-                    sr.montant AS montant_reparation,
-                    sr.description,
-                    'Inspection' AS origine
-                FROM vehicules v
-                INNER JOIN marque m ON v.id_marque = m.id_marque
-                LEFT JOIN inspection_gen ig ON v.id_vehicule = ig.id_vehicule
-                LEFT JOIN sub_inspection_gen sub ON ig.id_inspection_gen = sub.id_inspection_gen
-                LEFT JOIN sud_reparation sr ON sub.id_sub_inspection_gen = sr.id_sub_inspection_gen
-                LEFT JOIN reparations r ON sr.id_reparation = r.id_reparation
-                WHERE ig.id_inspection_gen IS NOT NULL OR sr.id_reparation IS NOT NULL
-
-                UNION
-
-                SELECT 
-                    v.id_vehicule,
-                    v.immatriculation,
-                    m.nom_marque,
-                    NULL AS date_inspection,
-                    NULL AS montant_inspection,
-                    NULL AS commentaire,
-                    NULL AS avis,
-                    r.date_entree AS date_entree_reparation,
-                    sr.montant AS montant_reparation,
-                    sr.description,
-                    'Réparation directe' AS origine
-                FROM vehicules v
-                INNER JOIN marque m ON v.id_marque = m.id_marque
-                INNER JOIN reparations r ON v.id_vehicule = r.id_vehicule
-                LEFT JOIN sud_reparation sr ON r.id_reparation = sr.id_reparation
-                WHERE id_sub_inspection_gen IS NULL OR id_sub_inspection_gen = 0
-                ORDER BY id_vehicule, date_entree_reparation, date_inspection;
-                `;
-
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
+    const { searchValue } = req.query;
+    const likeSearch = `%${searchValue || ''}%`;
+  
+    const qDetails = `
+        SELECT 
+            v.id_vehicule,
+            v.immatriculation,
+            m.nom_marque,
+            ig.date_inspection,
+            sub.montant AS montant_inspection,
+            sub.commentaire,
+            sub.avis,
+            r.date_entree AS date_entree_reparation,
+            sr.montant AS montant_reparation,
+            sr.description,
+            'Inspection' AS origine
+        FROM vehicules v
+        INNER JOIN marque m ON v.id_marque = m.id_marque
+        LEFT JOIN inspection_gen ig ON v.id_vehicule = ig.id_vehicule
+        LEFT JOIN sub_inspection_gen sub ON ig.id_inspection_gen = sub.id_inspection_gen
+        LEFT JOIN sud_reparation sr ON sub.id_sub_inspection_gen = sr.id_sub_inspection_gen
+        LEFT JOIN reparations r ON sr.id_reparation = r.id_reparation
+        WHERE (v.immatriculation LIKE ? OR m.nom_marque LIKE ?)
+          AND (ig.id_inspection_gen IS NOT NULL OR sr.id_reparation IS NOT NULL)
+  
+        UNION
+  
+        SELECT 
+            v.id_vehicule,
+            v.immatriculation,
+            m.nom_marque,
+            NULL AS date_inspection,
+            NULL AS montant_inspection,
+            NULL AS commentaire,
+            NULL AS avis,
+            r.date_entree AS date_entree_reparation,
+            sr.montant AS montant_reparation,
+            sr.description,
+            'Réparation directe' AS origine
+        FROM vehicules v
+        INNER JOIN marque m ON v.id_marque = m.id_marque
+        INNER JOIN reparations r ON v.id_vehicule = r.id_vehicule
+        LEFT JOIN sud_reparation sr ON r.id_reparation = sr.id_reparation
+        WHERE (v.immatriculation LIKE ? OR m.nom_marque LIKE ?)
+          AND (sr.id_sub_inspection_gen IS NULL OR sr.id_sub_inspection_gen = 0)
+        ORDER BY id_vehicule, date_entree_reparation, date_inspection;
+    `;
+  
+    const qCount = `
+        SELECT origine, COUNT(*) AS total
+        FROM (
+            SELECT 'Inspection' AS origine
+            FROM vehicules v
+            INNER JOIN marque m ON v.id_marque = m.id_marque
+            LEFT JOIN inspection_gen ig ON v.id_vehicule = ig.id_vehicule
+            LEFT JOIN sub_inspection_gen sub ON ig.id_inspection_gen = sub.id_inspection_gen
+            LEFT JOIN sud_reparation sr ON sub.id_sub_inspection_gen = sr.id_sub_inspection_gen
+            LEFT JOIN reparations r ON sr.id_reparation = r.id_reparation
+            WHERE (v.immatriculation LIKE ? OR m.nom_marque LIKE ?)
+              AND (ig.id_inspection_gen IS NOT NULL OR sr.id_reparation IS NOT NULL)
+  
+            UNION ALL
+  
+            SELECT 'Réparation directe' AS origine
+            FROM vehicules v
+            INNER JOIN marque m ON v.id_marque = m.id_marque
+            INNER JOIN reparations r ON v.id_vehicule = r.id_vehicule
+            LEFT JOIN sud_reparation sr ON r.id_reparation = sr.id_reparation
+            WHERE (v.immatriculation LIKE ? OR m.nom_marque LIKE ?)
+              AND (sr.id_sub_inspection_gen IS NULL OR sr.id_sub_inspection_gen = 0)
+        ) AS unioned
+        GROUP BY origine;
+    `;
+  
+    db.query(qDetails, [likeSearch, likeSearch, likeSearch, likeSearch], (error, details) => {
+      if (error) return res.status(500).send(error);
+  
+      db.query(qCount, [likeSearch, likeSearch, likeSearch, likeSearch], (err, counts) => {
+        if (err) return res.status(500).send(err);
+  
+        return res.status(200).json({
+          data: details,
+          totalByOrigine: counts
+        });
+      });
     });
-};
+  };
+  
