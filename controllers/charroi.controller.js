@@ -936,6 +936,8 @@ exports.getReparation = async (req, res) => {
                             sr.date_reparation, 
                             sr.date_sortie, 
                             sr.id_sud_reparation,
+                            sr.montant,
+                            sr.description,
                             r.date_prevu, 
                             r.date_entree,
                             r.cout, 
@@ -960,7 +962,7 @@ exports.getReparation = async (req, res) => {
                         	sud_reparation sr ON r.id_reparation = sr.id_reparation
                         INNER JOIN 
                         	type_reparations tr ON sr.id_type_reparation = tr.id_type_reparation
-                        INNER JOIN 
+                        LEFT JOIN 
                             type_statut_suivi tss ON sr.id_statut = tss.id_type_statut_suivi
                         ORDER BY sr.created_at DESC
                        `;
@@ -1183,7 +1185,7 @@ exports.postReparation = (req, res) => {
 
         const insertSubQuery = `
           INSERT INTO sud_reparation (
-            id_reparation, id_type_reparation, id_sub_inspection_gen, montant, description, id_evaluation
+            id_reparation, id_type_reparation, id_sub_inspection_gen, montant, description, id_statut
           ) VALUES (?, ?, ?, ?, ?, ?)
         `;
 
