@@ -2405,6 +2405,7 @@ exports.getTrackingGen = (req, res) => {
             r.date_entree AS date_entree_reparation,
             sr.montant AS montant_reparation,
             sr.description,
+            tr.type_rep,
             'Inspection' AS origine
         FROM vehicules v
         INNER JOIN marque m ON v.id_marque = m.id_marque
@@ -2412,6 +2413,7 @@ exports.getTrackingGen = (req, res) => {
         LEFT JOIN sub_inspection_gen sub ON ig.id_inspection_gen = sub.id_inspection_gen
         LEFT JOIN sud_reparation sr ON sub.id_sub_inspection_gen = sr.id_sub_inspection_gen
         LEFT JOIN reparations r ON sr.id_reparation = r.id_reparation
+        LEFT JOIN type_reparations tr ON sr.id_type_reparation = tr.id_type_reparation
         WHERE (v.immatriculation LIKE ? OR m.nom_marque LIKE ?)
           AND (ig.id_inspection_gen IS NOT NULL OR sr.id_reparation IS NOT NULL)
   
@@ -2428,11 +2430,13 @@ exports.getTrackingGen = (req, res) => {
             r.date_entree AS date_entree_reparation,
             sr.montant AS montant_reparation,
             sr.description,
+            tr.type_rep,
             'Réparation directe' AS origine
         FROM vehicules v
         INNER JOIN marque m ON v.id_marque = m.id_marque
         INNER JOIN reparations r ON v.id_vehicule = r.id_vehicule
         LEFT JOIN sud_reparation sr ON r.id_reparation = sr.id_reparation
+        LEFT JOIN type_reparations tr ON sr.id_type_reparation = tr.id_type_reparation
         WHERE (v.immatriculation LIKE ? OR m.nom_marque LIKE ?)
           AND (sr.id_sub_inspection_gen IS NULL OR sr.id_sub_inspection_gen = 0)
         ORDER BY id_vehicule, date_entree_reparation, date_inspection;
