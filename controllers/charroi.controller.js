@@ -1719,7 +1719,7 @@ exports.getSubInspectionOne = (req, res) => {
 };
 
 exports.putInspectionGen = (req, res) => {
-    const { id_sub_inspection } = req.query
+    console.log(req.body)    
 }
 
 //Validation inspection

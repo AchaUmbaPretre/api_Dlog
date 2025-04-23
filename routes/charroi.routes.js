@@ -91,6 +91,7 @@ router.post('/inspection_gen', upload.any(), charroiController.postInspectionGen
 router.get('/sub_inspection_gen', charroiController.getSubInspection)
 router.get('/sub_inspection_genOneV', charroiController.getSubInspectionOneV)
 router.get('/sub_inspection_genOne', charroiController.getSubInspectionOne)
+router.put('/sub_inspection_gen', charroiController.putInspectionGen)
 
 //Validation inspection
 router.get('/inspection_validation', charroiController.getValidationInspection)
