@@ -1154,6 +1154,7 @@ exports.postReparation = (req, res) => {
           commentaire,
           reparations,
           code_rep,
+          kilometrage,
           user_cr,
           id_sub_inspection_gen
         } = req.body;
@@ -1165,8 +1166,8 @@ exports.postReparation = (req, res) => {
         const insertMainQuery = `
           INSERT INTO reparations (
             id_vehicule, date_entree, date_prevu, cout, id_fournisseur,
-            commentaire, code_rep, user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            commentaire, code_rep, kilometrage, user_cr
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const mainValues = [
@@ -1177,6 +1178,7 @@ exports.postReparation = (req, res) => {
           id_fournisseur,
           commentaire,
           code_rep,
+          kilometrage,
           user_cr
         ];
 
