@@ -121,4 +121,7 @@ router.get('/pieceOne', charroiController.getPieceOne)
 //TRACKING GEN
 router.get('/tracking_gen', charroiController.getTrackingGen)
 
+//Log inspection
+router.get('/log_inspection', charroiController.getLogInspection)
+
 module.exports = router;

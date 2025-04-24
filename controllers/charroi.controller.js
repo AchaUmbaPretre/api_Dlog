@@ -1411,16 +1411,17 @@ exports.getInspectionGen = (req, res) => {
 
         const queryStats = `
             SELECT 
-                COUNT(DISTINCT sub.id_sub_inspection_gen) AS nbre_inspection,
-                SUM(sub.montant) AS budget_total,
+                COUNT(DISTINCT sug.id_sub_inspection_gen) AS nbre_inspection,
+                SUM(sug.montant) AS budget_total,
                 SUM(iv.budget_valide) AS budget_valide,
                 COUNT(DISTINCT ig.id_vehicule) AS nbre_vehicule
-            FROM sub_inspection_gen sub
-            INNER JOIN inspection_gen ig ON sub.id_inspection_gen = ig.id_inspection_gen
+            FROM sub_inspection_gen sug
+            INNER JOIN inspection_gen ig ON sug.id_inspection_gen = ig.id_inspection_gen
             INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
             INNER JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
             INNER JOIN marque m ON v.id_marque = m.id_marque
-            LEFT JOIN inspection_valide iv ON sub.id_sub_inspection_gen = iv.id_sub_inspection_gen
+            LEFT JOIN inspection_valide iv ON sug.id_sub_inspection_gen = iv.id_sub_inspection_gen
+            INNER JOIN type_reparations tr ON sug.id_type_reparation = tr.id_type_reparation
             ${whereSQL}
         `;
 
@@ -2607,3 +2608,16 @@ exports.getTrackingGen = (req, res) => {
   };
   
   
+  //LOG INSPECTION REPARATION
+exports.getLogInspection = (req, res) => {
+
+    const q = `SELECT * FROM log_inspection`
+
+    db.query(q, (error, results) => {
+        if(error) {
+            console.error('Erreur lors de la récupération des corbeilles:', err);
+            return res.status(500).json({ error: 'Erreur lors de la récupération des corbeilles' });
+        }
+        res.json(results);
+    })
+}
