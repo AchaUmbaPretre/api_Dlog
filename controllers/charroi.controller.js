@@ -1335,7 +1335,6 @@ exports.getCarateristiqueRep = (req, res) => {
 exports.getInspectionGen = (req, res) => {
     const { searchValue } = req.query;
 
-    // Construction dynamique de la condition WHERE si searchValue est fourni
     let filterCondition = '';
     let values = [];
 
@@ -1353,6 +1352,7 @@ exports.getInspectionGen = (req, res) => {
     const queryInspections = `
         SELECT 
             ig.id_inspection_gen, 
+            ig.id_statut_vehicule,
             sug.date_reparation, 
             sug.date_validation, 
             sug.id_sub_inspection_gen,
@@ -1367,7 +1367,8 @@ exports.getInspectionGen = (req, res) => {
             m.nom_marque, 
             sug.montant, 
             tss.nom_type_statut,
-            tr.type_rep
+            tr.type_rep,
+            sv.nom_statut_vehicule
         FROM inspection_gen ig
         INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
         INNER JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
@@ -1377,6 +1378,7 @@ exports.getInspectionGen = (req, res) => {
         INNER JOIN type_reparations tr ON sug.id_type_reparation = tr.id_type_reparation
         LEFT JOIN inspection_valide iv ON sug.id_sub_inspection_gen = iv.id_sub_inspection_gen
         LEFT JOIN utilisateur u ON ig.user_cr = u.id_utilisateur
+        INNER JOIN statut_vehicule sv ON ig.id_statut_vehicule = sv.id_statut_vehicule
         ${filterCondition}
         GROUP BY sug.id_sub_inspection_gen
         ORDER BY ig.created_at DESC
@@ -1634,6 +1636,7 @@ exports.postInspectionGen = (req, res) => {
   });
 };
 
+
 //Sub Inspection
 exports.getSubInspection = (req, res) => {
     const { idInspection } = req.query;
@@ -1719,9 +1722,99 @@ exports.getSubInspectionOne = (req, res) => {
 };
 
 exports.putInspectionGen = (req, res) => {
-    console.log(req.body)    
-}
+    const idSub = req.query.id_sub_inspection_gen;
+    const idInspection = req.query.id_inspection_gen;
+  
+    if (!idSub || !idInspection) {
+      return res.status(400).json({ error: "ID de sous-inspection ou d'inspection manquant." });
+    }
+  
+    db.getConnection((connErr, connection) => {
+      if (connErr) {
+        console.error("Erreur connexion DB :", connErr);
+        return res.status(500).json({ error: "Connexion à la base de données échouée." });
+      }
+  
+      connection.beginTransaction(async (trxErr) => {
+        if (trxErr) {
+          connection.release();
+          return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+        }
+  
+        try {
+          // Formatage des données
+            const date_inspection = moment(new Date(req.body.date_inspection)).format('YYYY-MM-DD');
+            const date_prevu = moment(new Date(req.body.date_prevu)).format('YYYY-MM-DD');
 
+  
+          const {
+            id_vehicule,
+            id_chauffeur,
+            id_statut_vehicule,
+            kilometrage,
+            user_cr,
+            reparations
+          } = req.body;
+  
+          // Mise à jour inspection principale
+          await queryPromise(connection, `
+            UPDATE inspection_gen
+            SET id_vehicule = ?, id_chauffeur = ?, date_inspection = ?, date_prevu = ?, id_statut_vehicule = ?, kilometrage = ?, user_cr = ?
+            WHERE id_inspection_gen = ?
+          `, [
+            id_vehicule,
+            id_chauffeur,
+            date_inspection,
+            date_prevu,
+            id_statut_vehicule,
+            kilometrage,
+            user_cr,
+            idInspection
+          ]);
+  
+          // Extraction de la réparation (on suppose qu'il y en a une seule)
+          const rep = Array.isArray(reparations) ? reparations[0] : reparations;
+  
+          const fieldName = `img_0`;
+          const file = req.files?.find(f => f.fieldname === fieldName);
+          const imagePath = file ? `public/uploads/${file.filename}` : rep.img || null;
+  
+          // Mise à jour de la sous-inspection
+          await queryPromise(connection, `
+            UPDATE sub_inspection_gen
+            SET id_type_reparation = ?, id_cat_inspection = ?, montant = ?, commentaire = ?, avis = ?, img = ?, statut = 1
+            WHERE id_sub_inspection_gen = ? AND id_inspection_gen = ?
+          `, [
+            rep.id_type_reparation,
+            rep.id_cat_inspection,
+            rep.montant,
+            rep.commentaire,
+            rep.avis,
+            imagePath,
+            idSub,
+            idInspection
+          ]);
+  
+          connection.commit((err) => {
+            connection.release();
+            if (err) {
+              return res.status(500).json({ error: "Erreur lors du commit." });
+            }
+  
+            return res.status(200).json({ message: "Sous-inspection mise à jour avec succès." });
+          });
+  
+        } catch (err) {
+          console.error("Erreur :", err);
+          connection.rollback(() => {
+            connection.release();
+            return res.status(500).json({ error: err.message || "Erreur interne." });
+          });
+        }
+      });
+    });
+  };
+  
 //Validation inspection
 exports.getValidationInspection = (req, res) => {
     const { id_sub_inspection_gen } = req.query;
