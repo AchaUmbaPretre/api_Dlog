@@ -1334,20 +1334,42 @@ exports.getCarateristiqueRep = (req, res) => {
 
 exports.getInspectionGen = (req, res) => {
     const { searchValue } = req.query;
+    const { id_vehicule, id_statut_vehicule, id_type_reparation } = req.body;
 
-    let filterCondition = '';
+    let whereClauses = [];
     let values = [];
 
     if (searchValue) {
-        filterCondition = `
-            WHERE 
+        whereClauses.push(`
+            (
                 v.immatriculation LIKE ? OR 
                 c.nom LIKE ? OR 
                 m.nom_marque LIKE ?
-        `;
+            )
+        `);
         const likeValue = `%${searchValue}%`;
         values.push(likeValue, likeValue, likeValue);
     }
+    if (id_vehicule && (Array.isArray(id_vehicule) ? id_vehicule.length : true)) {
+        const ids = Array.isArray(id_vehicule) ? id_vehicule : [id_vehicule];
+        whereClauses.push(`ig.id_vehicule IN (${ids.map(() => '?').join(', ')})`);
+        values.push(...ids);
+    }
+    
+    if (id_statut_vehicule && (Array.isArray(id_statut_vehicule) ? id_statut_vehicule.length : true)) {
+        const ids = Array.isArray(id_statut_vehicule) ? id_statut_vehicule : [id_statut_vehicule];
+        whereClauses.push(`ig.id_statut_vehicule IN (${ids.map(() => '?').join(', ')})`);
+        values.push(...ids);
+    }
+    
+    if (id_type_reparation && (Array.isArray(id_type_reparation) ? id_type_reparation.length : true)) {
+        const ids = Array.isArray(id_type_reparation) ? id_type_reparation : [id_type_reparation];
+        whereClauses.push(`sug.id_type_reparation IN (${ids.map(() => '?').join(', ')})`);
+        values.push(...ids);
+    }
+    
+
+    const whereSQL = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
     const queryInspections = `
         SELECT 
@@ -1363,7 +1385,7 @@ exports.getInspectionGen = (req, res) => {
             iv.budget_valide,
             ig.date_inspection, 
             v.immatriculation, 
-            c.nom, 
+            c.nom AS nom_chauffeur, 
             m.nom_marque, 
             sug.montant, 
             tss.nom_type_statut,
@@ -1377,10 +1399,8 @@ exports.getInspectionGen = (req, res) => {
         INNER JOIN type_statut_suivi tss ON sug.statut = tss.id_type_statut_suivi
         INNER JOIN type_reparations tr ON sug.id_type_reparation = tr.id_type_reparation
         LEFT JOIN inspection_valide iv ON sug.id_sub_inspection_gen = iv.id_sub_inspection_gen
-        LEFT JOIN utilisateur u ON ig.user_cr = u.id_utilisateur
         INNER JOIN statut_vehicule sv ON ig.id_statut_vehicule = sv.id_statut_vehicule
-        ${filterCondition}
-        GROUP BY sug.id_sub_inspection_gen
+        ${whereSQL}
         ORDER BY ig.created_at DESC
     `;
 
@@ -1391,7 +1411,7 @@ exports.getInspectionGen = (req, res) => {
 
         const queryStats = `
             SELECT 
-                COUNT(sub.id_sub_inspection_gen) AS nbre_inspection,
+                COUNT(DISTINCT sub.id_sub_inspection_gen) AS nbre_inspection,
                 SUM(sub.montant) AS budget_total,
                 SUM(iv.budget_valide) AS budget_valide,
                 COUNT(DISTINCT ig.id_vehicule) AS nbre_vehicule
@@ -1401,7 +1421,7 @@ exports.getInspectionGen = (req, res) => {
             INNER JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
             INNER JOIN marque m ON v.id_marque = m.id_marque
             LEFT JOIN inspection_valide iv ON sub.id_sub_inspection_gen = iv.id_sub_inspection_gen
-            ${filterCondition}
+            ${whereSQL}
         `;
 
         db.query(queryStats, values, (err, stats) => {
@@ -1416,6 +1436,8 @@ exports.getInspectionGen = (req, res) => {
         });
     });
 };
+
+
 
 exports.getInspectionResume = (req, res) => {
 

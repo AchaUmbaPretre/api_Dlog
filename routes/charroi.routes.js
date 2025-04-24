@@ -83,7 +83,7 @@ router.post('/reparation', charroiController.postReparation)
 router.get('/carateristique_rep', charroiController.getCarateristiqueRep)
 
 //Inspection generale
-router.get('/inspection_gen', charroiController.getInspectionGen)
+router.post('/inspection_gens', charroiController.getInspectionGen)
 router.get('/inspection_gen_resume', charroiController.getInspectionResume)
 router.post('/inspection_gen', upload.any(), charroiController.postInspectionGen)
 
