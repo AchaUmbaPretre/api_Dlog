@@ -1780,7 +1780,6 @@ exports.postInspectionGen = (req, res) => {
     });
   };
   
-
 //Sub Inspection
 exports.getSubInspection = (req, res) => {
     const { idInspection } = req.query;
