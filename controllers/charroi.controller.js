@@ -1283,7 +1283,7 @@ exports.postReparation = (req, res) => {
               'Création',
               insertedSudReparationId,
               user_cr || null,
-              `Réparation ajoutée à sud_reparation, ID #${insertedSudReparationId}`
+              `Réparation ajoutée à reparation, ID #${insertedSudReparationId}`
             ]);
           }
   
@@ -1514,8 +1514,6 @@ exports.getInspectionGen = (req, res) => {
         });
     });
 };
-
-
 
 exports.getInspectionResume = (req, res) => {
 
@@ -1752,7 +1750,7 @@ exports.postInspectionGen = (req, res) => {
               'Création',
               subInspectionId,
               user_cr || null,
-              `Ajout d'une sous-inspection ID ${subInspectionId} liée à l'inspection #${insertId}, type réparation ${rep.id_type_reparation}`
+              `Ajout d'une inspection ID ${subInspectionId} liée à l'inspection #${insertId}, type réparation ${rep.id_type_reparation}`
             ]);
           }
   
@@ -1947,7 +1945,7 @@ exports.putInspectionGen = (req, res) => {
             'Modification',
              idSub,
             user_cr || null,
-            `Ajout d'une sous-inspection ID ${idSub} liée à l'inspection #${idInspection}, type réparation ${rep.id_type_reparation}`
+            `Ajout d'une inspection ID ${idSub} liée à l'inspection #${idInspection}, type réparation ${rep.id_type_reparation}`
             ]
           )
   
