@@ -2734,7 +2734,7 @@ exports.getTrackingGen = (req, res) => {
         );
       }
     );
-  };
+};
   
 //LOG INSPECTION REPARATION
 /* exports.getLogInspection = (req, res) => {
