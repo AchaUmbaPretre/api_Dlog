@@ -2303,7 +2303,6 @@ exports.getSuiviReparation = (req, res) => {
     });
 };
 
-
 exports.getSuiviReparationOne = (req, res) => {
     const { id_sud_reparation } = req.query;
 
