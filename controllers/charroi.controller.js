@@ -2882,4 +2882,26 @@ exports.getLogInspection = (req, res) => {
                 }
                 res.json(results);
             })
-        } 
+}
+
+//Document réparation
+exports.getDocumentInspection = (req, res) => {
+    const {id_sub_inspection} = req.query;
+    const q = `
+                SELECT 
+                    dr.nom_document, 
+                    dr.type_document, 
+                    dr.chemin_document, 
+                    dr.created_at
+                FROM 
+                    document_reparation dr
+                WHERE dr.id_sub_inspection = ?
+            `;
+
+    db.query(q, [id_sub_inspection], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
