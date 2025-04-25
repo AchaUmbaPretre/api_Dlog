@@ -1253,7 +1253,7 @@ exports.postReparation = (req, res) => {
               `;
               await queryPromise(connection, logSQL, [
                 'sub_inspection_gen',
-                'Modifié',
+                'Modification',
                 id_sub_inspection_gen,
                 user_cr || null,
                 `Statut sous-inspection mis à jour à 2 (réparée), liée à réparation #${insertedRepairId}`
@@ -1654,7 +1654,6 @@ exports.getInspectionResume = (req, res) => {
   });
 }; */
 
-
 exports.postInspectionGen = (req, res) => {
     db.getConnection((connErr, connection) => {
       if (connErr) {
@@ -1941,6 +1940,16 @@ exports.putInspectionGen = (req, res) => {
             idSub,
             idInspection
           ]);
+
+          await queryPromise(connection,
+            `INSERT INTO log_inspection (table_name, action, record_id, user_id, description)`, [
+            'sub_inspection_gen',
+            'Modification',
+             idSub,
+            user_cr || null,
+            `Ajout d'une sous-inspection ID ${idSub} liée à l'inspection #${idInspection}, type réparation ${rep.id_type_reparation}`
+            ]
+          )
   
           connection.commit((err) => {
             connection.release();
@@ -2731,7 +2740,6 @@ exports.getTrackingGen = (req, res) => {
     );
   };
   
-  
 //LOG INSPECTION REPARATION
 /* exports.getLogInspection = (req, res) => {
 
@@ -2809,7 +2817,8 @@ exports.getLogInspection = (req, res) => {
                     log.action,
                     log.description,
                     log.created_at,
-                      COALESCE(u1.nom, u2.nom) AS nom_utilisateur,
+                    COALESCE(u1.nom, u2.nom) AS nom,
+                    COALESCE(u1.prenom, u2.prenom) AS prenom,
 
                     -- Infos véhicule et marque
                         v.immatriculation,
@@ -2867,7 +2876,7 @@ exports.getLogInspection = (req, res) => {
                     LEFT JOIN utilisateur u1 ON ig_sub.user_cr = u1.id_utilisateur
                     LEFT JOIN reparations r ON sud.id_reparation = r.id_reparation
                     LEFT JOIN utilisateur u2 ON r.user_cr = u2.id_utilisateur
-                    ORDER BY log.created_at DESC;
+                    ORDER BY log.created_at DESC
                 `;
         
             db.query(q, (error, results) => {
