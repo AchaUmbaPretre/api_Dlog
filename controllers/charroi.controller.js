@@ -2809,6 +2809,7 @@ exports.getLogInspection = (req, res) => {
                     log.action,
                     log.description,
                     log.created_at,
+                      COALESCE(u1.nom, u2.nom) AS nom_utilisateur,
 
                     -- Infos véhicule et marque
                         v.immatriculation,
@@ -2861,7 +2862,11 @@ exports.getLogInspection = (req, res) => {
 
                     -- Type de réparation depuis sud_reparation
                     LEFT JOIN type_reparations tr2 ON sud.id_type_reparation = tr2.id_type_reparation
-
+                    
+                    -- Créateurs
+                    LEFT JOIN utilisateur u1 ON ig_sub.user_cr = u1.id_utilisateur
+                    LEFT JOIN reparations r ON sud.id_reparation = r.id_reparation
+                    LEFT JOIN utilisateur u2 ON r.user_cr = u2.id_utilisateur
                     ORDER BY log.created_at DESC;
                 `;
         
