@@ -1156,6 +1156,7 @@ exports.getReparationOne = async (req, res) => {
 }; */
 
 exports.postReparation = (req, res) => {
+
     db.getConnection((connErr, connection) => {
       if (connErr) {
         console.error("Erreur connexion DB :", connErr);
@@ -1181,9 +1182,10 @@ exports.postReparation = (req, res) => {
             reparations,
             code_rep,
             kilometrage,
-            user_cr,
+            user_cr, 
             id_sub_inspection_gen
           } = req.body;
+
   
           if (!id_vehicule || !cout || !Array.isArray(reparations)) {
             throw new Error("Certains champs obligatoires sont manquants ou invalides.");
@@ -1224,7 +1226,7 @@ exports.postReparation = (req, res) => {
             const subValues = [
               insertedRepairId,
               sud.id_type_reparation,
-              id_sub_inspection_gen ?? null, // Si id_sub_inspection_gen est null, alors il n'est pas lié à une inspection
+              id_sub_inspection_gen ?? null,
               sud.montant,
               sud.description,
               2 // Statut "réparé"
@@ -1234,7 +1236,6 @@ exports.postReparation = (req, res) => {
             const insertedSudReparationId = subResult.insertId;  // Récupération de l'ID `id_sud_reparation`
   
             sudReparationIds.push(insertedSudReparationId);  // Ajouter l'ID `id_sud_reparation` pour log
-  
             // Si la réparation est liée à une inspection, on met à jour la sous-inspection
             if (id_sub_inspection_gen) {
               const updateQuery = `
@@ -1247,7 +1248,7 @@ exports.postReparation = (req, res) => {
   
               // 🔥 Journalisation dans log_actions pour la mise à jour de la sous-inspection liée à une inspection
               const logSQL = `
-                INSERT INTO log_actions (table_name, action_type, record_id, user_id, description)
+                INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
                 VALUES (?, ?, ?, ?, ?)
               `;
               await queryPromise(connection, logSQL, [
@@ -1311,7 +1312,7 @@ exports.postReparation = (req, res) => {
       });
     });
   };
-  
+
   
 //Carateristique rep
 exports.getCarateristiqueRep = (req, res) => {
@@ -2731,10 +2732,64 @@ exports.getTrackingGen = (req, res) => {
   };
   
   
-  //LOG INSPECTION REPARATION
-exports.getLogInspection = (req, res) => {
+//LOG INSPECTION REPARATION
+/* exports.getLogInspection = (req, res) => {
 
-    const q = `SELECT * FROM log_inspection`
+const q = `SELECT 
+  log.log_inspection,
+  log.table_name,
+  log.action,
+  log.description,
+  log.created_at,
+
+  -- Infos véhicule et marque
+  v.immatriculation,
+  m.nom_marque,
+
+  -- Type de réparation s’il y a
+  tr1.type_rep AS sub_type_rep,
+  tr2.type_rep AS sud_type_rep2
+
+FROM log_inspection log
+
+-- Jointure inspection_gen directe
+LEFT JOIN inspection_gen ig_inspect 
+  ON log.table_name = 'inspection_gen' AND log.record_id = ig_inspect.id_inspection_gen
+
+-- Jointure sub_inspection_gen
+LEFT JOIN sub_inspection_gen sub 
+  ON log.table_name = 'sub_inspection_gen' AND log.record_id = sub.id_sub_inspection_gen
+
+-- Jointure sud_reparation
+LEFT JOIN sud_reparation sud
+  ON log.table_name = 'sud_reparation' AND log.record_id = sud.id_sud_reparation
+
+-- Relier inspection depuis sub_inspection ou inspection direct
+LEFT JOIN inspection_gen ig 
+  ON ig.id_inspection_gen = 
+     CASE 
+       WHEN log.table_name = 'inspection_gen' THEN ig_inspect.id_inspection_gen
+       WHEN log.table_name = 'sub_inspection_gen' THEN sub.id_inspection_gen
+       WHEN log.table_name = 'sud_reparation' THEN (
+           SELECT si.id_inspection_gen
+           FROM sub_inspection_gen si
+           WHERE si.id_sub_inspection_gen = sud.id_sub_inspection_gen
+           LIMIT 1
+       )
+       ELSE NULL
+     END
+
+-- Véhicule et marque liés à l’inspection
+LEFT JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
+LEFT JOIN marque m ON v.id_marque = m.id_marque
+
+-- Type de réparation depuis sub
+LEFT JOIN type_reparations tr1 ON sub.id_type_reparation = tr1.id_type_reparation
+
+-- Type de réparation depuis sud
+LEFT JOIN type_reparations tr2 ON sud.id_type_reparation = tr2.id_type_reparation
+ORDER BY log.created_at DESC;
+`
 
     db.query(q, (error, results) => {
         if(error) {
@@ -2743,4 +2798,78 @@ exports.getLogInspection = (req, res) => {
         }
         res.json(results);
     })
-}
+} */
+
+exports.getLogInspection = (req, res) => {
+
+    const q = `
+                SELECT
+                    log.log_inspection,
+                    log.table_name,
+                    log.action,
+                    log.description,
+                    log.created_at,
+
+                    -- Infos véhicule et marque
+                        v.immatriculation,
+                        m.nom_marque,
+
+                    -- Type de réparation fusionné
+                    CASE 
+                        WHEN log.table_name = 'sub_inspection_gen' THEN tr1.type_rep
+                        WHEN log.table_name = 'sud_reparation' THEN tr2.type_rep
+                        ELSE NULL
+                        END AS type_rep
+
+                    FROM log_inspection log
+
+                    -- Jointure inspection_gen directe
+                    LEFT JOIN inspection_gen ig_inspect 
+                    ON log.table_name = 'inspection_gen' AND log.record_id = ig_inspect.id_inspection_gen
+
+                    -- Jointure sub_inspection_gen (depuis log)
+                    LEFT JOIN sub_inspection_gen sub 
+                    ON log.table_name = 'sub_inspection_gen' AND log.record_id = sub.id_sub_inspection_gen
+
+                    -- Jointure sud_reparation (depuis log)
+                    LEFT JOIN sud_reparation sud
+                    ON log.table_name = 'sud_reparation' AND log.record_id = sud.id_sud_reparation
+
+                    -- Jointure inspection depuis sub_inspection_gen
+                    LEFT JOIN inspection_gen ig_sub
+                    ON sub.id_inspection_gen = ig_sub.id_inspection_gen
+
+                    -- Jointure inspection depuis sud_reparation → sub → inspection
+                    LEFT JOIN sub_inspection_gen sub2 
+                    ON sud.id_sub_inspection_gen = sub2.id_sub_inspection_gen
+
+                    LEFT JOIN inspection_gen ig_sud
+                    ON sub2.id_inspection_gen = ig_sud.id_inspection_gen
+
+                    -- Jointure inspection finale (priorité selon type de table)
+                    LEFT JOIN inspection_gen ig 
+                        ON (log.table_name = 'inspection_gen' AND ig.id_inspection_gen = ig_inspect.id_inspection_gen)
+                        OR (log.table_name = 'sub_inspection_gen' AND ig.id_inspection_gen = ig_sub.id_inspection_gen)
+                        OR (log.table_name = 'sud_reparation' AND ig.id_inspection_gen = ig_sud.id_inspection_gen)
+
+                    -- Véhicule et marque liés à l’inspection
+                    LEFT JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
+                    LEFT JOIN marque m ON v.id_marque = m.id_marque
+
+                    -- Type de réparation depuis sub_inspection_gen
+                    LEFT JOIN type_reparations tr1 ON sub.id_type_reparation = tr1.id_type_reparation
+
+                    -- Type de réparation depuis sud_reparation
+                    LEFT JOIN type_reparations tr2 ON sud.id_type_reparation = tr2.id_type_reparation
+
+                    ORDER BY log.created_at DESC;
+                `;
+        
+            db.query(q, (error, results) => {
+                if(error) {
+                    console.error('Erreur lors de la récupération des corbeilles:', err);
+                    return res.status(500).json({ error: 'Erreur lors de la récupération des corbeilles' });
+                }
+                res.json(results);
+            })
+        } 
