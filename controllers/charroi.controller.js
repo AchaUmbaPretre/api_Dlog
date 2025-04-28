@@ -1998,9 +1998,9 @@ exports.putInspectionGen = (req, res) => {
   };
   
 exports.deleteInspectionGen = (req, res) => {
-    const { id_inspection_gen, user_id } = req.body;
+    const {id_sub_inspection_gen, user_id } = req.body;
   
-    if (!id_inspection_gen) {
+    if (!id_sub_inspection_gen) {
       return res.status(400).json({ error: "L'ID de l'inspection est requis." });
     }
   
@@ -2017,26 +2017,20 @@ exports.deleteInspectionGen = (req, res) => {
         }
   
         try {
-          // 1. Marquer l’inspection principale comme supprimée
-          await queryPromise(connection, `
-            UPDATE inspection_gen SET est_supprime = 1 WHERE id_inspection_gen = ?
-          `, [id_inspection_gen]);
   
-          // 2. Marquer les sous-inspections comme supprimées
           await queryPromise(connection, `
-            UPDATE sub_inspection_gen SET est_supprime = 1 WHERE id_inspection_gen = ?
-          `, [id_inspection_gen]);
+            UPDATE sub_inspection_gen SET est_supprime = 1 WHERE id_sub_inspection_gen = ?
+          `, [id_sub_inspection_gen]);
   
-          // 3. Logger l’action
           await queryPromise(connection, `
             INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
             VALUES (?, ?, ?, ?, ?)
           `, [
-            'inspection_gen',
+            'sub_inspection_gen',
             'Suppression',
-            id_inspection_gen,
+            id_sub_inspection_gen,
             user_id || null,
-            `Suppression logique de l’inspection #${id_inspection_gen}`
+            `Suppression logique de l’inspection #${id_sub_inspection_gen}`
           ]);
   
           connection.commit((commitErr) => {
