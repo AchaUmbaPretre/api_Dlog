@@ -2380,7 +2380,7 @@ exports.getSuiviReparation = (req, res) => {
                     LEFT JOIN 
             			evaluation e ON sr.id_evaluation = e.id_evaluation
                     WHERE sud.id_reparation = ?
-            `;
+                `;
 
     db.query(q, [id_reparation], (error, data) => {
         if (error) res.status(500).send(error);
@@ -2691,6 +2691,24 @@ exports.getPieceOne = (req, res) => {
         }
         return res.status(200).json(data);
     });
+};
+
+exports.postPiece = async (req, res) => {
+
+    try {
+        const q = 'INSERT INTO pieces(`nom`, `idcategorie`) VALUES(?,?)';
+
+        const values = [
+            req.body.nom,
+            req.body.idcategorie
+        ];
+
+        await db.query(q, values);
+        return res.status(201).json({ message: 'Piece ajoutée avec succès'});
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout de la pièce :', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la pièce." });
+    }
 };
 
 //TRACKING GEN
