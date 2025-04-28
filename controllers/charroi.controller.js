@@ -1941,14 +1941,16 @@ exports.putInspectionGen = (req, res) => {
           ]);
 
           await queryPromise(connection,
-            `INSERT INTO log_inspection (table_name, action, record_id, user_id, description)`, [
-            'sub_inspection_gen',
-            'Modification',
-             idSub,
-            user_cr || null,
-            `Ajout d'une inspection ID ${idSub} liée à l'inspection #${idInspection}, type réparation ${rep.id_type_reparation}`
+            `INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
+             VALUES (?, ?, ?, ?, ?)`, [
+              'sub_inspection_gen',
+              'Modification',
+              idSub,
+              user_cr || null,
+              `Ajout d'une inspection ID ${idSub} liée à l'inspection #${idInspection}, type réparation ${rep.id_type_reparation}`
             ]
-          )
+          );
+          
   
           connection.commit((err) => {
             connection.release();
