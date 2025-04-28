@@ -2663,7 +2663,9 @@ exports.getCatPiece = (req, res) => {
 };
 
 exports.getPiece = (req, res) => {
-    const q = `SELECT p.nom, p.id FROM pieces p`;
+    const q = `SELECT p.nom, p.id, cp.titre FROM pieces p
+                    INNER JOIN 
+                        categorie_pieces cp ON p.idcategorie = cp.id`;
 
     db.query(q, (error, data) => {
         if (error) {
