@@ -117,6 +117,7 @@ router.post('/document_reparation',upload.array('chemin_document', 10), charroiC
 
 //Piece
 router.get('/cat_piece', charroiController.getCatPiece)
+router.get('/piece', charroiController.getPiece)
 router.get('/pieceOne', charroiController.getPieceOne)
 
 //TRACKING GEN

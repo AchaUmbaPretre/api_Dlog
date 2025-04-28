@@ -2662,6 +2662,17 @@ exports.getCatPiece = (req, res) => {
     });
 };
 
+exports.getPiece = (req, res) => {
+    const q = `SELECT p.nom, p.id FROM pieces p`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getPieceOne = (req, res) => {
     const { id_cat } = req.query;
 
