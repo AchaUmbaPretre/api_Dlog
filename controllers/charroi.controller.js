@@ -1798,7 +1798,7 @@ exports.getSubInspection = (req, res) => {
                     INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
                     INNER JOIN marque m ON v.id_marque = m.id_marque
                     INNER JOIN type_statut_suivi tss ON sig.statut = tss.id_type_statut_suivi
-                WHERE sig.id_inspection_gen = ?
+                WHERE sig.id_inspection_gen = ? AND sig.est_supprime = 0
     `;
 
     db.query(query, [idInspection], (err, results) => {
