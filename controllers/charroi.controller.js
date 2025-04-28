@@ -2364,7 +2364,7 @@ exports.getSuiviReparation = (req, res) => {
                     sr.budget, 
                     sr.commentaire, 
                      p.nom AS type_rep, 
-                     cp.titre AS nom_cat_inspection,
+                     ci.nom_cat_inspection AS nom_cat_inspection,
                     u.nom,
                     e.nom_evaluation
                     FROM 
@@ -2372,7 +2372,7 @@ exports.getSuiviReparation = (req, res) => {
                     LEFT JOIN
                          pieces p ON sr.id_piece = p.id
                     LEFT JOIN 
-                        categorie_pieces cp ON sr.id_tache_rep = cp.id
+                        cat_inspection ci ON sr.id_tache_rep = ci.id_cat_inspection
                     LEFT JOIN 
                     	sud_reparation sud ON sr.id_sud_reparation = sud.id_sud_reparation
                     LEFT JOIN 
