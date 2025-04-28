@@ -1972,6 +1972,68 @@ exports.putInspectionGen = (req, res) => {
     });
   };
   
+  exports.deleteInspectionGen = (req, res) => {
+    const { id_inspection_gen, user_id } = req.body;
+  
+    if (!id_inspection_gen) {
+      return res.status(400).json({ error: "L'ID de l'inspection est requis." });
+    }
+  
+    db.getConnection((connErr, connection) => {
+      if (connErr) {
+        console.error("Erreur de connexion DB :", connErr);
+        return res.status(500).json({ error: "Connexion à la base de données échouée." });
+      }
+  
+      connection.beginTransaction(async (trxErr) => {
+        if (trxErr) {
+          connection.release();
+          return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+        }
+  
+        try {
+          // 1. Marquer l’inspection principale comme supprimée
+          await queryPromise(connection, `
+            UPDATE inspection_gen SET est_supprime = 1 WHERE id_inspection_gen = ?
+          `, [id_inspection_gen]);
+  
+          // 2. Marquer les sous-inspections comme supprimées
+          await queryPromise(connection, `
+            UPDATE sub_inspection_gen SET est_supprime = 1 WHERE id_inspection_gen = ?
+          `, [id_inspection_gen]);
+  
+          // 3. Logger l’action
+          await queryPromise(connection, `
+            INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
+            VALUES (?, ?, ?, ?, ?)
+          `, [
+            'inspection_gen',
+            'Suppression',
+            id_inspection_gen,
+            user_id || null,
+            `Suppression logique de l’inspection #${id_inspection_gen}`
+          ]);
+  
+          connection.commit((commitErr) => {
+            connection.release();
+            if (commitErr) {
+              return res.status(500).json({ error: "Erreur lors du commit." });
+            }
+  
+            return res.status(200).json({ message: "Inspection supprimée avec succès." });
+          });
+  
+        } catch (err) {
+          console.error("Erreur pendant suppression :", err);
+          connection.rollback(() => {
+            connection.release();
+            return res.status(500).json({ error: err.message || "Erreur inattendue." });
+          });
+        }
+      });
+    });
+  };
+  
 //Validation inspection
 exports.getValidationInspection = (req, res) => {
     const { id_sub_inspection_gen } = req.query;
