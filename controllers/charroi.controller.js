@@ -1972,7 +1972,7 @@ exports.putInspectionGen = (req, res) => {
     });
   };
   
-  exports.deleteInspectionGen = (req, res) => {
+exports.deleteInspectionGen = (req, res) => {
     const { id_inspection_gen, user_id } = req.body;
   
     if (!id_inspection_gen) {
