@@ -2436,10 +2436,10 @@ exports.putInspectionGen = (req, res) => {
   };
   
 exports.deleteInspectionGen = (req, res) => {
-    const {id_sub_inspection_gen, user_id } = req.body;
+    const {id_sud_reparation, user_id } = req.body;
   
-    if (!id_sub_inspection_gen) {
-      return res.status(400).json({ error: "L'ID de l'inspection est requis." });
+    if (!id_sud_reparation) {
+      return res.status(400).json({ error: "L'ID de la réparation est requis." });
     }
   
     db.getConnection((connErr, connection) => {
@@ -2458,17 +2458,17 @@ exports.deleteInspectionGen = (req, res) => {
   
           await queryPromise(connection, `
             UPDATE sub_inspection_gen SET est_supprime = 1 WHERE id_sub_inspection_gen = ?
-          `, [id_sub_inspection_gen]);
+          `, [id_sud_reparation]);
   
           await queryPromise(connection, `
             INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
             VALUES (?, ?, ?, ?, ?)
           `, [
-            'sub_inspection_gen',
+            'sud_reparation',
             'Suppression',
-            id_sub_inspection_gen,
+            id_sud_reparation,
             user_id || null,
-            `Suppression logique de l’inspection #${id_sub_inspection_gen}`
+            `Suppression logique de la réparation #${id_sud_reparation}`
           ]);
   
           connection.commit((commitErr) => {
