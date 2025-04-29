@@ -3459,3 +3459,19 @@ exports.getDocumentInspection = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+//Historique
+exports.getHistorique = (req, res) => {
+
+    const q = `SELECT hv.id_historique, hv.date_action, hv.action, hv.commentaire, u.nom, v.immatriculation, sv.nom_statut_vehicule FROM historique_vehicule hv 
+                    LEFT JOIN utilisateur u ON hv.user_cr = u.id_utilisateur
+                    LEFT JOIN vehicules v ON hv.id_vehicule = v.id_vehicule
+                    LEFT JOIN statut_vehicule sv ON hv.id_statut_vehicule = sv.id_statut_vehicule`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};

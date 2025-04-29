@@ -130,4 +130,7 @@ router.get('/log_inspection', charroiController.getLogInspection)
 //Document inspection
 router.get('/document_inspection', charroiController.getDocumentInspection)
 
+//Historique
+router.get('/historique', charroiController.getHistorique)
+
 module.exports = router;
