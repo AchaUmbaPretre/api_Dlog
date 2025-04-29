@@ -78,6 +78,7 @@ router.get('/statut_vehicule', charroiController.getStatutVehicule)
 router.get('/reparation', charroiController.getReparation)
 router.get('/reparationOne', charroiController.getReparationOne)
 router.post('/reparation', charroiController.postReparation)
+router.post('/delete_reparation', charroiController.deleteReparation)
 
 //Carateristique Rep
 router.get('/carateristique_rep', charroiController.getCarateristiqueRep)

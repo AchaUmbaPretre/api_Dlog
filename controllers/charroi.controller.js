@@ -1488,7 +1488,62 @@ exports.postReparation = (req, res) => {
       });
     });
   };
-    
+
+exports.deleteReparation = (req, res) => {
+    const {id_sud_reparation , user_id } = req.body;
+  
+    if (!id_sud_reparation) {
+      return res.status(400).json({ error: "L'ID de la reparation est requis." });
+    }
+  
+    db.getConnection((connErr, connection) => {
+      if (connErr) {
+        console.error("Erreur de connexion DB :", connErr);
+        return res.status(500).json({ error: "Connexion à la base de données échouée." });
+      }
+  
+      connection.beginTransaction(async (trxErr) => {
+        if (trxErr) {
+          connection.release();
+          return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+        }
+  
+        try {
+  
+          await queryPromise(connection, `
+            UPDATE sud_reparation SET est_supprime = 1 WHERE id_sud_reparation  = ?
+          `, [id_sud_reparation]);
+  
+          await queryPromise(connection, `
+            INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
+            VALUES (?, ?, ?, ?, ?)
+          `, [
+            'sud_reparation_gen',
+            'Suppression',
+            id_sud_reparation ,
+            user_id || null,
+            `Suppression logique de la réparation #${id_sud_reparation}`
+          ]);
+  
+          connection.commit((commitErr) => {
+            connection.release();
+            if (commitErr) {
+              return res.status(500).json({ error: "Erreur lors du commit." });
+            }
+  
+            return res.status(200).json({ message: "Réparation a été supprimée avec succès." });
+          });
+  
+        } catch (err) {
+          console.error("Erreur pendant suppression :", err);
+          connection.rollback(() => {
+            connection.release();
+            return res.status(500).json({ error: err.message || "Erreur inattendue." });
+          });
+        }
+      });
+    });
+};    
 //Carateristique rep
 exports.getCarateristiqueRep = (req, res) => {
 
@@ -2436,10 +2491,10 @@ exports.putInspectionGen = (req, res) => {
   };
   
 exports.deleteInspectionGen = (req, res) => {
-    const {id_sud_reparation, user_id } = req.body;
+    const {id_sub_inspection_gen, user_id } = req.body;
   
-    if (!id_sud_reparation) {
-      return res.status(400).json({ error: "L'ID de la réparation est requis." });
+    if (!id_sub_inspection_gen) {
+      return res.status(400).json({ error: "L'ID de l'inspection est requis." });
     }
   
     db.getConnection((connErr, connection) => {
@@ -2457,18 +2512,18 @@ exports.deleteInspectionGen = (req, res) => {
         try {
   
           await queryPromise(connection, `
-            UPDATE sud_reparation SET est_supprime = 1 WHER id_sud_reparation  = ?
-          `, [id_sud_reparation]);
+            UPDATE sub_inspection_gen SET est_supprime = 1 WHERE id_sub_inspection_gen = ?
+          `, [id_sub_inspection_gen]);
   
           await queryPromise(connection, `
             INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
             VALUES (?, ?, ?, ?, ?)
           `, [
-            'sud_reparation',
+            'sub_inspection_gen',
             'Suppression',
-            id_sud_reparation,
+            id_sub_inspection_gen,
             user_id || null,
-            `Suppression logique de la réparation #${id_sud_reparation}`
+            `Suppression logique de l’inspection #${id_sub_inspection_gen}`
           ]);
   
           connection.commit((commitErr) => {
@@ -3464,10 +3519,10 @@ exports.getDocumentInspection = (req, res) => {
 exports.getHistorique = (req, res) => {
 
     const q = `SELECT hv.id_historique, hv.date_action, hv.action, hv.commentaire, u.nom, v.immatriculation, sv.nom_statut_vehicule, m.nom_marque FROM historique_vehicule hv 
-                    LEFT JOIN utilisateur u ON hv.user_cr = u.id_utilisateur
-                    LEFT JOIN vehicules v ON hv.id_vehicule = v.id_vehicule
-                    LEFT JOIN statut_vehicule sv ON hv.id_statut_vehicule = sv.id_statut_vehicule
-                    LEFT JOIN marque m ON v.id_marque = m.id_marque`;
+                LEFT JOIN utilisateur u ON hv.user_cr = u.id_utilisateur
+                LEFT JOIN vehicules v ON hv.id_vehicule = v.id_vehicule
+                LEFT JOIN statut_vehicule sv ON hv.id_statut_vehicule = sv.id_statut_vehicule
+                LEFT JOIN marque m ON v.id_marque = m.id_marque`;
 
     db.query(q, (error, data) => {
         if (error) {
