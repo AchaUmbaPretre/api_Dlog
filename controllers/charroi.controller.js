@@ -2061,7 +2061,7 @@ exports.getValidationInspection = (req, res) => {
     }
 
     const query = `
-                    SELECT iv.id_sub_inspection_gen, iv.id_type_reparation, iv.manoeuvre, iv.cout, ig.id_vehicule, iv.budget_valide, sub.avis, sub.commentaire as description FROM inspection_valide iv
+                    SELECT iv.id_sub_inspection_gen, iv.id_type_reparation, iv.manoeuvre, iv.cout, ig.id_vehicule, iv.budget_valide, sub.avis, sub.commentaire as description, ig.kilometrage FROM inspection_valide iv
                         INNER JOIN sub_inspection_gen sub ON iv.id_sub_inspection_gen = sub.id_sub_inspection_gen
                         INNER JOIN inspection_gen ig ON sub.id_inspection_gen = ig.id_inspection_gen
                         WHERE iv.id_sub_inspection_gen =  ?
