@@ -963,6 +963,7 @@ exports.getReparation = async (req, res) => {
                         	type_reparations tr ON sr.id_type_reparation = tr.id_type_reparation
                         LEFT JOIN 
                             type_statut_suivi tss ON sr.id_statut = tss.id_type_statut_suivi
+                         WHERE sr.est_supprime = 0
                         ORDER BY sr.created_at DESC
                        `;
     
@@ -1490,7 +1491,7 @@ exports.postReparation = (req, res) => {
   };
 
 exports.deleteReparation = (req, res) => {
-    const {id_sud_reparation , user_id } = req.body;
+    const {id_sud_reparation, user_id } = req.body;
   
     if (!id_sud_reparation) {
       return res.status(400).json({ error: "L'ID de la reparation est requis." });
