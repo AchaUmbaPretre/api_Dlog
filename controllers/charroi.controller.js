@@ -3463,10 +3463,11 @@ exports.getDocumentInspection = (req, res) => {
 //Historique
 exports.getHistorique = (req, res) => {
 
-    const q = `SELECT hv.id_historique, hv.date_action, hv.action, hv.commentaire, u.nom, v.immatriculation, sv.nom_statut_vehicule FROM historique_vehicule hv 
+    const q = `SELECT hv.id_historique, hv.date_action, hv.action, hv.commentaire, u.nom, v.immatriculation, sv.nom_statut_vehicule, m.nom_marque FROM historique_vehicule hv 
                     LEFT JOIN utilisateur u ON hv.user_cr = u.id_utilisateur
                     LEFT JOIN vehicules v ON hv.id_vehicule = v.id_vehicule
-                    LEFT JOIN statut_vehicule sv ON hv.id_statut_vehicule = sv.id_statut_vehicule`;
+                    LEFT JOIN statut_vehicule sv ON hv.id_statut_vehicule = sv.id_statut_vehicule
+                    LEFT JOIN marque m ON v.id_marque = m.id_marque`;
 
     db.query(q, (error, data) => {
         if (error) {
