@@ -1541,7 +1541,6 @@ exports.getInspectionGen = (req, res) => {
     });
 };
 
-
 exports.getInspectionResume = (req, res) => {
 
     const q = `SELECT 
