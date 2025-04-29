@@ -1544,7 +1544,8 @@ exports.deleteReparation = (req, res) => {
         }
       });
     });
-};    
+};   
+ 
 //Carateristique rep
 exports.getCarateristiqueRep = (req, res) => {
 
