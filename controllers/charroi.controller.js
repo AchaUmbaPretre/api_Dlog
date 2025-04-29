@@ -1804,7 +1804,7 @@ exports.postInspectionGen = (req, res) => {
         }
       });
     });
-  };
+};
   
 //Sub Inspection
 exports.getSubInspection = (req, res) => {
@@ -1994,7 +1994,7 @@ exports.putInspectionGen = (req, res) => {
         }
       });
     });
-  };
+};
   
 exports.deleteInspectionGen = (req, res) => {
     const {id_sub_inspection_gen, user_id } = req.body;
@@ -2050,7 +2050,7 @@ exports.deleteInspectionGen = (req, res) => {
         }
       });
     });
-  };
+};
   
 //Validation inspection
 exports.getValidationInspection = (req, res) => {
