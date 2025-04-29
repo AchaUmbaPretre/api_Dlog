@@ -2457,7 +2457,7 @@ exports.deleteInspectionGen = (req, res) => {
         try {
   
           await queryPromise(connection, `
-            UPDATE sub_inspection_gen SET est_supprime = 1 WHERE id_sub_inspection_gen = ?
+            UPDATE sud_reparation SET est_supprime = 1 WHER id_sud_reparation  = ?
           `, [id_sud_reparation]);
   
           await queryPromise(connection, `
