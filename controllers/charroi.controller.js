@@ -2746,7 +2746,7 @@ exports.putInspectionGen = (req, res) => {
         }
       });
     });
-  };
+};
   
 exports.deleteInspectionGen = (req, res) => {
     const {id_sub_inspection_gen, user_id } = req.body;
