@@ -1480,6 +1480,17 @@ exports.postReparation = (req, res) => {
           ];
   
           await queryPromise(connection, historiqueSQL, historiqueValues);
+
+          // 🔔 Ajout de la notification
+          const notifQuery = `
+          INSERT INTO notifications (user_id, message)
+          VALUES (?, ?)
+          `;
+
+          const notifMessage = `Une nouvelle réparation (N° #${insertedRepairId}) a été enregistrée pour le véhicule ${id_vehicule}.`;
+
+          await queryPromise(connection, notifQuery, [user_cr, notifMessage]);
+
   
           const insertSubQuery = `
             INSERT INTO sud_reparation (
@@ -1581,7 +1592,7 @@ exports.postReparation = (req, res) => {
     });
   };
 
-exports.deleteReparation = (req, res) => {
+/* exports.deleteReparation = (req, res) => {
     const {id_sud_reparation, user_id } = req.body;
   
     if (!id_sud_reparation) {
@@ -1635,8 +1646,73 @@ exports.deleteReparation = (req, res) => {
         }
       });
     });
-};   
+}; */   
  
+exports.deleteReparation = (req, res) => {
+  const { id_sud_reparation, user_id } = req.body;
+
+  if (!id_sud_reparation) {
+    return res.status(400).json({ error: "L'ID de la réparation est requis." });
+  }
+
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        // Suppression logique
+        await queryPromise(connection, `
+          UPDATE sud_reparation SET est_supprime = 1 WHERE id_sud_reparation = ?
+        `, [id_sud_reparation]);
+
+        // Journalisation
+        await queryPromise(connection, `
+          INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
+          VALUES (?, ?, ?, ?, ?)
+        `, [
+          'sud_reparation_gen',
+          'Suppression',
+          id_sud_reparation,
+          user_id || null,
+          `Suppression logique de la réparation #${id_sud_reparation}`
+        ]);
+
+        // 🔔 Notification
+        const notifMessage = `La sous-réparation #${id_sud_reparation} a été supprimée par l'utilisateur ${user_id}.`;
+        await queryPromise(connection, `
+          INSERT INTO notifications (user_id, message)
+          VALUES (?, ?)
+        `, [user_id, notifMessage]);
+
+        // Commit
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            return res.status(500).json({ error: "Erreur lors du commit." });
+          }
+
+          return res.status(200).json({ message: "Réparation a été supprimée avec succès." });
+        });
+
+      } catch (err) {
+        console.error("Erreur pendant suppression :", err);
+        connection.rollback(() => {
+          connection.release();
+          return res.status(500).json({ error: err.message || "Erreur inattendue." });
+        });
+      }
+    });
+  });
+};
+
 //Carateristique rep
 exports.getCarateristiqueRep = (req, res) => {
 
@@ -2644,6 +2720,13 @@ exports.putInspectionGen = (req, res) => {
             user_cr || null,
             `Modification de la sous-inspection #${idSub} liée à l’inspection #${idInspection}, type réparation ${rep.id_type_reparation}`
           ]);
+
+          // 🔔 Notification
+        const notifMessage = `La inspection N° #${idSub} de l’inspection #${idInspection} a été mise à jour.`;
+        await queryPromise(connection, `
+          INSERT INTO notifications (user_id, message)
+          VALUES (?, ?)
+        `, [user_cr, notifMessage]);
   
           connection.commit((err) => {
             connection.release();
