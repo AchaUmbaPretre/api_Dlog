@@ -3001,6 +3001,7 @@ exports.postSuiviInspection = async (req, res) => {
     });
 };
  */
+
 exports.getSuiviReparation = async(req, res) => {
     const { id_reparation, id_inspection_gen } = req.query;
 
