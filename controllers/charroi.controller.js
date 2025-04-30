@@ -2001,135 +2001,8 @@ exports.getInspectionResume = (req, res) => {
   });
 }; */
 
-/* exports.postInspectionGen = (req, res) => {
-    db.getConnection((connErr, connection) => {
-      if (connErr) {
-        console.error("Erreur de connexion DB :", connErr);
-        return res.status(500).json({ error: "Connexion à la base de données échouée." });
-      }
-  
-      connection.beginTransaction(async (trxErr) => {
-        if (trxErr) {
-          connection.release();
-          console.error("Erreur transaction :", trxErr);
-          return res.status(500).json({ error: "Impossible de démarrer la transaction." });
-        }
-  
-        try {
-          const date_inspection = moment(req.body.date_inspection).format('YYYY-MM-DD');
-          const date_prevu = moment(req.body.date_prevu).format('YYYY-MM-DD');
-  
-          const {
-            id_vehicule,
-            id_chauffeur,
-            id_statut_vehicule,
-            kilometrage,
-            user_cr,
-            reparations
-          } = req.body;
-  
-          if (!id_vehicule || !id_statut_vehicule) {
-            throw new Error("Champs obligatoires manquants.");
-          }
-  
-          const insertControleSQL = `
-            INSERT INTO inspection_gen (
-              id_vehicule, id_chauffeur, date_inspection, date_prevu, id_statut_vehicule, kilometrage, user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-          `;
-  
-          const controleValues = [
-            id_vehicule,
-            id_chauffeur,
-            date_inspection,
-            date_prevu,
-            id_statut_vehicule,
-            kilometrage,
-            user_cr
-          ];
-  
-          const [insertControleResult] = await queryPromise(connection, insertControleSQL, controleValues);
-          const insertId = insertControleResult.insertId;
-  
-          // Traitement des réparations
-          let parsedReparations = Array.isArray(reparations) ? reparations : JSON.parse(reparations || '[]');
-  
-          if (!Array.isArray(parsedReparations)) {
-            throw new Error("Le champ `réparations` doit être un tableau.");
-          }
-  
-          parsedReparations = parsedReparations.map((rep, index) => {
-            const fieldName = `img_${index}`;
-            const file = req.files.find(f => f.fieldname === fieldName);
-            return {
-              ...rep,
-              img: file ? `public/uploads/${file.filename}` : null
-            };
-          });
-  
-          const insertReparationSQL = `
-            INSERT INTO sub_inspection_gen (
-              id_inspection_gen, id_type_reparation, id_cat_inspection, montant, commentaire, avis, img, statut
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `;
-  
-          const logSQL = `
-            INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
-            VALUES (?, ?, ?, ?, ?)
-          `;
-  
-          for (const rep of parsedReparations) {
-            const repValues = [
-              insertId,
-              rep.id_type_reparation,
-              rep.id_cat_inspection,
-              rep.montant,
-              rep.commentaire,
-              rep.avis,
-              rep.img,
-              1
-            ];
-  
-            const [insertRepResult] = await queryPromise(connection, insertReparationSQL, repValues);
-            const subInspectionId = insertRepResult.insertId;
-  
-            // 🔥 Journalisation : log de la sous-inspection
-            await queryPromise(connection, logSQL, [
-              'sub_inspection_gen',
-              'Création',
-              subInspectionId,
-              user_cr || null,
-              `Ajout d'une inspection ID ${subInspectionId} liée à l'inspection #${insertId}, type réparation ${rep.id_type_reparation}`
-            ]);
-          }
-  
-          // Tout s'est bien passé
-          connection.commit((commitErr) => {
-            connection.release();
-            if (commitErr) {
-              console.error("Erreur commit :", commitErr);
-              return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
-            }
-  
-            return res.status(201).json({
-              message: "Inspection enregistrée avec succès.",
-              data: { id: insertId }
-            });
-          });
-  
-        } catch (error) {
-          console.error("Erreur dans la transaction :", error);
-          connection.rollback(() => {
-            connection.release();
-            const msg = error.message || "Erreur inattendue lors du traitement.";
-            return res.status(500).json({ error: msg });
-          });
-        }
-      });
-    });
-}; */
 
-exports.postInspectionGen = (req, res) => {
+/* exports.postInspectionGen = (req, res) => {
     db.getConnection((connErr, connection) => {
       if (connErr) {
         console.error("Erreur de connexion DB :", connErr);
@@ -2273,7 +2146,158 @@ exports.postInspectionGen = (req, res) => {
         }
       });
     });
-  };
+  }; */
+
+exports.postInspectionGen = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error("Erreur transaction :", trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const date_inspection = moment(req.body.date_inspection).format('YYYY-MM-DD');
+        const date_prevu = moment(req.body.date_prevu).format('YYYY-MM-DD');
+
+        const {
+          id_vehicule,
+          id_chauffeur,
+          id_statut_vehicule,
+          kilometrage,
+          user_cr,
+          reparations
+        } = req.body;
+
+        if (!id_vehicule || !id_statut_vehicule) {
+          throw new Error("Champs obligatoires manquants.");
+        }
+
+        const insertControleSQL = `
+          INSERT INTO inspection_gen (
+            id_vehicule, id_chauffeur, date_inspection, date_prevu, id_statut_vehicule, kilometrage, user_cr
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const controleValues = [
+          id_vehicule,
+          id_chauffeur,
+          date_inspection,
+          date_prevu,
+          id_statut_vehicule,
+          kilometrage,
+          user_cr
+        ];
+
+        const [insertControleResult] = await queryPromise(connection, insertControleSQL, controleValues);
+        const insertId = insertControleResult.insertId;
+
+        // Insertion dans historique_vehicule
+        const historiqueSQL = `
+          INSERT INTO historique_vehicule (
+            id_vehicule, id_chauffeur, id_statut_vehicule, id_inspection_gen, action, commentaire, user_cr
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `;
+        const historiqueValues = [
+          id_vehicule,
+          id_chauffeur,
+          id_statut_vehicule,
+          insertId,
+          "Nouvelle inspection ajoutée",
+          `Inspection ajoutée avec succès pour le véhicule ${id_vehicule}`,
+          user_cr
+        ];
+        await queryPromise(connection, historiqueSQL, historiqueValues);
+
+        const notifSQL = `
+          INSERT INTO notifications (user_id, message)
+          VALUES (?, ?)
+        `;
+        const notifMsg = `Une nouvelle inspection a été ajoutée pour le véhicule #${id_vehicule}.`;
+
+          await queryPromise(connection, notifSQL, [user_cr, notifMsg]);
+
+        // Traitement des réparations
+        let parsedReparations = Array.isArray(reparations) ? reparations : JSON.parse(reparations || '[]');
+
+        if (!Array.isArray(parsedReparations)) {
+          throw new Error("Le champ `réparations` doit être un tableau.");
+        }
+
+        parsedReparations = parsedReparations.map((rep, index) => {
+          const fieldName = `img_${index}`;
+          const file = req.files.find(f => f.fieldname === fieldName);
+          return {
+            ...rep,
+            img: file ? `public/uploads/${file.filename}` : null
+          };
+        });
+
+        const insertReparationSQL = `
+          INSERT INTO sub_inspection_gen (
+            id_inspection_gen, id_type_reparation, id_cat_inspection, montant, commentaire, avis, img, statut
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const logSQL = `
+          INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
+          VALUES (?, ?, ?, ?, ?)
+        `;
+
+        for (const rep of parsedReparations) {
+          const repValues = [
+            insertId,
+            rep.id_type_reparation,
+            rep.id_cat_inspection,
+            rep.montant,
+            rep.commentaire,
+            rep.avis,
+            rep.img,
+            1
+          ];
+
+          const [insertRepResult] = await queryPromise(connection, insertReparationSQL, repValues);
+          const subInspectionId = insertRepResult.insertId;
+
+          await queryPromise(connection, logSQL, [
+            'sub_inspection_gen',
+            'Création',
+            subInspectionId,
+            user_cr || null,
+            `Ajout d'une inspection ID ${subInspectionId} liée à l'inspection #${insertId}, type réparation ${rep.id_type_reparation}`
+          ]);
+        }
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+          }
+
+          return res.status(201).json({
+            message: "Inspection enregistrée avec succès.",
+            data: { id: insertId }
+          });
+        });
+
+      } catch (error) {
+        console.error("Erreur dans la transaction :", error);
+        connection.rollback(() => {
+          connection.release();
+          const msg = error.message || "Erreur inattendue lors du traitement.";
+          return res.status(500).json({ error: msg });
+        });
+      }
+    });
+  });
+};
 
 exports.putInspectionImage = (req, res) => {
     const { id_sub_inspection_gen, user_id } = req.body;
@@ -3693,4 +3717,22 @@ exports.getHistorique = (req, res) => {
         }
         return res.status(200).json(data);
     });
+};
+
+exports.getHistoriqueNotification = (req, res) => {
+  const { userId } = req.query;
+
+  const q = `SELECT hv.id_historique, hv.date_action, hv.action, hv.commentaire, u.nom, v.immatriculation, sv.nom_statut_vehicule, m.nom_marque FROM historique_vehicule hv 
+              LEFT JOIN utilisateur u ON hv.user_cr = u.id_utilisateur
+              LEFT JOIN vehicules v ON hv.id_vehicule = v.id_vehicule
+              LEFT JOIN statut_vehicule sv ON hv.id_statut_vehicule = sv.id_statut_vehicule
+              LEFT JOIN marque m ON v.id_marque = m.id_marque
+              WHERE hv.vu = 0 AND hv.user_cr =! ? `;
+
+  db.query(q, [userId], (error, data) => {
+      if (error) {
+          return res.status(500).send(error);
+      }
+      return res.status(200).json(data);
+  });
 };

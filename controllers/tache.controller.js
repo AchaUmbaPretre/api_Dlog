@@ -2451,7 +2451,7 @@ exports.getAuditLogsTache = (req, res) => {
 
 //Notifications
 exports.getNotificationTache = (req, res) => {
-    const { user_id } = req.query; // ID de l'utilisateur qui effectue la requête
+    const { user_id } = req.query;
 
     const checkRoleQuery = `SELECT role FROM utilisateur WHERE id_utilisateur = ?`;
 
@@ -2466,22 +2466,21 @@ exports.getNotificationTache = (req, res) => {
 
         const role = result[0].role;
 
-        // Condition pour filtrer les notifications selon le rôle
         let notificationQuery;
         let queryParams;
 
         if (role === 'Admin') {
-            // Si l'utilisateur est un administrateur, il voit toutes les notifications sauf celles qu'il a créées lui-même
+            // Admin : toutes les notifications sauf celles qu’il a créées
             notificationQuery = `
                 SELECT notifications.*, u.nom, u.prenom 
                 FROM notifications
                 INNER JOIN utilisateur u ON notifications.user_id = u.id_utilisateur
-                WHERE is_read = 0
+                WHERE is_read = 0 AND notifications.user_id != ?
                 ORDER BY notifications.timestamp DESC
             `;
-            queryParams = [];
+            queryParams = [user_id];
         } else {
-            // Si l'utilisateur est un utilisateur normal, il ne voit que ses propres notifications
+            // Utilisateur normal : seulement ses propres notifications
             notificationQuery = `
                 SELECT notifications.*, u.nom, u.prenom 
                 FROM notifications
@@ -2501,6 +2500,7 @@ exports.getNotificationTache = (req, res) => {
         });
     });
 };
+
 
 exports.getNotificationTacheOne = (req, res) => {
     const { id_notification } = req.query;
