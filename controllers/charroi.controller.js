@@ -2183,6 +2183,55 @@ exports.postInspectionGen = (req, res) => {
       });
     });
   };
+
+exports.putInspectionImage = (req, res) => {
+  const { id_sub_inspection_gen} = req.body;
+  const file = req.files
+  const files = `public/uploads/${file.filename}`
+
+  if (!id_sub_inspection_gen) {
+    return res.status(400).json({ error: "L'ID de l'inspection est requis." });
+  }
+
+  db.getConnection((connErr, connection)=> {
+    if(connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if(trxErr) {
+        connection.release();
+        console.error("Erreur transaction : ", trxErr)
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try{
+        await queryPromise(connection, `
+          UPDATE sub_inspection_gen SET img = ? WHERE id_sub_inspection_gen = ?
+          `, [files, id_sub_inspection_gen])
+
+          await queryPromise(connection, `
+            INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
+            VALUES (?, ?, ?, ?, ?)
+          `, [
+            'sub_inspection_gen',
+            'Modification',
+            id_sub_inspection_gen,
+            user_id || null,
+            `Modification d'une image de l'inspection #${id_sub_inspection_gen}`
+          ]);
+      } catch (error) {
+            console.error("Erreur dans la transaction :", error);
+            connection.rollback(() => {
+            connection.release();
+            const msg = error.message || "Erreur inattendue lors du traitement.";
+            return res.status(500).json({ error: msg });
+          });
+      }
+    })
+  })
+}
   
 //Sub Inspection
 exports.getSubInspection = (req, res) => {
