@@ -3001,8 +3001,19 @@ exports.postSuiviInspection = async (req, res) => {
     });
 };
  */
-exports.getSuiviReparation = (req, res) => {
-    const { id_reparation } = req.query;
+exports.getSuiviReparation = async(req, res) => {
+    const { id_reparation, id_inspection_gen } = req.query;
+
+    let id_sub_inspection_gen = null;
+
+    if (id_inspection_gen) {
+      const qI = `SELECT id_sub_inspection_gen FROM sub_inspection_gen WHERE id_inspection_gen = ?`;
+      const result = await queryAsync(qI, [id_inspection_gen]);
+
+      if (result && result.length > 0) {
+        id_sub_inspection_gen = result[0].id_sub_inspection_gen;
+      }
+    }
 
     const q = `SELECT sr.id_suivi_reparation, 
                     sr.budget, 
@@ -3023,10 +3034,10 @@ exports.getSuiviReparation = (req, res) => {
                     	utilisateur u ON sr.user_cr = u.id_utilisateur
                     LEFT JOIN 
             			evaluation e ON sr.id_evaluation = e.id_evaluation
-                    WHERE sud.id_reparation = ?
+                    WHERE sud.id_reparation = ? OR sud.id_sub_inspection_gen = ?
                 `;
 
-    db.query(q, [id_reparation], (error, data) => {
+    db.query(q, [id_reparation, id_sub_inspection_gen], (error, data) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
