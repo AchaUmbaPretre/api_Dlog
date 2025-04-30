@@ -981,9 +981,16 @@ exports.getReparation = async (req, res) => {
     }
 }
 
-exports.getReparationOne = async (req, res) => {
-    const { id_sud_reparation } = req.query;
+/* exports.getReparationOne = async (req, res) => {
+    const { id_sud_reparation, id_inspection_gen } = req.query;
+
     try {
+        if (id_inspection_gen) {
+          const qI = `SELECT id_sub_inspection_gen  FROM sub_inspection_gen`
+          const type = await queryAsync(qI, id_inspection_gen)
+          const id = type.id_sub_inspection_gen;
+
+        }
         const query = `SELECT 
                             r.id_reparation, 
                             sr.date_reparation, 
@@ -1019,10 +1026,10 @@ exports.getReparationOne = async (req, res) => {
                             type_statut_suivi tss ON sr.id_statut = tss.id_type_statut_suivi
                         LEFT JOIN 
             				evaluation e ON sr.id_evaluation = e.id_evaluation
-                            WHERE r.id_reparation = ?
+                            WHERE r.id_reparation = ? OR r.id_sub_inspection_gen = ?
                        `;
     
-        const typeFonction = await queryAsync(query, id_sud_reparation);
+        const typeFonction = await queryAsync(query, id_sud_reparation, id);
 
         const q = `SELECT r.id_reparation, r.date_entree, r.date_prevu, r.cout, r.commentaire, f.nom_fournisseur, v.immatriculation, m.nom_marque FROM reparations r
                         LEFT JOIN fournisseur f ON r.id_fournisseur = f.id_fournisseur
@@ -1045,8 +1052,92 @@ exports.getReparationOne = async (req, res) => {
             error: "Une erreur s'est produite lors de la récupération des réparations.",
         });
     }
-}
+} */
 
+exports.getReparationOne = async (req, res) => {
+      const { id_sud_reparation, id_inspection_gen } = req.query;
+    
+      try {
+        let id_sub_inspection_gen = null;
+    
+        if (id_inspection_gen) {
+          const qI = `SELECT id_sub_inspection_gen FROM sub_inspection_gen WHERE id_inspection_gen = ?`;
+          const result = await queryAsync(qI, [id_inspection_gen]);
+    
+          if (result && result.length > 0) {
+            id_sub_inspection_gen = result[0].id_sub_inspection_gen;
+          }
+        }
+    
+        const query = `
+          SELECT 
+            r.id_reparation, 
+            sr.date_reparation, 
+            sr.date_sortie, 
+            sr.id_sud_reparation,
+            r.date_prevu, 
+            r.date_entree,
+            r.cout, 
+            r.commentaire, 
+            r.code_rep, 
+            v.immatriculation, 
+            m.nom_marque, 
+            f.nom_fournisseur, 
+            tss.nom_type_statut,
+            DATEDIFF(r.date_entree, sr.date_reparation) AS nb_jours_au_garage,
+            sr.id_type_reparation,
+            sr.description,
+            tr.type_rep,
+            e.nom_evaluation
+          FROM 
+            reparations r
+          INNER JOIN vehicules v ON r.id_vehicule = v.id_vehicule
+          INNER JOIN marque m ON v.id_marque = m.id_marque
+          INNER JOIN fournisseur f ON r.id_fournisseur = f.id_fournisseur
+          LEFT JOIN sud_reparation sr ON r.id_reparation = sr.id_reparation
+          INNER JOIN type_reparations tr ON sr.id_type_reparation = tr.id_type_reparation
+          INNER JOIN type_statut_suivi tss ON sr.id_statut = tss.id_type_statut_suivi
+          LEFT JOIN evaluation e ON sr.id_evaluation = e.id_evaluation
+          WHERE r.id_reparation = ? OR sr.id_sub_inspection_gen = ?
+        `;
+    
+        const typeFonction = await queryAsync(query, [id_sud_reparation, id_sub_inspection_gen]);
+    
+        const q = `
+          SELECT 
+            r.id_reparation, 
+            r.date_entree, 
+            r.date_prevu, 
+            r.cout, 
+            r.commentaire, 
+            f.nom_fournisseur, 
+            v.immatriculation, 
+            m.nom_marque 
+          FROM 
+            reparations r
+          LEFT JOIN fournisseur f ON r.id_fournisseur = f.id_fournisseur
+          INNER JOIN vehicules v ON r.id_vehicule = v.id_vehicule
+          LEFT JOIN marque m ON v.id_marque = m.id_marque
+          LEFT JOIN sud_reparation sr ON r.id_reparation = sr.id_reparation
+          WHERE r.id_reparation = ? OR sr.id_sub_inspection_gen = ?
+        `;
+    
+        const type = await queryAsync(q, [id_sud_reparation, id_sub_inspection_gen]);
+    
+        return res.status(200).json({
+          message: 'Liste des réparations récupérées avec succès',
+          data: typeFonction,
+          dataGen: type
+        });
+    
+      } catch (error) {
+        console.error('Erreur lors de la récupération des réparations :', error);
+        return res.status(500).json({
+          error: "Une erreur s'est produite lors de la récupération des réparations.",
+        });
+      }
+    };
+     
 /* exports.postReparation = (req, res) => {
   db.getConnection((connErr, connection) => {
     if (connErr) {
