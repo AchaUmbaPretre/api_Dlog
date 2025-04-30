@@ -2185,32 +2185,32 @@ exports.postInspectionGen = (req, res) => {
   };
 
 exports.putInspectionImage = (req, res) => {
-  const { id_sub_inspection_gen} = req.body;
-  const file = req.files
-  const files = `public/uploads/${file.filename}`
-
-  if (!id_sub_inspection_gen) {
-    return res.status(400).json({ error: "L'ID de l'inspection est requis." });
-  }
-
-  db.getConnection((connErr, connection)=> {
-    if(connErr) {
-      console.error("Erreur de connexion DB :", connErr);
-      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    const { id_sub_inspection_gen, user_id } = req.body;
+  
+    if (!id_sub_inspection_gen || !req.files || req.files.length === 0) {
+      return res.status(400).json({ error: "Image ou ID de l'inspection manquant." });
     }
-
-    connection.beginTransaction(async (trxErr) => {
-      if(trxErr) {
-        connection.release();
-        console.error("Erreur transaction : ", trxErr)
-        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+  
+    const file = req.files[0];
+    const imagePath = file.path.replace(/\\/g, '/'); // corriger les backslashes Windows
+  
+    db.getConnection((connErr, connection) => {
+      if (connErr) {
+        console.error("Erreur de connexion DB :", connErr);
+        return res.status(500).json({ error: "Connexion à la base de données échouée." });
       }
-
-      try{
-        await queryPromise(connection, `
-          UPDATE sub_inspection_gen SET img = ? WHERE id_sub_inspection_gen = ?
-          `, [files, id_sub_inspection_gen])
-
+  
+      connection.beginTransaction(async (trxErr) => {
+        if (trxErr) {
+          connection.release();
+          return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+        }
+  
+        try {
+          await queryPromise(connection, `
+            UPDATE sub_inspection_gen SET img = ? WHERE id_sub_inspection_gen = ?
+          `, [imagePath, id_sub_inspection_gen]);
+  
           await queryPromise(connection, `
             INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
             VALUES (?, ?, ?, ?, ?)
@@ -2219,19 +2219,28 @@ exports.putInspectionImage = (req, res) => {
             'Modification',
             id_sub_inspection_gen,
             user_id || null,
-            `Modification d'une image de l'inspection #${id_sub_inspection_gen}`
+            `Modification de l'image de l'inspection #${id_sub_inspection_gen}`
           ]);
-      } catch (error) {
-            console.error("Erreur dans la transaction :", error);
-            connection.rollback(() => {
+  
+          connection.commit((commitErr) => {
             connection.release();
-            const msg = error.message || "Erreur inattendue lors du traitement.";
-            return res.status(500).json({ error: msg });
+            if (commitErr) {
+              return res.status(500).json({ error: "Erreur lors du commit." });
+            }
+  
+            return res.status(200).json({ message: "Image mise à jour avec succès." });
           });
-      }
-    })
-  })
-}
+  
+        } catch (error) {
+          connection.rollback(() => {
+            connection.release();
+            return res.status(500).json({ error: error.message || "Erreur inattendue." });
+          });
+        }
+      });
+    });
+  };
+  
   
 //Sub Inspection
 exports.getSubInspection = (req, res) => {
