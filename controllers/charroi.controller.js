@@ -1714,22 +1714,20 @@ exports.deleteReparation = (req, res) => {
 };
 
 exports.getReparationImage = (req, res) => {
-  const { id_reparation } = req.query;
-
-  if (!id_reparation) {
-      return res.status(400).json({ error: "L'identifiant de la réparation est requis." });
-  }
+  const { id_reparation, id_inspection_gen } = req.query;
 
   const query = `
                   SELECT ir.id_image_reparation, ir.commentaire, ir.image, tp.nom_type_photo FROM image_reparation ir
                     INNER JOIN type_photo tp ON ir.id_type_photo = tp.id_type_photo
-                    WHERE ir.id_reparation = ?
+                    INNER JOIN reparations r ON ir.id_reparation = r.id_reparation
+                    INNER JOIN sud_reparation sud ON r.id_reparation = sud.id_reparation
+                    WHERE ir.id_reparation = ? OR sud.id_sub_inspection_gen
                   `;
 
-  db.query(query, [id_reparation], (err, results) => {
+  db.query(query, [id_reparation, id_inspection_gen ], (err, results) => {
       if (err) {
-          console.error("Erreur lors de la récupération des sous-inspections :", err);
-          return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+        console.error("Erreur lors de la récupération des sous-inspections :", err);
+        return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
       }
       return res.status(200).json(results);
   });
