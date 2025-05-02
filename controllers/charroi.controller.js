@@ -1156,7 +1156,7 @@ exports.getReparationOne = async (req, res) => {
           error: "Une erreur s'est produite lors de la récupération des réparations.",
         });
       }
-    };
+};
      
 /* exports.postReparation = (req, res) => {
   db.getConnection((connErr, connection) => {
