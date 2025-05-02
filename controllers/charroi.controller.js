@@ -1713,7 +1713,29 @@ exports.deleteReparation = (req, res) => {
   });
 };
 
-exports.reparationImage = (req, res) => {
+exports.getReparationImage = (req, res) => {
+  const { id_reparation } = req.query;
+
+  if (!id_reparation) {
+      return res.status(400).json({ error: "L'identifiant de la réparation est requis." });
+  }
+
+  const query = `
+                  SELECT ir.id_image_reparation, ir.commentaire, ir.image, tp.nom_type_photo FROM image_reparation ir
+                    INNER JOIN type_photo tp ON ir.id_type_photo = tp.id_type_photo
+                    WHERE ir.id_reparation = ?
+                  `;
+
+  db.query(query, [id_reparation], (err, results) => {
+      if (err) {
+          console.error("Erreur lors de la récupération des sous-inspections :", err);
+          return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+      }
+      return res.status(200).json(results);
+  });
+};
+
+exports.postReparationImage = (req, res) => {
   db.getConnection((connErr, connection) => {
     if (connErr) {
       console.error("Erreur de connexion DB :", connErr);
@@ -1765,6 +1787,7 @@ exports.reparationImage = (req, res) => {
     });
   });
 };
+
 
 //Carateristique rep
 exports.getCarateristiqueRep = (req, res) => {
@@ -2483,8 +2506,7 @@ exports.putInspectionImage = (req, res) => {
         }
       });
     });
-  };
-  
+};
   
 //Sub Inspection
 exports.getSubInspection = (req, res) => {
