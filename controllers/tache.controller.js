@@ -2373,7 +2373,6 @@ exports.putProjetAssocie = async (req, res) => {
     const { id_tache } = req.query;
     const { ...body } = req.body;
 
-    // Vérifier si id_tache est valide
     if (!id_tache || isNaN(id_tache)) {
         return res.status(400).json({ error: 'ID de tâche fourni non valide' });
     }
@@ -2386,7 +2385,6 @@ exports.putProjetAssocie = async (req, res) => {
     }
 
     try {
-        // Vérifier d'abord si la tâche est déjà associée à un projet
         const checkQuery = `
             SELECT id_projet 
             FROM tache 
@@ -2401,12 +2399,10 @@ exports.putProjetAssocie = async (req, res) => {
 
             const currentProjet = checkData[0]?.id_projet;
 
-            // Si la tâche est déjà liée à un projet (id_projet n'est pas NULL), envoyer une notification
             if (currentProjet) {
                 return res.status(400).json({ message: 'Cette tâche est déjà liée à un projet.' });
             }
 
-            // Si la tâche n'est pas encore liée à un projet, faire la mise à jour
             const updateQuery = `
                 UPDATE tache 
                 SET 
@@ -2429,7 +2425,6 @@ exports.putProjetAssocie = async (req, res) => {
         return res.status(500).json({ error: 'Échec de l\'association du projet à la tâche' });
     }
 };
-
 
 //Audit Logs Tache
 exports.getAuditLogsTache = (req, res) => {
