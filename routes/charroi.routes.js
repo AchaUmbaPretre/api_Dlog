@@ -76,9 +76,11 @@ router.get('/statut_vehicule', charroiController.getStatutVehicule)
 
 //Réparation
 router.get('/reparation', charroiController.getReparation)
+router.get('/reparationOneV', charroiController.getReparationOneV)
 router.get('/reparationOne', charroiController.getReparationOne)
 router.post('/reparation', charroiController.postReparation)
 router.post('/delete_reparation', charroiController.deleteReparation)
+router.put('/reparation', charroiController.putReparation)
 
 //Reparation image
 router.get('/reparation_image', charroiController.getReparationImage)

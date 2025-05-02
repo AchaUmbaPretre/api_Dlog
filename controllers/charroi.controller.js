@@ -1053,6 +1053,26 @@ exports.getReparation = async (req, res) => {
         });
     }
 } */
+exports.getReparationOneV = async (req, res) => {
+  const { id_sud_reparation } = req.query;
+
+  if (!id_sud_reparation ) {
+    return res.status(400).json({ error: "L'identifiant de la réparation est requis." });
+  }
+
+  const q = `SELECT r.*, sud.* FROM reparations r
+            INNER JOIN sud_reparation sud ON r.id_reparation = sud.id_reparation
+            WHERE sud.id_sud_reparation = ?`;
+
+  db.query(q, [id_sud_reparation], (err, results) => {
+    if(err) {
+      console.error("Erreur lors de la récupération des sous-inspections :", err);
+      return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+    }
+
+    return res.status(200).json(results);
+  })
+}
 
 exports.getReparationOne = async (req, res) => {
       const { id_sud_reparation, id_inspection_gen } = req.query;
@@ -1590,7 +1610,8 @@ exports.postReparation = (req, res) => {
         }
       });
     });
-  };
+};
+
 
 /* exports.deleteReparation = (req, res) => {
     const {id_sud_reparation, user_id } = req.body;
@@ -1713,15 +1734,141 @@ exports.deleteReparation = (req, res) => {
   });
 };
 
+exports.putReparation = (req, res) => {
+  const idSud = req.query.id_sud_reparation;
+  const idReparation = req.query.id_reparation;
+
+  if (!idSud || !idReparation) {
+    return res.status(400).json({ error: "ID de réparation ou ID de sous-réparation manquant." });
+  }
+
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error("Erreur connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error("Erreur transaction :", trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const {
+          id_vehicule,
+          cout,
+          date_entree,
+          date_prevu,
+          commentaire,
+          code_rep,
+          kilometrage,
+          id_statut_vehicule,
+          id_fournisseur,
+          reparations,
+          user_cr
+        } = req.body;
+
+        // 1. Mise à jour de la table `reparations`
+        const updateMainSQL = `
+          UPDATE reparations
+          SET id_vehicule = ?, cout = ?, date_entree = ?, date_prevu = ?, commentaire = ?, code_rep = ?, 
+              kilometrage = ?, id_statut_vehicule = ?, id_fournisseur = ?
+          WHERE id_reparation = ?
+        `;
+        await queryPromise(connection, updateMainSQL, [
+          id_vehicule,
+          cout,
+          moment(date_entree).format('YYYY-MM-DD'),
+          moment(date_prevu).format('YYYY-MM-DD'),
+          commentaire,
+          code_rep,
+          kilometrage,
+          id_statut_vehicule,
+          id_fournisseur,
+          idReparation
+        ]);
+
+        // 2. Mise à jour de la sous-réparation correspondante
+        if (Array.isArray(reparations)) {
+          for (const r of reparations) {
+            const updateSubSQL = `
+              UPDATE sud_reparation
+              SET id_type_reparation = ?, montant = ?, description = ?, id_statut = ?
+              WHERE id_sud_reparation = ? AND id_reparation = ?
+            `;
+            await queryPromise(connection, updateSubSQL, [
+              r.id_type_reparation,
+              r.montant,
+              r.description,
+              r.id_statut || 2, // Par défaut: réparée
+              idSud,
+              idReparation
+            ]);
+
+            // 3. Journalisation de la modification
+            const logSQL = `
+              INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
+              VALUES (?, ?, ?, ?, ?)
+            `;
+            await queryPromise(connection, logSQL, [
+              'sud_reparation',
+              'Modification',
+              idSud,
+              user_cr || null,
+              `Sous-réparation mise à jour pour la réparation #${idReparation}`
+            ]);
+          }
+        }
+
+        // 4. Mise à jour du statut véhicule dans historique
+        const histoSQL = `
+          INSERT INTO historique_vehicule (
+            id_vehicule, id_chauffeur, id_statut_vehicule, id_reparation, action, commentaire, user_cr
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        await queryPromise(connection, histoSQL, [
+          id_vehicule,
+          null,
+          id_statut_vehicule,
+          idReparation,
+          "Mise à jour réparation",
+          `Mise à jour de la réparation ${idReparation}`,
+          user_cr
+        ]);
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation des données." });
+          }
+
+          return res.status(200).json({ message: "Réparation mise à jour avec succès." });
+        });
+
+      } catch (error) {
+        console.error("Erreur durant la mise à jour :", error);
+        connection.rollback(() => {
+          connection.release();
+          return res.status(500).json({ error: error.message || "Erreur inattendue." });
+        });
+      }
+    });
+  });
+};
+
 exports.getReparationImage = (req, res) => {
   const { id_reparation, id_inspection_gen } = req.query;
 
   const query = `
-                  SELECT ir.id_image_reparation, ir.commentaire, ir.image, tp.nom_type_photo FROM image_reparation ir
+                  SELECT ir.id_image_reparation, ir.commentaire, ir.image, tp.nom_type_photo, ir.created_at FROM image_reparation ir
                     INNER JOIN type_photo tp ON ir.id_type_photo = tp.id_type_photo
                     INNER JOIN reparations r ON ir.id_reparation = r.id_reparation
                     INNER JOIN sud_reparation sud ON r.id_reparation = sud.id_reparation
-                    WHERE ir.id_reparation = ? OR sud.id_sub_inspection_gen
+                    WHERE ir.id_reparation = ? OR sud.id_sub_inspection_gen = ?
                   `;
 
   db.query(query, [id_reparation, id_inspection_gen ], (err, results) => {
