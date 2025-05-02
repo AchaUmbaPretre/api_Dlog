@@ -1713,17 +1713,15 @@ exports.deleteReparation = (req, res) => {
   });
 };
 
-//Image réparation
-
 exports.reparationImage = (req, res) => {
   db.getConnection((connErr, connection) => {
-    if(connErr) {
+    if (connErr) {
       console.error("Erreur de connexion DB :", connErr);
       return res.status(500).json({ error: "Connexion à la base de données échouée." });
     }
 
     connection.beginTransaction(async (trxErr) => {
-      if(trxErr) {
+      if (trxErr) {
         connection.release();
         console.error("Erreur transaction :", trxErr);
         return res.status(500).json({ error: "Impossible de démarrer la transaction." });
@@ -1732,17 +1730,42 @@ exports.reparationImage = (req, res) => {
       try {
         const { id_reparation, commentaire, id_type_photo } = req.body;
 
-        if (!id_reparation) {
-          throw new Error("Champs obligatoires manquants.");
+        if (!id_reparation || !req.files || !req.files[0]) {
+          throw new Error("Champs obligatoires manquants ou fichier non fourni.");
         }
 
-        const q = `INSERT INTO `
+        const file = req.files[0];
+        const imagePath = file.path.replace(/\\/g, '/');
+
+        const q = `INSERT INTO image_reparation (id_reparation, commentaire, id_type_photo, image) VALUES (?, ?, ?, ?)`;
+        const values = [id_reparation, commentaire, id_type_photo, imagePath];
+
+        const result = await queryPromise(connection, q, values);
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+          }
+
+          return res.status(201).json({
+            message: "Image enregistrée avec succès.",
+            data: { id: result.insertId }
+          });
+        });
+
       } catch (error) {
-        
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur pendant la transaction :", error);
+          return res.status(400).json({ error: error.message });
+        });
       }
-    })
-  })
-}
+    });
+  });
+};
+
 
 //Carateristique rep
 exports.getCarateristiqueRep = (req, res) => {

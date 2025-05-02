@@ -79,6 +79,7 @@ router.get('/reparation', charroiController.getReparation)
 router.get('/reparationOne', charroiController.getReparationOne)
 router.post('/reparation', charroiController.postReparation)
 router.post('/delete_reparation', charroiController.deleteReparation)
+router.post('/reparation_image', charroiController.reparationImage)
 
 //Carateristique Rep
 router.get('/carateristique_rep', charroiController.getCarateristiqueRep)
