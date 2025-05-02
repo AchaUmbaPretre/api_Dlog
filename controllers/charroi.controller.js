@@ -2769,6 +2769,13 @@ exports.deleteInspectionGen = (req, res) => {
   
         try {
   
+          // 🔔 Ajout de la notification
+          const notifMessage = `L'inspection #${id_sub_inspection_gen} a été supprimée par l'utilisateur ${user_id}.`;
+          await queryPromise(connection, `
+            INSERT INTO notifications (user_id, message)
+            VALUES (?, ?)
+          `, [user_id, notifMessage]);
+
           await queryPromise(connection, `
             UPDATE sub_inspection_gen SET est_supprime = 1 WHERE id_sub_inspection_gen = ?
           `, [id_sub_inspection_gen]);

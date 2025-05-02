@@ -2485,7 +2485,7 @@ exports.getNotificationTache = (req, res) => {
                 SELECT notifications.*, u.nom, u.prenom 
                 FROM notifications
                 INNER JOIN utilisateur u ON notifications.user_id = u.id_utilisateur
-                WHERE is_read = 0 AND notifications.user_id = ?
+                WHERE is_read = 0 AND notifications.user_id != ?
                 ORDER BY notifications.timestamp DESC
             `;
             queryParams = [user_id];
