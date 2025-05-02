@@ -1713,6 +1713,37 @@ exports.deleteReparation = (req, res) => {
   });
 };
 
+//Image réparation
+
+exports.reparationImage = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if(connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if(trxErr) {
+        connection.release();
+        console.error("Erreur transaction :", trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const { id_reparation, commentaire, id_type_photo } = req.body;
+
+        if (!id_reparation) {
+          throw new Error("Champs obligatoires manquants.");
+        }
+
+        const q = `INSERT INTO `
+      } catch (error) {
+        
+      }
+    })
+  })
+}
+
 //Carateristique rep
 exports.getCarateristiqueRep = (req, res) => {
 
