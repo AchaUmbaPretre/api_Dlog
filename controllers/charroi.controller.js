@@ -1766,7 +1766,6 @@ exports.reparationImage = (req, res) => {
   });
 };
 
-
 //Carateristique rep
 exports.getCarateristiqueRep = (req, res) => {
 
