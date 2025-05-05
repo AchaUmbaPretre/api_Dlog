@@ -3368,7 +3368,7 @@ exports.getSuiviReparation = async(req, res) => {
                     LEFT JOIN 
                     	utilisateur u ON sr.user_cr = u.id_utilisateur
                     LEFT JOIN 
-            			evaluation e ON sr.id_evaluation = e.id_evaluation
+            			  evaluation e ON sud.id_evaluation = e.id_evaluation
                     WHERE sud.id_reparation = ? OR sud.id_sub_inspection_gen = ?
                 `;
 
@@ -3378,39 +3378,57 @@ exports.getSuiviReparation = async(req, res) => {
     });
 };
 
+exports.getReparationOneV = async (req, res) => {
+  const { id_sud_reparation } = req.query;
+
+  if (!id_sud_reparation ) {
+    return res.status(400).json({ error: "L'identifiant de la réparation est requis." });
+  }
+
+  const q = `SELECT r.*, sud.* FROM reparations r
+            INNER JOIN sud_reparation sud ON r.id_reparation = sud.id_reparation
+            WHERE sud.id_sud_reparation = ?`;
+
+  db.query(q, [id_sud_reparation], (err, results) => {
+    if(err) {
+      console.error("Erreur lors de la récupération des sous-inspections :", err);
+      return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+    }
+
+    return res.status(200).json(results);
+  })
+}
+
 exports.getSuiviReparationOne = (req, res) => {
     const { id_sud_reparation } = req.query;
 
     const q = `
-           SELECT 
-            	sr.id_sud_reparation, 
-                sr.id_reparation, 
-                sr.montant, 
-                sr.description, 
-                sr.date_sortie, 
-                sr.id_statut,
-                tr.type_rep,
-                r.date_entree,
-                r.date_prevu,
-                f.nom_fournisseur,
-                v.immatriculation,
-                m.nom_marque,
-                e.nom_evaluation
-            FROM 
-            sud_reparation sr 
-            INNER JOIN 
-            	reparations r ON sr.id_reparation = r.id_reparation
-            INNER JOIN
-            	type_reparations tr ON sr.id_type_reparation = tr.id_type_reparation
-            INNER JOIN 
-            	fournisseur f ON r.id_fournisseur = f.id_fournisseur
-            INNER JOIN 
-            	vehicules v ON r.id_vehicule = v.id_vehicule
-            INNER JOIN 
-            	marque m ON v.id_marque = m.id_marque
-            LEFT JOIN 
-            	evaluation e ON sr.id_evaluation = e.id_evaluation
-            WHERE sr.id_sud_reparation = ?
+           SELECT sr.id_suivi_reparation, 
+                    sr.budget, 
+                    sr.commentaire, 
+                    sr.id_evaluation,
+                    sr.id_sud_reparation,
+                    sr.id_piece,
+                    sr.id_tache_rep,
+                    sr.statut_fin,
+                     p.nom AS type_rep, 
+                     ci.nom_cat_inspection AS nom_cat_inspection,
+                    u.nom,
+                    e.nom_evaluation,
+                    e.id_evaluation
+                    FROM 
+                    suivi_reparation sr 
+                    LEFT JOIN
+                         pieces p ON sr.id_piece = p.id
+                    LEFT JOIN 
+                        cat_inspection ci ON sr.id_tache_rep = ci.id_cat_inspection
+                    LEFT JOIN 
+                    	sud_reparation sud ON sr.id_sud_reparation = sud.id_sud_reparation
+                    LEFT JOIN 
+                    	utilisateur u ON sr.user_cr = u.id_utilisateur
+                    LEFT JOIN 
+            			    evaluation e ON sud.id_evaluation = e.id_evaluation
+                    WHERE sr.id_sud_reparation = ?
             `;
 
     db.query(q, [id_sud_reparation], (error, data) => {
