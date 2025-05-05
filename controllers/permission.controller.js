@@ -442,7 +442,7 @@ exports.getPermissionTache = (req, res) => {
 }; */
 
 exports.postPermissionTache = (req, res) => {
-  const { id_tache, id_user, id_ville, id_departement, can_view, can_edit, can_comment, can_delete } = req.body;
+  const { id_tache, id_user, user_cr, id_ville, id_departement, can_view, can_edit, can_comment, can_delete } = req.body;
 
   if (!id_tache || !id_user) {
     return res.status(400).send({ error: "Les champs 'id_tache' et 'id_user' sont requis." });
@@ -474,7 +474,7 @@ exports.postPermissionTache = (req, res) => {
           }
 
           // Ajoutez une notification après la mise à jour des permissions
-          addNotification(id_user, "Vos permissions pour une tâche ont été mises à jour.", res);
+          addNotification(user_cr, id_user, "Vos permissions pour une tâche ont été mises à jour.", res);
         });
       } else {
         // Insérez une nouvelle ligne
@@ -491,7 +491,7 @@ exports.postPermissionTache = (req, res) => {
           }
 
           // Ajoutez une notification après l'insertion des permissions
-          addNotification(id_user,"Vous avez reçu un accès à une nouvelle tâche.", res);
+          addNotification(user_cr, id_user, "Vous avez reçu un accès à une nouvelle tâche.", res);
         });
       }
     });
@@ -502,12 +502,12 @@ exports.postPermissionTache = (req, res) => {
 };
 
 // Fonction pour ajouter une notification
-const addNotification = (userId, message, res) => {
+const addNotification = (userId, receiverId, message, res) => {
   const qInsertNotification = `
-    INSERT INTO notifications (user_id, message, timestamp) 
-    VALUES (?, ?, NOW())
+    INSERT INTO notifications (user_id, target_user_id, message, timestamp) 
+    VALUES (?, ?, ?, NOW())
   `;
-  const valuesNotification = [userId, message];
+  const valuesNotification = [userId, receiverId, message];
 
   db.query(qInsertNotification, valuesNotification, (error) => {
     if (error) {
@@ -883,7 +883,7 @@ exports.postPermissionDeclaration = (req, res) => {
           }
 
           // Ajoutez une notification après la mise à jour des permissions
-          addNotification(id_user, "Vos permissions pour une declaration ont été mises à jour.", res);
+          addNotification(user_cr, id_user, "Vos permissions pour une declaration ont été mises à jour.", res);
         });
         
       } else {
@@ -899,9 +899,7 @@ exports.postPermissionDeclaration = (req, res) => {
             console.error("Erreur lors de l'insertion des permissions:", errorInsert);
             return res.status(500).send({ error: "Erreur lors de l'insertion des permissions." });
           }
-
-          // Ajoutez une notification après l'insertion des permissions
-          addNotification(id_user,"Vous avez reçu un accès à une nouvelle tâche.", res);
+          addNotification(user_cr, id_user, "Vous avez reçu un accès à une nouvelle tâche.", res);
         });
       }
     });

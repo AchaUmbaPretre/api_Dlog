@@ -3495,7 +3495,7 @@ exports.getSuiviReparationOne = (req, res) => {
     }
 }; */
 
-exports.postSuiviReparation = async (req, res) => {
+/* exports.postSuiviReparation = async (req, res) => {
     let connection;
 
     try {
@@ -3564,8 +3564,92 @@ exports.postSuiviReparation = async (req, res) => {
             }
         }
     }
-}
+} */
 
+exports.postSuiviReparation = async (req, res) => {
+      let connection;
+  
+      try {
+          const { id_evaluation, id_sud_reparation, user_cr, info } = req.body;
+  
+          if (!id_evaluation || !id_sud_reparation || !user_cr || !info || !Array.isArray(info)) {
+              return res.status(400).json({ error: 'Champs requis manquants ou invalides.' });
+          }
+  
+          connection = await new Promise((resolve, reject) => {
+              db.getConnection((err, conn) => {
+                  if (err) return reject(err);
+                  resolve(conn);
+              });
+          });
+  
+          const beginTransaction = util.promisify(connection.beginTransaction).bind(connection);
+          const commit = util.promisify(connection.commit).bind(connection);
+          const connQuery = util.promisify(connection.query).bind(connection);
+  
+          await beginTransaction();
+  
+          const insertQuery = `
+              INSERT INTO suivi_reparation (
+                  id_sud_reparation,
+                  id_tache_rep,
+                  id_piece,
+                  budget,
+                  commentaire,
+                  user_cr
+              ) VALUES (?, ?, ?, ?, ?, ?)
+          `;
+  
+          for (const rep of info) {
+              const repValues = [
+                  id_sud_reparation,
+                  rep.id_tache_rep,
+                  rep.id_piece,
+                  rep.budget,
+                  rep.commentaire,
+                  user_cr
+              ];
+              await connQuery(insertQuery, repValues);
+          }
+  
+          // Mise à jour de l'évaluation
+          const updateEvalQuery = `
+              UPDATE sud_reparation 
+              SET id_evaluation = ?
+              WHERE id_sud_reparation = ?
+          `;
+          await connQuery(updateEvalQuery, [id_evaluation, id_sud_reparation]);
+  
+          // Mise à jour du statut si évaluation est "OK (R)" → id_evaluation = 1
+          if (parseInt(id_evaluation) === 1) {
+              const updateStatusQuery = `
+                  UPDATE sud_reparation
+                  SET id_statut = 9
+                  WHERE id_sud_reparation = ?
+              `;
+              await connQuery(updateStatusQuery, [id_sud_reparation]);
+          }
+  
+          await commit();
+          connection.release();
+  
+          return res.status(201).json({ message: 'Suivi de réparation ajouté avec succès.' });
+  
+      } catch (error) {
+          console.error("Erreur pendant le traitement :", error);
+          if (connection) {
+              try {
+                  await connection.rollback();
+                  connection.release();
+              } catch (rollbackError) {
+                  console.error('Erreur pendant le rollback :', rollbackError);
+              }
+          }
+          return res.status(500).json({ error: 'Erreur interne du serveur.' });
+      }
+  };
+
+  
 exports.getEvaluation = (req, res) => {
 
     const q = `

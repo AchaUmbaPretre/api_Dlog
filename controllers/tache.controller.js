@@ -892,7 +892,7 @@ exports.getTacheDepartement = (req, res) => {
             LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
             LEFT JOIN departement ON tache.id_departement = departement.id_departement
         WHERE tache.id_departement = ?
-        GROUP BY tache.id_departement
+        GROUP BY tache.id_tache
     `;
 
     db.query(q, [id_departement], (error, results) => {
@@ -1237,258 +1237,6 @@ exports.postTache = async (req, res) => {
 };
  */
 
-/* exports.postTache = async (req, res) => {
-    try {
-        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`, `id_tache_parente`, `id_departement`, `id_client`, `id_frequence`, `id_control`, `id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`, `id_batiment`, `id_ville`, `id_cat_tache`, `id_corps_metier`, `doc`, `user_cr`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
-
-        const qCat = 'INSERT INTO categorie_tache(`id_tache`, `id_cat`, `cout`) VALUES (?, ?, ?)';
-        
-        const qPermissions = 'INSERT INTO permissions_tache(`id_tache`, `id_user`, `can_view`, `can_edit`, `can_comment`) VALUES (?, ?, ?, ?, ?)';
-
-        const qNotifications = `INSERT INTO notifications(user_id, message, timestamp) VALUES (?, ?, NOW())`;
-
-        const values = [
-            req.body.nom_tache,
-            req.body.description,
-            req.body.statut || 1,
-            req.body.date_debut,
-            req.body.date_fin,
-            req.body.priorite,
-            req.body.id_tache_parente,
-            req.body.id_departement,
-            req.body.id_client,
-            req.body.id_frequence,
-            req.body.id_control,
-            req.body.id_projet,
-            req.body.id_point_supervision,
-            req.body.responsable_principal,
-            req.body.id_demandeur,
-            req.body.id_batiment,
-            req.body.id_ville,
-            req.body.id_cat_tache,
-            req.body.id_corps_metier,
-            req.body.doc,
-            req.body.user_cr
-        ];
-
-        db.query(q, values, (error, data) => {
-            if (error) {
-                console.log(error);
-                return res.status(500).json({ error: "Erreur lors de l'insertion de la tâche." });
-            } else {
-                const insertId = data.insertId;
-
-                // Insérer dans audit_logs
-                const logQuery = `
-                    INSERT INTO audit_logs (action, user_id, id_tache, timestamp)
-                    VALUES (?, ?, ?, NOW())
-                `;
-                const logValues = [
-                    'Création',
-                    req.body.user_cr,
-                    insertId
-                ];
-
-                db.query(logQuery, logValues, (logError) => {
-                    if (logError) {
-                        console.log("Erreur lors de l'ajout du log d'audit:", logError);
-                    }
-                });
-
-                // Insérer les permissions de la tâche pour l'utilisateur créateur
-                const permissionValues = [
-                    insertId,  // id_tache
-                    req.body.user_cr,  // id_user
-                    1,  // can_view
-                    1,  // can_edit
-                    1   // can_comment
-                ];
-
-                db.query(qPermissions, permissionValues, (permError) => {
-                    if (permError) {
-                        console.log("Erreur lors de l'ajout des permissions de la tâche:", permError);
-                        return res.status(500).json({ error: "Erreur lors de l'ajout des permissions." });
-                    }
-                });
-
-                const notificationMessage = `Vous avez été ajouté à la tâche : ${req.body.nom_tache}`;
-
-                db.query(qNotifications,[req.body.user_cr, notificationMessage], (notifError) => {
-                    if(notifError){
-                        console.log(notifError)
-                    }
-                })
-
-
-                // Vérifiez que categories est un tableau et a des éléments
-                if (Array.isArray(req.body.categories) && req.body.categories.length > 0) {
-                    const categoryQueries = req.body.categories.map(datas => {
-                        return new Promise((resolve, reject) => {
-                            const catValues = [insertId, datas.id_cat, datas.cout];
-                            db.query(qCat, catValues, (errorCat) => {
-                                if (errorCat) {
-                                    console.log(errorCat);
-                                    reject(errorCat);
-                                } else {
-                                    resolve();
-                                }
-                            });
-                        });
-                    });
-
-                    // Attendre que toutes les requêtes d'insertion des catégories soient complétées
-                    Promise.all(categoryQueries)
-                        .then(() => {
-                            return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
-                        })
-                        .catch(() => {
-                            return res.status(500).json({ error: "Erreur lors de l'insertion des catégories." });
-                        });
-                } else {
-                    return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
-                }
-            }
-        });
-    } catch (error) {
-        console.error('Erreur lors de l\'ajout de la tâche :', error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
-    }
-}; */
-
-exports.postTache = async (req, res) => {
-    try {
-        const {
-            nom_tache, description, statut = 1, date_debut, date_fin, priorite,
-            id_tache_parente, id_departement, id_client, id_frequence, id_control,
-            id_projet, id_point_supervision, responsable_principal, id_demandeur,
-            id_batiment, id_ville, id_cat_tache, id_corps_metier, doc, user_cr, categories
-        } = req.body;
-
-        if (!nom_tache || !user_cr) {
-            return res.status(400).json({ error: "Les champs 'nom_tache' et 'user_cr' sont obligatoires." });
-        }
-
-        // Requête pour insérer une tâche
-        const insertTaskQuery = `
-            INSERT INTO tache (
-                nom_tache, description, statut, date_debut, date_fin, priorite, 
-                id_tache_parente, id_departement, id_client, id_frequence, 
-                id_control, id_projet, id_point_supervision, responsable_principal, 
-                id_demandeur, id_batiment, id_ville, id_cat_tache, 
-                id_corps_metier, doc, user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-
-        const taskValues = [
-            nom_tache, description, statut, date_debut, date_fin, priorite,
-            id_tache_parente, id_departement, id_client, id_frequence,
-            id_control, id_projet, id_point_supervision, responsable_principal,
-            id_demandeur, id_batiment, id_ville, id_cat_tache,
-            id_corps_metier, doc, user_cr
-        ];
-
-        // Exécuter l'insertion de la tâche
-        db.query(insertTaskQuery, taskValues, (taskError, taskResult) => {
-            if (taskError) {
-                console.error("Erreur lors de l'insertion de la tâche :", taskError);
-                return res.status(500).json({ error: "Erreur lors de l'insertion de la tâche." });
-            }
-
-            const taskId = taskResult.insertId;
-
-            // Insérer dans les logs d'audit
-            const auditLogQuery = `
-                INSERT INTO audit_logs (action, user_id, id_tache, timestamp)
-                VALUES ('Création', ?, ?, NOW())
-            `;
-            db.query(auditLogQuery, [user_cr, taskId], (auditError) => {
-                if (auditError) {
-                    console.error("Erreur lors de l'ajout des logs d'audit :", auditError);
-                }
-            });
-
-            // Ajouter les permissions pour le créateur
-            const permissionsQuery = `
-                INSERT INTO permissions_tache (id_tache, id_user, can_view, can_edit, can_comment)
-                VALUES (?, ?, 1, 1, 1)
-            `;
-            db.query(permissionsQuery, [taskId, user_cr], (permError) => {
-                if (permError) {
-                    console.error("Erreur lors de l'ajout des permissions :", permError);
-                }
-            });
-
-            // Envoi de la notification au créateur
-            const notificationMessage = `Une nouvelle tâche vient d'être créée avec le titre de : ${nom_tache}`;
-            const notificationsQuery = `
-                INSERT INTO notifications (user_id, message, timestamp)
-                VALUES (?, ?, NOW())
-            `;
-            db.query(notificationsQuery, [user_cr, notificationMessage], (notifError, notifData) => {
-                if (notifError) {
-                    console.error("Erreur lors de l'envoi de la notification :", notifError);
-                }
-                const insertNotif = notifData.insertId
-                // Notification en temps réel via Socket.IO
-                const socketId = onlineUsers.get(user_cr);
-                if (socketId) {
-                    const io = getSocketIO();
-                    io.to(socketId).emit('notification', {
-                        message: notificationMessage,
-                        taskId,
-                        id_notif : insertNotif
-                    });
-                    console.log(`Notification envoyée en temps réel à l'utilisateur ${user_cr}`);
-                }
-                // Notifier l'administrateur
-                    notifyAdmin({ nom_tache, id_tache:taskId,id_notif : insertNotif  });
-
-
-            });
-
-            // Gérer les catégories si elles existent
-            if (Array.isArray(categories) && categories.length > 0) {
-                const categoryQueries = categories.map(({ id_cat, cout }) => {
-                    return new Promise((resolve, reject) => {
-                        const categoryQuery = `
-                            INSERT INTO categorie_tache (id_tache, id_cat, cout)
-                            VALUES (?, ?, ?)
-                        `;
-                        db.query(categoryQuery, [taskId, id_cat, cout], (catError) => {
-                            if (catError) {
-                                console.error("Erreur lors de l'insertion des catégories :", catError);
-                                reject(catError);
-                            } else {
-                                resolve();
-                            }
-                        });
-                    });
-                });
-
-                // Attendre que toutes les catégories soient insérées
-                Promise.all(categoryQueries)
-                    .then(() => {
-                        return res.status(201).json({
-                            message: 'Tâche ajoutée avec succès.',
-                            data: { nom_tache }
-                        });
-                    })
-                    .catch((catError) => {
-                        console.error("Erreur lors de l'insertion des catégories :", catError);
-                        return res.status(500).json({ error: "Erreur lors de l'insertion des catégories." });
-                    });
-            } else {
-                return res.status(201).json({
-                    message: 'Tâche ajoutée avec succès.',
-                    data: { nom_tache }
-                });
-            }
-        });
-    } catch (error) {
-        console.error("Erreur inattendue lors de l'ajout de la tâche :", error);
-        return res.status(500).json({ error: "Une erreur inattendue s'est produite." });
-    }
-};
 
 /*1 exports.postTache = async (req, res) => {
     console.log(req.body.categories)
@@ -1628,6 +1376,262 @@ exports.postTache = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 }; */
+
+/* exports.postTache = async (req, res) => {
+    try {
+        const {
+            nom_tache, description, statut = 1, date_debut, date_fin, priorite,
+            id_tache_parente, id_departement, id_client, id_frequence, id_control,
+            id_projet, id_point_supervision, responsable_principal, id_demandeur,
+            id_batiment, id_ville, id_cat_tache, id_corps_metier, doc, user_cr, categories
+        } = req.body;
+
+        if (!nom_tache || !user_cr) {
+            return res.status(400).json({ error: "Les champs 'nom_tache' et 'user_cr' sont obligatoires." });
+        }
+
+        // Requête pour insérer une tâche
+        const insertTaskQuery = `
+            INSERT INTO tache (
+                nom_tache, description, statut, date_debut, date_fin, priorite, 
+                id_tache_parente, id_departement, id_client, id_frequence, 
+                id_control, id_projet, id_point_supervision, responsable_principal, 
+                id_demandeur, id_batiment, id_ville, id_cat_tache, 
+                id_corps_metier, doc, user_cr
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const taskValues = [
+            nom_tache, description, statut, date_debut, date_fin, priorite,
+            id_tache_parente, id_departement, id_client, id_frequence,
+            id_control, id_projet, id_point_supervision, responsable_principal,
+            id_demandeur, id_batiment, id_ville, id_cat_tache,
+            id_corps_metier, doc, user_cr
+        ];
+
+        // Exécuter l'insertion de la tâche
+        db.query(insertTaskQuery, taskValues, (taskError, taskResult) => {
+            if (taskError) {
+                console.error("Erreur lors de l'insertion de la tâche :", taskError);
+                return res.status(500).json({ error: "Erreur lors de l'insertion de la tâche." });
+            }
+
+            const taskId = taskResult.insertId;
+
+            // Insérer dans les logs d'audit
+            const auditLogQuery = `
+                INSERT INTO audit_logs (action, user_id, id_tache, timestamp)
+                VALUES ('Création', ?, ?, NOW())
+            `;
+            db.query(auditLogQuery, [user_cr, taskId], (auditError) => {
+                if (auditError) {
+                    console.error("Erreur lors de l'ajout des logs d'audit :", auditError);
+                }
+            });
+
+            // Ajouter les permissions pour le créateur
+            const permissionsQuery = `
+                INSERT INTO permissions_tache (id_tache, id_user, can_view, can_edit, can_comment)
+                VALUES (?, ?, 1, 1, 1)
+            `;
+            db.query(permissionsQuery, [taskId, user_cr], (permError) => {
+                if (permError) {
+                    console.error("Erreur lors de l'ajout des permissions :", permError);
+                }
+            });
+
+            // Envoi de la notification au créateur
+            const notificationMessage = `Une nouvelle tâche vient d'être créée avec le titre de : ${nom_tache}`;
+            const notificationsQuery = `
+                INSERT INTO notifications (user_id, message, timestamp)
+                VALUES (?, ?, NOW())
+            `;
+            db.query(notificationsQuery, [user_cr, notificationMessage], (notifError, notifData) => {
+                if (notifError) {
+                    console.error("Erreur lors de l'envoi de la notification :", notifError);
+                }
+                const insertNotif = notifData.insertId
+                // Notification en temps réel via Socket.IO
+                const socketId = onlineUsers.get(user_cr);
+                if (socketId) {
+                    const io = getSocketIO();
+                    io.to(socketId).emit('notification', {
+                        message: notificationMessage,
+                        taskId,
+                        id_notif : insertNotif
+                    });
+                    console.log(`Notification envoyée en temps réel à l'utilisateur ${user_cr}`);
+                }
+                // Notifier l'administrateur
+                    notifyAdmin({ nom_tache, id_tache:taskId,id_notif : insertNotif  });
+
+
+            });
+
+            // Gérer les catégories si elles existent
+            if (Array.isArray(categories) && categories.length > 0) {
+                const categoryQueries = categories.map(({ id_cat, cout }) => {
+                    return new Promise((resolve, reject) => {
+                        const categoryQuery = `
+                            INSERT INTO categorie_tache (id_tache, id_cat, cout)
+                            VALUES (?, ?, ?)
+                        `;
+                        db.query(categoryQuery, [taskId, id_cat, cout], (catError) => {
+                            if (catError) {
+                                console.error("Erreur lors de l'insertion des catégories :", catError);
+                                reject(catError);
+                            } else {
+                                resolve();
+                            }
+                        });
+                    });
+                });
+
+                // Attendre que toutes les catégories soient insérées
+                Promise.all(categoryQueries)
+                    .then(() => {
+                        return res.status(201).json({
+                            message: 'Tâche ajoutée avec succès.',
+                            data: { nom_tache }
+                        });
+                    })
+                    .catch((catError) => {
+                        console.error("Erreur lors de l'insertion des catégories :", catError);
+                        return res.status(500).json({ error: "Erreur lors de l'insertion des catégories." });
+                    });
+            } else {
+                return res.status(201).json({
+                    message: 'Tâche ajoutée avec succès.',
+                    data: { nom_tache }
+                });
+            }
+        });
+    } catch (error) {
+        console.error("Erreur inattendue lors de l'ajout de la tâche :", error);
+        return res.status(500).json({ error: "Une erreur inattendue s'est produite." });
+    }
+}; */
+
+exports.postTache = async (req, res) => {
+    try {
+        const {
+            nom_tache, description, statut = 1, date_debut, date_fin, priorite,
+            id_tache_parente, id_departement, id_client, id_frequence, id_control,
+            id_projet, id_point_supervision, responsable_principal, id_demandeur,
+            id_batiment, id_ville, id_cat_tache, id_corps_metier, doc, user_cr, categories
+        } = req.body;
+
+        // Validation des champs requis
+        if (!nom_tache || !user_cr) {
+            return res.status(400).json({ error: "Les champs 'nom_tache' et 'user_cr' sont obligatoires." });
+        }
+
+        // Requête pour insérer une tâche
+        const insertTaskQuery = `
+            INSERT INTO tache (
+                nom_tache, description, statut, date_debut, date_fin, priorite, 
+                id_tache_parente, id_departement, id_client, id_frequence, 
+                id_control, id_projet, id_point_supervision, responsable_principal, 
+                id_demandeur, id_batiment, id_ville, id_cat_tache, 
+                id_corps_metier, doc, user_cr
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const taskValues = [
+            nom_tache, description, statut, date_debut, date_fin, priorite,
+            id_tache_parente, id_departement, id_client, id_frequence,
+            id_control, id_projet, id_point_supervision, responsable_principal,
+            id_demandeur, id_batiment, id_ville, id_cat_tache,
+            id_corps_metier, doc, user_cr
+        ];
+
+        // Exécuter l'insertion de la tâche
+        db.query(insertTaskQuery, taskValues, (taskError, taskResult) => {
+            if (taskError) {
+                console.error("Erreur lors de l'insertion de la tâche :", taskError);
+                return res.status(500).json({ error: "Erreur lors de l'insertion de la tâche." });
+            }
+
+            const taskId = taskResult.insertId;
+
+            // Insérer dans les logs d'audit
+            const auditLogQuery = `
+                INSERT INTO audit_logs (action, user_id, id_tache, timestamp)
+                VALUES ('Création', ?, ?, NOW())
+            `;
+            db.query(auditLogQuery, [user_cr, taskId], (auditError) => {
+                if (auditError) {
+                    console.error("Erreur lors de l'ajout des logs d'audit :", auditError);
+                }
+            });
+
+            // Ajouter les permissions pour le créateur
+            const permissionsQuery = `
+                INSERT INTO permissions_tache (id_tache, id_user, can_view, can_edit, can_comment)
+                VALUES (?, ?, 1, 1, 1)
+            `;
+            db.query(permissionsQuery, [taskId, user_cr], (permError) => {
+                if (permError) {
+                    console.error("Erreur lors de l'ajout des permissions :", permError);
+                }
+            });
+
+            // Envoi de la notification au créateur
+            const notificationMessage = `Une nouvelle tâche vient d'être créée avec le titre de : ${nom_tache}`;
+            const notificationsQuery = `
+                INSERT INTO notifications (user_id, message, timestamp)
+                VALUES (?, ?, NOW())
+            `;
+            db.query(notificationsQuery, [user_cr, notificationMessage], (notifError, notifData) => {
+                if (notifError) {
+                    console.error("Erreur lors de l'envoi de la notification :", notifError);
+                }
+
+            });
+
+            // Gérer les catégories si elles existent
+            if (Array.isArray(categories) && categories.length > 0) {
+                const categoryQueries = categories.map(({ id_cat, cout }) => {
+                    return new Promise((resolve, reject) => {
+                        const categoryQuery = `
+                            INSERT INTO categorie_tache (id_tache, id_cat, cout)
+                            VALUES (?, ?, ?)
+                        `;
+                        db.query(categoryQuery, [taskId, id_cat, cout], (catError) => {
+                            if (catError) {
+                                console.error("Erreur lors de l'insertion des catégories :", catError);
+                                reject(catError);
+                            } else {
+                                resolve();
+                            }
+                        });
+                    });
+                });
+
+                // Attendre que toutes les catégories soient insérées
+                Promise.all(categoryQueries)
+                    .then(() => {
+                        return res.status(201).json({
+                            message: 'Tâche ajoutée avec succès.',
+                            data: { nom_tache }
+                        });
+                    })
+                    .catch((catError) => {
+                        console.error("Erreur lors de l'insertion des catégories :", catError);
+                        return res.status(500).json({ error: "Erreur lors de l'insertion des catégories." });
+                    });
+            } else {
+                return res.status(201).json({
+                    message: 'Tâche ajoutée avec succès.',
+                    data: { nom_tache }
+                });
+            }
+        });
+    } catch (error) {
+        console.error("Erreur inattendue lors de l'ajout de la tâche :", error);
+        return res.status(500).json({ error: "Une erreur inattendue s'est produite." });
+    }
+};
 
 exports.postTacheExcel = async (req, res) => {
     try {
@@ -2445,7 +2449,7 @@ exports.getAuditLogsTache = (req, res) => {
 };
 
 //Notifications
-exports.getNotificationTache = (req, res) => {
+/* exports.getNotificationTache = (req, res) => {
     const { user_id } = req.query;
 
     const checkRoleQuery = `SELECT role FROM utilisateur WHERE id_utilisateur = ?`;
@@ -2494,7 +2498,62 @@ exports.getNotificationTache = (req, res) => {
             return res.status(200).json(data);
         });
     });
+}; */
+
+exports.getNotificationTache = (req, res) => {
+    const { user_id } = req.query;
+
+    const checkRoleQuery = `SELECT role FROM utilisateur WHERE id_utilisateur = ?`;
+
+    db.query(checkRoleQuery, [user_id], (error, result) => {
+        if (error) {
+            return res.status(500).json({ error: 'Erreur serveur lors de la vérification du rôle.' });
+        }
+
+        if (!result.length) {
+            return res.status(403).json({ error: 'Utilisateur non trouvé.' });
+        }
+
+        const role = result[0].role;
+
+        let notificationQuery;
+        let queryParams;
+
+        if (role === 'Admin') {
+            // Admin : notifications destinées à d'autres que lui, et non créées par lui
+            notificationQuery = `
+                SELECT notifications.*, u.nom, u.prenom 
+                FROM notifications
+                INNER JOIN utilisateur u ON notifications.user_id = u.id_utilisateur
+                WHERE is_read = 0 
+                AND notifications.user_id != ?
+                AND notifications.target_user_id != ?
+                ORDER BY notifications.timestamp DESC
+            `;
+            queryParams = [user_id, user_id];
+        } else {
+            // Utilisateur normal : notifications destinées à lui
+            notificationQuery = `
+                SELECT notifications.*, u.nom, u.prenom 
+                FROM notifications
+                INNER JOIN utilisateur u ON notifications.user_id = u.id_utilisateur
+                WHERE is_read = 0 
+                AND notifications.target_user_id = ?
+                ORDER BY notifications.timestamp DESC
+            `;
+            queryParams = [user_id];
+        }
+
+        db.query(notificationQuery, queryParams, (error, data) => {
+            if (error) {
+                return res.status(500).json({ error: 'Erreur serveur lors de la récupération des notifications.' });
+            }
+
+            return res.status(200).json(data);
+        });
+    });
 };
+
 
 exports.getNotificationTacheOne = (req, res) => {
     const { id_notification } = req.query;
