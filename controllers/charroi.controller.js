@@ -3415,7 +3415,10 @@ exports.getSuiviReparationOne = (req, res) => {
                      ci.nom_cat_inspection AS nom_cat_inspection,
                     u.nom,
                     e.nom_evaluation,
-                    e.id_evaluation
+                    e.id_evaluation,
+                    v.immatriculation,
+                    m.nom_marque,
+                    v.immatriculation
                     FROM 
                     suivi_reparation sr 
                     LEFT JOIN
@@ -3426,6 +3429,12 @@ exports.getSuiviReparationOne = (req, res) => {
                     	sud_reparation sud ON sr.id_sud_reparation = sud.id_sud_reparation
                     LEFT JOIN 
                     	utilisateur u ON sr.user_cr = u.id_utilisateur
+                    LEFT JOIN 
+                    	reparations r ON sud.id_reparation = r.id_reparation
+                    LEFT JOIN 
+                    	vehicules v ON r.id_vehicule = v.id_vehicule
+                    LEFT JOIN 
+                    	marque m ON v.id_marque = m.id_marque
                     LEFT JOIN 
             			    evaluation e ON sud.id_evaluation = e.id_evaluation
                     WHERE sr.id_sud_reparation = ?
