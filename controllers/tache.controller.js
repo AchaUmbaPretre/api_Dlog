@@ -2527,10 +2527,9 @@ exports.getNotificationTache = (req, res) => {
                 INNER JOIN utilisateur u ON notifications.user_id = u.id_utilisateur
                 WHERE is_read = 0 
                 AND notifications.user_id != ?
-                AND notifications.target_user_id != ?
                 ORDER BY notifications.timestamp DESC
             `;
-            queryParams = [user_id, user_id];
+            queryParams = [user_id];
         } else {
             // Utilisateur normal : notifications destinées à lui
             notificationQuery = `
@@ -2553,7 +2552,6 @@ exports.getNotificationTache = (req, res) => {
         });
     });
 };
-
 
 exports.getNotificationTacheOne = (req, res) => {
     const { id_notification } = req.query;
