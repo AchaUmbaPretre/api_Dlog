@@ -140,4 +140,8 @@ router.get('/document_inspection', charroiController.getDocumentInspection)
 //Historique
 router.get('/historique', charroiController.getHistorique)
 
+router.get('/reclamation', charroiController.getReclamation)
+router.get('/reclamationOne', charroiController.getReclamationOne)
+router.post('/reclamation', charroiController.postReclamation)
+
 module.exports = router;

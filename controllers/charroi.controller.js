@@ -3418,7 +3418,8 @@ exports.getSuiviReparationOne = (req, res) => {
                     e.id_evaluation,
                     v.immatriculation,
                     m.nom_marque,
-                    v.immatriculation
+                    v.immatriculation,
+                    tr.type_rep AS nom_type_rep
                     FROM 
                     suivi_reparation sr 
                     LEFT JOIN
@@ -3437,6 +3438,7 @@ exports.getSuiviReparationOne = (req, res) => {
                     	marque m ON v.id_marque = m.id_marque
                     LEFT JOIN 
             			    evaluation e ON sud.id_evaluation = e.id_evaluation
+                     LEFT JOIN type_reparations tr ON sud.id_type_reparation = tr.id_type_reparation
                     WHERE sr.id_sud_reparation = ?
             `;
 
@@ -4157,3 +4159,126 @@ exports.getHistoriqueNotification = (req, res) => {
       return res.status(200).json(data);
   });
 };
+
+exports.getReclamation = (req, res) => {
+  const q =`SELECT rs.* FROM reclamations rs` 
+
+  db.query(q, (err, result) => {
+    if(err){
+      console.error('Erreur lors de la récupération', err)
+      return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+    }
+
+    return res.status(200).json(result);
+  })
+}
+
+exports.getReclamationOne = (req, res) => {
+  const { id_sub_reclamation } = req.query;
+
+  const q = `SELECT rs.id_reclamations, 
+                rs.intitule, 
+                rs.description, 
+                rs.etat, 
+                rs.date_debut, 
+                rs.date_fin, 
+                rs.raison_fin, 
+                rs.montant 
+              FROM reclamations rs
+            INNER JOIN sub_reclamation subr ON rs.id_reclamations = subr.id_reclamation
+            WHERE `
+
+  db.query(q, [id_sub_reclamation], (err, result) => {
+
+    if(err){
+      console.error('Erreur lors de la récupération', err)
+      return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+    }
+
+    return res.status(200).json(result);
+  })
+}
+
+exports.postReclamation = () => {
+  db.getConnection((connErr, connection) => {
+    if(connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if(trxErr) {
+        connection.release();
+        console.error("Erreur transaction :", trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+      try {
+        const { id_sud_reparation, 
+                intitule, 
+                description, 
+                etat, 
+                date_debut, 
+                date_fin, 
+                raison_fin, 
+                montant, 
+                sub_reclamation
+              } = req.body;
+
+          const insertReclame = `INSERT INTO reclamations (
+              id_sud_reparation, intitule, description, etat, date_debut, date_fin, raison_fin, montant, user_cr
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+          const Reclamevalues = [
+            id_sud_reparation,
+            intitule,
+            description,
+            etat,
+            date_debut,
+            date_fin,
+            raison_fin, 
+            montant
+          ]
+        const [insertReclameResult] = await queryPromise(connection, insertReclame, Reclamevalues)
+        const insertId = insertReclameResult.insertId;
+
+        const qSud = `INSERT INTO sub_reclamation (id_reclamation, id_type_reparation, id_piece, cout, description) VALUES (?, ?, ?, ?, ?)`;
+
+        for (const recl of sub_reclamation) {
+          const reclValues = [
+            insertId,
+            recl.	id_type_reparation,
+            recl.	id_piece,
+            recl.cout,
+            recl.description
+          ]
+
+          const [insertSub] = await queryPromise(connection, qSub, reclValues)
+
+          const idSub = insertSub.insertId;  
+          
+          connection.commit((commitErr) => {
+            connection.release();
+            if(commitErr) {
+              console.error("Erreur commit : ", commitErr)
+              return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+            }
+          })
+  
+          return res.status(201).json({
+            message: "Inspection enregistrée avec succès.",
+            data: { id: insertId },
+            subData: {ids: idSub}
+          });
+        }
+
+      } catch (error) {
+        console.error("Erreur dans la transaction :", error);
+        connection.rollback(() => {
+          connection.release();
+          const msg = error.message || "Erreur inattendue lors du traitement.";
+          return res.status(500).json({ error: msg });
+        });
+      }
+    })
+  })
+}
