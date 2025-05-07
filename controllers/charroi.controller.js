@@ -1060,8 +1060,12 @@ exports.getReparationOneV = async (req, res) => {
     return res.status(400).json({ error: "L'identifiant de la réparation est requis." });
   }
 
-  const q = `SELECT r.*, sud.* FROM reparations r
+  const q = `SELECT r.*, sud.*, v.immatriculation, m.nom_marque, tr.type_rep, ev.nom_evaluation FROM reparations r
             INNER JOIN sud_reparation sud ON r.id_reparation = sud.id_reparation
+            INNER JOIN vehicules v ON r.id_vehicule = v.id_vehicule
+            INNER JOIN marque m ON v.id_marque = m.id_marque
+            LEFT JOIN type_reparations tr ON sud.id_type_reparation = tr.id_type_reparation
+            LEFT JOIN evaluation ev ON sud.id_evaluation = ev.id_evaluation
             WHERE sud.id_sud_reparation = ?`;
 
   db.query(q, [id_sud_reparation], (err, results) => {
@@ -1456,9 +1460,9 @@ exports.postReparation = (req, res) => {
             id_sub_inspection_gen
           } = req.body;
   
-          if (!id_vehicule || !cout || !Array.isArray(reparations)) {
+          if (!id_vehicule || cout === null || cout === undefined || !Array.isArray(reparations)) {
             throw new Error("Certains champs obligatoires sont manquants ou invalides.");
-          }
+          }        
   
           const insertMainQuery = `
             INSERT INTO reparations (
@@ -1611,7 +1615,6 @@ exports.postReparation = (req, res) => {
       });
     });
 };
-
 
 /* exports.deleteReparation = (req, res) => {
     const {id_sud_reparation, user_id } = req.body;
@@ -2114,13 +2117,13 @@ exports.getInspectionGen = (req, res) => {
             sv.nom_statut_vehicule
         FROM inspection_gen ig
         INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
-        INNER JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
+        LEFT JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
         INNER JOIN marque m ON v.id_marque = m.id_marque
         INNER JOIN sub_inspection_gen sug ON ig.id_inspection_gen = sug.id_inspection_gen
         INNER JOIN type_statut_suivi tss ON sug.statut = tss.id_type_statut_suivi
         INNER JOIN type_reparations tr ON sug.id_type_reparation = tr.id_type_reparation
         LEFT JOIN inspection_valide iv ON sug.id_sub_inspection_gen = iv.id_sub_inspection_gen
-        INNER JOIN statut_vehicule sv ON ig.id_statut_vehicule = sv.id_statut_vehicule
+        LEFT JOIN statut_vehicule sv ON ig.id_statut_vehicule = sv.id_statut_vehicule
         ${whereSQL}
         ORDER BY ig.created_at DESC
     `;
@@ -2141,7 +2144,7 @@ exports.getInspectionGen = (req, res) => {
             FROM sub_inspection_gen sug
             INNER JOIN inspection_gen ig ON sug.id_inspection_gen = ig.id_inspection_gen
             INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
-            INNER JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
+            LEFT JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
             INNER JOIN marque m ON v.id_marque = m.id_marque
             LEFT JOIN inspection_valide iv ON sug.id_sub_inspection_gen = iv.id_sub_inspection_gen
             INNER JOIN type_reparations tr ON sug.id_type_reparation = tr.id_type_reparation
@@ -3043,7 +3046,7 @@ exports.getValidationInspection = (req, res) => {
                     SELECT iv.id_sub_inspection_gen, iv.id_type_reparation, iv.manoeuvre, iv.cout, ig.id_vehicule, iv.budget_valide, sub.avis, sub.commentaire as description, ig.kilometrage, ig.id_statut_vehicule FROM inspection_valide iv
                         INNER JOIN sub_inspection_gen sub ON iv.id_sub_inspection_gen = sub.id_sub_inspection_gen
                         INNER JOIN inspection_gen ig ON sub.id_inspection_gen = ig.id_inspection_gen
-                        WHERE iv.id_sub_inspection_gen =  ?
+                        WHERE iv.id_sub_inspection_gen =  ? AND sub.est_supprime = 0
                     `;
 
     db.query(query, [id_sub_inspection_gen], (err, results) => {
@@ -3378,27 +3381,6 @@ exports.getSuiviReparation = async(req, res) => {
     });
 };
 
-exports.getReparationOneV = async (req, res) => {
-  const { id_sud_reparation } = req.query;
-
-  if (!id_sud_reparation ) {
-    return res.status(400).json({ error: "L'identifiant de la réparation est requis." });
-  }
-
-  const q = `SELECT r.*, sud.* FROM reparations r
-            INNER JOIN sud_reparation sud ON r.id_reparation = sud.id_reparation
-            WHERE sud.id_sud_reparation = ?`;
-
-  db.query(q, [id_sud_reparation], (err, results) => {
-    if(err) {
-      console.error("Erreur lors de la récupération des sous-inspections :", err);
-      return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
-    }
-
-    return res.status(200).json(results);
-  })
-}
-
 exports.getSuiviReparationOne = (req, res) => {
     const { id_sud_reparation } = req.query;
 
@@ -3602,7 +3584,7 @@ exports.postSuiviReparation = async (req, res) => {
           const { id_evaluation, id_sud_reparation, user_cr, info } = req.body;
   
           if (!id_evaluation || !id_sud_reparation || !user_cr || !info || !Array.isArray(info)) {
-              return res.status(400).json({ error: 'Champs requis manquants ou invalides.' });
+            return res.status(400).json({ error: 'Champs requis manquants ou invalides.' });
           }
   
           connection = await new Promise((resolve, reject) => {
@@ -3677,6 +3659,61 @@ exports.postSuiviReparation = async (req, res) => {
           return res.status(500).json({ error: 'Erreur interne du serveur.' });
       }
   };
+
+exports.putSuiviReparation = async (req, res) => {
+    let connection;
+
+    try {
+        const { id_suivi_reparation } = req.query;
+        const { id_tache_rep, id_piece, budget, commentaire, user_mod } = req.body;
+
+        if (!id_suivi_reparation || !user_mod) {
+            return res.status(400).json({ error: 'Identifiant du suivi ou utilisateur manquant.' });
+        }
+
+        connection = await new Promise((resolve, reject) => {
+            db.getConnection((err, conn) => {
+                if (err) return reject(err);
+                resolve(conn);
+            });
+        });
+
+        const connQuery = util.promisify(connection.query).bind(connection);
+
+        const updateQuery = `
+            UPDATE suivi_reparation
+            SET 
+                id_tache_rep = ?,
+                id_piece = ?,
+                budget = ?,
+                commentaire = ?,
+            WHERE id_suivi_reparation = ?
+        `;
+
+        const values = [
+            id_tache_rep || null,
+            id_piece || null,
+            budget || 0,
+            commentaire || '',
+            id_suivi_reparation
+        ];
+
+        const result = await connQuery(updateQuery, values);
+
+        connection.release();
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Aucun suivi trouvé avec cet ID.' });
+        }
+
+        return res.status(200).json({ message: 'Suivi de réparation mis à jour avec succès.' });
+
+    } catch (error) {
+        console.error("Erreur lors de la mise à jour :", error);
+        if (connection) connection.release();
+        return res.status(500).json({ error: 'Erreur interne du serveur.' });
+    }
+};
 
   
 exports.getEvaluation = (req, res) => {
@@ -4161,9 +4198,39 @@ exports.getHistoriqueNotification = (req, res) => {
 };
 
 exports.getReclamation = (req, res) => {
-  const q =`SELECT rs.* FROM reclamations rs` 
+  const { id_reparation, inspectionId } = req.query;
 
-  db.query(q, (err, result) => {
+  const q = `SELECT rs.id_reclamations, 
+                rs.intitule, 
+                rs.description, 
+                rs.etat, 
+                rs.date_debut, 
+                rs.date_fin, 
+                rs.raison_fin, 
+                rs.montant,
+                tr.type_rep,
+                ev.nom_evaluation,
+                subr.description AS desc2,
+                subr.cout,
+                subr.id_sub_reclamation,
+                u.nom
+              FROM reclamations rs
+            INNER JOIN 
+            	sub_reclamation subr ON rs.id_reclamations = subr.id_reclamation
+            INNER JOIN 
+            	type_reparations tr ON subr.id_type_reparation = tr.id_type_reparation
+            INNER JOIN 
+            	evaluation ev ON rs.etat = ev.id_evaluation
+            INNER JOIN 
+            	sud_reparation sud ON rs.id_sud_reparation = sud.id_sud_reparation
+            INNER JOIN 
+              reparations r ON sud.id_reparation = r.id_reparation
+            INNER JOIN 
+            	utilisateur u ON rs.user_cr = u.id_utilisateur
+            WHERE r.id_reparation = ? OR sud.id_sub_inspection_gen = ?
+            ` 
+
+  db.query(q, [id_reparation, inspectionId], (err, result) => {
     if(err){
       console.error('Erreur lors de la récupération', err)
       return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
@@ -4183,10 +4250,18 @@ exports.getReclamationOne = (req, res) => {
                 rs.date_debut, 
                 rs.date_fin, 
                 rs.raison_fin, 
-                rs.montant 
+                rs.montant,
+                tr.type_rep,
+                ev.nom_evaluation,
+                subr.description AS desc2,
+                subr.cout
               FROM reclamations rs
-            INNER JOIN sub_reclamation subr ON rs.id_reclamations = subr.id_reclamation
-            WHERE `
+            INNER JOIN 
+            	sub_reclamation subr ON rs.id_reclamations = subr.id_reclamation
+            INNER JOIN 
+            	type_reparations tr ON subr.id_type_reparation = tr.id_type_reparation
+            INNER JOIN evaluation ev ON rs.etat = ev.id_evaluation
+            WHERE subr.id_sub_reclamation = ?`
 
   db.query(q, [id_sub_reclamation], (err, result) => {
 
@@ -4199,7 +4274,7 @@ exports.getReclamationOne = (req, res) => {
   })
 }
 
-exports.postReclamation = () => {
+exports.postReclamation = (req, res) => {
   db.getConnection((connErr, connection) => {
     if(connErr) {
       console.error("Erreur de connexion DB :", connErr);
@@ -4216,12 +4291,13 @@ exports.postReclamation = () => {
         const { id_sud_reparation, 
                 intitule, 
                 description, 
-                etat, 
+                id_evaluation, 
                 date_debut, 
                 date_fin, 
                 raison_fin, 
                 montant, 
-                sub_reclamation
+                sub_reclamation,
+                user_cr
               } = req.body;
 
           const insertReclame = `INSERT INTO reclamations (
@@ -4232,11 +4308,12 @@ exports.postReclamation = () => {
             id_sud_reparation,
             intitule,
             description,
-            etat,
+            id_evaluation,
             date_debut,
             date_fin,
             raison_fin, 
-            montant
+            montant,
+            user_cr
           ]
         const [insertReclameResult] = await queryPromise(connection, insertReclame, Reclamevalues)
         const insertId = insertReclameResult.insertId;
@@ -4252,7 +4329,7 @@ exports.postReclamation = () => {
             recl.description
           ]
 
-          const [insertSub] = await queryPromise(connection, qSub, reclValues)
+          const [insertSub] = await queryPromise(connection, qSud, reclValues)
 
           const idSub = insertSub.insertId;  
           
@@ -4282,3 +4359,4 @@ exports.postReclamation = () => {
     })
   })
 }
+
