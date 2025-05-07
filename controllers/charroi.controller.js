@@ -3987,7 +3987,8 @@ exports.getTrackingGen = (req, res) => {
           WHERE (v.immatriculation LIKE ? OR m.nom_marque LIKE ?)
             AND (sr.id_sub_inspection_gen IS NULL OR sr.id_sub_inspection_gen = 0)
       ) AS unioned
-      GROUP BY origine;
+      GROUP BY origine
+      ORDER BY ;
     `;
   
     db.query(
@@ -4189,7 +4190,8 @@ exports.getHistorique = (req, res) => {
                 LEFT JOIN utilisateur u ON hv.user_cr = u.id_utilisateur
                 LEFT JOIN vehicules v ON hv.id_vehicule = v.id_vehicule
                 LEFT JOIN statut_vehicule sv ON hv.id_statut_vehicule = sv.id_statut_vehicule
-                LEFT JOIN marque m ON v.id_marque = m.id_marque`;
+                LEFT JOIN marque m ON v.id_marque = m.id_marque
+                ORDER BY hv.created_at DESC`;
 
     db.query(q, (error, data) => {
         if (error) {
