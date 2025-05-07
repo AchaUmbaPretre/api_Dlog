@@ -3665,10 +3665,10 @@ exports.putSuiviReparation = async (req, res) => {
 
     try {
         const { id_suivi_reparation } = req.query;
-        const { id_tache_rep, id_piece, budget, commentaire, user_mod } = req.body;
+        const { id_tache_rep, id_piece, budget, commentaire, id_evaluation, id_sud_reparation } = req.body;
 
-        if (!id_suivi_reparation || !user_mod) {
-            return res.status(400).json({ error: 'Identifiant du suivi ou utilisateur manquant.' });
+        if (!id_suivi_reparation || !id_evaluation || !id_sud_reparation) {
+            return res.status(400).json({ error: 'Certains champs requis sont manquants.' });
         }
 
         connection = await new Promise((resolve, reject) => {
@@ -3680,13 +3680,14 @@ exports.putSuiviReparation = async (req, res) => {
 
         const connQuery = util.promisify(connection.query).bind(connection);
 
+        // Mise à jour du suivi
         const updateQuery = `
             UPDATE suivi_reparation
             SET 
                 id_tache_rep = ?,
                 id_piece = ?,
                 budget = ?,
-                commentaire = ?,
+                commentaire = ?
             WHERE id_suivi_reparation = ?
         `;
 
@@ -3700,13 +3701,32 @@ exports.putSuiviReparation = async (req, res) => {
 
         const result = await connQuery(updateQuery, values);
 
-        connection.release();
-
         if (result.affectedRows === 0) {
+            connection.release();
             return res.status(404).json({ error: 'Aucun suivi trouvé avec cet ID.' });
         }
 
-        return res.status(200).json({ message: 'Suivi de réparation mis à jour avec succès.' });
+        // Mise à jour de l’évaluation
+        const updateEvalQuery = `
+            UPDATE sud_reparation 
+            SET id_evaluation = ?
+            WHERE id_sud_reparation = ?
+        `;
+        await connQuery(updateEvalQuery, [id_evaluation, id_sud_reparation]);
+
+        // Mise à jour du statut si l’évaluation est "OK (R)" (id = 1)
+        if (parseInt(id_evaluation) === 1) {
+            const updateStatusQuery = `
+                UPDATE sud_reparation
+                SET id_statut = 9
+                WHERE id_sud_reparation = ?
+            `;
+            await connQuery(updateStatusQuery, [id_sud_reparation]);
+        }
+
+        connection.release();
+
+        return res.status(200).json({ message: 'Suivi de réparation et évaluation mis à jour avec succès.' });
 
     } catch (error) {
         console.error("Erreur lors de la mise à jour :", error);
