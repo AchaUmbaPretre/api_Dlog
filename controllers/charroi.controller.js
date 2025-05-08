@@ -3240,7 +3240,8 @@ exports.postSuiviInspection = async (req, res) => {
             commentaire,
             pourcentage_avancement,
             effectue_par,
-            est_termine
+            est_termine,
+            user_cr
         } = req.body;
 
         if (!id_sub_inspection_gen || !status || !effectue_par) {
@@ -3282,6 +3283,33 @@ exports.postSuiviInspection = async (req, res) => {
         `;
 
         await connQuery(updateQuery, [status, id_sub_inspection_gen]);
+
+        const getSubQuery = `
+        SELECT sub.id_sub_inspection_gen, i.id_vehicule, i.id_statut_vehicule FROM 
+        sub_inspection_gen sub 
+        INNER JOIN inspection_gen i ON sub.id_inspection_gen = i.id_inspection_gen
+        WHERE sub.id_sub_inspection_gen = ?
+      `;
+        const [subResult] = await connQuery(getSubQuery, [id_sub_inspection_gen]);
+
+        const historiqueSQL = `
+          INSERT INTO historique_vehicule (
+            id_vehicule, id_chauffeur, id_statut_vehicule, statut, id_sub_inspection_gen, action, commentaire, user_cr
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const historiqueValues = [
+          subResult?.id_vehicule,
+          null,
+          subResult?.id_statut_vehicule,
+          status,
+          subResult?.id_sub_inspection_gen,
+          "Nouveau suivi d'inspection ajouté",
+          `Un nouveau suivi a été ajouté avec succès pour le véhicule n°${subResult?.id_vehicule}.`,
+          user_cr
+        ];
+        
+        await queryPromise(connection, historiqueSQL, historiqueValues);
 
         await commit();
         connection.release();
@@ -3636,7 +3664,6 @@ exports.postSuiviReparation = async (req, res) => {
             `;
           const [subResult] = await connQuery(getSubQuery, [id_sud_reparation]);
 
-  
           // Mise à jour de l'évaluation
           const updateEvalQuery = `
               UPDATE sud_reparation 
