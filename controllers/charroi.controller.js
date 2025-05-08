@@ -1495,7 +1495,7 @@ exports.postReparation = (req, res) => {
           `;
           const historiqueValues = [
             id_vehicule,
-            null,  // Pas de chauffeur spécifié ici
+            null,
             id_statut_vehicule, 
             insertedRepairId,
             "Nouvelle réparation ajoutée",
