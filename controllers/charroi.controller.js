@@ -3655,6 +3655,12 @@ exports.postSuiviReparation = async (req, res) => {
                 WHERE id_sub_inspection_gen = ?
               `;
               await connQuery(updateStatusQueryInspect, [subResult?.id_sub_inspection_gen]);
+
+              const historiqueSQL = `
+              INSERT INTO historique_vehicule (
+                id_vehicule, id_chauffeur, id_statut_vehicule, id_reparation, action, commentaire, user_cr
+              ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            `;
           }
   
           await commit();
