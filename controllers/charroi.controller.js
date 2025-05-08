@@ -1838,8 +1838,8 @@ exports.putReparation = (req, res) => {
           id_vehicule,
           null,
           id_statut_vehicule,
-          idSud,
           2,
+          idSud,
           "Mise à jour réparation",
           `Mise à jour de la réparation ${idReparation}`,
           user_cr
