@@ -1487,24 +1487,6 @@ exports.postReparation = (req, res) => {
           const [mainResult] = await queryPromise(connection, insertMainQuery, mainValues);
           const insertedRepairId = mainResult.insertId;
   
-          // Insertion dans l'historique_vehicule
-          const historiqueSQL = `
-            INSERT INTO historique_vehicule (
-              id_vehicule, id_chauffeur, id_statut_vehicule, id_reparation, action, commentaire, user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-          `;
-          const historiqueValues = [
-            id_vehicule,
-            null,
-            id_statut_vehicule, 
-            insertedRepairId,
-            "Nouvelle réparation ajoutée",
-            `Réparation ajoutée avec succès pour le véhicule ${id_vehicule}`,
-            user_cr
-          ];
-  
-          await queryPromise(connection, historiqueSQL, historiqueValues);
-
           // 🔔 Ajout de la notification
           const notifQuery = `
           INSERT INTO notifications (user_id, message)
@@ -1515,14 +1497,13 @@ exports.postReparation = (req, res) => {
 
           await queryPromise(connection, notifQuery, [user_cr, notifMessage]);
 
-  
           const insertSubQuery = `
             INSERT INTO sud_reparation (
               id_reparation, id_type_reparation, id_sub_inspection_gen, montant, description, id_statut
             ) VALUES (?, ?, ?, ?, ?, ?)
           `;
   
-          let sudReparationIds = [];  // Pour récupérer les ids des entrées dans `sud_reparation`
+          let sudReparationIds = []; 
   
           // Gérer les réparations
           for (const sud of reparations) {
@@ -1537,6 +1518,27 @@ exports.postReparation = (req, res) => {
   
             const [subResult] = await queryPromise(connection, insertSubQuery, subValues);
             const insertedSudReparationId = subResult.insertId;  // Récupération de l'ID `id_sud_reparation`
+
+          // Insertion dans l'historique_vehicule
+          const historiqueSQL = `
+          INSERT INTO historique_vehicule (
+            id_vehicule, id_chauffeur, id_statut_vehicule, statut, id_sud_reparation, action, commentaire, user_cr
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const historiqueValues = [
+          id_vehicule,
+          null,
+          id_statut_vehicule, 
+          2,
+          insertedSudReparationId,
+          "Nouvelle réparation ajoutée",
+          `Réparation ajoutée avec succès pour le véhicule ${id_vehicule}`,
+          user_cr
+        ];
+
+        await queryPromise(connection, historiqueSQL, historiqueValues);
+
   
             sudReparationIds.push(insertedSudReparationId);  // Ajouter l'ID `id_sud_reparation` pour log
             // Si la réparation est liée à une inspection, on met à jour la sous-inspection
@@ -1805,7 +1807,7 @@ exports.putReparation = (req, res) => {
               r.id_type_reparation,
               r.montant,
               r.description,
-              r.id_statut || 2, // Par défaut: réparée
+              r.id_statut || 2,
               idSud,
               idReparation
             ]);
@@ -1828,7 +1830,7 @@ exports.putReparation = (req, res) => {
         // 4. Mise à jour du statut véhicule dans historique
         const histoSQL = `
           INSERT INTO historique_vehicule (
-            id_vehicule, id_chauffeur, id_statut_vehicule, id_reparation, action, commentaire, user_cr
+            id_vehicule, id_chauffeur, id_statut_vehicule, id_sud_reparation, action, commentaire, user_cr
           ) VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
 
@@ -1836,7 +1838,7 @@ exports.putReparation = (req, res) => {
           id_vehicule,
           null,
           id_statut_vehicule,
-          idReparation,
+          idSud,
           "Mise à jour réparation",
           `Mise à jour de la réparation ${idReparation}`,
           user_cr
@@ -2498,23 +2500,6 @@ exports.postInspectionGen = (req, res) => {
         const [insertControleResult] = await queryPromise(connection, insertControleSQL, controleValues);
         const insertId = insertControleResult.insertId;
 
-        // Insertion dans historique_vehicule
-        const historiqueSQL = `
-          INSERT INTO historique_vehicule (
-            id_vehicule, id_chauffeur, id_statut_vehicule, id_inspection_gen, action, commentaire, user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        `;
-        const historiqueValues = [
-          id_vehicule,
-          id_chauffeur,
-          id_statut_vehicule,
-          insertId,
-          "Nouvelle inspection ajoutée",
-          `Inspection ajoutée avec succès pour le véhicule ${id_vehicule}`,
-          user_cr
-        ];
-        await queryPromise(connection, historiqueSQL, historiqueValues);
-
         const notifSQL = `
           INSERT INTO notifications (user_id, message)
           VALUES (?, ?)
@@ -2572,6 +2557,24 @@ exports.postInspectionGen = (req, res) => {
             user_cr || null,
             `Ajout d'une inspection ID ${subInspectionId} liée à l'inspection #${insertId}, type réparation ${rep.id_type_reparation}`
           ]);
+
+          // Insertion dans historique_vehicule
+          const historiqueSQL = `
+            INSERT INTO historique_vehicule (
+              id_vehicule, id_chauffeur, id_statut_vehicule, statut, id_sub_inspection_gen, action, commentaire, user_cr
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+            const historiqueValues = [
+              id_vehicule,
+              id_chauffeur,
+              id_statut_vehicule,
+              1,
+              subInspectionId,
+              "Nouvelle inspection ajoutée",
+              `Inspection ajoutée avec succès pour le véhicule ${id_vehicule}`,
+              user_cr
+            ];
+            await queryPromise(connection, historiqueSQL, historiqueValues);    
         }
 
         connection.commit((commitErr) => {
@@ -2898,16 +2901,17 @@ exports.putInspectionGen = (req, res) => {
           // ✅ Enregistrement dans l’historique
           const historiqueSQL = `
             INSERT INTO historique_vehicule (
-              id_vehicule, id_chauffeur, id_statut_vehicule, id_inspection_gen, action, commentaire, user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+              id_vehicule, id_chauffeur, id_statut_vehicule, statut, id_sub_inspection_gen, action, commentaire, user_cr
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           `;
           const historiqueValues = [
             id_vehicule,
             id_chauffeur,
             id_statut_vehicule,
-            idInspection,
+            1,
+            idSub,
             "Mise à jour inspection",
-            `Inspection #${idInspection} et sous-inspection #${idSub} modifiées.`,
+            `Inspection N° #${idInspection} et sous-inspection N° #${idSub} modifiées.`,
             user_cr
           ];
           await queryPromise(connection, historiqueSQL, historiqueValues);
@@ -3656,26 +3660,28 @@ exports.postSuiviReparation = async (req, res) => {
                 WHERE id_sub_inspection_gen = ?
               `;
               await connQuery(updateStatusQueryInspect, [subResult?.id_sub_inspection_gen]);
+
+              const historiqueSQL = `
+              INSERT INTO historique_vehicule (
+                id_vehicule, id_chauffeur, id_statut_vehicule, statut, id_reparation, action, commentaire, user_cr
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+    
+            const historiqueValues = [
+              subResult?.id_vehicule,
+              null,
+              subResult?.id_statut_vehicule,
+              9,
+              subResult?.id_reparation,
+              "Nouveau suivi de réparation ajouté",
+              `Un nouveau suivi a été ajouté avec succès pour le véhicule n°${subResult?.id_vehicule}.`,
+              user_cr
+            ];
+            
+            await queryPromise(connection, historiqueSQL, historiqueValues);
+    
           }
   
-          const historiqueSQL = `
-          INSERT INTO historique_vehicule (
-            id_vehicule, id_chauffeur, id_statut_vehicule, id_reparation, action, commentaire, user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        `;
-
-        const historiqueValues = [
-          subResult?.id_vehicule,
-          null,
-          subResult?.id_statut_vehicule,
-          subResult?.id_reparation,
-          "Nouveau suivi de réparation ajouté",
-          `Un nouveau suivi a été ajouté avec succès pour le véhicule n°${subResult?.id_vehicule}.`,
-          user_cr
-        ];
-        
-        await queryPromise(connection, historiqueSQL, historiqueValues);
-
           await commit();
           connection.release();
   
