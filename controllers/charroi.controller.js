@@ -948,7 +948,8 @@ exports.getReparation = async (req, res) => {
                             tss.nom_type_statut,
                             DATEDIFF(r.date_entree,sr.date_reparation) AS nb_jours_au_garage,
                             sr.id_type_reparation,
-                            tr.type_rep
+                            tr.type_rep,
+                            sv.nom_statut_vehicule
                         FROM 
                             reparations r
                         INNER JOIN 
@@ -963,6 +964,8 @@ exports.getReparation = async (req, res) => {
                         	type_reparations tr ON sr.id_type_reparation = tr.id_type_reparation
                         LEFT JOIN 
                             type_statut_suivi tss ON sr.id_statut = tss.id_type_statut_suivi
+                        LEFT JOIN 
+                        	statut_vehicule sv ON r.id_statut_vehicule = sv.id_statut_vehicule
                          WHERE sr.est_supprime = 0
                         ORDER BY sr.created_at DESC
                        `;
