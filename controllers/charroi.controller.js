@@ -3614,7 +3614,7 @@ exports.postSuiviReparation = async (req, res) => {
       let connection;
   
       try {
-          const { id_evaluation, id_sud_reparation, user_cr, info } = req.body;
+          const { id_evaluation, id_statut_vehicule, id_sud_reparation, user_cr, info } = req.body;
   
           if (!id_evaluation || !id_sud_reparation || !user_cr || !info || !Array.isArray(info)) {
             return res.status(400).json({ error: 'Champs requis manquants ou invalides.' });
