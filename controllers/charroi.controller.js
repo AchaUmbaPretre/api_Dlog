@@ -3690,15 +3690,15 @@ exports.postSuiviReparation = async (req, res) => {
               await connQuery(updateStatusQueryInspect, [subResult?.id_sub_inspection_gen]);
 
               const historiqueSQL = `
-              INSERT INTO historique_vehicule (
-                id_vehicule, id_chauffeur, id_statut_vehicule, statut, id_sud_reparation, action, commentaire, user_cr
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `;
+                INSERT INTO historique_vehicule (
+                  id_vehicule, id_chauffeur, id_statut_vehicule, statut, id_sud_reparation, action, commentaire, user_cr
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              `;
     
             const historiqueValues = [
               subResult?.id_vehicule,
               null,
-              subResult?.id_statut_vehicule,
+              id_statut_vehicule || subResult?.id_statut_vehicule,
               9,
               id_sud_reparation,
               "Nouveau suivi de réparation ajouté",
