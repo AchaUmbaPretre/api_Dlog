@@ -1532,7 +1532,7 @@ exports.postReparation = (req, res) => {
               id_sub_inspection_gen ?? null,
               sud.montant,
               sud.description,
-              2 // Statut "réparé"
+              2
             ];
   
             const [subResult] = await queryPromise(connection, insertSubQuery, subValues);
@@ -3622,6 +3622,15 @@ exports.postSuiviReparation = async (req, res) => {
               ];
               await connQuery(insertQuery, repValues);
           }
+
+                // Récupération de id_sub_inspection_gen (non utilisé ensuite, mais on le garde si besoin futur)
+          const getSubQuery = `
+              SELECT id_sub_inspection_gen
+              FROM sud_reparation
+              WHERE id_sud_reparation = ?
+            `;
+            const [subResult] = await connQuery(getSubQuery, [id_sud_reparation]);
+
   
           // Mise à jour de l'évaluation
           const updateEvalQuery = `
@@ -3634,11 +3643,18 @@ exports.postSuiviReparation = async (req, res) => {
           // Mise à jour du statut si évaluation est "OK (R)" → id_evaluation = 1
           if (parseInt(id_evaluation) === 1) {
               const updateStatusQuery = `
-                  UPDATE sud_reparation
-                  SET id_statut = 9
-                  WHERE id_sud_reparation = ?
+                UPDATE sud_reparation
+                SET id_statut = 9
+                WHERE id_sud_reparation = ?
               `;
               await connQuery(updateStatusQuery, [id_sud_reparation]);
+
+              const updateStatusQueryInspect = `
+                UPDATE sub_inspection_gen
+                SET statut = 9
+                WHERE id_sub_inspection_gen = ?
+              `;
+              await connQuery(updateStatusQueryInspect, [subResult?.id_sub_inspection_gen]);
           }
   
           await commit();
