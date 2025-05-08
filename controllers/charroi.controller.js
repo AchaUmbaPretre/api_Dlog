@@ -3656,14 +3656,16 @@ exports.postSuiviReparation = async (req, res) => {
               await connQuery(insertQuery, repValues);
           }
 
-                // Récupération de id_sub_inspection_gen (non utilisé ensuite, mais on le garde si besoin futur)
           const getSubQuery = `
-              SELECT sud.id_sub_inspection_gen, r.id_vehicule, r.id_statut_vehicule, r.id_reparation
+              SELECT sud.id_sub_inspection_gen, r.id_vehicule, r.id_statut_vehicule, r.id_reparation, gen.id_inspection_gen
               FROM sud_reparation sud
               INNER JOIN reparations r ON sud.id_reparation = r.id_reparation
+              LEFT JOIN sub_inspection_gen sub ON sud.id_sub_inspection_gen = sub.id_sub_inspection_gen
+              LEFT JOIN inspection_gen gen ON sub.id_inspection_gen = gen.id_inspection_gen
               WHERE id_sud_reparation = ?
             `;
           const [subResult] = await connQuery(getSubQuery, [id_sud_reparation]);
+
 
           // Mise à jour de l'évaluation
           const updateEvalQuery = `
@@ -3682,12 +3684,26 @@ exports.postSuiviReparation = async (req, res) => {
               `;
               await connQuery(updateStatusQuery, [id_sud_reparation]);
 
+              const updateEtatQuery = `
+                UPDATE reparations
+                SET id_statut_vehicule = ?
+                WHERE id_reparation = ?
+              `;
+              await connQuery(updateEtatQuery, [id_statut_vehicule, subResult?.id_reparation]);
+
               const updateStatusQueryInspect = `
                 UPDATE sub_inspection_gen
                 SET statut = 9
                 WHERE id_sub_inspection_gen = ?
               `;
               await connQuery(updateStatusQueryInspect, [subResult?.id_sub_inspection_gen]);
+
+              const updateStatusQueryInspectGen = `
+                UPDATE inspection_gen
+                SET id_statut_vehicule = ?
+                WHERE id_inspection_gen = ?
+              `;
+              await connQuery(updateStatusQueryInspectGen, [id_statut_vehicule, subResult?.id_inspection_gen, ]);
 
               const historiqueSQL = `
                 INSERT INTO historique_vehicule (
