@@ -1830,8 +1830,8 @@ exports.putReparation = (req, res) => {
         // 4. Mise à jour du statut véhicule dans historique
         const histoSQL = `
           INSERT INTO historique_vehicule (
-            id_vehicule, id_chauffeur, id_statut_vehicule, id_sud_reparation, action, commentaire, user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            id_vehicule, id_chauffeur, id_statut_vehicule, statut, id_sud_reparation, action, commentaire, user_cr
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         await queryPromise(connection, histoSQL, [
@@ -1839,6 +1839,7 @@ exports.putReparation = (req, res) => {
           null,
           id_statut_vehicule,
           idSud,
+          2,
           "Mise à jour réparation",
           `Mise à jour de la réparation ${idReparation}`,
           user_cr
