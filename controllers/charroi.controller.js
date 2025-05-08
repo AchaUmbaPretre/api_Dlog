@@ -3625,11 +3625,12 @@ exports.postSuiviReparation = async (req, res) => {
 
                 // Récupération de id_sub_inspection_gen (non utilisé ensuite, mais on le garde si besoin futur)
           const getSubQuery = `
-              SELECT id_sub_inspection_gen
-              FROM sud_reparation
+              SELECT sud.id_sub_inspection_gen, r.id_vehicule, r.id_statut_vehicule, r.id_reparation
+              FROM sud_reparation sud
+              INNER JOIN reparations r ON sud.id_reparation = r.id_reparation
               WHERE id_sud_reparation = ?
             `;
-            const [subResult] = await connQuery(getSubQuery, [id_sud_reparation]);
+          const [subResult] = await connQuery(getSubQuery, [id_sud_reparation]);
 
   
           // Mise à jour de l'évaluation
@@ -3655,14 +3656,26 @@ exports.postSuiviReparation = async (req, res) => {
                 WHERE id_sub_inspection_gen = ?
               `;
               await connQuery(updateStatusQueryInspect, [subResult?.id_sub_inspection_gen]);
-
-              const historiqueSQL = `
-              INSERT INTO historique_vehicule (
-                id_vehicule, id_chauffeur, id_statut_vehicule, id_reparation, action, commentaire, user_cr
-              ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            `;
           }
   
+          const historiqueSQL = `
+          INSERT INTO historique_vehicule (
+            id_vehicule, id_chauffeur, id_statut_vehicule, id_reparation, action, commentaire, user_cr
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const historiqueValues = [
+          subResult?.id_vehicule,
+          null,
+          subResult?.id_statut_vehicule,
+          subResult?.id_reparation,
+          "Nouveau suivi de réparation ajouté",
+          `Un nouveau suivi a été ajouté avec succès pour le véhicule n°${subResult?.id_vehicule}.`,
+          user_cr
+        ];
+        
+        await queryPromise(connection, historiqueSQL, historiqueValues);
+
           await commit();
           connection.release();
   
