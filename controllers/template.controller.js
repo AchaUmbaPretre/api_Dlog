@@ -391,6 +391,15 @@ exports.getTemplateOne = (req, res) => {
                 tm.date_actif,
                 tm.date_inactif,
                 tm.desc_template,
+                tm.id_client,
+                tm.id_type_occupation,
+                tm.id_batiment,
+                tm.id_niveau,
+                tm.id_denomination,
+                tm.id_whse_fact,
+                tm.id_contrat,
+                tm.id_objet_fact,
+                tm.status_template,
                 client.nom AS nom_client, 
                 client.id_client,
                 td.nom_type_d_occupation, 
@@ -399,7 +408,6 @@ exports.getTemplateOne = (req, res) => {
                 b.nom_batiment AS nom_whse_fact,
                 objet_fact.nom_objet_fact,
                 statut_template.nom_statut_template,
-                statut_template.id_statut_template,
                 niveau_batiment.nom_niveau,
                 b.ville AS id_ville
             FROM 
