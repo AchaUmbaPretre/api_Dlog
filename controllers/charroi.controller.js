@@ -1164,115 +1164,6 @@ exports.getReparationOne = async (req, res) => {
         });
       }
 };
-     
-/* exports.postReparation = (req, res) => {
-  db.getConnection((connErr, connection) => {
-    if (connErr) {
-      console.error("Erreur connexion DB :", connErr);
-      return res.status(500).json({ error: "Connexion à la base de données échouée." });
-    }
-
-    connection.beginTransaction(async (trxErr) => {
-      if (trxErr) {
-        connection.release();
-        console.error("Erreur transaction :", trxErr);
-        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
-      }
-
-      try {
-        const date_entree = moment(req.body.date_entree).format('YYYY-MM-DD');
-        const date_prevu = moment(req.body.date_prevu).format('YYYY-MM-DD');
-
-        const {
-          id_vehicule,
-          cout,
-          id_fournisseur,
-          commentaire,
-          reparations,
-          code_rep,
-          kilometrage,
-          user_cr,
-          id_sub_inspection_gen
-        } = req.body;
-
-        if (!id_vehicule || !cout || !Array.isArray(reparations)) {
-          throw new Error("Certains champs obligatoires sont manquants ou invalides.");
-        }
-
-        const insertMainQuery = `
-          INSERT INTO reparations (
-            id_vehicule, date_entree, date_prevu, cout, id_fournisseur,
-            commentaire, code_rep, kilometrage, user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-
-        const mainValues = [
-          id_vehicule,
-          date_entree,
-          date_prevu,
-          cout,
-          id_fournisseur,
-          commentaire,
-          code_rep,
-          kilometrage,
-          user_cr
-        ];
-
-        const [mainResult] = await queryPromise(connection, insertMainQuery, mainValues);
-        const insertedRepairId = mainResult.insertId;
-
-        const insertSubQuery = `
-          INSERT INTO sud_reparation (
-            id_reparation, id_type_reparation, id_sub_inspection_gen, montant, description, id_statut
-          ) VALUES (?, ?, ?, ?, ?, ?)
-        `;
-
-        for (const sud of reparations) {
-          const subValues = [
-            insertedRepairId,
-            sud.id_type_reparation,
-            id_sub_inspection_gen ?? null,
-            sud.montant,
-            sud.description,
-            2
-          ];
-          await queryPromise(connection, insertSubQuery, subValues);
-        }
-
-        // Mise à jour du statut de la sous-inspection
-        const updateQuery = `
-          UPDATE sub_inspection_gen 
-          SET date_reparation = ?, statut = ?
-          WHERE id_sub_inspection_gen = ?
-        `;
-        const updateValues = [moment().format('YYYY-MM-DD'), 2, id_sub_inspection_gen];
-        await queryPromise(connection, updateQuery, updateValues);
-
-        // Commit si tout est OK
-        connection.commit((commitErr) => {
-          connection.release();
-          if (commitErr) {
-            console.error("Erreur commit :", commitErr);
-            return res.status(500).json({ error: "Erreur lors de la validation des données." });
-          }
-
-          return res.status(201).json({
-            message: "Réparation enregistrée avec succès.",
-            data: { id: insertedRepairId }
-          });
-        });
-
-      } catch (error) {
-        console.error("Erreur transactionnelle :", error);
-        connection.rollback(() => {
-          connection.release();
-          const msg = error.message || "Erreur inattendue lors du traitement.";
-          return res.status(500).json({ error: msg });
-        });
-      }
-    });
-  });
-}; */
 
 /* exports.postReparation = (req, res) => {
 
@@ -1489,16 +1380,6 @@ exports.postReparation = (req, res) => {
   
           const [mainResult] = await queryPromise(connection, insertMainQuery, mainValues);
           const insertedRepairId = mainResult.insertId;
-  
-          // 🔔 Ajout de la notification
-          const notifQuery = `
-          INSERT INTO notifications (user_id, message)
-          VALUES (?, ?)
-          `;
-
-          const notifMessage = `Une nouvelle réparation (N° #${insertedRepairId}) a été enregistrée pour le véhicule ${id_vehicule}.`;
-
-          await queryPromise(connection, notifQuery, [user_cr, notifMessage]);
 
           const insertSubQuery = `
             INSERT INTO sud_reparation (
@@ -1593,6 +1474,27 @@ exports.postReparation = (req, res) => {
               user_cr || null,
               `Réparation ajoutée à reparation, ID #${insertedSudReparationId}`
             ]);
+
+            const getVehiculeSQL = `
+            SELECT v.id_vehicule, v.immatriculation, m.nom_marque FROM vehicules v 
+              INNER JOIN marque m ON v.id_marque = m.id_marque
+              WHERE v.id_vehicule = ?
+            `;
+          const [getVehiculeResult] = await queryPromise(connection, getVehiculeSQL, id_vehicule);
+            
+          const getType = `SELECT tr.type_rep FROM type_reparations tr WHERE tr.id_type_reparation = ?`;
+          const [getTypeResult] = await queryPromise(connection, getType, sud.id_type_reparation);
+
+          // 🔔 Ajout de la notification
+          const notifQuery = `
+          INSERT INTO notifications (user_id, message)
+          VALUES (?, ?)
+          `;
+
+          const notifMessage = `Une nouvelle réparation a été enregistrée pour le véhicule ${getVehiculeResult?.[0].nom_marque}, immatriculé ${getVehiculeResult?.[0].immatriculation}, de type ${getTypeResult?.[0].type_rep}.`;
+
+          await queryPromise(connection, notifQuery, [user_cr, notifMessage]);
+
           }
   
           // Commit si tout est OK
@@ -2576,8 +2478,8 @@ exports.postInspectionGen = (req, res) => {
             SELECT v.id_vehicule, v.immatriculation, m.nom_marque FROM vehicules v 
               INNER JOIN marque m ON v.id_marque = m.id_marque
               WHERE v.id_vehicule = ?
-          `;
-          const [getVehiculeResult] = await queryPromise(connection, getVehiculeSQL, id_vehicule);
+            `;
+            const [getVehiculeResult] = await queryPromise(connection, getVehiculeSQL, id_vehicule);
             
           const getType = `SELECT tr.type_rep FROM type_reparations tr WHERE tr.id_type_reparation = ?`;
           const [getTypeResult] = await queryPromise(connection, getType, rep.id_type_reparation);
