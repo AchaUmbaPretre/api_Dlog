@@ -4356,6 +4356,14 @@ exports.postReclamation = (req, res) => {
         const [insertReclameResult] = await queryPromise(connection, insertReclame, Reclamevalues)
         const insertId = insertReclameResult.insertId;
 
+        // Mise à jour de l'évaluation
+        const updateEvalQuery = `
+          UPDATE sud_reparation 
+          SET id_evaluation = ?
+          WHERE id_sud_reparation = ?
+      `;
+      await queryPromise(connection, updateEvalQuery, [id_evaluation, id_sud_reparation]);
+
         const qSud = `INSERT INTO sub_reclamation (id_reclamation, id_type_reparation, id_piece, cout, description) VALUES (?, ?, ?, ?, ?)`;
 
         for (const recl of sub_reclamation) {
