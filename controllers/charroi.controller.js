@@ -2022,7 +2022,8 @@ exports.getInspectionGen = (req, res) => {
             sug.montant, 
             tss.nom_type_statut,
             tr.type_rep,
-            sv.nom_statut_vehicule
+            sv.nom_statut_vehicule,
+            ci.nom_cat_inspection
         FROM inspection_gen ig
         INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
         LEFT JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
@@ -2032,6 +2033,7 @@ exports.getInspectionGen = (req, res) => {
         INNER JOIN type_reparations tr ON sug.id_type_reparation = tr.id_type_reparation
         LEFT JOIN inspection_valide iv ON sug.id_sub_inspection_gen = iv.id_sub_inspection_gen
         LEFT JOIN statut_vehicule sv ON ig.id_statut_vehicule = sv.id_statut_vehicule
+        LEFT JOIN cat_inspection ci ON sug.id_cat_inspection = ci.id_cat_inspection
         ${whereSQL}
         ORDER BY ig.created_at DESC
     `;
