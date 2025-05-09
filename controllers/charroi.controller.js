@@ -2504,14 +2504,6 @@ exports.postInspectionGen = (req, res) => {
         const [insertControleResult] = await queryPromise(connection, insertControleSQL, controleValues);
         const insertId = insertControleResult.insertId;
 
-        const notifSQL = `
-          INSERT INTO notifications (user_id, message)
-          VALUES (?, ?)
-        `;
-        const notifMsg = `Une nouvelle inspection a été ajoutée pour le véhicule #${id_vehicule}.`;
-
-          await queryPromise(connection, notifSQL, [user_cr, notifMsg]);
-
         // Traitement des réparations
         let parsedReparations = Array.isArray(reparations) ? reparations : JSON.parse(reparations || '[]');
 
@@ -2578,7 +2570,24 @@ exports.postInspectionGen = (req, res) => {
               `Inspection ajoutée avec succès pour le véhicule ${id_vehicule}`,
               user_cr
             ];
-            await queryPromise(connection, historiqueSQL, historiqueValues);    
+            await queryPromise(connection, historiqueSQL, historiqueValues);   
+            
+            const getVehiculeSQL = `
+            SELECT v.id_vehicule, v.immatriculation, m.nom_marque FROM vehicules v 
+              INNER JOIN marque m ON v.id_marque = m.id_marque
+              WHERE v.id_vehicule = ?
+          `;
+          const [getVehiculeResult] = await queryPromise(connection, getVehiculeSQL, id_vehicule);
+            
+          const getType = `SELECT tr.type_rep FROM type_reparations tr WHERE tr.id_type_reparation = ?`;
+          const [getTypeResult] = await queryPromise(connection, getType, rep.id_type_reparation);
+
+          const notifSQL = `
+              INSERT INTO notifications (user_id, message)
+              VALUES (?, ?)
+            `;
+            const notifMsg = `Une nouvelle inspection a été ajoutée pour le véhicule ${getVehiculeResult?.[0].nom_marque}, immatriculé ${getVehiculeResult?.[0].immatriculation}, de type ${getTypeResult?.[0].type_rep}.`;  
+            await queryPromise(connection, notifSQL, [user_cr, notifMsg]);
         }
 
         connection.commit((commitErr) => {
