@@ -2664,6 +2664,42 @@ exports.putDeclaration = (req, res) => {
     });
 }; */
 
+exports.putDeclarationTotalEntrep = (req, res) => {
+    const { id_declaration } = req.query;
+    const { total_entreposage } = req.body;
+
+    if (!id_declaration || isNaN(id_declaration)) {
+        return res.status(400).json({ error: 'ID de déclaration invalide' });
+    }
+
+    if (total_entreposage === undefined || isNaN(total_entreposage)) {
+        return res.status(400).json({ error: 'Total entreposage invalide ou manquant' });
+    }
+
+    // Requête UPDATE sans virgule invalide
+    const updateQuery = `
+        UPDATE declaration_super
+        SET total_entreposage = ?
+        WHERE id_declaration_super = ?
+    `;
+
+    const values = [total_entreposage, id_declaration];
+
+    db.query(updateQuery, values, (err, results) => {
+        if (err) {
+            console.error("Erreur lors de l'exécution de la requête :", err);
+            return res.status(500).json({ message: "Erreur serveur", err });
+        }
+
+        if (results.affectedRows > 0) {
+            return res.status(200).json({ message: 'Le total entreposage a été mis à jour avec succès.' });
+        } else {
+            return res.status(400).json({ message: 'Aucune mise à jour effectuée. ID invalide ou enregistrement verrouillé.' });
+        }
+    });
+};
+
+
 exports.deleteUpdateDeclaration = (req, res) => {
     const {id} = req.query;
     const userId = req.body.user_id;
@@ -4414,6 +4450,7 @@ exports.getRapportTemplate = (req, res) => {
 
     let q = `
                 SELECT 
+                    ds.id_declaration_super,
                     tc.desc_template,
                     client.nom,
                     MONTH(ds.periode) AS Mois,

@@ -36,6 +36,7 @@ router.post('/lock_declaration', templateController.lockDeclaration)
 router.post('/Delock_declaration', templateController.unlockDeclaration)
 router.get('/check_and_unlock', templateController.checkAndUnlock)
 
+router.put('/putDeclarationTotalEntrep', templateController.putDeclarationTotalEntrep)
 router.put('/declaration_superficie_delete', templateController.deleteUpdateDeclaration)
 router.put('/declaration_superficie', templateController.putDeclaration)
 
