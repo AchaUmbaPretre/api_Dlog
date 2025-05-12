@@ -1539,7 +1539,8 @@ exports.postReparation = (req, res) => {
             `;
 
             const [perResult] = await queryPromise(connection, permissionSQL);
-            const message = `
+            const message = 
+            `
             Bonjour,
 
             Une nouvelle réparation a été enregistrée pour le véhicule suivant :
@@ -1822,7 +1823,8 @@ exports.putReparation = (req, res) => {
             `;
 
         const [perResult] = await queryPromise(connection, permissionSQL);
-        const message = `
+        const message = 
+        `
         Bonjour,
 
         La réparation n°${idReparation} concernant le véhicule suivant a été mise à jour :
@@ -1960,7 +1962,6 @@ exports.postReparationImage = (req, res) => {
     });
   });
 };
-
 
 //Carateristique rep
 exports.getCarateristiqueRep = (req, res) => {
@@ -2643,7 +2644,8 @@ exports.postInspectionGen = (req, res) => {
             `;
 
         const [perResult] = await queryPromise(connection, permissionSQL);
-        const message = `
+        const message = 
+        `
         Bonjour,
         
         Une nouvelle inspection a été enregistrée pour le véhicule suivant :
@@ -3067,7 +3069,12 @@ exports.putInspectionGen = (req, res) => {
             `;
 
         const [perResult] = await queryPromise(connection, permissionSQL);
-        const message = `
+        const getUserEmailSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ?`;
+        const [userResult] = await queryPromise(connection, getUserEmailSQL, [user_cr]);
+        const userEmail = userResult?.[0]?.email;
+
+        const message = 
+        `
         Bonjour,
 
         L’inspection n°${idInspection} concernant le véhicule suivant a été mise à jour :
@@ -3082,7 +3089,9 @@ exports.putInspectionGen = (req, res) => {
         L'équipe Maintenance GTM
         `;
 
-        perResult.forEach(({ email }) => {
+        perResult
+        .filter(({ email }) => email !== userEmail)
+        .forEach(({ email }) => {
           sendEmail({
             email,
             subject: `📌 Mise à jour de l’inspection n°${idInspection}`,
