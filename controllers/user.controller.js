@@ -5,7 +5,6 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-
 exports.getUserCount = (req, res) => {
     
     let q = `
