@@ -2951,7 +2951,6 @@ exports.putInspectionGen = (req, res) => {
           const getType = `SELECT tr.type_rep FROM type_reparations tr WHERE tr.id_type_reparation = ?`;
           const [getTypeResult] = await queryPromise(connection, getType, rep.id_type_reparation);
 
-  
           await queryPromise(connection, `
             INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
             VALUES (?, ?, ?, ?, ?)
