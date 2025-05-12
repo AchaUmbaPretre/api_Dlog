@@ -3319,11 +3319,11 @@ exports.postSuiviInspection = async (req, res) => {
         await connQuery(updateQuery, [status, id_sub_inspection_gen]);
 
         const getSubQuery = `
-        SELECT sub.id_sub_inspection_gen, i.id_vehicule, i.id_statut_vehicule FROM 
-        sub_inspection_gen sub 
-        INNER JOIN inspection_gen i ON sub.id_inspection_gen = i.id_inspection_gen
-        WHERE sub.id_sub_inspection_gen = ?
-      `;
+          SELECT sub.id_sub_inspection_gen, i.id_vehicule, i.id_statut_vehicule FROM 
+          sub_inspection_gen sub 
+          INNER JOIN inspection_gen i ON sub.id_inspection_gen = i.id_inspection_gen
+          WHERE sub.id_sub_inspection_gen = ?
+        `;
         const [subResult] = await connQuery(getSubQuery, [id_sub_inspection_gen]);
 
         const historiqueSQL = `
