@@ -2940,6 +2940,17 @@ exports.putInspectionGen = (req, res) => {
             idSub,
             idInspection
           ]);
+
+          const getVehiculeSQL = `
+          SELECT v.id_vehicule, v.immatriculation, m.nom_marque FROM vehicules v 
+            INNER JOIN marque m ON v.id_marque = m.id_marque
+            WHERE v.id_vehicule = ?
+          `;
+          
+          const [getVehiculeResult] = await queryPromise(connection, getVehiculeSQL, id_vehicule);
+          const getType = `SELECT tr.type_rep FROM type_reparations tr WHERE tr.id_type_reparation = ?`;
+          const [getTypeResult] = await queryPromise(connection, getType, rep.id_type_reparation);
+
   
           await queryPromise(connection, `
             INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
@@ -2952,13 +2963,33 @@ exports.putInspectionGen = (req, res) => {
             `Modification de la sous-inspection N° ${idSub} liée à l’inspection N° ${idInspection}, type réparation ${rep.id_type_reparation}`
           ]);
 
-          //Notification
-        const notifMessage = `L’inspection #${idInspection} a été mise à jour.`;
+        //Notification
+        const notifMessage = `L’inspection n°${idInspection} du véhicule ${getVehiculeResult?.[0].nom_marque}, immatriculé ${getVehiculeResult?.[0].immatriculation}, de type ${getTypeResult?.[0].type_rep}, a été mise à jour.`;
+
         await queryPromise(connection, `
           INSERT INTO notifications (user_id, message)
           VALUES (?, ?)
         `, [user_cr, notifMessage]);
-  
+
+        // Envoi d'emails aux utilisateurs autorisés
+        const permissionSQL = `
+            SELECT u.email FROM permission p 
+              INNER JOIN utilisateur u ON p.user_id = u.id_utilisateur
+              WHERE p.menus_id = 14 AND p.can_read = 1
+              GROUP BY p.user_id
+            `;
+
+        const [perResult] = await queryPromise(connection, permissionSQL);
+        const message = notifMessage;
+
+        perResult.forEach(({ email }) => {
+          sendEmail({
+            email,
+            subject: `Mise à jour de l’inspection n°${idInspection}`,
+            message
+          });
+        });
+        
           connection.commit((err) => {
             connection.release();
             if (err) {
