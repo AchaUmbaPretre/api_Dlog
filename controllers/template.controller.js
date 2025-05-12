@@ -2364,7 +2364,6 @@ exports.checkAndUnlock = (req, res) => {
                         console.error('❌ Erreur lors du déverrouillage', unlockError);
                         return res.status(500).send('Erreur serveur lors du déverrouillage');
                     }
-
                     res.json({ message: `${staleRecords.length} enregistrements déverrouillés.`, unlockedRecords: staleRecords });
                 });
             } else {
@@ -2404,7 +2403,6 @@ exports.checkAndUnlock = (req, res) => {
         res.status(500).send('Erreur serveur');
     }
 } */
-
 
 exports.putDeclaration = (req, res) => {
     const { id_declaration } = req.query;
