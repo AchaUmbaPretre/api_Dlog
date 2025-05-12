@@ -3845,19 +3845,28 @@ exports.postSuiviReparation = async (req, res) => {
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
               `;
     
-            const historiqueValues = [
-              subResult?.id_vehicule,
-              null,
-              id_statut_vehicule || subResult?.id_statut_vehicule,
-              9,
-              id_sud_reparation,
-              "Nouveau suivi de réparation ajouté",
-              `Un nouveau suivi a été ajouté avec succès pour le véhicule n°${subResult?.id_vehicule}.`,
-              user_cr
-            ];
+              const historiqueValues = [
+                subResult?.id_vehicule,
+                null,
+                id_statut_vehicule || subResult?.id_statut_vehicule,
+                9,
+                id_sud_reparation,
+                "Nouveau suivi de réparation ajouté",
+                `Un nouveau suivi a été ajouté avec succès pour le véhicule n°${subResult?.id_vehicule}.`,
+                user_cr
+              ];
             
-            await queryPromise(connection, historiqueSQL, historiqueValues);
-    
+              await queryPromise(connection, historiqueSQL, historiqueValues);
+
+              // Envoi d'emails aux utilisateurs autorisés
+              const permissionSQL = `
+              SELECT u.email FROM permission p 
+                INNER JOIN utilisateur u ON p.user_id = u.id_utilisateur
+                WHERE p.menus_id = 14 AND p.can_read = 1
+                GROUP BY p.user_id
+              `;
+              const [perResult] = await queryPromise(connection, permissionSQL);
+
           }
   
           await commit();
