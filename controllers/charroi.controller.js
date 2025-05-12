@@ -1542,14 +1542,14 @@ exports.postReparation = (req, res) => {
             const message = notifMessage;
 
             perResult
-          .filter(({ email }) => email !== userEmail)
-          .forEach(({ email }) => {
-            sendEmail({
-              email,
-              subject: 'Nouvelle réparation',
-              message
-            });
-          });
+              .filter(({ email }) => email !== userEmail)
+              .forEach(({ email }) => {
+                sendEmail({
+                  email,
+                  subject: 'Nouvelle réparation',
+                  message
+                });
+              });
           }
   
           // Commit si tout est OK
