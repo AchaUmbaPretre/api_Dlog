@@ -2699,7 +2699,6 @@ exports.putDeclarationTotalEntrep = (req, res) => {
     });
 };
 
-
 exports.deleteUpdateDeclaration = (req, res) => {
     const {id} = req.query;
     const userId = req.body.user_id;
@@ -2711,8 +2710,8 @@ exports.deleteUpdateDeclaration = (req, res) => {
         console.log(err)
       }
       const logQuery = `
-                INSERT INTO audit_logs_declaration (action, user_id, id_declaration_super, timestamp)
-                VALUES (?, ?, ?, NOW())
+            INSERT INTO audit_logs_declaration (action, user_id, id_declaration_super, timestamp)
+            VALUES (?, ?, ?, NOW())
             `;
             const logValues = [
                 'Suppression',
@@ -2726,9 +2725,7 @@ exports.deleteUpdateDeclaration = (req, res) => {
             });
 
             return res.json({ message: "Déclaration supprimée avec succès"});
-
     });
-  
 }
 
 //Statut declaration
