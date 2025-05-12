@@ -3311,7 +3311,7 @@ exports.postSuiviInspection = async (req, res) => {
         ]);
 
         const updateQuery = `
-            UPDATE sub_inspection_gen
+          UPDATE sub_inspection_gen
             SET statut = ?
             WHERE id_sub_inspection_gen = ?
         `;
