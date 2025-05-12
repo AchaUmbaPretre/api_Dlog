@@ -2486,7 +2486,6 @@ exports.postInspectionGen = (req, res) => {
           VALUES (?, ?, ?, ?, ?)
         `;
 
-
         for (const rep of parsedReparations) {
           const repValues = [
             insertId,
@@ -2538,15 +2537,15 @@ exports.postInspectionGen = (req, res) => {
           const getType = `SELECT tr.type_rep FROM type_reparations tr WHERE tr.id_type_reparation = ?`;
           const [getTypeResult] = await queryPromise(connection, getType, rep.id_type_reparation);
 
-          const notifSQL = `
-              INSERT INTO notifications (user_id, message)
-              VALUES (?, ?)
-            `;
-            const notifMsg = `Une nouvelle inspection a été ajoutée pour le véhicule ${getVehiculeResult?.[0].nom_marque}, immatriculé ${getVehiculeResult?.[0].immatriculation}, de type ${getTypeResult?.[0].type_rep}.`;  
-            await queryPromise(connection, notifSQL, [user_cr, notifMsg]);
+        const notifSQL = `
+            INSERT INTO notifications (user_id, message)
+            VALUES (?, ?)
+          `;
+        const notifMsg = `Une nouvelle inspection a été ajoutée pour le véhicule ${getVehiculeResult?.[0].nom_marque}, immatriculé ${getVehiculeResult?.[0].immatriculation}, de type ${getTypeResult?.[0].type_rep}.`;  
+        await queryPromise(connection, notifSQL, [user_cr, notifMsg]);
 
-            // Envoi d'emails aux utilisateurs autorisés
-          const permissionSQL = `
+        // Envoi d'emails aux utilisateurs autorisés
+        const permissionSQL = `
             SELECT u.email FROM permission p 
               INNER JOIN utilisateur u ON p.user_id = u.id_utilisateur
               WHERE p.menus_id = 14 AND p.can_read = 1
