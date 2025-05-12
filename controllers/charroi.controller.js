@@ -1554,7 +1554,6 @@ exports.postReparation = (req, res) => {
             L'équipe Maintenance GTM
             `;
 
-
             perResult
               .filter(({ email }) => email !== userEmail)
               .forEach(({ email }) => {
@@ -3033,7 +3032,6 @@ exports.putInspectionGen = (req, res) => {
         Cordialement,  
         L'équipe Maintenance GTM
         `;
-
 
         perResult.forEach(({ email }) => {
           sendEmail({
