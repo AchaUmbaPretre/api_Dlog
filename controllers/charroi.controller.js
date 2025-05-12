@@ -2949,11 +2949,11 @@ exports.putInspectionGen = (req, res) => {
             'Modification',
             idSub,
             user_cr || null,
-            `Modification de la sous-inspection #${idSub} liée à l’inspection #${idInspection}, type réparation ${rep.id_type_reparation}`
+            `Modification de la sous-inspection N° ${idSub} liée à l’inspection N° ${idInspection}, type réparation ${rep.id_type_reparation}`
           ]);
 
-          // 🔔 Notification
-        const notifMessage = `La inspection N° #${idSub} de l’inspection #${idInspection} a été mise à jour.`;
+          //Notification
+        const notifMessage = `L’inspection #${idInspection} a été mise à jour.`;
         await queryPromise(connection, `
           INSERT INTO notifications (user_id, message)
           VALUES (?, ?)
