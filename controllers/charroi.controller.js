@@ -1797,26 +1797,17 @@ exports.putReparation = (req, res) => {
               user_cr || null,
               `Sous-réparation mise à jour pour la réparation #${idReparation}`
             ]);
-          }
-        }
 
-        // 4. Mise à jour du statut véhicule dans historique
-        const histoSQL = `
-          INSERT INTO historique_vehicule (
-            id_vehicule, id_chauffeur, id_statut_vehicule, statut, id_sud_reparation, action, commentaire, user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            
+        const getVehiculeSQL = `
+        SELECT v.id_vehicule, v.immatriculation, m.nom_marque FROM vehicules v 
+          INNER JOIN marque m ON v.id_marque = m.id_marque
+          WHERE v.id_vehicule = ?
         `;
-
-        await queryPromise(connection, histoSQL, [
-          id_vehicule,
-          null,
-          id_statut_vehicule,
-          2,
-          idSud,
-          "Mise à jour réparation",
-          `Mise à jour de la réparation ${idReparation}`,
-          user_cr
-        ]);
+        
+        const [getVehiculeResult] = await queryPromise(connection, getVehiculeSQL, id_vehicule);
+        const getType = `SELECT tr.type_rep FROM type_reparations tr WHERE tr.id_type_reparation = ?`;
+        const [getTypeResult] = await queryPromise(connection, getType, r.id_type_reparation);
 
         const getUserEmailSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ?`;
         const [userResult] = await queryPromise(connection, getUserEmailSQL, [user_cr]);
@@ -1855,6 +1846,26 @@ exports.putReparation = (req, res) => {
             message
           });
         });
+          }
+        }
+
+        // 4. Mise à jour du statut véhicule dans historique
+        const histoSQL = `
+          INSERT INTO historique_vehicule (
+            id_vehicule, id_chauffeur, id_statut_vehicule, statut, id_sud_reparation, action, commentaire, user_cr
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        await queryPromise(connection, histoSQL, [
+          id_vehicule,
+          null,
+          id_statut_vehicule,
+          2,
+          idSud,
+          "Mise à jour réparation",
+          `Mise à jour de la réparation ${idReparation}`,
+          user_cr
+        ]);
 
         connection.commit((commitErr) => {
           connection.release();
