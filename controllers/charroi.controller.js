@@ -1539,19 +1539,33 @@ exports.postReparation = (req, res) => {
             `;
 
             const [perResult] = await queryPromise(connection, permissionSQL);
-            const message = notifMessage;
+            const message = `
+Bonjour,
+
+Une nouvelle réparation a été enregistrée pour le véhicule suivant :
+
+- Marque : ${getVehiculeResult?.[0].nom_marque}
+- Immatriculation : ${getVehiculeResult?.[0].immatriculation}
+- Type de réparation : ${getTypeResult?.[0].type_rep}
+
+Merci de prendre les dispositions nécessaires si besoin.
+
+Cordialement,  
+L'équipe Maintenance GTM
+`;
+
 
             perResult
               .filter(({ email }) => email !== userEmail)
               .forEach(({ email }) => {
                 sendEmail({
                   email,
-                  subject: 'Nouvelle réparation',
+                  subject: '📌 Nouvelle réparation enregistrée',
                   message
                 });
               });
           }
-  
+
           // Commit si tout est OK
           connection.commit((commitErr) => {
             connection.release();
