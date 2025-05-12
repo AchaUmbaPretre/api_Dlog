@@ -4290,73 +4290,6 @@ exports.getTrackingGen = (req, res) => {
 };
   
 //LOG INSPECTION REPARATION
-/* exports.getLogInspection = (req, res) => {
-
-const q = `SELECT 
-  log.log_inspection,
-  log.table_name,
-  log.action,
-  log.description,
-  log.created_at,
-
-  -- Infos véhicule et marque
-  v.immatriculation,
-  m.nom_marque,
-
-  -- Type de réparation s’il y a
-  tr1.type_rep AS sub_type_rep,
-  tr2.type_rep AS sud_type_rep2
-
-FROM log_inspection log
-
--- Jointure inspection_gen directe
-LEFT JOIN inspection_gen ig_inspect 
-  ON log.table_name = 'inspection_gen' AND log.record_id = ig_inspect.id_inspection_gen
-
--- Jointure sub_inspection_gen
-LEFT JOIN sub_inspection_gen sub 
-  ON log.table_name = 'sub_inspection_gen' AND log.record_id = sub.id_sub_inspection_gen
-
--- Jointure sud_reparation
-LEFT JOIN sud_reparation sud
-  ON log.table_name = 'sud_reparation' AND log.record_id = sud.id_sud_reparation
-
--- Relier inspection depuis sub_inspection ou inspection direct
-LEFT JOIN inspection_gen ig 
-  ON ig.id_inspection_gen = 
-     CASE 
-       WHEN log.table_name = 'inspection_gen' THEN ig_inspect.id_inspection_gen
-       WHEN log.table_name = 'sub_inspection_gen' THEN sub.id_inspection_gen
-       WHEN log.table_name = 'sud_reparation' THEN (
-           SELECT si.id_inspection_gen
-           FROM sub_inspection_gen si
-           WHERE si.id_sub_inspection_gen = sud.id_sub_inspection_gen
-           LIMIT 1
-       )
-       ELSE NULL
-     END
-
--- Véhicule et marque liés à l’inspection
-LEFT JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
-LEFT JOIN marque m ON v.id_marque = m.id_marque
-
--- Type de réparation depuis sub
-LEFT JOIN type_reparations tr1 ON sub.id_type_reparation = tr1.id_type_reparation
-
--- Type de réparation depuis sud
-LEFT JOIN type_reparations tr2 ON sud.id_type_reparation = tr2.id_type_reparation
-ORDER BY log.created_at DESC;
-`
-
-    db.query(q, (error, results) => {
-        if(error) {
-            console.error('Erreur lors de la récupération des corbeilles:', err);
-            return res.status(500).json({ error: 'Erreur lors de la récupération des corbeilles' });
-        }
-        res.json(results);
-    })
-} */
-
 exports.getLogInspection = (req, res) => {
 
     const q = `
@@ -4682,4 +4615,3 @@ exports.postReclamation = (req, res) => {
     })
   })
 }
-
