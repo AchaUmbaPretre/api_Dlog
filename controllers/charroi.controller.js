@@ -161,7 +161,6 @@ exports.postModele = async (req, res) => {
     }
 };
 
-
 exports.getDisposition = (req, res) => {
 
     const q = `SELECT * FROM disposition_cylindre`;
@@ -1526,6 +1525,24 @@ exports.postReparation = (req, res) => {
 
           await queryPromise(connection, notifQuery, [user_cr, notifMessage]);
 
+          // Envoi d'emails aux utilisateurs autorisés
+          const permissionSQL = `
+            SELECT u.email FROM permission p 
+              INNER JOIN utilisateur u ON p.user_id = u.id_utilisateur
+              WHERE p.menus_id = 14 AND p.can_read = 1
+              GROUP BY p.user_id
+            `;
+
+            const [perResult] = await queryPromise(connection, permissionSQL);
+            const message = notifMsg;
+
+            perResult.forEach(({ email }) => {
+              sendEmail({
+                email,
+                subject: 'Nouvelle inspection',
+                message
+              });
+            });
           }
   
           // Commit si tout est OK
