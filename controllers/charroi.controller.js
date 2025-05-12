@@ -4012,7 +4012,6 @@ exports.putSuiviReparation = async (req, res) => {
     }
 };
 
-  
 exports.getEvaluation = (req, res) => {
 
     const q = `
