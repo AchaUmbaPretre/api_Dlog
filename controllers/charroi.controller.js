@@ -1525,6 +1525,11 @@ exports.postReparation = (req, res) => {
 
           await queryPromise(connection, notifQuery, [user_cr, notifMessage]);
 
+          //Utilisateur
+          const getUserEmailSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ?`;
+          const [userResult] = await queryPromise(connection, getUserEmailSQL, [user_cr]);
+          const userEmail = userResult?.[0]?.email;
+
           // Envoi d'emails aux utilisateurs autorisés
           const permissionSQL = `
             SELECT u.email FROM permission p 
@@ -1536,13 +1541,15 @@ exports.postReparation = (req, res) => {
             const [perResult] = await queryPromise(connection, permissionSQL);
             const message = notifMessage;
 
-            perResult.forEach(({ email }) => {
-              sendEmail({
-                email,
-                subject: 'Nouvelle réparation',
-                message
-              });
+            perResult
+          .filter(({ email }) => email !== userEmail)
+          .forEach(({ email }) => {
+            sendEmail({
+              email,
+              subject: 'Nouvelle réparation',
+              message
             });
+          });
           }
   
           // Commit si tout est OK
@@ -2554,6 +2561,10 @@ exports.postInspectionGen = (req, res) => {
           const getType = `SELECT tr.type_rep FROM type_reparations tr WHERE tr.id_type_reparation = ?`;
           const [getTypeResult] = await queryPromise(connection, getType, rep.id_type_reparation);
 
+          const getUserEmailSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ?`;
+          const [userResult] = await queryPromise(connection, getUserEmailSQL, [user_cr]);
+          const userEmail = userResult?.[0]?.email;
+
         const notifSQL = `
             INSERT INTO notifications (user_id, message)
             VALUES (?, ?)
@@ -2572,13 +2583,15 @@ exports.postInspectionGen = (req, res) => {
         const [perResult] = await queryPromise(connection, permissionSQL);
         const message = notifMsg;
 
-        perResult.forEach(({ email }) => {
-          sendEmail({
-            email,
-            subject: 'Nouvelle inspection',
-            message
+        perResult
+          .filter(({ email }) => email !== userEmail)
+          .forEach(({ email }) => {
+            sendEmail({
+              email,
+              subject: 'Nouvelle inspection',
+              message
+            });
           });
-        });
         }
 
         connection.commit((commitErr) => {
