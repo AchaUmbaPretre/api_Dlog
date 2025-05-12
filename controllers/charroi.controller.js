@@ -1534,12 +1534,12 @@ exports.postReparation = (req, res) => {
             `;
 
             const [perResult] = await queryPromise(connection, permissionSQL);
-            const message = notifMsg;
+            const message = notifMessage;
 
             perResult.forEach(({ email }) => {
               sendEmail({
                 email,
-                subject: 'Nouvelle inspection',
+                subject: 'Nouvelle réparation',
                 message
               });
             });
