@@ -3907,15 +3907,15 @@ exports.postSuiviReparation = async (req, res) => {
             L'équipe Maintenance GTM
             `;
 
-                    perResult
-                    .filter(({ email }) => email !== userEmail)
-                    .forEach(({ email }) => {
-                      sendEmail({
-                        email,
-                        subject: `🔧 Réparation mise à jour`,
-                        message
-                      });
-                    });
+            perResult
+              .filter(({ email }) => email !== userEmail)
+              .forEach(({ email }) => {
+                sendEmail({
+                  email,
+                  subject: `🔧 Réparation mise à jour`,
+                  message
+                  });
+                });
           }
   
           await commit();
