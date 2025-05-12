@@ -1540,19 +1540,19 @@ exports.postReparation = (req, res) => {
 
             const [perResult] = await queryPromise(connection, permissionSQL);
             const message = `
-Bonjour,
+            Bonjour,
 
-Une nouvelle réparation a été enregistrée pour le véhicule suivant :
+            Une nouvelle réparation a été enregistrée pour le véhicule suivant :
 
-- Marque : ${getVehiculeResult?.[0].nom_marque}
-- Immatriculation : ${getVehiculeResult?.[0].immatriculation}
-- Type de réparation : ${getTypeResult?.[0].type_rep}
+            - Marque : ${getVehiculeResult?.[0].nom_marque}
+            - Immatriculation : ${getVehiculeResult?.[0].immatriculation}
+            - Type de réparation : ${getTypeResult?.[0].type_rep}
 
-Merci de prendre les dispositions nécessaires si besoin.
+            Merci de prendre les dispositions nécessaires si besoin.
 
-Cordialement,  
-L'équipe Maintenance GTM
-`;
+            Cordialement,  
+            L'équipe Maintenance GTM
+            `;
 
 
             perResult
@@ -2595,14 +2595,27 @@ exports.postInspectionGen = (req, res) => {
             `;
 
         const [perResult] = await queryPromise(connection, permissionSQL);
-        const message = notifMsg;
+        const message = `
+        Bonjour,
+        
+        Une nouvelle inspection a été enregistrée pour le véhicule suivant :
+        
+        - Marque : ${getVehiculeResult?.[0].nom_marque}
+        - Immatriculation : ${getVehiculeResult?.[0].immatriculation}
+        - Type de réparation : ${getTypeResult?.[0].type_rep}
+        
+        Merci de prendre les dispositions nécessaires si besoin.
+        
+        Cordialement,  
+        L'équipe Maintenance GTM
+        `;
 
         perResult
           .filter(({ email }) => email !== userEmail)
           .forEach(({ email }) => {
             sendEmail({
               email,
-              subject: 'Nouvelle inspection',
+              subject: '📌 Nouvelle inspection enregistrée',
               message
             });
           });
@@ -3006,12 +3019,26 @@ exports.putInspectionGen = (req, res) => {
             `;
 
         const [perResult] = await queryPromise(connection, permissionSQL);
-        const message = notifMessage;
+        const message = `
+        Bonjour,
+
+        L’inspection n°${idInspection} concernant le véhicule suivant a été mise à jour :
+
+        - Marque : ${getVehiculeResult?.[0].nom_marque}
+        - Immatriculation : ${getVehiculeResult?.[0].immatriculation}
+        - Type de réparation : ${getTypeResult?.[0].type_rep}
+
+        Nous vous invitons à consulter les détails dans le système si nécessaire.
+
+        Cordialement,  
+        L'équipe Maintenance GTM
+        `;
+
 
         perResult.forEach(({ email }) => {
           sendEmail({
             email,
-            subject: `Mise à jour de l’inspection n°${idInspection}`,
+            subject: `📌 Mise à jour de l’inspection n°${idInspection}`,
             message
           });
         });
