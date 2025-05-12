@@ -1818,6 +1818,44 @@ exports.putReparation = (req, res) => {
           user_cr
         ]);
 
+        const getUserEmailSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ?`;
+        const [userResult] = await queryPromise(connection, getUserEmailSQL, [user_cr]);
+        const userEmail = userResult?.[0]?.email;
+
+        // Envoi d'emails aux utilisateurs autorisés
+        const permissionSQL = `
+            SELECT u.email FROM permission p 
+              INNER JOIN utilisateur u ON p.user_id = u.id_utilisateur
+              WHERE p.menus_id = 14 AND p.can_read = 1
+              GROUP BY p.user_id
+            `;
+
+        const [perResult] = await queryPromise(connection, permissionSQL);
+        const message = `
+        Bonjour,
+
+        La réparation n°${idReparation} concernant le véhicule suivant a été mise à jour :
+
+        - Marque : ${getVehiculeResult?.[0].nom_marque}
+        - Immatriculation : ${getVehiculeResult?.[0].immatriculation}
+        - Type de réparation : ${getTypeResult?.[0].type_rep}
+
+        Nous vous invitons à consulter les détails dans le système si nécessaire.
+
+        Cordialement,  
+        L'équipe Maintenance GTM
+        `;
+
+        perResult
+        .filter(({ email }) => email !== userEmail)
+        .forEach(({ email }) => {
+          sendEmail({
+            email,
+            subject: `📌 Mise à jour de la réparation n°${idReparation}`,
+            message
+          });
+        });
+
         connection.commit((commitErr) => {
           connection.release();
           if (commitErr) {
