@@ -3791,7 +3791,7 @@ exports.postSuiviReparation = async (req, res) => {
           }
 
           const getSubQuery = `
-              SELECT sud.id_sub_inspection_gen, r.id_vehicule, r.id_statut_vehicule, r.id_reparation, gen.id_inspection_gen
+              SELECT sud.id_sub_inspection_gen, r.id_vehicule, r.id_statut_vehicule, r.id_reparation, gen.id_inspection_gen, sud.id_type_reparation
               FROM sud_reparation sud
               INNER JOIN reparations r ON sud.id_reparation = r.id_reparation
               LEFT JOIN sub_inspection_gen sub ON sud.id_sub_inspection_gen = sub.id_sub_inspection_gen
@@ -3858,6 +3858,16 @@ exports.postSuiviReparation = async (req, res) => {
             
               await queryPromise(connection, historiqueSQL, historiqueValues);
 
+              const getVehiculeSQL = `
+              SELECT v.id_vehicule, v.immatriculation, m.nom_marque FROM vehicules v 
+                INNER JOIN marque m ON v.id_marque = m.id_marque
+                WHERE v.id_vehicule = ?
+              `;
+              
+              const [getVehiculeResult] = await queryPromise(connection, getVehiculeSQL, subResult?.id_vehicule);
+              const getType = `SELECT tr.type_rep FROM type_reparations tr WHERE tr.id_type_reparation = ?`;
+              const [getTypeResult] = await queryPromise(connection, getType, subResult?.id_type_reparation);
+
               // Envoi d'emails aux utilisateurs autorisés
               const permissionSQL = `
               SELECT u.email FROM permission p 
@@ -3865,8 +3875,38 @@ exports.postSuiviReparation = async (req, res) => {
                 WHERE p.menus_id = 14 AND p.can_read = 1
                 GROUP BY p.user_id
               `;
-              const [perResult] = await queryPromise(connection, permissionSQL);
 
+              const getUserEmailSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ?`;
+              const [userResult] = await queryPromise(connection, getUserEmailSQL, [user_cr]);
+              const userEmail = userResult?.[0]?.email;
+
+            const [perResult] = await queryPromise(connection, permissionSQL);
+            const message = 
+            `
+            Bonjour,
+
+            Le véhicule suivant a été réparé pour le type d’intervention suivant :
+
+            - Marque : ${getVehiculeResult?.[0].nom_marque}
+            - Immatriculation : ${getVehiculeResult?.[0].immatriculation}
+            - Type de réparation : ${getTypeResult?.[0].type_rep}
+            - Réparation n°${id_sud_reparation}
+
+            La réparation a été finalisée avec succès et le statut du véhicule a été mis à jour dans le système.
+
+            Cordialement,  
+            L'équipe Maintenance GTM
+            `;
+
+                    perResult
+                    .filter(({ email }) => email !== userEmail)
+                    .forEach(({ email }) => {
+                      sendEmail({
+                        email,
+                        subject: `🔧 Réparation mise à jour`,
+                        message
+                      });
+                    });
           }
   
           await commit();
