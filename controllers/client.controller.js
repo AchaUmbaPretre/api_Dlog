@@ -227,7 +227,7 @@ exports.deleteClient = (req, res) => {
 
 exports.getProvince = (req, res) => {
 
-    const q = `SELECT * FROM provinces
+    const q = `SELECT p.id, p.name, p.capital, p.id_pays AS id_parent FROM provinces p
     `;
     db.query(q, (error, data) => {
         if (error) {
