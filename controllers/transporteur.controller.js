@@ -90,7 +90,7 @@ exports.getTypeLocalisation = (req, res) => {
 }
 
 exports.getCommune = (req, res) => {
-    const q = `SELECT * FROM commune`;
+    const q = `SELECT c.id_commune, c.nom_commune, c.id_province AS id_parent  FROM commune c`;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -101,7 +101,7 @@ exports.getCommune = (req, res) => {
 }
 
 exports.getVille = (req, res) => {
-    const q = `SELECT * FROM villes`;
+    const q = `SELECT v.id_ville, v.nom_ville, v.id_province AS id_parent FROM villes v`;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -112,7 +112,7 @@ exports.getVille = (req, res) => {
 }
 
 exports.getLocalite = (req, res) => {
-    const q = `SELECT * FROM localite`;
+    const q = `SELECT l.id_localite, l.nom_localite, l.id_ville AS id_parent FROM localite l`;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -132,7 +132,6 @@ exports.getSiteLoc = (req, res) => {
         return res.status(200).json(data);
     });
 }
-
 
 exports.getPays = (req, res) => {
     const q = `SELECT * FROM pays`;
