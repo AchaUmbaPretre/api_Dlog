@@ -132,3 +132,15 @@ exports.getSiteLoc = (req, res) => {
         return res.status(200).json(data);
     });
 }
+
+
+exports.getPays = (req, res) => {
+    const q = `SELECT * FROM pays`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+}
