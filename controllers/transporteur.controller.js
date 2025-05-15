@@ -11,7 +11,24 @@ function queryPromise(connection, sql, params) {
   }
 
 exports.getLocalisation = (req, res) => {
-    const q = `SELECT * FROM localisation`;
+    const q = `SELECT 
+                    l.*,
+                    COALESCE(
+                        p.name,
+                        c.nom_commune,
+                        v.nom_ville,
+                        lo.nom_localite,
+                        pays.nom_pays
+                    ) AS nom
+
+                    FROM localisation l
+                    LEFT JOIN provinces p ON l.type_loc = 'province' AND l.id_titre = p.id
+                    LEFT JOIN commune c ON l.type_loc = 'commune' AND l.id_titre = c.id_commune
+                    LEFT JOIN villes v ON l.type_loc = 'ville' AND l.id_titre = v.id_ville
+                    LEFT JOIN localite lo ON l.type_loc = 'localité' AND l.id_titre = lo.id_localite
+                    LEFT JOIN pays ON l.type_loc = 'pays' AND l.id_titre = pays.id_pays
+                    ORDER BY l.niveau DESC
+                `;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -38,7 +55,7 @@ exports.postLocalisation = (req, res) => {
             try {
                 const { id_titre, type_loc, id_parent, niveau } = req.body;
 
-                if (!id_titre || !id_parent) {
+                if (!id_titre) {
                     throw new Error("Certains champs obligatoires sont manquants ou invalides.");
                 }
 
