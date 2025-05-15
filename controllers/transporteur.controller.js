@@ -27,7 +27,7 @@ exports.getLocalisation = (req, res) => {
                     LEFT JOIN villes v ON l.type_loc = 'ville' AND l.id_titre = v.id_ville
                     LEFT JOIN localite lo ON l.type_loc = 'localité' AND l.id_titre = lo.id_localite
                     LEFT JOIN pays ON l.type_loc = 'pays' AND l.id_titre = pays.id_pays
-                    ORDER BY l.niveau DESC
+                    ORDER BY l.niveau ASC
                 `;
 
     db.query(q, (error, data) => {
