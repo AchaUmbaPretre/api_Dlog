@@ -19,7 +19,13 @@ exports.getLocalisation = (req, res) => {
                         v.nom_ville,
                         lo.nom_localite,
                         pays.nom_pays
-                    ) AS nom
+                    ) AS nom,
+                    COALESCE(
+                        pr.name,
+                        pro.name,
+                        vl.nom_ville,
+                        pa.nom_pays
+                    	) AS parent
 
                     FROM localisation l
                     LEFT JOIN provinces p ON l.type_loc = 'province' AND l.id_titre = p.id
@@ -27,6 +33,12 @@ exports.getLocalisation = (req, res) => {
                     LEFT JOIN villes v ON l.type_loc = 'ville' AND l.id_titre = v.id_ville
                     LEFT JOIN localite lo ON l.type_loc = 'localité' AND l.id_titre = lo.id_localite
                     LEFT JOIN pays ON l.type_loc = 'pays' AND l.id_titre = pays.id_pays
+                    
+                    LEFT JOIN provinces pr ON l.type_loc = 'ville' AND l.id_parent = pr.id
+                    LEFT JOIN provinces pro ON l.type_loc = 'commune' AND l.id_parent = pro.id
+                    LEFT JOIN villes vl ON l.type_loc = 'localité' AND l.id_parent = vl.id_ville
+                    LEFT JOIN pays pa ON l.type_loc = 'province' AND l.id_parent = pa.id_pays
+                    
                     ORDER BY l.niveau ASC
                 `;
 
@@ -53,17 +65,17 @@ exports.postLocalisation = (req, res) => {
             }
 
             try {
-                const { id_titre, type_loc, id_parent, niveau } = req.body;
+                const { id_titre, type_loc, id_parent, niveau, commentaire } = req.body;
 
                 if (!id_titre) {
                     throw new Error("Certains champs obligatoires sont manquants ou invalides.");
                 }
 
                 const insertQuery = `
-                    INSERT INTO localisation (id_titre, type_loc, id_parent, niveau)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO localisation (id_titre, type_loc, id_parent, commentaire, niveau)
+                    VALUES (?, ?, ?, ?, ?)
                 `;
-                const values = [id_titre, type_loc, id_parent, niveau];
+                const values = [id_titre, type_loc, id_parent, commentaire, niveau];
 
                 const [mainResult] = await queryPromise(connection, insertQuery, values);
                 const insertLocalisationId = mainResult.insertId;
