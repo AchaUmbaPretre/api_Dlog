@@ -65,10 +65,34 @@ exports.postLocalisation = (req, res) => {
             }
 
             try {
-                const { nom, type_loc, id_parent, niveau, commentaire } = req.body;
+                const { nom, type_loc, id_parent, commentaire } = req.body;
 
-                if (!id_titre || !nom) {
+                if (!type_loc || !nom) {
                     throw new Error("Certains champs obligatoires sont manquants ou invalides.");
+                }
+
+                let niveau;
+                switch (type_loc) {
+                    case 'pays':
+                        niveau = 0;
+                        break;
+                    case 'province':
+                        niveau = 1;
+                        break;
+                    case 'ville':
+                        niveau = 2;
+                        break;
+                    case 'commune':
+                        niveau = 2;
+                        break;
+                    case 'localité':
+                        niveau = 3;
+                        break;
+                    case 'site':
+                        niveau = 4;
+                        break;
+                    default:
+                        throw new Error("Type de localisation inconnu.");
                 }
 
                 const insertQuery = `
