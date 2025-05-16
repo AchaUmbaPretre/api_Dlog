@@ -65,17 +65,17 @@ exports.postLocalisation = (req, res) => {
             }
 
             try {
-                const { id_titre, type_loc, id_parent, niveau, commentaire } = req.body;
+                const { nom, type_loc, id_parent, niveau, commentaire } = req.body;
 
-                if (!id_titre) {
+                if (!id_titre || !nom) {
                     throw new Error("Certains champs obligatoires sont manquants ou invalides.");
                 }
 
                 const insertQuery = `
-                    INSERT INTO localisation (id_titre, type_loc, id_parent, commentaire, niveau)
+                    INSERT INTO localisation (nom, type_loc, id_parent, commentaire, niveau)
                     VALUES (?, ?, ?, ?, ?)
                 `;
-                const values = [id_titre, type_loc, id_parent, commentaire, niveau];
+                const values = [nom, type_loc, id_parent, commentaire, niveau];
 
                 const [mainResult] = await queryPromise(connection, insertQuery, values);
                 const insertLocalisationId = mainResult.insertId;
