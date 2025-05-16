@@ -152,7 +152,7 @@ exports.getLocalite = (req, res) => {
 }
 
 exports.getSiteLoc = (req, res) => {
-    const q = `SELECT * FROM site_loc`;
+    const q = `SELECT sl.id_site_loc, sl.nom_site_loc, sl.id_ville AS id_parent FROM site_loc sl`;
 
     db.query(q, (error, data) => {
         if (error) {
