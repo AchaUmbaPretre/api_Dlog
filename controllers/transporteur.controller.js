@@ -14,13 +14,6 @@ exports.getLocalisation = (req, res) => {
     const q = `SELECT 
                     l.*,
                     COALESCE(
-                        p.name,
-                        c.nom_commune,
-                        v.nom_ville,
-                        lo.nom_localite,
-                        pays.nom_pays
-                    ) AS nom,
-                    COALESCE(
                         pr.name,
                         pro.name,
                         vl.nom_ville,
@@ -28,11 +21,6 @@ exports.getLocalisation = (req, res) => {
                     	) AS parent
 
                     FROM localisation l
-                    LEFT JOIN provinces p ON l.type_loc = 'province' AND l.id_titre = p.id
-                    LEFT JOIN commune c ON l.type_loc = 'commune' AND l.id_titre = c.id_commune
-                    LEFT JOIN villes v ON l.type_loc = 'ville' AND l.id_titre = v.id_ville
-                    LEFT JOIN localite lo ON l.type_loc = 'localité' AND l.id_titre = lo.id_localite
-                    LEFT JOIN pays ON l.type_loc = 'pays' AND l.id_titre = pays.id_pays
                     
                     LEFT JOIN provinces pr ON l.type_loc = 'ville' AND l.id_parent = pr.id
                     LEFT JOIN provinces pro ON l.type_loc = 'commune' AND l.id_parent = pro.id
