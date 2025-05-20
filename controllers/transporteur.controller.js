@@ -38,6 +38,36 @@ exports.getLocalisation = (req, res) => {
     });
 }
 
+exports.getLocalisationOne = (req, res) => {
+    const { id_localisation } = req.query;
+
+    const q = `SELECT 
+                    l.*,
+                    COALESCE(
+                        pr.name,
+                        pro.name,
+                        vl.nom_ville,
+                        pa.nom_pays
+                    	) AS parent
+
+                    FROM localisation l
+                    
+                    LEFT JOIN provinces pr ON l.type_loc = 'ville' AND l.id_parent = pr.id
+                    LEFT JOIN provinces pro ON l.type_loc = 'commune' AND l.id_parent = pro.id
+                    LEFT JOIN villes vl ON l.type_loc = 'localité' AND l.id_parent = vl.id_ville
+                    LEFT JOIN pays pa ON l.type_loc = 'province' AND l.id_parent = pa.id_pays
+                    WHERE l.id_localisation = ?
+                    ORDER BY l.niveau ASC
+                `;
+
+    db.query(q, [id_localisation], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+}
+
 exports.postLocalisation = (req, res) => {
     db.getConnection((connErr, connection) => {
         if (connErr) {

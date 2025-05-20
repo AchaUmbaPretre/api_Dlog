@@ -3,6 +3,7 @@ const transporteur = require('./../controllers/transporteur.controller')
 const router = express.Router();
 
 router.get('/localisation', transporteur.getLocalisation);
+router.get('/localisation/one', transporteur.getLocalisationOne);
 router.post('/localisation', transporteur.postLocalisation);
 
 router.get('/type_localisation', transporteur.getTypeLocalisation);
