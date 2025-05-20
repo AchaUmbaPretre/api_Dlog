@@ -196,7 +196,6 @@ exports.putLocalisation = (req, res) => {
     });
 };
 
-
 //Type de localisation
 exports.getTypeLocalisation = (req, res) => {
     const q = `SELECT * FROM type_localisation`;
@@ -236,6 +235,21 @@ exports.getLocalite = (req, res) => {
                     INNER JOIN villes v ON l.id_ville = v.id_ville`;
 
     db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+}
+
+exports.getLocaliteOne = (req, res) => {
+    const { id_localite } = req.query;
+
+    const q = `SELECT l.id_localite, l.nom_localite, l.id_ville  FROM localite l
+                    INNER JOIN villes v ON l.id_ville = v.id_ville
+                    l.id_localite = ?`;
+
+    db.query(q, [id_localite], (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
@@ -296,6 +310,55 @@ exports.postLocalite = (req, res) => {
         })
     })
 }
+
+exports.putLocalite = (req, res) => {
+    const { nom_localite, id_ville } = req.body;
+
+    if( !nom_localite || !id_ville ) {
+        return res.status(400).json({ error: "Champs requis manquants." });
+    }
+
+    db.getConnection((connErr, connection) => {
+        if(connErr) {
+            console.error("Erreur de connexion DB :", connErr);
+            return res.status(500).json({ error: "Connexion à la base de données échouée." });
+        }
+
+        connection.beginTransaction(async (trxErr) => {
+            if(trxErr) {
+                connection.release();
+                return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+            }
+
+            try {
+                const sql = `
+                    UPDATE localite 
+                    SET nom_localite = ?, id_ville = ?
+                    WHERE id_localite = ?
+                `;
+
+                const params = [nom_localite, id_ville];
+
+                await queryPromise(connection, sql, params);
+
+                connection.commit((commitErr) => {
+                    if (commitErr) {
+                        console.error("Erreur lors du commit :", commitErr);
+                        return res.status(500).json({ error: "Erreur lors du commit." });
+                    }
+                    return res.status(200).json({ message: "Localité mise à jour avec succès." });
+                })
+
+            } catch (error) {
+                connection.rollback(() => {
+                    connection.release();
+                    console.error("Erreur lors de la mise à jour :", error);
+                    return res.status(500).json({ error: error.message || "Erreur inattendue." });
+                });
+            }
+        })
+    })
+} 
 
 exports.getPays = (req, res) => {
     const q = `SELECT * FROM pays`;
