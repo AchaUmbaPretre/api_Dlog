@@ -9,7 +9,7 @@ router.get('/type_localisation', transporteur.getTypeLocalisation);
 router.get('/commune', transporteur.getCommune);
 router.get('/ville', transporteur.getVille);
 router.get('/localite', transporteur.getLocalite);
-router.post('/localite', transporteur.postLocalite)
+router.post('/localite', transporteur.postLocalite);
 router.get('/pays', transporteur.getPays);
 
 module.exports = router;
