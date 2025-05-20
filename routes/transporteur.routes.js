@@ -5,6 +5,7 @@ const router = express.Router();
 router.get('/localisation', transporteur.getLocalisation);
 router.get('/localisation/one', transporteur.getLocalisationOne);
 router.post('/localisation', transporteur.postLocalisation);
+router.put('/localisation', transporteur.putLocalisation);
 
 router.get('/type_localisation', transporteur.getTypeLocalisation);
 router.get('/commune', transporteur.getCommune);
