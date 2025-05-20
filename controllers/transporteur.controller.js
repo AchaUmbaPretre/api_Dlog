@@ -358,7 +358,7 @@ exports.putLocalite = (req, res) => {
             }
         })
     })
-} 
+}
 
 exports.getPays = (req, res) => {
     const q = `SELECT * FROM pays`;
