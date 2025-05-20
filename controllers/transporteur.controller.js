@@ -153,7 +153,8 @@ exports.getVille = (req, res) => {
 }
 
 exports.getLocalite = (req, res) => {
-    const q = `SELECT l.id_localite, l.nom_localite, l.id_ville AS id_parent FROM localite l`;
+    const q = `SELECT l.id_localite, l.nom_localite, l.id_ville AS id_parent, v.nom_ville FROM localite l
+                    INNER JOIN villes v ON l.id_ville = v.id_ville`;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -163,15 +164,58 @@ exports.getLocalite = (req, res) => {
     });
 }
 
-exports.getSiteLoc = (req, res) => {
-    const q = `SELECT sl.id_site_loc, sl.nom_site_loc, sl.id_ville AS id_parent FROM site_loc sl`;
-
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
+exports.postLocalite = (req, res) => {
+    db.getConnection((connErr, connection) => {
+        if(connErr) {
+            console.error("Erreur de connexion DB : ", connErr)
+            return res.status(500).json({ error: "Connexion à la base de données échouée." });
         }
-        return res.status(200).json(data);
-    });
+
+        connection.beginTransaction(async (trxErr) => {
+            if(trxErr) {
+                connection.release();
+                console.error("Erreur transaction : ", trxErr)
+                return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+            }
+
+            try {
+                const { nom_localite, id_ville } = req.body;
+
+                if (!nom_localite || !id_ville) {
+                    throw new Error("Champs obligatoires manquants.");   
+                }
+
+                const insertSql = `
+                    INSERT INTO localite (
+                    nom_localite, id_ville
+                    ) VALUES (?, ?)
+                `
+                const values = [
+                    nom_localite,
+                    id_ville
+                ]
+
+                const [insertResult] = await queryPromise(connection, insertSql, values);
+                const insertId = insertResult.insertId;
+
+            connection.commit((commitErr) => {
+                connection.release();
+                if (commitErr) {
+                    console.error("Erreur commit :", commitErr);
+                    return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+                }
+
+                return res.status(201).json({
+                    message: "Localité enregistrée avec succès.",
+                    data: { id: insertId }
+                });
+                });
+
+            } catch (error) {
+                
+            }
+        })
+    })
 }
 
 exports.getPays = (req, res) => {

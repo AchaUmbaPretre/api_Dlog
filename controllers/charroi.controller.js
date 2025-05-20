@@ -2762,7 +2762,7 @@ exports.getSubInspection = (req, res) => {
     }
 
     const query = `
-                SELECT sig.id_sub_inspection_gen, sig.montant, tr.type_rep, ci.nom_cat_inspection, ig.date_inspection, v.immatriculation, m.nom_marque, sig.id_type_reparation, sig.id_cat_inspection, sig.img, sig.commentaire, sig.avis, sig.img, tss.nom_type_statut FROM sub_inspection_gen sig
+                SELECT sig.id_sub_inspection_gen, sig.montant, tr.type_rep, ci.nom_cat_inspection, ig.date_inspection, v.immatriculation, m.nom_marque, sig.id_type_reparation, sig.id_cat_inspection, sig.img, sig.commentaire, sig.avis, sig.img, tss.nom_type_statut, sig.update_at FROM sub_inspection_gen sig
                     INNER JOIN type_reparations tr ON sig.id_type_reparation = tr.id_type_reparation
                     INNER JOIN cat_inspection ci ON sig.id_cat_inspection = ci.id_cat_inspection
                     INNER JOIN inspection_gen ig ON sig.id_inspection_gen = ig.id_inspection_gen
