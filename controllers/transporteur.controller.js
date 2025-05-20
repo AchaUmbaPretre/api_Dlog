@@ -312,9 +312,9 @@ exports.postLocalite = (req, res) => {
 }
 
 exports.putLocalite = (req, res) => {
-    const { nom_localite, id_ville } = req.body;
+    const { id_localite, nom_localite, id_ville } = req.body;
 
-    if( !nom_localite || !id_ville ) {
+    if( !id_localite || !nom_localite || !id_ville ) {
         return res.status(400).json({ error: "Champs requis manquants." });
     }
 
@@ -337,7 +337,7 @@ exports.putLocalite = (req, res) => {
                     WHERE id_localite = ?
                 `;
 
-                const params = [nom_localite, id_ville];
+                const params = [nom_localite, id_ville, id_localite];
 
                 await queryPromise(connection, sql, params);
 
