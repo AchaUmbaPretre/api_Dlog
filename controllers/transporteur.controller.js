@@ -148,6 +148,55 @@ exports.postLocalisation = (req, res) => {
     });
 };
 
+exports.putLocalisation = (req, res) => {
+    const { id_localisation, nom, type_loc, id_parent, commentaire } = req.body;
+
+    if (!id_localisation || !nom || !type_loc) {
+        return res.status(400).json({ error: "Champs requis manquants." });
+    }
+
+    db.getConnection((connErr, connection) => {
+        if (connErr) {
+            console.error("Erreur de connexion DB :", connErr);
+            return res.status(500).json({ error: "Connexion à la base de données échouée." });
+        }
+
+        connection.beginTransaction(async (trxErr) => {
+            if (trxErr) {
+                connection.release();
+                return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+            }
+
+            try {
+                const sql = `
+                    UPDATE localisation 
+                    SET nom = ?, type_loc = ?, id_parent = ?, commentaire = ? 
+                    WHERE id_localisation = ?
+                `;
+                const params = [nom, type_loc, id_parent || null, commentaire || null, id_localisation];
+
+                await queryPromise(connection, sql, params);
+
+                connection.commit((commitErr) => {
+                    connection.release();
+                    if (commitErr) {
+                        console.error("Erreur lors du commit :", commitErr);
+                        return res.status(500).json({ error: "Erreur lors du commit." });
+                    }
+                    return res.status(200).json({ message: "Localisation mise à jour avec succès." });
+                });
+            } catch (error) {
+                connection.rollback(() => {
+                    connection.release();
+                    console.error("Erreur lors de la mise à jour :", error);
+                    return res.status(500).json({ error: error.message || "Erreur inattendue." });
+                });
+            }
+        });
+    });
+};
+
+
 //Type de localisation
 exports.getTypeLocalisation = (req, res) => {
     const q = `SELECT * FROM type_localisation`;
