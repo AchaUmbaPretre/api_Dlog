@@ -247,7 +247,7 @@ exports.getLocaliteOne = (req, res) => {
 
     const q = `SELECT l.id_localite, l.nom_localite, l.id_ville  FROM localite l
                     INNER JOIN villes v ON l.id_ville = v.id_ville
-                    l.id_localite = ?`;
+                   WHERE l.id_localite = ?`;
 
     db.query(q, [id_localite], (error, data) => {
         if (error) {
