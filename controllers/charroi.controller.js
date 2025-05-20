@@ -2153,6 +2153,7 @@ exports.getInspectionGen = (req, res) => {
         LEFT JOIN statut_vehicule sv ON ig.id_statut_vehicule = sv.id_statut_vehicule
         LEFT JOIN cat_inspection ci ON sug.id_cat_inspection = ci.id_cat_inspection
         ${whereSQL}
+        GROUP BY sug.id_sub_inspection_gen
         ORDER BY ig.created_at DESC
     `;
 
@@ -4394,37 +4395,93 @@ exports.getDocumentInspection = (req, res) => {
 
 //Historique
 exports.getHistorique = (req, res) => {
+  const { searchValue } = req.query;
 
-    const q = `SELECT 
-            hv.id_historique, 
-            hv.date_action, 
-            hv.action, 
-            hv.commentaire, 
-            u.nom, 
-            v.immatriculation, 
-            sv.nom_statut_vehicule, 
-            m.nom_marque, 
-            COALESCE(tr.type_rep, trs.type_rep) AS type_rep, 
-            ts.nom_type_statut 
-        FROM historique_vehicule hv 
-        LEFT JOIN utilisateur u ON hv.user_cr = u.id_utilisateur
-        LEFT JOIN vehicules v ON hv.id_vehicule = v.id_vehicule
-        LEFT JOIN statut_vehicule sv ON hv.id_statut_vehicule = sv.id_statut_vehicule
-        LEFT JOIN sub_inspection_gen sub ON hv.id_sub_inspection_gen = sub.id_sub_inspection_gen
-        LEFT JOIN sud_reparation sud ON hv.id_sud_reparation = sud.id_sud_reparation
-        LEFT JOIN type_reparations tr ON sub.id_type_reparation = tr.id_type_reparation
-        LEFT JOIN type_reparations trs ON sud.id_type_reparation = trs.id_type_reparation
-        LEFT JOIN type_statut_suivi ts ON hv.statut = ts.id_type_statut_suivi
-        LEFT JOIN marque m ON v.id_marque = m.id_marque
-        ORDER BY hv.created_at DESC;
-      `;
+  let whereClauses = [];
+  let values = [];
 
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
+  if (searchValue) {
+    whereClauses.push(`(v.immatriculation LIKE ? OR m.nom_marque LIKE ?)`);
+    const likeValue = `%${searchValue}%`;
+    values.push(likeValue, likeValue);
+  }
+
+  const whereClauseString = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+  const historiqueQuery = `
+    SELECT 
+      hv.id_historique, 
+      hv.date_action, 
+      hv.action, 
+      hv.commentaire, 
+      u.nom, 
+      v.immatriculation, 
+      sv.nom_statut_vehicule, 
+      m.nom_marque, 
+      COALESCE(tr.type_rep, trs.type_rep) AS type_rep, 
+      ts.nom_type_statut 
+    FROM historique_vehicule hv 
+    LEFT JOIN utilisateur u ON hv.user_cr = u.id_utilisateur
+    LEFT JOIN vehicules v ON hv.id_vehicule = v.id_vehicule
+    LEFT JOIN statut_vehicule sv ON hv.id_statut_vehicule = sv.id_statut_vehicule
+    LEFT JOIN sub_inspection_gen sub ON hv.id_sub_inspection_gen = sub.id_sub_inspection_gen
+    LEFT JOIN sud_reparation sud ON hv.id_sud_reparation = sud.id_sud_reparation
+    LEFT JOIN type_reparations tr ON sub.id_type_reparation = tr.id_type_reparation
+    LEFT JOIN type_reparations trs ON sud.id_type_reparation = trs.id_type_reparation
+    LEFT JOIN type_statut_suivi ts ON hv.statut = ts.id_type_statut_suivi
+    LEFT JOIN marque m ON v.id_marque = m.id_marque
+    ${whereClauseString}
+    ORDER BY hv.created_at DESC;
+  `;
+
+  const dateQuery = `
+    SELECT 
+      MAX(hv.date_action) AS date_recente, 
+      MIN(hv.date_action) AS date_ancienne
+    FROM historique_vehicule hv
+    LEFT JOIN vehicules v ON hv.id_vehicule = v.id_vehicule
+    LEFT JOIN marque m ON v.id_marque = m.id_marque
+    ${whereClauseString};
+  `;
+
+  const statQuery = `
+    SELECT 
+        ts.nom_type_statut,
+        sv.nom_statut_vehicule
+    FROM historique_vehicule hv
+    LEFT JOIN type_statut_suivi ts ON hv.statut = ts.id_type_statut_suivi
+    LEFT JOIN statut_vehicule sv ON hv.id_statut_vehicule = sv.id_statut_vehicule
+    LEFT JOIN vehicules v ON hv.id_vehicule = v.id_vehicule
+    LEFT JOIN marque m ON v.id_marque = m.id_marque
+    ${whereClauseString}
+    ORDER BY hv.date_action DESC
+    LIMIT 1;
+  `
+
+  db.query(historiqueQuery, values, (error, historiqueData) => {
+    if (error) {
+      return res.status(500).send(error);
+    }
+
+    db.query(dateQuery, values, (err, dateResult) => {
+      if (err) {
+        return res.status(500).send(err);
+      }
+
+      db.query(statQuery, values, (error, result) => {
+        if(error) {
+          return res.status(500).send(error);
         }
-        return res.status(200).json(data);
+
+        return res.status(200).json({
+        data: historiqueData,
+        date_recente: dateResult[0]?.date_recente || null,
+        date_ancienne: dateResult[0]?.date_ancienne || null,
+        statut: result
+      });
+      })
     });
+  });
 };
 
 exports.getHistoriqueNotification = (req, res) => {
