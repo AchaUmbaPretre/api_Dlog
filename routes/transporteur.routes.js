@@ -19,5 +19,6 @@ router.get('/pays', transporteur.getPays);
 router.get('/mode_transport', transporteur.getModeTransport);
 router.get('/type_tarif', transporteur.getTypeTarif);
 router.get('/transporteur', transporteur.getTransporteur);
+router.get('/trajet', transporteur.getTrajet);
 
 module.exports = router;

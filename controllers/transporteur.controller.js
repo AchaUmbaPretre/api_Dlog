@@ -405,7 +405,7 @@ exports.getTransporteur = (req, res) => {
 }
 
 exports.getTrajet = (req, res) => {
-    const q = `SELECT * FROM transporteur`;
+    const q = `SELECT * FROM trajets`;
 
     db.query(q, (error, data) => {
         if (error) {
