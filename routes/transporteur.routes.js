@@ -16,4 +16,6 @@ router.post('/localite', transporteur.postLocalite);
 router.put('/localite', transporteur.putLocalite);
 router.get('/pays', transporteur.getPays);
 
+router.get('/mode_transport', transporteur.getModeTransport);
+
 module.exports = router;

@@ -370,3 +370,14 @@ exports.getPays = (req, res) => {
         return res.status(200).json(data);
     });
 }
+
+exports.getModeTransport = (req, res) => {
+    const q = `SELECT * FROM mode_transport`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+}
