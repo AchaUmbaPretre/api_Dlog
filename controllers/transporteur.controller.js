@@ -403,3 +403,14 @@ exports.getTransporteur = (req, res) => {
         return res.status(200).json(data);
     });
 }
+
+exports.getTrajet = (req, res) => {
+    const q = `SELECT * FROM transporteur`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+}
