@@ -381,3 +381,25 @@ exports.getModeTransport = (req, res) => {
         return res.status(200).json(data);
     });
 }
+
+exports.getTypeTarif = (req, res) => {
+    const q = `SELECT * FROM type_tarif`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+}
+
+exports.getTransporteur = (req, res) => {
+    const q = `SELECT * FROM transporteur`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+}
