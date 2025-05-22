@@ -4791,7 +4791,7 @@ exports.postDemandeVehicule = (req, res) => {
         `;
 
         await Promise.all(parsedUsers.map(user =>
-          queryPromise(connection, userSql, [insertId, user.utilisateur])
+          queryPromise(connection, userSql, [insertId, user])
         ));
 
         connection.commit((commitErr) => {
