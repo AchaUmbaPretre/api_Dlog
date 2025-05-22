@@ -4672,3 +4672,149 @@ exports.postReclamation = (req, res) => {
     })
   })
 }
+
+exports.getServiceDemandeur = (req, res) => {
+    const q = `SELECT * FROM service_demandeur`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+}
+
+exports.getTypeVehicule = (req, res) => {
+    const q = `SELECT * FROM type_vehicule`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+}
+
+exports.getMotif = (req, res) => {
+    const q = `SELECT * FROM motif_demande`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+}
+
+exports.getDemandeVehicule = (req, res) => {
+    const q = `SELECT * FROM demande_vehicule`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+}
+
+exports.postDemandeVehicule = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error('Erreur de connexion DB :', connErr);
+      return res.status(500).json({ error: "Erreur de connexion à la base de données." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error('Erreur transaction :', trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const {
+          date_chargement,
+          date_prevue,
+          date_retour,
+          id_type_vehicule,
+          id_motif_demande,
+          id_demandeur,
+          id_client,
+          id_localisation,
+          user_cr,
+          id_utilisateur
+        } = req.body;
+
+        if (!user_cr || !id_type_vehicule) {
+          throw new Error("Champs obligatoires manquants.");
+        }
+
+        const insertSQL = `
+          INSERT INTO demande_vehicule (
+            date_chargement, 
+            date_prevue, 
+            date_retour, 
+            id_type_vehicule, 
+            id_motif_demande,
+            id_demandeur,
+            id_client,
+            id_localisation,
+            user_cr
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const valuesDemande = [
+          date_chargement,
+          date_prevue,
+          date_retour,
+          id_type_vehicule,
+          id_motif_demande,
+          id_demandeur,
+          id_client,
+          id_localisation,
+          user_cr
+        ];
+
+        const [insertDemandeResult] = await queryPromise(connection, insertSQL, valuesDemande);
+        const insertId = insertDemandeResult.insertId;
+
+        let parsedUsers = Array.isArray(id_utilisateur)
+          ? id_utilisateur
+          : JSON.parse(id_utilisateur || '[]');
+
+        if (!Array.isArray(parsedUsers)) {
+          throw new Error("Le champ 'Personne' doit être un tableau.");
+        }
+
+        const userSql = `
+          INSERT INTO demande_vehicule_users (id_demande_vehicule, id_utilisateur) VALUES (?, ?)
+        `;
+
+        await Promise.all(parsedUsers.map(user =>
+          queryPromise(connection, userSql, [insertId, user.utilisateur])
+        ));
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur lors du commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de l'enregistrement de la transaction." });
+          }
+
+          return res.status(201).json({
+            message: "La demande a été enregistrée avec succès.",
+          });
+        });
+
+      } catch (error) {
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur pendant la transaction :", error);
+          return res.status(500).json({
+            error: error.message || "Une erreur est survenue lors de l'enregistrement.",
+          });
+        });
+      }
+    });
+  });
+};

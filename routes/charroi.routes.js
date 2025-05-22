@@ -145,4 +145,8 @@ router.get('/reclamation', charroiController.getReclamation)
 router.get('/reclamationOne', charroiController.getReclamationOne)
 router.post('/reclamation', charroiController.postReclamation)
 
+router.get('/serviceDemadeur', charroiController.getServiceDemandeur)
+router.get('/type_vehicule', charroiController.getTypeVehicule)
+router.get('/motif', charroiController.getMotif)
+
 module.exports = router;
