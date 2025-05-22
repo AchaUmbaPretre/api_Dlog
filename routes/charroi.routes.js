@@ -149,4 +149,7 @@ router.get('/serviceDemadeur', charroiController.getServiceDemandeur)
 router.get('/type_vehicule', charroiController.getTypeVehicule)
 router.get('/motif', charroiController.getMotif)
 
+router.get('/demande_vehicule', charroiController.getDemandeVehicule)
+router.post('/demande_vehicule', charroiController.postDemandeVehicule)
+
 module.exports = router;
