@@ -1,4 +1,13 @@
 const { db } = require("./../config/database");
+// 📦 Petite helper function pour convertir mysql en Promises
+function queryPromise(connection, sql, params) {
+    return new Promise((resolve, reject) => {
+      connection.query(sql, params, (err, results) => {
+        if (err) return reject(err);
+        resolve([results]);
+      });
+    });
+  }
 
 exports.getClientId = (req, res) => {
 
@@ -227,7 +236,8 @@ exports.deleteClient = (req, res) => {
 
 exports.getProvince = (req, res) => {
 
-    const q = `SELECT p.id, p.name, p.capital, p.id_pays AS id_parent FROM provinces p
+    const q = `SELECT p.id, p.name, p.capital, p.id_pays AS id_parent, pays.nom_pays FROM provinces p
+                INNER JOIN pays ON pays.id_pays = p.id_pays
     `;
     db.query(q, (error, data) => {
         if (error) {
@@ -281,6 +291,69 @@ exports.getProvinceClient = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+exports.postProvince = (req, res) => {
+    db.getConnection((connErr, connection) => {
+        if(connErr) {
+            console.error("Erreur de connexion DB : ", connErr)
+            return res.status(500).json({ error: "Connexion à la base de données échouée." });
+        }
+
+        connection.beginTransaction(async (trxErr) => {
+            if(trxErr) {
+                connection.release();
+                console.error("Erreur transaction : ", trxErr)
+                return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+            }
+
+            try {
+                const { name, code_ville, id_pays } = req.body;
+
+                if (!id_pays) {
+                    throw new Error("Champs obligatoires manquants.");   
+                }
+
+                const insertSql = `
+                    INSERT INTO provinces (
+                    name,
+                    code_ville,
+                    id_pays
+                    ) VALUES (?, ?, ?)
+                `
+                const values = [
+                    name,
+                    code_ville,
+                    id_pays
+                ]
+
+                const [insertResult] = await queryPromise(connection, insertSql, values);
+                const insertId = insertResult.insertId;
+
+            connection.commit((commitErr) => {
+                connection.release();
+                if (commitErr) {
+                    console.error("Erreur commit :", commitErr);
+                    return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+                }
+
+                return res.status(201).json({
+                    message: "La province a été enregistrée avec succès.",
+                    data: { id: insertId }
+                });
+                });
+
+            } catch (error) {
+                connection.rollback(() => {
+                connection.release();
+                console.error("Erreur pendant la transaction :", error);
+                return res.status(500).json({
+                    error: error.message || "Une erreur est survenue lors de l'enregistrement.",
+                });
+                });
+            }
+        })
+    })
+}
 
 exports.getClientType = (req, res) => {
 

@@ -230,6 +230,67 @@ exports.getVille = (req, res) => {
     });
 }
 
+exports.postVille = (req, res) => {
+    db.getConnection((connErr, connection) => {
+        if(connErr) {
+            console.error("Erreur de connexion DB : ", connErr)
+            return res.status(500).json({ error: "Connexion à la base de données échouée." });
+        }
+
+        connection.beginTransaction(async (trxErr) => {
+            if(trxErr) {
+                connection.release();
+                console.error("Erreur transaction : ", trxErr)
+                return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+            }
+
+            try {
+                const { nom_ville, id_province } = req.body;
+
+                if (!nom_ville) {
+                    throw new Error("Champs obligatoires manquants.");   
+                }
+
+                const insertSql = `
+                    INSERT INTO villes (
+                    nom_ville,
+                    id_province ,
+                    ) VALUES (?, ?)
+                `
+                const values = [
+                    nom_ville, 
+                    id_province
+                ]
+
+                const [insertResult] = await queryPromise(connection, insertSql, values);
+                const insertId = insertResult.insertId;
+
+            connection.commit((commitErr) => {
+                connection.release();
+                if (commitErr) {
+                    console.error("Erreur commit :", commitErr);
+                    return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+                }
+
+                return res.status(201).json({
+                    message: "La ville a été enregistrée avec succès.",
+                    data: { id: insertId }
+                });
+                });
+
+            } catch (error) {
+                connection.rollback(() => {
+                connection.release();
+                console.error("Erreur pendant la transaction :", error);
+                return res.status(500).json({
+                    error: error.message || "Une erreur est survenue lors de l'enregistrement.",
+                });
+                });
+            }
+        })
+    })
+}
+
 exports.getLocalite = (req, res) => {
     const q = `SELECT l.id_localite, l.nom_localite, l.id_ville AS id_parent, v.nom_ville FROM localite l
                     INNER JOIN villes v ON l.id_ville = v.id_ville`;
@@ -369,6 +430,65 @@ exports.getPays = (req, res) => {
         }
         return res.status(200).json(data);
     });
+}
+
+exports.postPays = (req, res) => {
+    db.getConnection((connErr, connection) => {
+        if(connErr) {
+            console.error("Erreur de connexion DB : ", connErr)
+            return res.status(500).json({ error: "Connexion à la base de données échouée." });
+        }
+
+        connection.beginTransaction(async (trxErr) => {
+            if(trxErr) {
+                connection.release();
+                console.error("Erreur transaction : ", trxErr)
+                return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+            }
+
+            try {
+                const { nom_pays } = req.body;
+
+                if (!nom_pays) {
+                    throw new Error("Champs obligatoires manquants.");   
+                }
+
+                const insertSql = `
+                    INSERT INTO pays (
+                    nom_pays
+                    ) VALUES (?)
+                `
+                const values = [
+                    nom_pays
+                ]
+
+                const [insertResult] = await queryPromise(connection, insertSql, values);
+                const insertId = insertResult.insertId;
+
+            connection.commit((commitErr) => {
+                connection.release();
+                if (commitErr) {
+                    console.error("Erreur commit :", commitErr);
+                    return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+                }
+
+                return res.status(201).json({
+                    message: "Le pays a été enregistré avec succès.",
+                    data: { id: insertId }
+                });
+                });
+
+            } catch (error) {
+                connection.rollback(() => {
+                connection.release();
+                console.error("Erreur pendant la transaction :", error);
+                return res.status(500).json({
+                    error: error.message || "Une erreur est survenue lors de l'enregistrement.",
+                });
+                });
+            }
+        })
+    })
 }
 
 exports.getModeTransport = (req, res) => {

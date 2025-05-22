@@ -10,11 +10,13 @@ router.put('/localisation', transporteur.putLocalisation);
 router.get('/type_localisation', transporteur.getTypeLocalisation);
 router.get('/commune', transporteur.getCommune);
 router.get('/ville', transporteur.getVille);
+router.post('/ville', transporteur.postVille);
 router.get('/localite', transporteur.getLocalite);
 router.get('/localite/one', transporteur.getLocaliteOne);
 router.post('/localite', transporteur.postLocalite);
 router.put('/localite', transporteur.putLocalite);
 router.get('/pays', transporteur.getPays);
+router.post('/pays', transporteur.postPays)
 
 router.get('/mode_transport', transporteur.getModeTransport);
 router.get('/type_tarif', transporteur.getTypeTarif);
