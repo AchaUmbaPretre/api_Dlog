@@ -4717,13 +4717,15 @@ exports.getDemandeVehicule = (req, res) => {
               sd.nom_service,
               c.nom,
               u.nom AS nom_user,
-              l.nom AS localisation
+              l.nom AS localisation,
+              tss.nom_type_statut
             FROM demande_vehicule dv
               INNER JOIN type_vehicule tv ON dv.id_type_vehicule = tv.id_type_vehicule
               INNER JOIN motif_demande md ON dv.id_motif_demande = md.id_motif_demande
               INNER JOIN service_demandeur sd ON dv.id_demandeur = sd.id_service_demandeur
               INNER JOIN client c ON dv.id_client = c.id_client
               LEFT JOIN localisation l ON dv.id_localisation = l.id_localisation
+              INNER JOIN type_statut_suivi tss ON dv.statut = tss.id_type_statut_suivi
               INNER JOIN utilisateur u ON dv.user_cr = u.id_utilisateur`;
 
     db.query(q, (error, data) => {
@@ -4776,8 +4778,9 @@ exports.postDemandeVehicule = (req, res) => {
             id_demandeur,
             id_client,
             id_localisation,
+            statut,
             user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const valuesDemande = [
@@ -4789,6 +4792,7 @@ exports.postDemandeVehicule = (req, res) => {
           id_demandeur,
           id_client,
           id_localisation,
+          1,
           user_cr
         ];
 
@@ -4810,6 +4814,15 @@ exports.postDemandeVehicule = (req, res) => {
         await Promise.all(parsedUsers.map(user =>
           queryPromise(connection, userSql, [insertId, user])
         ));
+
+          const notifSQL = `
+            INSERT INTO notifications (user_id, message)
+            VALUES (?, ?)
+          `;
+
+        const notifMsg = `Vous avez reçu la demande n°${insertId}, en attente de votre intervention.`;
+
+        await queryPromise(connection, notifSQL, [user_cr, notifMsg]);
 
         connection.commit((commitErr) => {
           connection.release();
