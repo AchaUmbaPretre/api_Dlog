@@ -592,10 +592,9 @@ exports.postTrajet = (req, res) => {
                     date_depart,
                     date_arrivee,
                     distance_km,
-                    duree,
                     mode_transport,
                     prix
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `
                 await Promise.all(segment.map((seg) =>
                     queryPromise(connection, insertSegmentSql, [insertId, seg.ordre, seg.id_depart, seg.id_arrive, seg.date_depart, seg.date_arrivee, seg.distance_km, seg.mode_transport, seg.prix ])
