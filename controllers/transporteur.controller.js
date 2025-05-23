@@ -551,8 +551,10 @@ exports.postTrajet = (req, res) => {
             }
 
             try {
-                const { id_depart, id_arrive, user_cr } = req.body;
+                const { id_depart, id_arrive, user_cr, segment } = req.body;
 
+                console.log(req.body)
+                
                 if (!id_depart || !id_arrive) {
                     throw new Error("Champs obligatoires manquants.");   
                 }

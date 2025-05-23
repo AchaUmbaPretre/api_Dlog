@@ -16,11 +16,12 @@ router.get('/localite/one', transporteur.getLocaliteOne);
 router.post('/localite', transporteur.postLocalite);
 router.put('/localite', transporteur.putLocalite);
 router.get('/pays', transporteur.getPays);
-router.post('/pays', transporteur.postPays)
+router.post('/pays', transporteur.postPays);
 
 router.get('/mode_transport', transporteur.getModeTransport);
 router.get('/type_tarif', transporteur.getTypeTarif);
 router.get('/transporteur', transporteur.getTransporteur);
 router.get('/trajet', transporteur.getTrajet);
+router.post('/trajet', transporteur.postTrajet)
 
 module.exports = router;
