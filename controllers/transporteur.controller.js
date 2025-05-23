@@ -552,12 +552,20 @@ exports.postTrajet = (req, res) => {
 
             try {
                 const { id_depart, id_arrive, user_cr, segment } = req.body;
-
-                console.log(req.body)
                 
                 if (!id_depart || !id_arrive) {
                     throw new Error("Champs obligatoires manquants.");   
                 }
+
+                if (!Array.isArray(segment) || segment.length === 0) {
+                    throw new Error("Au moins un segment est requis.");
+                }
+
+                segment.forEach((s, index) => {
+                    if (!s.ordre || !s.id_depart || !s.id_arrive || !s.date_depart || !s.date_arrivee) {
+                        throw new Error(`Données incomplètes pour le segment ${index + 1}.`);
+                    }
+                });
 
                 const insertSql = `
                     INSERT INTO trajets (
@@ -589,10 +597,9 @@ exports.postTrajet = (req, res) => {
                     prix
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `
-
-                const valueSegment = [
-                    
-                ]
+                await Promise.all(segment.map((seg) =>
+                    queryPromise(connection, insertSegmentSql, [insertId, seg.ordre, seg.id_depart, seg.id_arrive, seg.date_depart, seg.date_arrivee, seg.distance_km, seg.mode_transport, seg.prix ])
+                ))
 
             connection.commit((commitErr) => {
                 connection.release();
@@ -602,10 +609,11 @@ exports.postTrajet = (req, res) => {
                 }
 
                 return res.status(201).json({
-                    message: "La province a été enregistrée avec succès.",
+                    message: "Trajet enregistré avec succès.",
                     data: { id: insertId }
                 });
-                });
+ 
+            });
 
             } catch (error) {
                 connection.rollback(() => {
