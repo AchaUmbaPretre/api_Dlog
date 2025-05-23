@@ -220,7 +220,8 @@ exports.getCommune = (req, res) => {
 }
 
 exports.getVille = (req, res) => {
-    const q = `SELECT v.id_ville, v.nom_ville, v.id_province AS id_parent FROM villes v`;
+    const q = `SELECT v.id_ville, v.nom_ville, v.id_province AS id_parent, p.name FROM villes v
+INNER JOIN provinces p ON v.id_province = p.id`;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -254,7 +255,7 @@ exports.postVille = (req, res) => {
                 const insertSql = `
                     INSERT INTO villes (
                     nom_ville,
-                    id_province ,
+                    id_province
                     ) VALUES (?, ?)
                 `
                 const values = [
@@ -533,4 +534,86 @@ exports.getTrajet = (req, res) => {
         }
         return res.status(200).json(data);
     });
+}
+
+exports.postTrajet = (req, res) => {
+    db.getConnection((connErr, connection) => {
+        if(connErr) {
+            console.error("Erreur de connexion DB : ", connErr)
+            return res.status(500).json({ error: "Connexion à la base de données échouée." });
+        }
+
+        connection.beginTransaction(async (trxErr) => {
+            if(trxErr) {
+                connection.release();
+                console.error("Erreur transaction : ", trxErr)
+                return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+            }
+
+            try {
+                const { id_depart, id_arrive, user_cr } = req.body;
+
+                if (!id_depart || !id_arrive) {
+                    throw new Error("Champs obligatoires manquants.");   
+                }
+
+                const insertSql = `
+                    INSERT INTO trajets (
+                    id_depart,
+                    id_arrive,
+                    user_cr
+                    ) VALUES (?, ?, ?)
+                `
+                const values = [
+                    id_depart,
+                    id_arrive,
+                    user_cr
+                ]
+
+                const [insertResult] = await queryPromise(connection, insertSql, values);
+                const insertId = insertResult.insertId;
+
+                const insertSegmentSql = `
+                    INSERT INTO segment_trajet (
+                    id_trajet,
+                    ordre,
+                    id_depart,
+                    id_destination,
+                    date_depart,
+                    date_arrivee,
+                    distance_km,
+                    duree,
+                    mode_transport,
+                    prix
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `
+
+                const valueSegment = [
+                    
+                ]
+
+            connection.commit((commitErr) => {
+                connection.release();
+                if (commitErr) {
+                    console.error("Erreur commit :", commitErr);
+                    return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+                }
+
+                return res.status(201).json({
+                    message: "La province a été enregistrée avec succès.",
+                    data: { id: insertId }
+                });
+                });
+
+            } catch (error) {
+                connection.rollback(() => {
+                connection.release();
+                console.error("Erreur pendant la transaction :", error);
+                return res.status(500).json({
+                    error: error.message || "Une erreur est survenue lors de l'enregistrement.",
+                });
+                });
+            }
+        })
+    })
 }
