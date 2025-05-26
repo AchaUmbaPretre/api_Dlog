@@ -151,5 +151,6 @@ router.get('/motif', charroiController.getMotif)
 
 router.get('/demande_vehicule', charroiController.getDemandeVehicule)
 router.post('/demande_vehicule', charroiController.postDemandeVehicule)
+router.put('/demande_vehiculeVue', charroiController.putDemandeVehicule)
 
 module.exports = router;
