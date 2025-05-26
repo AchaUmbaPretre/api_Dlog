@@ -606,6 +606,7 @@ exports.getTrajetOne = (req, res) => {
                     JOIN localisation ld ON ld.id_localisation = s.id_depart
                     JOIN mode_transport mt ON s.mode_transport = mt.id_mode_transport
                     WHERE s.id_trajet = ?
+                    GROUP BY s.id_segment
                 `;
 
     db.query(q, [id_trajet], (error, data) => {
