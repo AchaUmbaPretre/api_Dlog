@@ -4706,12 +4706,13 @@ exports.getMotif = (req, res) => {
     });
 }
 
-exports.getDemandeVehicule = (req, res) => {
+/* exports.getDemandeVehicule = (req, res) => {
     const q = `SELECT 
               dv.id_demande_vehicule, 
               dv.date_chargement, 
               dv.date_prevue, 
               dv.date_retour,
+              dv.vu,
               tv.nom_type_vehicule,
               md.nom_motif_demande,
               sd.nom_service,
@@ -4734,7 +4735,45 @@ exports.getDemandeVehicule = (req, res) => {
         }
         return res.status(200).json(data);
     });
-}
+} */
+
+exports.getDemandeVehicule = (req, res) => {
+    const { userId, userRole } = req.query;
+
+    let q = `SELECT 
+              dv.id_demande_vehicule, 
+              dv.date_chargement, 
+              dv.date_prevue, 
+              dv.date_retour,
+              dv.vu,
+              tv.nom_type_vehicule,
+              md.nom_motif_demande,
+              sd.nom_service,
+              c.nom,
+              u.nom AS nom_user,
+              l.nom AS localisation,
+              tss.nom_type_statut
+            FROM demande_vehicule dv
+              INNER JOIN type_vehicule tv ON dv.id_type_vehicule = tv.id_type_vehicule
+              INNER JOIN motif_demande md ON dv.id_motif_demande = md.id_motif_demande
+              INNER JOIN service_demandeur sd ON dv.id_demandeur = sd.id_service_demandeur
+              INNER JOIN client c ON dv.id_client = c.id_client
+              LEFT JOIN localisation l ON dv.id_localisation = l.id_localisation
+              INNER JOIN type_statut_suivi tss ON dv.statut = tss.id_type_statut_suivi
+              INNER JOIN utilisateur u ON dv.user_cr = u.id_utilisateur`;
+
+    // Si ce n'est pas un admin, on filtre pour ne montrer que les demandes créées par l'utilisateur
+    if (userRole !== 'Admin') {
+        q += ` WHERE dv.user_cr = ?`;
+    }
+
+    db.query(q, userRole !== 'Admin' ? [userId] : [], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
 
 exports.postDemandeVehicule = (req, res) => {
   db.getConnection((connErr, connection) => {
@@ -4877,3 +4916,96 @@ exports.putDemandeVehicule = (req, res) => {
     return res.status(500).json({ error: 'Failed to update demande status' });
   }
 }
+
+//Affectation
+exports.getAffectationDemande = (req, res) => {
+
+    const q = `
+            SELECT * FROM affectation_demande
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getAffectationDemandeOne = (req, res) => {
+    const { id_affectation_demande } = req.query;
+
+    if (!id_affectation_demande) {
+      return res.status(400).json({ message: "L'identifiant (id) est requis." });
+    }
+
+    const q = `
+            SELECT * FROM affectation_demande id_affectation_demande = ?
+            `;
+
+    db.query(q, [id_affectation_demande], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postAffectationDemande = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error('Erreur de connexion DB :', connErr);
+      return res.status(500).json({ error: "Erreur de connexion à la base de données." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error('Erreur transaction :', trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const { id_demande_vehicule, id_vehicule, id_chauffeur } = req.body;
+
+        if (!id_demande_vehicule || !id_vehicule || !id_chauffeur) {
+          throw new Error("Champs requis manquants dans la requête.");
+        }
+
+        const insertSql = `
+          INSERT INTO affectation_demande (
+            id_demande_vehicule,
+            id_vehicule,
+            id_chauffeur
+          ) VALUES (?, ?, ?)
+        `;
+
+        const values = [id_demande_vehicule, id_vehicule, id_chauffeur];
+
+        await queryPromise(connection, insertSql, values);
+
+        connection.commit((commitErr) => {
+          connection.release();
+
+          if (commitErr) {
+            console.error("Erreur lors du commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de l'enregistrement de la transaction." });
+          }
+
+          return res.status(201).json({
+            message: "L'affectation de demande a été enregistrée avec succès.",
+          });
+        });
+
+      } catch (error) {
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur pendant la transaction :", error);
+          return res.status(500).json({
+            error: error.message || "Une erreur est survenue lors de l'enregistrement.",
+          });
+        });
+      }
+    });
+  });
+};
