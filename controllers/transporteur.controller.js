@@ -601,8 +601,8 @@ exports.getTrajetOne = (req, res) => {
                 FROM trajets t
 
                     JOIN segment_trajet s ON t.id_trajet = s.id_trajet
-                    JOIN localisation l ON t.id_depart = l.id_localisation
-                    JOIN localisation l2 ON t.id_arrive = l2.id_localisation
+                    JOIN localisation l ON s.id_depart = l.id_localisation
+                    JOIN localisation l2 ON s.id_destination = l2.id_localisation
                     JOIN localisation ld ON ld.id_localisation = s.id_depart
                     JOIN mode_transport mt ON s.mode_transport = mt.id_mode_transport
                     WHERE s.id_trajet = ?
