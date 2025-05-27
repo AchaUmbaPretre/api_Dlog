@@ -4783,11 +4783,7 @@ exports.getDemandeVehiculeOne = (req, res) => {
     }
 
     let q = `SELECT 
-              dv.id_demande_vehicule, 
-              dv.date_chargement, 
-              dv.date_prevue, 
-              dv.date_retour,
-              dv.vu,
+              dv.*, 
               tv.nom_type_vehicule,
               md.nom_motif_demande,
               sd.nom_service,
@@ -4898,9 +4894,9 @@ exports.postDemandeVehicule = (req, res) => {
           queryPromise(connection, userSql, [insertId, user])
         ));
 
-          const notifSQL = `
-            INSERT INTO notifications (user_id, message)
-            VALUES (?, ?)
+        const notifSQL = `
+          INSERT INTO notifications (user_id, message)
+          VALUES (?, ?)
           `;
 
         const notifMsg = `Vous avez reçu la demande n°${insertId}, en attente de votre intervention.`;
@@ -4931,6 +4927,34 @@ exports.postDemandeVehicule = (req, res) => {
     });
   });
 };
+
+exports.putDemandeVehicule = (req, res) => {
+  const { id_demande_vehicule } = req.query;
+
+  db.getConnection((connErr, connection) => {
+    if(connErr) {
+      console.error("Erreur connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        
+      } catch (error) {
+        console.error("Erreur :", err);
+          connection.rollback(() => {
+            connection.release();
+            return res.status(500).json({ error: err.message || "Erreur interne." });
+          });
+      }
+    })
+  })
+}
 
 exports.putDemandeVehiculeVue = (req, res) => {
   const { id_demande } = req.query;
