@@ -4802,7 +4802,9 @@ exports.getDemandeVehiculeOne = (req, res) => {
               INNER JOIN client c ON dv.id_client = c.id_client
               LEFT JOIN localisation l ON dv.id_localisation = l.id_localisation
               INNER JOIN type_statut_suivi tss ON dv.statut = tss.id_type_statut_suivi
-              INNER JOIN utilisateur u ON dv.user_cr = u.id_utilisateur`;
+              INNER JOIN utilisateur u ON dv.user_cr = u.id_utilisateur
+              WHERE dv.id_demande_vehicule = ?
+              `;
 
     db.query(q, [id_demande_vehicule], (error, data) => {
         if (error) {
