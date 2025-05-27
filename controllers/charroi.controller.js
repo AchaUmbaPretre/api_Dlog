@@ -4931,8 +4931,12 @@ exports.postDemandeVehicule = (req, res) => {
 exports.putDemandeVehicule = (req, res) => {
   const { id_demande_vehicule } = req.query;
 
+  if (!id_demande_vehicule) {
+    return res.status(400).json({ error: "L'identifiant de la demande est requis." });
+  }
+
   db.getConnection((connErr, connection) => {
-    if(connErr) {
+    if (connErr) {
       console.error("Erreur connexion DB :", connErr);
       return res.status(500).json({ error: "Connexion à la base de données échouée." });
     }
@@ -4944,30 +4948,98 @@ exports.putDemandeVehicule = (req, res) => {
       }
 
       try {
-        const { 
-          date_chargement, 
-          date_prevue, 
-          date_retour, 
-          id_type_vehicule, 
+        const {
+          date_chargement,
+          date_prevue,
+          date_retour,
+          id_type_vehicule,
           id_motif_demande,
           id_demandeur,
           id_client,
           id_localisation,
           id_utilisateur
-         } = req.body;
+        } = req.body;
 
-         
+        // Vérification des champs requis
+        if (!id_type_vehicule) {
+          throw new Error("Champs obligatoires manquants.");
+        }
+
+        const updateSQL = `
+          UPDATE demande_vehicule SET
+            date_chargement = ?,
+            date_prevue = ?,
+            date_retour = ?,
+            id_type_vehicule = ?,
+            id_motif_demande = ?,
+            id_demandeur = ?,
+            id_client = ?,
+            id_localisation = ?
+          WHERE id_demande_vehicule = ?
+        `;
+
+        const valuesUpdate = [
+          date_chargement,
+          date_prevue,
+          date_retour,
+          id_type_vehicule,
+          id_motif_demande,
+          id_demandeur,
+          id_client,
+          id_localisation,
+          id_demande_vehicule
+        ];
+
+        await queryPromise(connection, updateSQL, valuesUpdate);
+
+        // Suppression des utilisateurs liés existants
+        const deleteUsersSQL = `
+          DELETE FROM demande_vehicule_users WHERE id_demande_vehicule = ?
+        `;
+        await queryPromise(connection, deleteUsersSQL, [id_demande_vehicule]);
+
+        // Ajout des nouveaux utilisateurs liés
+        let parsedUsers = Array.isArray(id_utilisateur)
+          ? id_utilisateur
+          : JSON.parse(id_utilisateur || '[]');
+
+        if (!Array.isArray(parsedUsers)) {
+          throw new Error("Le champ 'id_utilisateur' doit être un tableau.");
+        }
+
+        const insertUsersSQL = `
+          INSERT INTO demande_vehicule_users (id_demande_vehicule, id_utilisateur) VALUES (?, ?)
+        `;
+
+        await Promise.all(parsedUsers.map(user =>
+          queryPromise(connection, insertUsersSQL, [id_demande_vehicule, user])
+        ));
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur lors du commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+          }
+
+          return res.status(200).json({
+            message: "La demande a été mise à jour avec succès.",
+          });
+        });
 
       } catch (error) {
-        console.error("Erreur :", err);
-          connection.rollback(() => {
-            connection.release();
-            return res.status(500).json({ error: err.message || "Erreur interne." });
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur pendant la transaction :", error);
+          return res.status(500).json({
+            error: error.message || "Erreur lors de la mise à jour.",
           });
+        });
       }
-    })
-  })
-}
+    });
+  });
+};
+
 
 exports.putDemandeVehiculeVue = (req, res) => {
   const { id_demande } = req.query;
