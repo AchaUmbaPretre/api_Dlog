@@ -4794,7 +4794,9 @@ exports.getDemandeVehiculeOne = (req, res) => {
               c.nom,
               u.nom AS nom_user,
               l.nom AS localisation,
-              tss.nom_type_statut
+              tss.nom_type_statut,
+              v.immatriculation,
+              ch.nom AS nom_chauffeur
             FROM demande_vehicule dv
               INNER JOIN type_vehicule tv ON dv.id_type_vehicule = tv.id_type_vehicule
               INNER JOIN motif_demande md ON dv.id_motif_demande = md.id_motif_demande
@@ -4803,6 +4805,9 @@ exports.getDemandeVehiculeOne = (req, res) => {
               LEFT JOIN localisation l ON dv.id_localisation = l.id_localisation
               INNER JOIN type_statut_suivi tss ON dv.statut = tss.id_type_statut_suivi
               INNER JOIN utilisateur u ON dv.user_cr = u.id_utilisateur
+              INNER JOIN affectation_demande ad ON dv.id_demande_vehicule = ad.id_demande_vehicule
+              LEFT JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
+              LEFT JOIN chauffeurs ch ON ad.id_chauffeur = ch.id_chauffeur
               WHERE dv.id_demande_vehicule = ?
               `;
 
