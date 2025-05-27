@@ -4775,6 +4775,43 @@ exports.getDemandeVehicule = (req, res) => {
     });
 };
 
+exports.getDemandeVehiculeOne = (req, res) => {
+    const { id_demande_vehicule } = req.query;
+
+    if(!id_demande_vehicule) {
+      return res.status(400).json({ error: 'Invalid id demande'})
+    }
+
+    let q = `SELECT 
+              dv.id_demande_vehicule, 
+              dv.date_chargement, 
+              dv.date_prevue, 
+              dv.date_retour,
+              dv.vu,
+              tv.nom_type_vehicule,
+              md.nom_motif_demande,
+              sd.nom_service,
+              c.nom,
+              u.nom AS nom_user,
+              l.nom AS localisation,
+              tss.nom_type_statut
+            FROM demande_vehicule dv
+              INNER JOIN type_vehicule tv ON dv.id_type_vehicule = tv.id_type_vehicule
+              INNER JOIN motif_demande md ON dv.id_motif_demande = md.id_motif_demande
+              INNER JOIN service_demandeur sd ON dv.id_demandeur = sd.id_service_demandeur
+              INNER JOIN client c ON dv.id_client = c.id_client
+              LEFT JOIN localisation l ON dv.id_localisation = l.id_localisation
+              INNER JOIN type_statut_suivi tss ON dv.statut = tss.id_type_statut_suivi
+              INNER JOIN utilisateur u ON dv.user_cr = u.id_utilisateur`;
+
+    db.query(q, [id_demande_vehicule], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.postDemandeVehicule = (req, res) => {
   db.getConnection((connErr, connection) => {
     if (connErr) {
@@ -4969,7 +5006,7 @@ exports.getAffectationDemandeOne = (req, res) => {
     }
 
     const q = `
-            SELECT * FROM affectation_demande id_affectation_demande = ?
+              SELECT * FROM affectation_demande id_affectation_demande = ?
             `;
 
     db.query(q, [id_affectation_demande], (error, data) => {
@@ -5012,6 +5049,10 @@ exports.postAffectationDemande = (req, res) => {
         const values = [id_demande_vehicule, id_vehicule, id_chauffeur];
 
         await queryPromise(connection, insertSql, values);
+
+        let query = `UPDATE demande_vehicule SET statut = 5 WHERE id_demande_vehicule = ?`
+
+        await queryPromise(connection, query, [id_demande_vehicule])
 
         connection.commit((commitErr) => {
           connection.release();
