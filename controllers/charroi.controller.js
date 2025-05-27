@@ -4944,7 +4944,20 @@ exports.putDemandeVehicule = (req, res) => {
       }
 
       try {
-        
+        const { 
+          date_chargement, 
+          date_prevue, 
+          date_retour, 
+          id_type_vehicule, 
+          id_motif_demande,
+          id_demandeur,
+          id_client,
+          id_localisation,
+          id_utilisateur
+         } = req.body;
+
+         
+
       } catch (error) {
         console.error("Erreur :", err);
           connection.rollback(() => {
