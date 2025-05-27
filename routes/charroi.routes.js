@@ -159,5 +159,4 @@ router.get('/affectation_demande', charroiController.getAffectationDemande)
 router.get('/affectation_demandeOne', charroiController.getAffectationDemandeOne)
 router.post('/affectation_demande', charroiController.postAffectationDemande)
 
-
 module.exports = router;
