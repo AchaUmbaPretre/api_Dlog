@@ -151,7 +151,8 @@ router.get('/motif', charroiController.getMotif)
 
 router.get('/demande_vehicule', charroiController.getDemandeVehicule)
 router.post('/demande_vehicule', charroiController.postDemandeVehicule)
-router.put('/demande_vehiculeVue', charroiController.putDemandeVehicule)
+router.put('/demande_vehiculeVue', charroiController.putDemandeVehiculeVue)
+router.put('/demande_vehiculeAnnuler', charroiController.putDemandeVehiculeAnnuler)
 
 //Affectation
 router.get('/affectation_demande', charroiController.getAffectationDemande)

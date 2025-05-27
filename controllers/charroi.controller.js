@@ -4888,7 +4888,7 @@ exports.postDemandeVehicule = (req, res) => {
   });
 };
 
-exports.putDemandeVehicule = (req, res) => {
+exports.putDemandeVehiculeVue = (req, res) => {
   const { id_demande } = req.query;
 
   if(!id_demande) {
@@ -4909,6 +4909,35 @@ exports.putDemandeVehicule = (req, res) => {
         return res.status(404).json({ error: 'Charroi not found' });
       }
       return res.json({ message: 'Charroi status updated successfully' });
+    });
+    
+  } catch (error) {
+    console.error("Error updating demande status:", err);
+    return res.status(500).json({ error: 'Failed to update demande status' });
+  }
+}
+
+exports.putDemandeVehiculeAnnuler = (req, res) => {
+  const { id_demande } = req.query;
+
+  if(!id_demande) {
+    return res.status(400).json({ error: 'Invalid id demande'})
+  }
+
+  try {
+    let query = `UPDATE 
+                  demande_vehicule 
+                  SET statut = 10 WHERE id_demande_vehicule = ?`
+    db.query(query, [id_demande], (error, results) => {
+      if(error) {
+        console.error("Erreur execution : ", error)
+        return res.status(500).json({ error: 'Failed to update demande status'})
+      }
+
+      if (results.affectedRows === 0) {
+        return res.status(404).json({ error: 'Demande not found' });
+      }
+      return res.json({ message: 'Demande status updated successfully' });
     });
     
   } catch (error) {
