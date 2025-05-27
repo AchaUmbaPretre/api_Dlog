@@ -5040,7 +5040,6 @@ exports.putDemandeVehicule = (req, res) => {
   });
 };
 
-
 exports.putDemandeVehiculeVue = (req, res) => {
   const { id_demande } = req.query;
 
@@ -5068,7 +5067,7 @@ exports.putDemandeVehiculeVue = (req, res) => {
     console.error("Error updating demande status:", err);
     return res.status(500).json({ error: 'Failed to update demande status' });
   }
-}
+};
 
 exports.putDemandeVehiculeAnnuler = (req, res) => {
   const { id_demande } = req.query;
@@ -5097,7 +5096,7 @@ exports.putDemandeVehiculeAnnuler = (req, res) => {
     console.error("Error updating demande status:", err);
     return res.status(500).json({ error: 'Failed to update demande status' });
   }
-}
+};
 
 //Affectation
 exports.getAffectationDemande = (req, res) => {
