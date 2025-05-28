@@ -570,6 +570,29 @@ exports.getTrajet = (req, res) => {
     });
 }
 
+exports.getTrajetOneV = (req, res) => {
+    const { id_trajet } = req.query;
+
+    if(!id_trajet) {
+        return res.status(400).json({error: "L'identifiant de la trajet est requis"})
+    }
+
+    const q = 
+        `
+         SELECT t.id_trajet, t.id_depart, t.id_arrive, t.user_cr, s.*
+                FROM trajets t
+                    JOIN segment_trajet s ON t.id_trajet = s.id_trajet
+                    WHERE s.id_trajet = ?
+                `;
+
+    db.query(q, [id_trajet], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+}
+
 exports.getTrajetOne = (req, res) => {
     const { id_trajet } = req.query;
 
@@ -707,3 +730,105 @@ exports.postTrajet = (req, res) => {
         })
     })
 }
+
+exports.putTrajet = (req, res) => {
+    const { id_trajet } = req.query;
+
+    if (!id_trajet) {
+        return res.status(400).json({ error: "L'identifiant du trajet est requis." });
+    }
+
+    db.getConnection((connErr, connection) => {
+        if (connErr) {
+            console.error("Erreur de connexion DB : ", connErr);
+            return res.status(500).json({ error: "Connexion à la base de données échouée." });
+        }
+
+        connection.beginTransaction(async (trxErr) => {
+            if (trxErr) {
+                connection.release();
+                console.error("Erreur transaction : ", trxErr);
+                return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+            }
+
+            try {
+                const { id_depart, id_arrive, user_cr, segment } = req.body;
+
+                if (!id_depart || !id_arrive) {
+                    throw new Error("Champs obligatoires manquants.");
+                }
+
+                if (!Array.isArray(segment) || segment.length === 0) {
+                    throw new Error("Au moins un segment est requis.");
+                }
+
+                segment.forEach((s, index) => {
+                    if (!s.ordre || !s.id_depart || !s.id_arrive || !s.date_depart || !s.date_arrivee) {
+                        throw new Error(`Données incomplètes pour le segment ${index + 1}.`);
+                    }
+                });
+
+                const updateTrajetSql = `
+                    UPDATE trajets
+                    SET id_depart = ?, id_arrive = ?, user_cr = ?
+                    WHERE id_trajet = ?
+                `;
+                await queryPromise(connection, updateTrajetSql, [id_depart, id_arrive, user_cr, id_trajet]);
+
+                // Suppression des anciens segments du trajet
+                const deleteSegmentSql = `DELETE FROM segment_trajet WHERE id_trajet = ?`;
+                await queryPromise(connection, deleteSegmentSql, [id_trajet]);
+
+                // Insertion des nouveaux segments
+                const insertSegmentSql = `
+                    INSERT INTO segment_trajet (
+                        id_trajet,
+                        ordre,
+                        id_depart,
+                        id_destination,
+                        date_depart,
+                        date_arrivee,
+                        distance_km,
+                        mode_transport,
+                        prix
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `;
+                await Promise.all(segment.map((seg) =>
+                    queryPromise(connection, insertSegmentSql, [
+                        id_trajet,
+                        seg.ordre,
+                        seg.id_depart,
+                        seg.id_arrive,
+                        seg.date_depart,
+                        seg.date_arrivee,
+                        seg.distance_km,
+                        seg.mode_transport,
+                        seg.prix
+                    ])
+                ));
+
+                connection.commit((commitErr) => {
+                    connection.release();
+                    if (commitErr) {
+                        console.error("Erreur commit :", commitErr);
+                        return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+                    }
+
+                    return res.status(200).json({
+                        message: "Trajet mis à jour avec succès.",
+                        data: { id: id_trajet }
+                    });
+                });
+
+            } catch (error) {
+                connection.rollback(() => {
+                    connection.release();
+                    console.error("Erreur pendant la transaction :", error);
+                    return res.status(500).json({
+                        error: error.message || "Une erreur est survenue lors de la mise à jour.",
+                    });
+                });
+            }
+        });
+    });
+};
