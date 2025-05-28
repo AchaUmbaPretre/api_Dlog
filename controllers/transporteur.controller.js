@@ -206,7 +206,7 @@ exports.getTypeLocalisation = (req, res) => {
         }
         return res.status(200).json(data);
     });
-}
+};
 
 exports.getCommune = (req, res) => {
     const q = `SELECT c.id_commune, c.nom_commune, c.id_province AS id_parent  FROM commune c`;
@@ -217,7 +217,7 @@ exports.getCommune = (req, res) => {
         }
         return res.status(200).json(data);
     });
-}
+};
 
 exports.getVille = (req, res) => {
     const q = `SELECT v.id_ville, v.nom_ville, v.id_province AS id_parent, p.name FROM villes v
@@ -229,7 +229,7 @@ INNER JOIN provinces p ON v.id_province = p.id`;
         }
         return res.status(200).json(data);
     });
-}
+};
 
 exports.postVille = (req, res) => {
     db.getConnection((connErr, connection) => {
@@ -290,7 +290,7 @@ exports.postVille = (req, res) => {
             }
         })
     })
-}
+};
 
 exports.getLocalite = (req, res) => {
     const q = `SELECT l.id_localite, l.nom_localite, l.id_ville AS id_parent, v.nom_ville FROM localite l
@@ -302,7 +302,7 @@ exports.getLocalite = (req, res) => {
         }
         return res.status(200).json(data);
     });
-}
+};
 
 exports.getLocaliteOne = (req, res) => {
     const { id_localite } = req.query;
@@ -317,7 +317,7 @@ exports.getLocaliteOne = (req, res) => {
         }
         return res.status(200).json(data);
     });
-}
+};
 
 exports.postLocalite = (req, res) => {
     db.getConnection((connErr, connection) => {
@@ -371,7 +371,7 @@ exports.postLocalite = (req, res) => {
             }
         })
     })
-}
+};
 
 exports.putLocalite = (req, res) => {
     const { id_localite, nom_localite, id_ville } = req.body;
@@ -420,7 +420,7 @@ exports.putLocalite = (req, res) => {
             }
         })
     })
-}
+};
 
 exports.getPays = (req, res) => {
     const q = `SELECT * FROM pays`;
@@ -431,7 +431,7 @@ exports.getPays = (req, res) => {
         }
         return res.status(200).json(data);
     });
-}
+};
 
 exports.postPays = (req, res) => {
     db.getConnection((connErr, connection) => {
@@ -490,7 +490,7 @@ exports.postPays = (req, res) => {
             }
         })
     })
-}
+};
 
 exports.getModeTransport = (req, res) => {
     const q = `SELECT * FROM mode_transport`;
@@ -501,7 +501,7 @@ exports.getModeTransport = (req, res) => {
         }
         return res.status(200).json(data);
     });
-}
+};
 
 exports.getTypeTarif = (req, res) => {
     const q = `SELECT * FROM type_tarif`;
@@ -512,7 +512,7 @@ exports.getTypeTarif = (req, res) => {
         }
         return res.status(200).json(data);
     });
-}
+};
 
 exports.getTransporteur = (req, res) => {
     const q = `SELECT * FROM transporteur`;
@@ -523,7 +523,7 @@ exports.getTransporteur = (req, res) => {
         }
         return res.status(200).json(data);
     });
-}
+};
 
 exports.getTrajet = (req, res) => {
     const q = `SELECT 
@@ -568,7 +568,7 @@ exports.getTrajet = (req, res) => {
         }
         return res.status(200).json(data);
     });
-}
+};
 
 exports.getTrajetOneV = (req, res) => {
     const { id_trajet } = req.query;
@@ -591,7 +591,7 @@ exports.getTrajetOneV = (req, res) => {
         }
         return res.status(200).json(data);
     });
-}
+};
 
 exports.getTrajetOne = (req, res) => {
     const { id_trajet } = req.query;
@@ -638,7 +638,7 @@ exports.getTrajetOne = (req, res) => {
         }
         return res.status(200).json(data);
     });
-}
+};
 
 exports.postTrajet = (req, res) => {
     db.getConnection((connErr, connection) => {
@@ -729,7 +729,7 @@ exports.postTrajet = (req, res) => {
             }
         })
     })
-}
+};
 
 exports.putTrajet = (req, res) => {
     const { id_trajet } = req.query;
