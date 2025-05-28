@@ -24,7 +24,7 @@ router.get('/transporteur', transporteur.getTransporteur);
 router.get('/trajet', transporteur.getTrajet);
 router.get('/trajetOneV', transporteur.getTrajetOneV);
 router.get('/trajetOne', transporteur.getTrajetOne);
-router.post('/trajet', transporteur.postTrajet)
-router.put('/trajet', transporteur.putTrajet)
+router.post('/trajet', transporteur.postTrajet);
+router.put('/trajet', transporteur.putTrajet);
 
 module.exports = router;
