@@ -156,8 +156,7 @@ router.post('/demande_vehicule', charroiController.postDemandeVehicule)
 router.put('/demande_vehicule', charroiController.putDemandeVehicule)
 router.put('/demande_vehiculeVue', charroiController.putDemandeVehiculeVue)
 router.put('/demande_vehiculeAnnuler', charroiController.putDemandeVehiculeAnnuler)
-router.put('/demande_vehicule_retour', charroiController.putDemandeVehiculeAnnuler)
-
+router.put('/demande_vehicule_retour', charroiController.putDemandeVehiculeRetour)
 
 //Affectation
 router.get('/affectation_demande', charroiController.getAffectationDemande)
