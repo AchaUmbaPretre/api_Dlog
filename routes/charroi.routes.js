@@ -36,6 +36,7 @@ router.get('/lubrifiant', charroiController.getLubrifiant)
 //Vehicule
 router.get('/vehicule_count', charroiController.getVehiculeCount)
 router.get('/vehicule', charroiController.getVehicule)
+router.get('/vehicule_dispo', charroiController.getVehiculeDispo)
 router.get('/vehicule/one', charroiController.getVehiculeOne)
 router.post('/vehicule', upload.array('img', 10), charroiController.postVehicule)
 router.put('/vehicule', charroiController.putVehicule)

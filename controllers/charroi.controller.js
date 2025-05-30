@@ -263,6 +263,25 @@ exports.getVehicule = async (req, res) => {
         }
 };
 
+//Vehicule disponible
+exports.getVehiculeDispo = (req, res) => {
+
+    const q = `
+            SELECT v.id_vehicule, marque.nom_marque, modeles.modele, cv.nom_cat FROM vehicules v
+              INNER JOIN marque ON v.id_marque = marque.id_marque
+              LEFT JOIN modeles ON v.id_modele = modeles.id_modele
+              INNER JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+              WHERE v.IsDispo = 1
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getVehiculeOne = async (req, res) => {
     const { id_vehicule } = req.query;
 
@@ -409,6 +428,7 @@ exports.postVehicule = async (req, res) => {
         return res.status(statusCode).json({ error: errorMessage });
     }
 };
+
 
 exports.putVehicule = async (req, res) => {
     try {
