@@ -5224,6 +5224,13 @@ exports.postAffectationDemande = (req, res) => {
 
         await queryPromise(connection, query, [id_demande_vehicule])
 
+        let queryUpdate = `
+              UPDATE vehicules v SET
+                IsDispo = 0
+                WHERE v.id_vehicule = ?
+                `
+        await queryPromise(connection, queryUpdate, [id_vehicule]);
+        
         connection.commit((commitErr) => {
           connection.release();
 
