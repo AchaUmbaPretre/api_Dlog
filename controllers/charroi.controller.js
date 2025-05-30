@@ -4792,7 +4792,8 @@ exports.getDemandeVehiculeOne = (req, res) => {
               l.nom AS localisation,
               tss.nom_type_statut,
               v.immatriculation,
-              ch.nom AS nom_chauffeur
+              ch.nom AS nom_chauffeur,
+              dvu.id_utilisateur
             FROM demande_vehicule dv
               INNER JOIN type_vehicule tv ON dv.id_type_vehicule = tv.id_type_vehicule
               INNER JOIN motif_demande md ON dv.id_motif_demande = md.id_motif_demande
@@ -4800,8 +4801,9 @@ exports.getDemandeVehiculeOne = (req, res) => {
               INNER JOIN client c ON dv.id_client = c.id_client
               LEFT JOIN localisation l ON dv.id_localisation = l.id_localisation
               INNER JOIN type_statut_suivi tss ON dv.statut = tss.id_type_statut_suivi
-              INNER JOIN utilisateur u ON dv.user_cr = u.id_utilisateur
-              INNER JOIN affectation_demande ad ON dv.id_demande_vehicule = ad.id_demande_vehicule
+              LEFT JOIN affectation_demande ad ON dv.id_demande_vehicule = ad.id_demande_vehicule
+              INNER JOIN demande_vehicule_users dvu ON dv.id_demande_vehicule = dvu.id_demande_vehicule
+              LEFT JOIN utilisateur u ON dvu.id_utilisateur = u.id_utilisateur
               LEFT JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
               LEFT JOIN chauffeurs ch ON ad.id_chauffeur = ch.id_chauffeur
               WHERE dv.id_demande_vehicule = ?
@@ -5102,7 +5104,11 @@ exports.putDemandeVehiculeAnnuler = (req, res) => {
 exports.getAffectationDemande = (req, res) => {
 
     const q = `
-            SELECT * FROM affectation_demande
+            SELECT ad.id_affectation_demande, ad.created_at, c.nom, v.immatriculation, m.nom_marque, md.modele FROM affectation_demande ad
+              INNER JOIN chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
+              INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
+              INNER JOIN marque m ON m.id_marque = v.id_marque
+              INNER JOIN modeles md ON v.id_modele = md.id_modele
             `;
 
     db.query(q, (error, data) => {
