@@ -267,7 +267,7 @@ exports.getVehicule = async (req, res) => {
 exports.getVehiculeDispo = (req, res) => {
 
     const q = `
-            SELECT v.id_vehicule, marque.nom_marque, modeles.modele, cv.nom_cat FROM vehicules v
+            SELECT v.id_vehicule, v.immatriculation, marque.nom_marque, modeles.modele, cv.nom_cat FROM vehicules v
               INNER JOIN marque ON v.id_marque = marque.id_marque
               LEFT JOIN modeles ON v.id_modele = modeles.id_modele
               INNER JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
