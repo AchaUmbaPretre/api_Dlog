@@ -5122,39 +5122,79 @@ exports.putDemandeVehiculeAnnuler = (req, res) => {
 
 exports.putDemandeVehiculeRetour = (req, res) => {
   db.getConnection((connErr, connection) => {
-      if (connErr) {
-        console.error('Erreur de connexion DB :', connErr);
-        return res.status(500).json({ error: "Erreur de connexion à la base de données." });
+    if (connErr) {
+      console.error('Erreur de connexion DB :', connErr);
+      return res.status(500).json({ error: "Erreur de connexion à la base de données." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error('Erreur transaction :', trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
       }
-      connection.beginTransaction(async(trxErr) => {
-        if (trxErr) {
+
+      try {
+        const { id_demande } = req.query;
+
+        if (!id_demande) {
           connection.release();
-          console.error('Erreur transaction :', trxErr);
-          return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+          return res.status(400).json({ error: 'ID de demande invalide.' });
         }
 
-        try {
-          const { id_demande } = req.query;
-          const { date_retour } = req.body;
+        // Mettre à jour la date de retour
+        const updateDemandeQuery = `
+          UPDATE demande_vehicule
+          SET date_retour = ?
+          WHERE id_demande_vehicule = ?
+        `;
+        const values = [new Date(), id_demande];
+        await queryPromise(connection, updateDemandeQuery, values);
 
-          if(!id_demande) {
-            return res.status(400).json({ error: 'Invalid id demande'})
-          }      
-          let query = `UPDATE 
-                  demande_vehicule = ?
-                  SET date_retour =  WHERE id_demande_vehicule = ?`
+        // Récupérer l'ID du véhicule affecté
+        const getVehiculeQuery = `
+          SELECT id_vehicule
+          FROM affectation_demande
+          WHERE id_demande_vehicule = ?
+        `;
+        const [vehiculeResult] = await queryPromise(connection, getVehiculeQuery, [id_demande]);
 
-          const values = [date_retour, id_demande];
-
-          await queryPromise(connection, query, values)
-
-        } catch (error) {
-          console.error("Error updating demande status:", err);
-          return res.status(500).json({ error: 'Failed to update demande status' });
+        if (!vehiculeResult || vehiculeResult.length === 0) {
+          connection.release();
+          return res.status(404).json({ error: "Aucun véhicule affecté trouvé pour cette demande." });
         }
-      })
-  })
+
+        const idVehicule = vehiculeResult[0].id_vehicule;
+
+        // Mettre à jour la disponibilité du véhicule
+        const updateDispoQuery = `
+          UPDATE vehicule
+          SET IsDispo = 1
+          WHERE id_vehicule = ?
+        `;
+        await queryPromise(connection, updateDispoQuery, [idVehicule]);
+
+        // Commit de la transaction
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation des données." });
+          }
+          return res.status(200).json({ message: "Le retour du véhicule a été enregistré avec succès." });
+        });
+
+      } catch (err) {
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur lors du traitement :", err);
+          return res.status(500).json({ error: "Échec de la mise à jour du retour du véhicule." });
+        });
+      }
+    });
+  });
 };
+
 
 //Affectation
 exports.getAffectationDemande = (req, res) => {
