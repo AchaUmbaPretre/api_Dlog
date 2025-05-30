@@ -91,22 +91,22 @@ exports.postLocalisation = (req, res) => {
 
                 let niveau;
                 switch (type_loc) {
-                    case 'pays':
+                    case 'Pays':
                         niveau = 0;
                         break;
-                    case 'province':
+                    case 'Province':
                         niveau = 1;
                         break;
-                    case 'ville':
+                    case 'Ville':
                         niveau = 2;
                         break;
-                    case 'commune':
+                    case 'Commune':
                         niveau = 2;
                         break;
-                    case 'localité':
+                    case 'Localité':
                         niveau = 3;
                         break;
-                    case 'site':
+                    case 'Site':
                         niveau = 4;
                         break;
                     default:
