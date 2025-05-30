@@ -5121,32 +5121,39 @@ exports.putDemandeVehiculeAnnuler = (req, res) => {
 };
 
 exports.putDemandeVehiculeRetour = (req, res) => {
-  const { id_demande } = req.query;
-
-  if(!id_demande) {
-    return res.status(400).json({ error: 'Invalid id demande'})
-  }
-
-  try {
-    let query = `UPDATE 
-                  demande_vehicule 
-                  SET statut = 10 WHERE id_demande_vehicule = ?`
-    db.query(query, [id_demande], (error, results) => {
-      if(error) {
-        console.error("Erreur execution : ", error)
-        return res.status(500).json({ error: 'Failed to update demande status'})
+  db.getConnection((connErr, connection) => {
+      if (connErr) {
+        console.error('Erreur de connexion DB :', connErr);
+        return res.status(500).json({ error: "Erreur de connexion à la base de données." });
       }
+      connection.beginTransaction(async(trxErr) => {
+        if (trxErr) {
+          connection.release();
+          console.error('Erreur transaction :', trxErr);
+          return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+        }
 
-      if (results.affectedRows === 0) {
-        return res.status(404).json({ error: 'Demande not found' });
-      }
-      return res.json({ message: 'Demande status updated successfully' });
-    });
-    
-  } catch (error) {
-    console.error("Error updating demande status:", err);
-    return res.status(500).json({ error: 'Failed to update demande status' });
-  }
+        try {
+          const { id_demande } = req.query;
+          const { date_retour } = req.body;
+
+          if(!id_demande) {
+            return res.status(400).json({ error: 'Invalid id demande'})
+          }      
+          let query = `UPDATE 
+                  demande_vehicule = ?
+                  SET date_retour =  WHERE id_demande_vehicule = ?`
+
+          const values = [date_retour, id_demande];
+
+          await queryPromise(connection, query, values)
+
+        } catch (error) {
+          console.error("Error updating demande status:", err);
+          return res.status(500).json({ error: 'Failed to update demande status' });
+        }
+      })
+  })
 };
 
 //Affectation
@@ -5230,7 +5237,7 @@ exports.postAffectationDemande = (req, res) => {
                 WHERE v.id_vehicule = ?
                 `
         await queryPromise(connection, queryUpdate, [id_vehicule]);
-        
+
         connection.commit((commitErr) => {
           connection.release();
 
