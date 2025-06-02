@@ -32,7 +32,7 @@ router.get('/corbeille_tache', tacheController.getTacheCorbeille)
 router.put('/corbeille_tache', tacheController.putTacheCorbeille)
 
 router.post('/tache_permissionAll', tacheController.getTachePermiAll)
-router.get('/all_tache',verifyToken, tacheController.getAllTache)
+router.get('/all_tache',tacheController.getAllTache)
 router.get('/detail_tache_doc', tacheController.getDetailTacheDoc)
 router.get('/oneV', tacheController.getTacheOneV)
 router.get('/tache_ville', tacheController.getTacheVille)
