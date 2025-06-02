@@ -5479,3 +5479,76 @@ L'équipe Logistique GTM
     });
   });
 };
+
+exports.getRetour_vehicule = (req, res) => {
+  const q = `retour_vehicule`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+}
+
+exports.postRetour_vehicule = ( req, res ) => {
+  db.getConnection((connErr, connection) => {
+    if(connErr) {
+      console.error('Erreur de connexion DB :', connErr);
+      return res.status(500).json({ error: "Erreur de connexion à la base de données." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if(trxErr) {
+        connection.release();
+        console.error('Erreur transaction :', trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const { date_retour, commentaire, user_cr } = req.body;
+
+        if(!date_retour) {
+          throw new Error("Ce champ est obligatoire.");
+        }
+
+        const insertSql = `
+          INSERT INTO retour_vehicule (
+            date_retour,
+            commentaire,
+            user_cr
+          ) VALUES (?, ?, ?)
+        `
+
+        const values = [
+          date_retour,
+          commentaire,
+          user_cr
+        ]
+
+        await queryPromise(connection, insertSql, values);
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur lors du commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de l'enregistrement de la transaction." });
+          }
+
+          return res.status(201).json({
+            message: "Le retour du vehicule a été enregistré avec succès.",
+          });
+        });
+
+      } catch (error) {
+          connection.rollback(() => {
+          connection.release();
+          console.error("Erreur pendant la transaction :", error);
+          return res.status(500).json({
+            error: error.message || "Une erreur est survenue lors de l'enregistrement.",
+          });
+        });
+      }
+    })
+  })
+}
