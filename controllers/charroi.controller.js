@@ -5142,7 +5142,7 @@ exports.putDemandeVehiculeRetour = (req, res) => {
           return res.status(400).json({ error: 'ID de demande invalide.' });
         }
 
-        // Mettre à jour la date de retour
+/*         // Mettre à jour la date de retour
         const updateDemandeQuery = `
           UPDATE demande_vehicule
           SET date_retour = ?
@@ -5150,7 +5150,7 @@ exports.putDemandeVehiculeRetour = (req, res) => {
         `;
         const values = [new Date(), id_demande];
         await queryPromise(connection, updateDemandeQuery, values);
-
+ */
         // Récupérer l'ID du véhicule affecté
         const getVehiculeQuery = `
           SELECT id_vehicule
@@ -5168,7 +5168,7 @@ exports.putDemandeVehiculeRetour = (req, res) => {
 
         // Mettre à jour la disponibilité du véhicule
         const updateDispoQuery = `
-          UPDATE vehicule
+          UPDATE vehicules
           SET IsDispo = 1
           WHERE id_vehicule = ?
         `;
