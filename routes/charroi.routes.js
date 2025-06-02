@@ -164,4 +164,9 @@ router.get('/affectation_demande', charroiController.getAffectationDemande)
 router.get('/affectation_demandeOne', charroiController.getAffectationDemandeOne)
 router.post('/affectation_demande', charroiController.postAffectationDemande)
 
+//Retour vehicule
+router.get('/retour_vehicule', charroiController.getRetour_vehicule)
+router.post('/retour_vehicule', charroiController.postRetour_vehicule)
+
+
 module.exports = router;
