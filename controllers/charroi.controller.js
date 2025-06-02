@@ -282,6 +282,25 @@ exports.getVehiculeDispo = (req, res) => {
     });
 };
 
+//Vehicule Occupé
+exports.getVehiculeOccupe = (req, res) => {
+
+    const q = `
+            SELECT v.id_vehicule, v.immatriculation, marque.nom_marque, modeles.modele, cv.nom_cat FROM vehicules v
+              INNER JOIN marque ON v.id_marque = marque.id_marque
+              LEFT JOIN modeles ON v.id_modele = modeles.id_modele
+              INNER JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+              WHERE v.IsDispo = 0
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getVehiculeOne = async (req, res) => {
     const { id_vehicule } = req.query;
 
@@ -5413,7 +5432,7 @@ Bonjour,
 Votre demande a été approuvée avec succès.
 
 Cordialement,  
-L'équipe Maintenance GTM
+L'équipe Logistique GTM
         `;
 
         perResult
