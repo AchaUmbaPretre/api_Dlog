@@ -5240,7 +5240,7 @@ exports.getAffectationDemandeOne = (req, res) => {
     });
 };
 
-exports.postAffectationDemande = (req, res) => {
+/* exports.postAffectationDemande = (req, res) => {
   db.getConnection((connErr, connection) => {
     if (connErr) {
       console.error('Erreur de connexion DB :', connErr);
@@ -5293,6 +5293,36 @@ exports.postAffectationDemande = (req, res) => {
 
         await queryPromise(connection, notifSQL, [user_cr, notifMsg]);
 
+                // Envoi d'emails aux utilisateurs autorisés
+        const permissionSQL = `
+              SELECT u.email FROM permission p 
+              INNER JOIN utilisateur u ON p.user_id = u.id_utilisateur
+              INNER JOIN submenus sub ON p.submenu_id = sub.id
+              WHERE sub.id = 50 AND p.can_read = 1
+              GROUP BY p.user_id
+            `;
+
+                    const [perResult] = await queryPromise(connection, permissionSQL);
+        const message = 
+        `
+        Bonjour,
+        
+        Votre demande a été approuvée avec succès
+                
+        Cordialement,  
+        L'équipe Maintenance GTM
+        `;
+
+        perResult
+          .filter(({ email }) => email !== userEmail)
+          .forEach(({ email }) => {
+            sendEmail({
+              email,
+              subject: '📌 Nouvelle inspection enregistrée',
+              message
+            });
+          });
+
         connection.commit((commitErr) => {
           connection.release();
 
@@ -5312,6 +5342,109 @@ exports.postAffectationDemande = (req, res) => {
           console.error("Erreur pendant la transaction :", error);
           return res.status(500).json({
             error: error.message || "Une erreur est survenue lors de l'enregistrement.",
+          });
+        });
+      }
+    });
+  });
+}; */
+
+
+exports.postAffectationDemande = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error('Erreur de connexion à la base de données :', connErr);
+      return res.status(500).json({ error: "Impossible de se connecter à la base de données." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error('Erreur lors de l’ouverture de la transaction :', trxErr);
+        return res.status(500).json({ error: "Échec de l’initiation de la transaction." });
+      }
+
+      try {
+        const { id_demande_vehicule, id_vehicule, id_chauffeur, user_cr } = req.body;
+
+        if (!id_demande_vehicule || !id_vehicule || !id_chauffeur || !user_cr) {
+          throw new Error("Certains champs requis sont manquants dans la requête.");
+        }
+
+        const insertSql = `
+          INSERT INTO affectation_demande (
+            id_demande_vehicule,
+            id_vehicule,
+            id_chauffeur
+          ) VALUES (?, ?, ?)
+        `;
+        await queryPromise(connection, insertSql, [id_demande_vehicule, id_vehicule, id_chauffeur]);
+
+        const updateDemandeSql = `UPDATE demande_vehicule SET statut = 5 WHERE id_demande_vehicule = ?`;
+        await queryPromise(connection, updateDemandeSql, [id_demande_vehicule]);
+
+        const updateVehiculeSql = `
+          UPDATE vehicules SET IsDispo = 0 WHERE id_vehicule = ?
+        `;
+        await queryPromise(connection, updateVehiculeSql, [id_vehicule]);
+
+        // Notification à l'utilisateur
+        const notifSQL = `
+          INSERT INTO notifications (user_id, message)
+          VALUES (?, ?)
+        `;
+        const notifMsg = `Votre demande a été approuvée avec succès.`;
+        await queryPromise(connection, notifSQL, [user_cr, notifMsg]);
+
+        // Envoi d'e-mails aux utilisateurs autorisés
+        const permissionSQL = `
+          SELECT u.email FROM permission p 
+          INNER JOIN utilisateur u ON p.user_id = u.id_utilisateur
+          INNER JOIN submenus sub ON p.submenu_id = sub.id
+          WHERE sub.id = 50 AND p.can_read = 1
+          GROUP BY p.user_id
+        `;
+
+        const [perResult] = await queryPromise(connection, permissionSQL);
+
+        const message = `
+Bonjour,
+
+Votre demande a été approuvée avec succès.
+
+Cordialement,  
+L'équipe Maintenance GTM
+        `;
+
+        perResult
+          .filter(({ email }) => email !== userEmail)
+          .forEach(({ email }) => {
+            sendEmail({
+              email,
+              subject: '📌 Nouvelle affectation enregistrée',
+              message
+            });
+          });
+
+        connection.commit((commitErr) => {
+          connection.release();
+
+          if (commitErr) {
+            console.error("Erreur lors de la validation de la transaction :", commitErr);
+            return res.status(500).json({ error: "Une erreur est survenue lors de la finalisation de l’opération." });
+          }
+
+          return res.status(201).json({
+            message: "L'affectation de la demande a été enregistrée avec succès.",
+          });
+        });
+
+      } catch (error) {
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur pendant la transaction :", error);
+          return res.status(500).json({
+            error: error.message || "Une erreur est survenue lors du traitement de la demande.",
           });
         });
       }
