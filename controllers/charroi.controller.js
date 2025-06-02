@@ -5481,7 +5481,7 @@ L'équipe Logistique GTM
 };
 
 exports.getRetour_vehicule = (req, res) => {
-  const q = `retour_vehicule`;
+  const q = `SELECT *  FROM retour_vehicule`;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -5506,7 +5506,7 @@ exports.postRetour_vehicule = ( req, res ) => {
       }
 
       try {
-        const { date_retour, commentaire, user_cr } = req.body;
+        const { date_retour, commentaire, id_demande,  user_cr } = req.body;
 
         if(!date_retour) {
           throw new Error("Ce champ est obligatoire.");
@@ -5527,6 +5527,28 @@ exports.postRetour_vehicule = ( req, res ) => {
         ]
 
         await queryPromise(connection, insertSql, values);
+
+        const getVehiculeQuery = `
+          SELECT id_vehicule
+          FROM affectation_demande
+          WHERE id_demande_vehicule = ?
+        `;
+        const [vehiculeResult] = await queryPromise(connection, getVehiculeQuery, [id_demande]);
+
+        if (!vehiculeResult || vehiculeResult.length === 0) {
+          connection.release();
+          return res.status(404).json({ error: "Aucun véhicule affecté trouvé pour cette demande." });
+        }
+        const idVehicule = vehiculeResult[0].id_vehicule;
+
+        // Mettre à jour la disponibilité du véhicule
+        const updateDispoQuery = `
+          UPDATE vehicules
+          SET IsDispo = 1
+          WHERE id_vehicule = ?
+        `;
+        await queryPromise(connection, updateDispoQuery, [idVehicule]);
+
 
         connection.commit((commitErr) => {
           connection.release();
