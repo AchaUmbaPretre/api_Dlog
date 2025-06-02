@@ -5480,6 +5480,7 @@ L'équipe Logistique GTM
   });
 };
 
+//Retour vehicule
 exports.getRetour_vehicule = (req, res) => {
   const q = `SELECT *  FROM retour_vehicule`;
 
@@ -5551,6 +5552,12 @@ exports.postRetour_vehicule = ( req, res ) => {
         `;
         await queryPromise(connection, updateDispoQuery, [idVehicule]);
 
+        const updateStatut = `
+            UPDATE 
+              demande_vehicule 
+            SET statut = 10 WHERE id_demande_vehicule = ?
+        `
+        await queryPromise(connection, updateStatut, [id_demande]);
 
         connection.commit((commitErr) => {
           connection.release();
