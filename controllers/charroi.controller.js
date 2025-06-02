@@ -2640,14 +2640,14 @@ exports.postInspectionGen = (req, res) => {
               INNER JOIN marque m ON v.id_marque = m.id_marque
               WHERE v.id_vehicule = ?
             `;
-            const [getVehiculeResult] = await queryPromise(connection, getVehiculeSQL, id_vehicule);
+        const [getVehiculeResult] = await queryPromise(connection, getVehiculeSQL, id_vehicule);
             
-          const getType = `SELECT tr.type_rep FROM type_reparations tr WHERE tr.id_type_reparation = ?`;
-          const [getTypeResult] = await queryPromise(connection, getType, rep.id_type_reparation);
+        const getType = `SELECT tr.type_rep FROM type_reparations tr WHERE tr.id_type_reparation = ?`;
+        const [getTypeResult] = await queryPromise(connection, getType, rep.id_type_reparation);
 
-          const getUserEmailSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ?`;
-          const [userResult] = await queryPromise(connection, getUserEmailSQL, [user_cr]);
-          const userEmail = userResult?.[0]?.email;
+        const getUserEmailSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ?`;
+        const [userResult] = await queryPromise(connection, getUserEmailSQL, [user_cr]);
+        const userEmail = userResult?.[0]?.email;
 
         const notifSQL = `
             INSERT INTO notifications (user_id, message)
@@ -5255,9 +5255,9 @@ exports.postAffectationDemande = (req, res) => {
       }
 
       try {
-        const { id_demande_vehicule, id_vehicule, id_chauffeur } = req.body;
+        const { id_demande_vehicule, id_vehicule, id_chauffeur, user_cr } = req.body;
 
-        if (!id_demande_vehicule || !id_vehicule || !id_chauffeur) {
+        if (!id_demande_vehicule || !id_vehicule || !id_chauffeur || !user_cr) {
           throw new Error("Champs requis manquants dans la requête.");
         }
 
@@ -5283,6 +5283,15 @@ exports.postAffectationDemande = (req, res) => {
                 WHERE v.id_vehicule = ?
                 `
         await queryPromise(connection, queryUpdate, [id_vehicule]);
+
+                const notifSQL = `
+          INSERT INTO notifications (user_id, message)
+          VALUES (?, ?)
+          `;
+
+        const notifMsg = `Votre demande a été approuvée avec succès`;
+
+        await queryPromise(connection, notifSQL, [user_cr, notifMsg]);
 
         connection.commit((commitErr) => {
           connection.release();
