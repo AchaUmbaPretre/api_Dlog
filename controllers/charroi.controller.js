@@ -5514,13 +5514,15 @@ exports.postRetour_vehicule = ( req, res ) => {
 
         const insertSql = `
           INSERT INTO retour_vehicule (
+            id_demande,
             date_retour,
             commentaire,
             user_cr
-          ) VALUES (?, ?, ?)
+          ) VALUES (?, ?, ?, ?)
         `
 
         const values = [
+          id_demande,
           date_retour,
           commentaire,
           user_cr
