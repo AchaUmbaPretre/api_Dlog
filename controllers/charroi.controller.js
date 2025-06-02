@@ -5418,6 +5418,10 @@ exports.postAffectationDemande = (req, res) => {
         const notifMsg = `Votre demande a été approuvée avec succès.`;
         await queryPromise(connection, notifSQL, [user_cr, notifMsg]);
 
+        const getUserEmailSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ?`;
+        const [userResult] = await queryPromise(connection, getUserEmailSQL, [user_cr]);
+        const userEmail = userResult?.[0]?.email;
+
         // Envoi d'e-mails aux utilisateurs autorisés
         const permissionSQL = `
           SELECT u.email FROM permission p 
