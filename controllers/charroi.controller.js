@@ -4758,42 +4758,50 @@ exports.getMotif = (req, res) => {
 } */
 
 exports.getDemandeVehicule = (req, res) => {
-    const { userId, userRole } = req.query;
+  const { userId, userRole } = req.query;
 
-    let q = `SELECT 
-              dv.id_demande_vehicule, 
-              dv.date_chargement, 
-              dv.date_prevue, 
-              dv.date_retour,
-              dv.vu,
-              tv.nom_type_vehicule,
-              md.nom_motif_demande,
-              sd.nom_service,
-              c.nom,
-              u.nom AS nom_user,
-              l.nom AS localisation,
-              tss.nom_type_statut
-            FROM demande_vehicule dv
-              INNER JOIN type_vehicule tv ON dv.id_type_vehicule = tv.id_type_vehicule
-              INNER JOIN motif_demande md ON dv.id_motif_demande = md.id_motif_demande
-              INNER JOIN service_demandeur sd ON dv.id_demandeur = sd.id_service_demandeur
-              INNER JOIN client c ON dv.id_client = c.id_client
-              LEFT JOIN localisation l ON dv.id_localisation = l.id_localisation
-              INNER JOIN type_statut_suivi tss ON dv.statut = tss.id_type_statut_suivi
-              INNER JOIN utilisateur u ON dv.user_cr = u.id_utilisateur`;
+  let q = `
+    SELECT 
+      dv.id_demande_vehicule, 
+      dv.date_chargement, 
+      dv.date_prevue, 
+      dv.date_retour,
+      dv.vu,
+      tv.nom_type_vehicule,
+      md.nom_motif_demande,
+      sd.nom_service,
+      c.nom,
+      u.nom AS nom_user,
+      l.nom AS localisation,
+      tss.nom_type_statut
+    FROM demande_vehicule dv
+    INNER JOIN type_vehicule tv ON dv.id_type_vehicule = tv.id_type_vehicule
+    INNER JOIN motif_demande md ON dv.id_motif_demande = md.id_motif_demande
+    INNER JOIN service_demandeur sd ON dv.id_demandeur = sd.id_service_demandeur
+    INNER JOIN client c ON dv.id_client = c.id_client
+    LEFT JOIN localisation l ON dv.id_localisation = l.id_localisation
+    INNER JOIN type_statut_suivi tss ON dv.statut = tss.id_type_statut_suivi
+    INNER JOIN utilisateur u ON dv.user_cr = u.id_utilisateur
+  `;
 
-    // Si ce n'est pas un admin, on filtre pour ne montrer que les demandes créées par l'utilisateur
-    if (userRole !== 'Admin') {
-        q += ` WHERE dv.user_cr = ?`;
+  const params = [];
+
+  if (userRole !== 'Admin') {
+    q += ` WHERE dv.user_cr = ?`;
+    params.push(userId);
+  }
+
+  q += ` ORDER BY dv.created_at DESC`;
+
+  db.query(q, params, (error, data) => {
+    if (error) {
+      console.error("Erreur SQL :", error);
+      return res.status(500).send("Erreur serveur");
     }
-
-    db.query(q, userRole !== 'Admin' ? [userId] : [], (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    });
+    return res.status(200).json(data);
+  });
 };
+
 
 exports.getDemandeVehiculeOne = (req, res) => {
     const { id_demande_vehicule } = req.query;
