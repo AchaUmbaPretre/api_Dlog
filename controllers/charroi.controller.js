@@ -5387,9 +5387,9 @@ exports.postAffectationDemande = (req, res) => {
       }
 
       try {
-        const { id_demande_vehicule, id_vehicule, id_chauffeur, user_cr } = req.body;
+        const { id_demande_vehicule, id_vehicule, id_chauffeur, user_cr, commentaire } = req.body;
 
-        if (!id_demande_vehicule || !id_vehicule || !id_chauffeur || !user_cr) {
+        if (!id_vehicule || !id_chauffeur || !user_cr) {
           throw new Error("Certains champs requis sont manquants dans la requête.");
         }
 
@@ -5397,10 +5397,11 @@ exports.postAffectationDemande = (req, res) => {
           INSERT INTO affectation_demande (
             id_demande_vehicule,
             id_vehicule,
-            id_chauffeur
-          ) VALUES (?, ?, ?)
+            id_chauffeur,
+            commentaire
+          ) VALUES (?, ?, ?, ?)
         `;
-        await queryPromise(connection, insertSql, [id_demande_vehicule, id_vehicule, id_chauffeur]);
+        await queryPromise(connection, insertSql, [id_demande_vehicule, id_vehicule, id_chauffeur, commentaire]);
 
         const updateDemandeSql = `UPDATE demande_vehicule SET statut = 5 WHERE id_demande_vehicule = ?`;
         await queryPromise(connection, updateDemandeSql, [id_demande_vehicule]);
