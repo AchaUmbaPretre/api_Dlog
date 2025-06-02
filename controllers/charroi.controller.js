@@ -5228,11 +5228,12 @@ exports.putDemandeVehiculeRetour = (req, res) => {
 exports.getAffectationDemande = (req, res) => {
 
     const q = `
-            SELECT ad.id_affectation_demande, ad.created_at, c.nom, v.immatriculation, m.nom_marque, md.modele FROM affectation_demande ad
+            SELECT ad.id_affectation_demande, ad.commentaire, ad.created_at, c.nom, v.immatriculation, m.nom_marque, md.modele FROM affectation_demande ad
               INNER JOIN chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
               INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
               INNER JOIN marque m ON m.id_marque = v.id_marque
               INNER JOIN modeles md ON v.id_modele = md.id_modele
+              ORDER BY ad.created_at
             `;
 
     db.query(q, (error, data) => {
