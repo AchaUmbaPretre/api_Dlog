@@ -4802,7 +4802,6 @@ exports.getDemandeVehicule = (req, res) => {
   });
 };
 
-
 exports.getDemandeVehiculeOne = (req, res) => {
     const { id_demande_vehicule } = req.query;
 
@@ -5202,7 +5201,6 @@ exports.putDemandeVehiculeRetour = (req, res) => {
     });
   });
 };
-
 
 //Affectation
 exports.getAffectationDemande = (req, res) => {
