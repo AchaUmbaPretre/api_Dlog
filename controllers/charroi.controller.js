@@ -5555,7 +5555,7 @@ exports.postRetour_vehicule = ( req, res ) => {
         const updateStatut = `
             UPDATE 
               demande_vehicule 
-            SET statut = 10 WHERE id_demande_vehicule = ?
+            SET statut = 7 WHERE id_demande_vehicule = ?
         `
         await queryPromise(connection, updateStatut, [id_demande]);
 
