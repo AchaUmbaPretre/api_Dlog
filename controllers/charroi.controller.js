@@ -286,11 +286,14 @@ exports.getVehiculeDispo = (req, res) => {
 exports.getVehiculeOccupe = (req, res) => {
 
     const q = `
-            SELECT v.id_vehicule, v.immatriculation, marque.nom_marque, modeles.modele, cv.nom_cat FROM vehicules v
+            SELECT v.id_vehicule, v.immatriculation, marque.nom_marque, modeles.modele, cv.nom_cat, c.nom FROM vehicules v
               INNER JOIN marque ON v.id_marque = marque.id_marque
               LEFT JOIN modeles ON v.id_modele = modeles.id_modele
               INNER JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+              INNER JOIN affectation_demande ad ON v.id_vehicule = ad.id_vehicule
+              INNER JOIN chauffeurs c ON ad.id_chauffeur = c.id_chauffeur
               WHERE v.IsDispo = 0
+              GROUP BY v.id_vehicule
             `;
 
     db.query(q, (error, data) => {
