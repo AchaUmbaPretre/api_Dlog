@@ -4770,7 +4770,13 @@ exports.postServiceDemandeur = (req, res) => {
         });
 
       } catch (error) {
-        
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur pendant la transaction :", error);
+          return res.status(500).json({
+            error: error.message || "Une erreur est survenue lors du traitement de la demande.",
+          });
+        });
       }
     })
   })
