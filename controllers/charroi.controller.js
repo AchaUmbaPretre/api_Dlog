@@ -4716,7 +4716,14 @@ exports.postReclamation = (req, res) => {
 }
 
 exports.getServiceDemandeur = (req, res) => {
-    const q = `SELECT * FROM service_demandeur`;
+    const q = `SELECT 
+                  sd.id_service_demandeur, 
+                  sd.nom_service, 
+                  d.nom_departement 
+                FROM 
+                service_demandeur sd 
+                INNER JOIN 
+                  departement d ON sd.id_departement = d.id_departement`;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -4725,7 +4732,6 @@ exports.getServiceDemandeur = (req, res) => {
         return res.status(200).json(data);
     });
 }
-
 
 exports.postServiceDemandeur = (req, res) => {
   db.getConnection((connErr, connection) => {
