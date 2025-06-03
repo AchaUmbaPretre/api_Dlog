@@ -4742,8 +4742,33 @@ exports.postServiceDemandeur = (req, res) => {
       }
 
       try {
-        const {  } = req.body;
-        
+        const { nom_service, id_departement } = req.body;
+
+        if (!nom_service) {
+          throw new Error("le champ nom service est requis.");
+        }
+
+        const insertSql = `
+            INSERT INTO service_demandeur (
+              nom_service,
+              id_departement
+            ) VALUES (?, ?)
+        `
+        await queryPromise(connection, insertSql, [nom_service, id_departement])
+
+                connection.commit((commitErr) => {
+          connection.release();
+
+          if (commitErr) {
+            console.error("Erreur lors de la validation de la transaction :", commitErr);
+            return res.status(500).json({ error: "Une erreur est survenue lors de la finalisation de l’opération." });
+          }
+
+          return res.status(201).json({
+            message: "Le demandeur a été enregistrée avec succès.",
+          });
+        });
+
       } catch (error) {
         
       }
