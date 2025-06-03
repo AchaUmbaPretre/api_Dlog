@@ -340,7 +340,7 @@ exports.getTacheCount = (req, res) => {
 exports.getTache = (req, res) => {
         const { id_user, role } = req.query;
         const { departement, client, statut, priorite, dateRange, owners } = req.body;
-    
+
         let query = `
             SELECT 
                 tache.id_tache, 
