@@ -4954,7 +4954,7 @@ exports.postDemandeVehicule = (req, res) => {
           id_client,
           id_localisation,
           user_cr,
-          id_utilisateur
+          personne_bord
         } = req.body;
 
         if (!user_cr || !id_type_vehicule) {
@@ -4972,8 +4972,9 @@ exports.postDemandeVehicule = (req, res) => {
             id_client,
             id_localisation,
             statut,
-            user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            user_cr,
+            personne_bord
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const valuesDemande = [
@@ -4986,27 +4987,12 @@ exports.postDemandeVehicule = (req, res) => {
           id_client,
           id_localisation,
           1,
-          user_cr
+          user_cr,
+          personne_bord
         ];
 
         const [insertDemandeResult] = await queryPromise(connection, insertSQL, valuesDemande);
         const insertId = insertDemandeResult.insertId;
-
-        let parsedUsers = Array.isArray(id_utilisateur)
-          ? id_utilisateur
-          : JSON.parse(id_utilisateur || '[]');
-
-        if (!Array.isArray(parsedUsers)) {
-          throw new Error("Le champ 'Personne' doit être un tableau.");
-        }
-
-        const userSql = `
-          INSERT INTO demande_vehicule_users (id_demande_vehicule, id_utilisateur) VALUES (?, ?)
-        `;
-
-        await Promise.all(parsedUsers.map(user =>
-          queryPromise(connection, userSql, [insertId, user])
-        ));
 
         const notifSQL = `
           INSERT INTO notifications (user_id, message)
