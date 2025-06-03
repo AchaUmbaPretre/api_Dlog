@@ -4726,6 +4726,32 @@ exports.getServiceDemandeur = (req, res) => {
     });
 }
 
+
+exports.postServiceDemandeur = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if(connErr) {
+      console.error('Erreur de connexion à la base de données :', connErr);
+      return res.status(500).json({ error: "Impossible de se connecter à la base de données." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error('Erreur lors de l’ouverture de la transaction :', trxErr);
+        return res.status(500).json({ error: "Échec de l’initiation de la transaction." });
+      }
+
+      try {
+        const {  } = req.body;
+        
+      } catch (error) {
+        
+      }
+    })
+  })
+}
+
+
 exports.getTypeVehicule = (req, res) => {
     const q = `SELECT * FROM type_vehicule`;
 
