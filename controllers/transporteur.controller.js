@@ -640,7 +640,7 @@ exports.getTrajetOne = (req, res) => {
     });
 };
 
-exports.postTrajet = (req, res) => {
+/* exports.postTrajet = (req, res) => {
     db.getConnection((connErr, connection) => {
         if(connErr) {
             console.error("Erreur de connexion DB : ", connErr)
@@ -739,7 +739,129 @@ exports.postTrajet = (req, res) => {
             }
         })
     })
+}; */
+
+exports.postTrajet = (req, res) => {
+    db.getConnection((connErr, connection) => {
+        if (connErr) {
+            console.error("Erreur de connexion DB : ", connErr);
+            return res.status(500).json({ error: "Connexion à la base de données échouée." });
+        }
+
+        connection.beginTransaction(async (trxErr) => {
+            if (trxErr) {
+                connection.release();
+                console.error("Erreur transaction : ", trxErr);
+                return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+            }
+
+            try {
+                const {
+                    id_depart,
+                    id_arrive,
+                    date_depart,
+                    date_arrivee,
+                    distance_km,
+                    mode_transport,
+                    prix,
+                    user_cr,
+                    segment = []
+                } = req.body;
+
+                if (!id_depart || !id_arrive) {
+                    throw new Error("Champs obligatoires manquants (id_depart ou id_arrive).");
+                }
+
+                const insertSql = `
+                    INSERT INTO trajets (
+                        id_depart,
+                        id_arrive,
+                        user_cr,
+                        date_depart,
+                        date_arrivee,
+                        distance_km,
+                        mode_transport,
+                        prix
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                `;
+
+                const values = [
+                    id_depart,
+                    id_arrive,
+                    user_cr,
+                    date_depart,
+                    date_arrivee,
+                    distance_km,
+                    mode_transport,
+                    prix
+                ];
+
+                const [insertResult] = await queryPromise(connection, insertSql, values);
+                const insertId = insertResult.insertId;
+
+                // Insertion des segments
+                if (Array.isArray(segment) && segment.length > 0) {
+                    const insertSegmentSql = `
+                        INSERT INTO segment_trajet (
+                            id_trajet,
+                            ordre,
+                            id_depart,
+                            id_destination,
+                            date_depart,
+                            date_arrivee,
+                            distance_km,
+                            mode_transport,
+                            prix
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    `;
+
+                    const insertPromises = segment.map((seg, index) => {
+                        if (!seg.ordre || !seg.id_depart || !seg.id_arrive || !seg.date_depart || !seg.date_arrivee) {
+                            throw new Error(`Données incomplètes pour le segment ${index + 1}.`);
+                        }
+
+                        return queryPromise(connection, insertSegmentSql, [
+                            insertId,
+                            seg.ordre,
+                            seg.id_depart,
+                            seg.id_arrive,
+                            seg.date_depart,
+                            seg.date_arrivee,
+                            seg.distance_km || 0,
+                            seg.mode_transport || null,
+                            seg.prix || 0
+                        ]);
+                    });
+
+                    await Promise.all(insertPromises);
+                }
+
+                connection.commit((commitErr) => {
+                    connection.release();
+                    if (commitErr) {
+                        console.error("Erreur commit :", commitErr);
+                        return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+                    }
+
+                    return res.status(201).json({
+                        message: "Trajet enregistré avec succès.",
+                        data: { id: insertId }
+                    });
+                });
+
+            } catch (error) {
+                connection.rollback(() => {
+                    connection.release();
+                    console.error("Erreur pendant la transaction :", error);
+                    return res.status(500).json({
+                        error: error.message || "Une erreur est survenue lors de l'enregistrement.",
+                    });
+                });
+            }
+        });
+    });
 };
+
 
 exports.putTrajet = (req, res) => {
     const { id_trajet } = req.query;
