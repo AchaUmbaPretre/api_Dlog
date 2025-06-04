@@ -572,14 +572,12 @@ exports.getTransporteur = (req, res) => {
 
 exports.getTrajet = (req, res) => {
     const q = `SELECT 
-                    t.id_trajet, 
-                    t.date_depart, 
-                    t.date_arrivee, 
+                    t.id_trajet,  
                     t.distance_km, 
                     u.nom, 
                     u.prenom,
                     l_depart.nom AS depart,
-                    l_destination.nom AS destination,
+                    l_destination.nom AS destination
                 FROM trajets t
                 INNER JOIN 
                     utilisateur u ON t.user_cr = u.id_utilisateur
@@ -850,59 +848,13 @@ exports.putTrajet = (req, res) => {
             }
 
             try {
-                const { id_depart, id_destination, date_depart, date_arrivee, distance_km, duree, mode_transport, prix, user_cr, segment } = req.body;
+                const { id_depart, id_destination,  distance_km } = req.body;
 
                 if (!id_depart || !id_destination) {
                     throw new Error("Champs obligatoires manquants.");
                 }
 
-                segment.forEach((s, index) => {
-                    if (!s.ordre || !s.id_depart || !s.id_arrive || !s.date_depart || !s.date_arrivee) {
-                        throw new Error(`Données incomplètes pour le segment ${index + 1}.`);
-                    }
-                });
-
-                const updateTrajetSql = `
-                    UPDATE trajets
-                    SET id_depart = ?, id_destination = ?, date_depart = ?, date_arrivee = ?, distance_km = ?, duree = ?, mode_transport = ?, prix = ?, user_cr = ?
-                    WHERE id_trajet = ?
-                `;
-                await queryPromise(connection, updateTrajetSql, [id_depart, id_destination, date_depart, date_arrivee, distance_km, duree, mode_transport, prix, user_cr, id_trajet]);
-
-                // Modif des segments
-                if (Array.isArray(segment) && segment.length > 0) {
-                                    // Suppression des anciens segments du trajet
-                const deleteSegmentSql = `DELETE FROM segment_trajet WHERE id_trajet = ?`;
-                await queryPromise(connection, deleteSegmentSql, [id_trajet]);
-
-                // Insertion des nouveaux segments
-                const insertSegmentSql = `
-                    INSERT INTO segment_trajet (
-                        id_trajet,
-                        ordre,
-                        id_depart,
-                        id_destination,
-                        date_depart,
-                        date_arrivee,
-                        distance_km,
-                        mode_transport,
-                        prix
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `;
-                await Promise.all(segment.map((seg) =>
-                    queryPromise(connection, insertSegmentSql, [
-                        id_trajet,
-                        seg.ordre,
-                        seg.id_depart,
-                        seg.id_arrive,
-                        seg.date_depart,
-                        seg.date_arrivee,
-                        seg.distance_km,
-                        seg.mode_transport,
-                        seg.prix
-                    ])
-                ));
-                }
+                await queryPromise(connection, updateTrajetSql, [id_depart, id_destination, distance_km, id_trajet]);
 
                 connection.commit((commitErr) => {
                     connection.release();
