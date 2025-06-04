@@ -621,38 +621,6 @@ exports.getTrajetOneV = (req, res) => {
     });
 };
 
-exports.getTrajetOne = (req, res) => {
-    const { id_trajet } = req.query;
-
-    const q = `SELECT 
-                    st.id_trajet, 
-                    st.date_depart, 
-                    st.id_destination, 
-                    st.distance_km, 
-                    st.duree, 
-                    st.prix, 
-                    l_depart.nom AS depart,
-                    l_destination.nom AS destination,
-                    mt.nom_mode
-                FROM segment_trajet st
-                INNER JOIN 
-                    localisation l_depart ON st.id_depart = l_depart.id_localisation
-                INNER JOIN 
-                    localisation l_destination ON st.id_destination = l_destination.id_localisation
-                INNER JOIN 
-                    mode_transport mt ON st.mode_transport = mt.id_mode_transport
-                WHERE st.id_trajet = ?
-                GROUP BY st.id_segment
-                `;
-
-    db.query(q, [id_trajet], (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-
-        return res.status(200).json(data);
-    });
-};
 
 /* exports.postTrajet = (req, res) => {
     db.getConnection((connErr, connection) => {
@@ -854,6 +822,11 @@ exports.putTrajet = (req, res) => {
                     throw new Error("Champs obligatoires manquants.");
                 }
 
+                const updateTrajetSql = `
+                    UPDATE trajets
+                    SET id_depart = ?, id_destination = ?, distance_km = ?
+                    WHERE id_trajet = ?
+                `;
                 await queryPromise(connection, updateTrajetSql, [id_depart, id_destination, distance_km, id_trajet]);
 
                 connection.commit((commitErr) => {
