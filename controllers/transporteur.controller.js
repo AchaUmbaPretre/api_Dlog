@@ -655,7 +655,7 @@ exports.postTrajet = (req, res) => {
             }
 
             try {
-                const { id_depart, id_arrive, user_cr, segment } = req.body;
+                const { id_depart, id_arrive, date_depart, date_arrivee, distance_km, mode_transport, prix, user_cr, segment } = req.body;
                 
                 if (!id_depart || !id_arrive) {
                     throw new Error("Champs obligatoires manquants.");   
@@ -675,12 +675,22 @@ exports.postTrajet = (req, res) => {
                     INSERT INTO trajets (
                     id_depart,
                     id_arrive,
-                    user_cr
-                    ) VALUES (?, ?, ?)
+                    user_cr,
+                    date_depart,
+                    date_arrivee,
+                    distance_km,
+                    mode_transport,
+                    prix
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 `
                 const values = [
                     id_depart,
                     id_arrive,
+                    date_depart, 
+                    date_arrivee, 
+                    distance_km, 
+                    mode_transport, 
+                    prix,
                     user_cr
                 ]
 
