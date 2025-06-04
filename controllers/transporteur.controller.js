@@ -758,7 +758,7 @@ exports.postTrajet = (req, res) => {
             try {
                 const {
                     id_depart,
-                    id_arrive,
+                    id_destination,
                     date_depart,
                     date_arrivee,
                     distance_km,
@@ -768,32 +768,32 @@ exports.postTrajet = (req, res) => {
                     segment = []
                 } = req.body;
 
-                if (!id_depart || !id_arrive) {
+                if (!id_depart || !id_destination) {
                     throw new Error("Champs obligatoires manquants (id_depart ou id_arrive).");
                 }
 
                 const insertSql = `
                     INSERT INTO trajets (
                         id_depart,
-                        id_arrive,
-                        user_cr,
+                        id_destination,
                         date_depart,
                         date_arrivee,
                         distance_km,
                         mode_transport,
-                        prix
+                        prix,
+                        user_cr
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 `;
 
                 const values = [
                     id_depart,
-                    id_arrive,
-                    user_cr,
+                    id_destination,
                     date_depart,
                     date_arrivee,
                     distance_km,
                     mode_transport,
-                    prix
+                    prix,
+                    user_cr
                 ];
 
                 const [insertResult] = await queryPromise(connection, insertSql, values);
@@ -816,7 +816,7 @@ exports.postTrajet = (req, res) => {
                     `;
 
                     const insertPromises = segment.map((seg, index) => {
-                        if (!seg.ordre || !seg.id_depart || !seg.id_arrive || !seg.date_depart || !seg.date_arrivee) {
+                        if (!seg.ordre || !seg.id_depart || !seg.id_destination || !seg.date_depart || !seg.date_arrivee) {
                             throw new Error(`Données incomplètes pour le segment ${index + 1}.`);
                         }
 
@@ -824,7 +824,7 @@ exports.postTrajet = (req, res) => {
                             insertId,
                             seg.ordre,
                             seg.id_depart,
-                            seg.id_arrive,
+                            seg.id_destination,
                             seg.date_depart,
                             seg.date_arrivee,
                             seg.distance_km || 0,
