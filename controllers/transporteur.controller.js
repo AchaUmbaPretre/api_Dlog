@@ -525,7 +525,7 @@ exports.getTransporteur = (req, res) => {
     });
 };
 
-exports.getTrajet = (req, res) => {
+/* exports.getTrajet = (req, res) => {
     const q = `SELECT 
                     t.id_trajet,
                     CONCAT(l.nom, ' → ', l2.nom) AS depart_destination,
@@ -568,6 +568,38 @@ exports.getTrajet = (req, res) => {
         }
         return res.status(200).json(data);
     });
+}; */
+
+exports.getTrajet = (req, res) => {
+    const q = `SELECT 
+                    t.id_trajet, 
+                    t.date_depart, 
+                    t.date_arrivee, 
+                    t.distance_km, 
+                    t.duree, 
+                    t.prix, 
+                    u.nom, 
+                    u.prenom,
+                    l_depart.nom AS depart,
+                    l_destination.nom AS destination,
+                    mt.nom_mode
+                FROM trajets t
+                INNER JOIN 
+                    utilisateur u ON t.user_cr = u.id_utilisateur
+                INNER JOIN 
+                    localisation l_depart ON t.id_depart = l_depart.id_localisation
+                INNER JOIN 
+                    localisation l_destination ON t.id_destination = l_destination.id_localisation
+                INNER JOIN 
+                    mode_transport mt ON t.mode_transport = mt.id_mode_transport
+                `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
 };
 
 exports.getTrajetOneV = (req, res) => {
@@ -579,7 +611,7 @@ exports.getTrajetOneV = (req, res) => {
 
     const q = 
         `
-         SELECT t.id_trajet, t.id_depart, t.id_arrive, t.user_cr, s.*
+         SELECT t.*, s.*
                 FROM trajets t
                     JOIN segment_trajet s ON t.id_trajet = s.id_trajet
                     WHERE s.id_trajet = ?
@@ -597,39 +629,24 @@ exports.getTrajetOne = (req, res) => {
     const { id_trajet } = req.query;
 
     const q = `SELECT 
-                    t.id_trajet,
-                    CONCAT(l.nom, ' → ', l2.nom) AS depart_destination,
-                
-                    CONCAT(
-                        GROUP_CONCAT(ld.nom ORDER BY s.ordre SEPARATOR ' → '),
-                        ' → ',
-                        (
-                        SELECT lz.nom
-                        FROM segment_trajet st
-                        JOIN localisation lz ON lz.id_localisation = st.id_destination
-                        WHERE st.id_trajet = t.id_trajet
-                        ORDER BY st.ordre DESC
-                        LIMIT 1
-                        )
-                    ) AS itineraire_complet,
-                    MIN(s.date_depart) AS date_depart,
-                    MAX(s.date_arrivee) AS date_arrivee,
-                    SUM(s.distance_km) AS distance,
-                    SUM(s.prix) AS total,
-
-                    GROUP_CONCAT(DISTINCT mt.nom_mode ORDER BY mt.nom_mode SEPARATOR ', ') AS modes_transport,
-                    
-                    DATEDIFF(MAX(s.date_arrivee), MIN(s.date_depart)) + 1 AS duree_jours
-
-                FROM trajets t
-
-                    JOIN segment_trajet s ON t.id_trajet = s.id_trajet
-                    JOIN localisation l ON s.id_depart = l.id_localisation
-                    JOIN localisation l2 ON s.id_destination = l2.id_localisation
-                    JOIN localisation ld ON ld.id_localisation = s.id_depart
-                    JOIN mode_transport mt ON s.mode_transport = mt.id_mode_transport
-                    WHERE s.id_trajet = ?
-                    GROUP BY s.id_segment
+                    st.id_trajet, 
+                    st.date_depart, 
+                    st.id_destination, 
+                    st.distance_km, 
+                    st.duree, 
+                    st.prix, 
+                    l_depart.nom AS depart,
+                    l_destination.nom AS destination,
+                    mt.nom_mode
+                FROM segment_trajet st
+                INNER JOIN 
+                    localisation l_depart ON st.id_depart = l_depart.id_localisation
+                INNER JOIN 
+                    localisation l_destination ON st.id_destination = l_destination.id_localisation
+                INNER JOIN 
+                    mode_transport mt ON st.mode_transport = mt.id_mode_transport
+                WHERE st.id_trajet = ?
+                GROUP BY st.id_segment
                 `;
 
     db.query(q, [id_trajet], (error, data) => {
@@ -861,7 +878,6 @@ exports.postTrajet = (req, res) => {
         });
     });
 };
-
 
 exports.putTrajet = (req, res) => {
     const { id_trajet } = req.query;
