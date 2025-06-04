@@ -576,7 +576,7 @@ exports.getTrajet = (req, res) => {
                     t.date_depart, 
                     t.date_arrivee, 
                     t.distance_km, 
-                    t.duree, 
+                    DATEDIFF(t.date_arrivee, t.date_depart) AS duree,
                     t.prix, 
                     u.nom, 
                     u.prenom,
