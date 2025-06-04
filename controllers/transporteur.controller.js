@@ -576,13 +576,10 @@ exports.getTrajet = (req, res) => {
                     t.date_depart, 
                     t.date_arrivee, 
                     t.distance_km, 
-                    DATEDIFF(t.date_arrivee, t.date_depart) AS duree,
-                    t.prix, 
                     u.nom, 
                     u.prenom,
                     l_depart.nom AS depart,
                     l_destination.nom AS destination,
-                    mt.nom_mode
                 FROM trajets t
                 INNER JOIN 
                     utilisateur u ON t.user_cr = u.id_utilisateur
@@ -590,8 +587,6 @@ exports.getTrajet = (req, res) => {
                     localisation l_depart ON t.id_depart = l_depart.id_localisation
                 INNER JOIN 
                     localisation l_destination ON t.id_destination = l_destination.id_localisation
-                INNER JOIN 
-                    mode_transport mt ON t.mode_transport = mt.id_mode_transport
                 `;
 
     db.query(q, (error, data) => {
@@ -611,10 +606,13 @@ exports.getTrajetOneV = (req, res) => {
 
     const q = 
         `
-         SELECT t.id_trajet AS id_trajet_tr, t.id_depart AS id_depart_tr, t.id_destination AS id_destination_tr, t.date_depart AS date_depart_tr, t.date_arrivee AS date_arrivee_tr, t.distance_km AS distance_km_tr, t.duree AS duree_tr, t.mode_transport AS mode_transport_tr, t.prix AS prix_tr, s.*
-                FROM trajets t
-                    LEFT JOIN segment_trajet s ON t.id_trajet = s.id_trajet
-                    WHERE t.id_trajet = ?
+            SELECT 
+                t.id_trajet, 
+                t.id_depart, 
+                t.id_destination, 
+                t.distance_km 
+            FROM trajets t
+            WHERE t.id_trajet = ?
                 `;
 
     db.query(q, [id_trajet], (error, data) => {
@@ -653,6 +651,7 @@ exports.getTrajetOne = (req, res) => {
         if (error) {
             return res.status(500).send(error);
         }
+
         return res.status(200).json(data);
     });
 };
@@ -776,14 +775,10 @@ exports.postTrajet = (req, res) => {
                 const {
                     id_depart,
                     id_destination,
-                    date_depart,
-                    date_arrivee,
                     distance_km,
-                    mode_transport,
-                    prix,
                     user_cr,
-                    segment = []
                 } = req.body;
+
 
                 if (!id_depart || !id_destination) {
                     throw new Error("Champs obligatoires manquants (id_depart ou id_arrive).");
@@ -793,65 +788,20 @@ exports.postTrajet = (req, res) => {
                     INSERT INTO trajets (
                         id_depart,
                         id_destination,
-                        date_depart,
-                        date_arrivee,
                         distance_km,
-                        mode_transport,
-                        prix,
                         user_cr
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?)
                 `;
 
                 const values = [
                     id_depart,
                     id_destination,
-                    date_depart,
-                    date_arrivee,
                     distance_km,
-                    mode_transport,
-                    prix,
                     user_cr
                 ];
 
                 const [insertResult] = await queryPromise(connection, insertSql, values);
                 const insertId = insertResult.insertId;
-
-                // Insertion des segments
-                if (Array.isArray(segment) && segment.length > 0) {
-                    const insertSegmentSql = `
-                        INSERT INTO segment_trajet (
-                            id_trajet,
-                            ordre,
-                            id_depart,
-                            id_destination,
-                            date_depart,
-                            date_arrivee,
-                            distance_km,
-                            mode_transport,
-                            prix
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    `;
-
-                    const insertPromises = segment.map((seg, index) => {
-                        if (!seg.ordre || !seg.id_depart || !seg.id_destination || !seg.date_depart || !seg.date_arrivee) {
-                            throw new Error(`Données incomplètes pour le segment ${index + 1}.`);
-                        }
-
-                        return queryPromise(connection, insertSegmentSql, [
-                            insertId,
-                            seg.ordre,
-                            seg.id_depart,
-                            seg.id_destination,
-                            seg.date_depart,
-                            seg.date_arrivee,
-                            seg.distance_km || 0,
-                            seg.mode_transport || null,
-                            seg.prix || 0
-                        ]);
-                    });
-
-                    await Promise.all(insertPromises);
-                }
 
                 connection.commit((commitErr) => {
                     connection.release();
