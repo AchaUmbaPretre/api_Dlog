@@ -117,6 +117,7 @@ exports.postLocalisation = (req, res) => {
                     INSERT INTO localisation (nom, type_loc, id_parent, commentaire, niveau)
                     VALUES (?, ?, ?, ?, ?)
                 `;
+                
                 const values = [nom, type_loc, id_parent, commentaire, niveau];
 
                 const [mainResult] = await queryPromise(connection, insertQuery, values);
