@@ -397,8 +397,9 @@ exports.getTache = (req, res) => {
                     )
                 `;
             }
-            
-            // Owner - filtrer par tâches de l'utilisateur ou ses tâches créées
+        }
+
+                    // Owner - filtrer par tâches de l'utilisateur ou ses tâches créées
             if (role === 'Owner' && id_user) {
                 query += `AND (pt.id_user = ${db.escape(id_user)} AND pt.can_view = 1 OR tache.user_cr = ${db.escape(id_user)})`;
             }
@@ -422,7 +423,6 @@ exports.getTache = (req, res) => {
             if (owners && owners.length > 0) {
                 query += ` AND tache.responsable_principal IN (${owners.map(o => db.escape(o)).join(',')})`;
             }
-        }
     
         // Trier les résultats par date de création
         query += ` ORDER BY tache.date_creation DESC`;
