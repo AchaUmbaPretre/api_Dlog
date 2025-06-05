@@ -17,12 +17,13 @@ exports.getProjetCount = (req, res) => {
 exports.getProjet = (req, res) => {
 
     const q = `
-                SELECT 
+                SELECT
                     projet.id_projet,
                     projet.nom_projet, 
                     projet.description, 
                     projet.date_debut, 
                     projet.date_fin, 
+                    projet.date_creation,
                     ts.nom_type_statut, 
                     utilisateur.nom AS responsable, 
                     client.nom,
@@ -38,9 +39,9 @@ exports.getProjet = (req, res) => {
                     LEFT JOIN budgets ON projet.id_projet = budgets.id_projet
                     LEFT JOIN projet_batiment ON projet.id_projet = projet_batiment.id_projet
                     LEFT JOIN batiment ON projet_batiment.id_batiment = batiment.id_batiment
-                    WHERE projet.est_supprime = 0
-                    GROUP BY projet.id_projet
-                    ORDER BY projet.date_creation DESC
+                WHERE projet.est_supprime = 0
+                GROUP BY projet.id_projet
+                ORDER BY projet.date_creation DESC
             `;
 
     db.query(q, (error, data) => {
