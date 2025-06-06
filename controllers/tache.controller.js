@@ -511,7 +511,6 @@ exports.getTache = (req, res) => {
         { field: 'tache.priorite', values: priorite },
         { field: 'tache.responsable_principal', values: owners },
         { field: 'tache.id_projet', values: projet }
-
     ];
 
     for (const { field, values } of filters) {
