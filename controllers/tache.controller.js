@@ -614,7 +614,6 @@ exports.getTache = (req, res) => {
     });
 };
 
-
 exports.getTacheCorbeille = (req, res) => {
 
     const q = `SELECT 
@@ -668,7 +667,7 @@ exports.getTacheCorbeille = (req, res) => {
         }
         res.json(results);
     })
-}
+};
 
 exports.putTacheCorbeille = (req, res) => {
     const { id_tache } = req.query;
@@ -949,7 +948,7 @@ exports.getTacheOneV = (req, res) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
-}
+};
 
 exports.getTacheVille = (req, res) => {
     const { id_ville } = req.query;
