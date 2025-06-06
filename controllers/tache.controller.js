@@ -336,7 +336,7 @@ exports.getTacheCount = (req, res) => {
             });
         });
     }; */
-
+/* 
 exports.getTache = (req, res) => {
         const { id_user, role } = req.query;
         const { departement, client, statut, priorite, dateRange, owners } = req.body;
@@ -454,6 +454,11 @@ exports.getTache = (req, res) => {
             WHERE 
                 tache.est_supprime = 0
             ${role !== 'Admin' && departement ? ` AND tache.id_departement IN (${departement.map(d => db.escape(d)).join(',')})` : ''}
+            ${ client.length > 0 && ` AND tache.id_client IN (${client.map(c => db.escape(c)).join(',')})`}
+            ${ statut.length > 0 && ` AND tache.statut IN (${statut.map(s => db.escape(s)).join(',')})`}
+            ${ priorite.length > 0 && ` AND tache.priorite IN (${priorite.map(p => db.escape(p)).join(',')})`}
+            ${ dateRange.length === 2 && ` AND tache.date_debut >= ${db.escape(dateRange[0])} AND tache.date_fin <= ${db.escape(dateRange[1])}`}
+            ${ owners.length > 0 && ` AND tache.responsable_principal IN (${owners.map(o => db.escape(o)).join(',')})`}
         `;
     
         // Exécution des requêtes
@@ -477,7 +482,138 @@ exports.getTache = (req, res) => {
                 });
             });
         });
-    };
+    }; */
+
+exports.getTache = (req, res) => {
+    const { id_user, role } = req.query;
+    const { departement = [], client = [], statut = [], priorite = [], dateRange = [], owners = [] } = req.body;
+
+    const baseWhere = [`tache.est_supprime = 0`];
+    const statsWhere = [`tache.est_supprime = 0`];
+    const totalWhere = [`tache.est_supprime = 0`];
+
+    // Rôle spécifique
+    if (role !== 'Admin' && role === 'Manager' && id_user) {
+        baseWhere.push(`
+            tache.id_departement = (SELECT id_departement FROM utilisateur WHERE id_utilisateur = ${db.escape(id_user)})
+            AND tache.id_ville = (SELECT id_ville FROM utilisateur WHERE id_utilisateur = ${db.escape(id_user)})
+            AND pt.id_user = ${db.escape(id_user)} AND pt.can_view = 1
+        `);
+    } else if (role === 'Owner' && id_user) {
+        baseWhere.push(`(pt.id_user = ${db.escape(id_user)} AND pt.can_view = 1 OR tache.user_cr = ${db.escape(id_user)})`);
+    }
+
+    // Filtres communs
+    const filters = [
+        { field: 'tache.id_departement', values: departement },
+        { field: 'tache.id_client', values: client },
+        { field: 'tache.statut', values: statut },
+        { field: 'tache.priorite', values: priorite },
+        { field: 'tache.responsable_principal', values: owners }
+    ];
+
+    for (const { field, values } of filters) {
+        if (Array.isArray(values) && values.length > 0) {
+            const escaped = values.map(v => db.escape(v)).join(',');
+            baseWhere.push(`${field} IN (${escaped})`);
+            statsWhere.push(`${field} IN (${escaped})`);
+            totalWhere.push(`${field} IN (${escaped})`);
+        }
+    }
+
+    // Date Range
+    if (dateRange.length === 2) {
+        const [start, end] = dateRange;
+        const dateClause = `tache.date_debut >= ${db.escape(start)} AND tache.date_fin <= ${db.escape(end)}`;
+        baseWhere.push(dateClause);
+        statsWhere.push(dateClause);
+        totalWhere.push(dateClause);
+    }
+
+    // MAIN QUERY
+    const query = `
+        SELECT 
+            tache.id_tache, 
+            tache.description, 
+            tache.date_debut, 
+            tache.date_fin,
+            tache.nom_tache, 
+            tache.priorite,
+            tache.id_tache_parente,
+            typeC.nom_type_statut AS statut, 
+            client.nom AS nom_client, 
+            frequence.nom AS frequence, 
+            utilisateur.nom AS owner, 
+            provinces.name AS ville, 
+            departement.nom_departement AS departement,
+            cb.controle_de_base,
+            cb.id_controle,
+            DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour,
+            ct.nom_cat_tache,
+            cm.nom_corps_metier,
+            tg.nom_tag,
+            pt.can_view,
+            pt.can_edit,
+            pt.can_comment,
+            pt.id_user
+        FROM 
+            tache
+        LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+        LEFT JOIN client ON tache.id_client = client.id_client
+        INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
+        LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
+        LEFT JOIN provinces ON tache.id_ville = provinces.id
+        LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
+        LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
+        LEFT JOIN departement ON tache.id_departement = departement.id_departement
+        LEFT JOIN categorietache AS ct ON tache.id_cat_tache = ct.id_cat_tache
+        LEFT JOIN corpsmetier AS cm ON tache.id_corps_metier = cm.id_corps_metier
+        LEFT JOIN tache_tags tt ON tache.id_tache = tt.id_tache
+        LEFT JOIN tags tg ON tt.id_tag = tg.id_tag
+        LEFT JOIN permissions_tache pt ON tache.id_tache = pt.id_tache
+        WHERE ${baseWhere.join(' AND ')}
+        ORDER BY tache.date_creation DESC
+    `;
+
+    // STATS QUERY
+    const statsQuery = `
+        SELECT 
+            typeC.nom_type_statut AS statut,
+            COUNT(*) AS nombre_taches
+        FROM 
+            tache
+        LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+        WHERE ${statsWhere.join(' AND ')}
+        GROUP BY typeC.nom_type_statut
+    `;
+
+    // TOTAL QUERY
+    const totalQuery = `
+        SELECT COUNT(*) AS total_taches
+        FROM tache
+        WHERE ${totalWhere.join(' AND ')}
+    `;
+
+    // EXECUTION
+    db.query(query, (error, data) => {
+        if (error) return res.status(500).send(error);
+
+        db.query(statsQuery, (statsError, statsData) => {
+            if (statsError) return res.status(500).send(statsError);
+
+            db.query(totalQuery, (totalError, totalData) => {
+                if (totalError) return res.status(500).send(totalError);
+
+                res.status(200).json({
+                    total_taches: totalData[0]?.total_taches || 0,
+                    taches: data,
+                    statistiques: statsData
+                });
+            });
+        });
+    });
+};
+
 
 exports.getTacheCorbeille = (req, res) => {
 
