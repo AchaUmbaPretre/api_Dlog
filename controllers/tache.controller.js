@@ -486,7 +486,7 @@ exports.getTache = (req, res) => {
 
 exports.getTache = (req, res) => {
     const { id_user, role } = req.query;
-    const { departement = [], client = [], statut = [], priorite = [], dateRange = [], owners = [] } = req.body;
+    const { departement = [], client = [], statut = [], priorite = [], dateRange = [], owners = [], projet = [] } = req.body;
 
     const baseWhere = [`tache.est_supprime = 0`];
     const statsWhere = [`tache.est_supprime = 0`];
@@ -509,7 +509,9 @@ exports.getTache = (req, res) => {
         { field: 'tache.id_client', values: client },
         { field: 'tache.statut', values: statut },
         { field: 'tache.priorite', values: priorite },
-        { field: 'tache.responsable_principal', values: owners }
+        { field: 'tache.responsable_principal', values: owners },
+        { field: 'tache.id_projet', values: projet }
+
     ];
 
     for (const { field, values } of filters) {
