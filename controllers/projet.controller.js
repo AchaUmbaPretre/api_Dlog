@@ -18,7 +18,9 @@ exports.getProjet = (req, res) => {
     const { role, userId } = req.query;
     const isAdmin = role === 'Admin';
 
-    const q = `
+    console.log(req.query)
+
+    let q = `
                 SELECT
                     projet.id_projet,
                     projet.nom_projet, 
@@ -43,8 +45,6 @@ exports.getProjet = (req, res) => {
                     LEFT JOIN batiment ON projet_batiment.id_batiment = batiment.id_batiment
                     LEFT JOIN permissions_projet pp ON projet.id_projet = pp.id_projet
                 WHERE projet.est_supprime = 0 
-                GROUP BY projet.id_projet
-                ORDER BY projet.date_creation DESC
             `;
 
             if (!isAdmin && userId) {
