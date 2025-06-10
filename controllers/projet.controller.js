@@ -30,7 +30,11 @@ exports.getProjet = (req, res) => {
                     utilisateur.nom AS responsable, 
                     client.nom,
                     budgets.montant,
-                    batiment.nom_batiment
+                    batiment.nom_batiment,
+                    pp.can_edit,
+                    pp.can_comment,
+                    pp.can_delete,
+                    pp.can_view
                 FROM 
                 projet
                     LEFT JOIN type_statut_suivi AS ts ON ts.id_type_statut_suivi = projet.statut
