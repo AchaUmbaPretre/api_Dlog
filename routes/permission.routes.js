@@ -1,5 +1,5 @@
 const express = require("express");
-const { menusAll, permissions, putPermission, menusAllOne, getPermissionTache, postPermissionTache, getPermissionVille, getPermissionVilleOne, postPermissionVille, getPermissionDepartementOne, postPermissionDepartement, getPermissionDeclarationVilleOne, postPermissionDeclarationVille, getPermissionDeclaration, postPermissionDeclaration, getPermissionDeclarationClientOne, postPermissionDeclarationClient} = require("../controllers/permission.controller");
+const { menusAll, permissions, putPermission, menusAllOne, getPermissionTache, postPermissionTache, getPermissionVille, getPermissionVilleOne, postPermissionVille, getPermissionDepartementOne, postPermissionDepartement, getPermissionDeclarationVilleOne, postPermissionDeclarationVille, getPermissionDeclaration, postPermissionDeclaration, getPermissionDeclarationClientOne, postPermissionDeclarationClient, getPermissionProjet, postPermissionProjet} = require("../controllers/permission.controller");
 const router = express.Router();
 
 router.get('/addOne', menusAllOne)
@@ -30,5 +30,9 @@ router.post('/permission_declaration_client', postPermissionDeclarationClient)
 //Permission declaration
 router.get('/permission_declaration', getPermissionDeclaration)
 router.post('/permission_declaration', postPermissionDeclaration)
+
+//Permission projet
+router.get('/permission_projet', getPermissionProjet)
+router.post('/permission_projet', postPermissionProjet)
 
 module.exports = router;
