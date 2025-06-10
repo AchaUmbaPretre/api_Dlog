@@ -2801,7 +2801,7 @@ exports.getSubInspection = (req, res) => {
     const { idInspection } = req.query;
 
     if (!idInspection) {
-        return res.status(400).json({ error: "L'identifiant de l'inspection est requis." });
+      return res.status(400).json({ error: "L'identifiant de l'inspection est requis." });
     }
 
     const query = `
