@@ -1111,7 +1111,8 @@ exports.getTacheOne = (req, res) => {
                 departement.nom_departement AS departement,
                 cb.controle_de_base,
                 cb.id_controle,
-                DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
+                DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour,
+                u.nom AS demandeur
             FROM 
                 tache
             LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
@@ -1122,6 +1123,7 @@ exports.getTacheOne = (req, res) => {
             LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
             LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
             LEFT JOIN departement ON tache.id_departement = departement.id_departement
+            LEFT JOIN utilisateur u ON tache.id_demandeur = u.id_utilisateur
             WHERE 
                 tache.id_tache = ?
             GROUP BY tache.id_tache
