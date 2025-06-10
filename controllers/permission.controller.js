@@ -909,7 +909,6 @@ exports.postPermissionDeclaration = (req, res) => {
   }
 };
 
-
 //Permission projet
 exports.getPermissionProjet = (req, res) => {
   const { userId } = req.query;
@@ -925,7 +924,7 @@ exports.getPermissionProjet = (req, res) => {
 }
 
 exports.postPermissionProjet = (req, res) => {
-  const { id_projet, id_user, can_view, can_edit, can_comment, can_delete } = req.body;
+  const { id_projet, id_user, can_view, can_edit, can_comment, can_delete, user_cr } = req.body;
 
   if (!id_projet || !id_user) {
     return res.status(400).send({ error: "Les champs 'id_projet' et 'id_user' sont requis." });
@@ -963,10 +962,10 @@ exports.postPermissionProjet = (req, res) => {
       } else {
         // Insérez une nouvelle ligne
         const qInsert = `
-          INSERT INTO permissions_projet (id_projet, id_user, can_view, can_edit, can_comment, can_delete) 
+          INSERT INTO permissions_projet (id_projet, id_user, can_view, can_edit, can_comment, can_delete, user_cr) 
           VALUES (?, ?, ?, ?, ?, ?)
         `;
-        const valuesInsert = [id_projet, id_user, can_view, can_edit, can_comment, can_delete];
+        const valuesInsert = [id_projet, id_user, can_view, can_edit, can_comment, can_delete, user_cr];
 
         db.query(qInsert, valuesInsert, (errorInsert) => {
           if (errorInsert) {
