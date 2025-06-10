@@ -947,7 +947,7 @@ exports.postPermissionProjet = (req, res) => {
           SET can_view = ?, can_edit = ?, can_comment = ?, can_delete = ? 
           WHERE id_projet = ? AND id_user = ?
         `;
-        const valuesUpdate = [can_view, can_edit, can_comment, can_delete, id_template, id_user];
+        const valuesUpdate = [can_view, can_edit, can_comment, can_delete, id_projet, id_user];
 
         db.query(qUpdate, valuesUpdate, (errorUpdate) => {
           if (errorUpdate) {
@@ -962,10 +962,10 @@ exports.postPermissionProjet = (req, res) => {
       } else {
         // Insérez une nouvelle ligne
         const qInsert = `
-          INSERT INTO permissions_projet (id_projet, id_user, can_view, can_edit, can_comment, can_delete, user_cr) 
+          INSERT INTO permissions_projet (id_projet, id_user, can_view, can_edit, can_comment, can_delete) 
           VALUES (?, ?, ?, ?, ?, ?)
         `;
-        const valuesInsert = [id_projet, id_user, can_view, can_edit, can_comment, can_delete, user_cr];
+        const valuesInsert = [id_projet, id_user, can_view, can_edit, can_comment, can_delete];
 
         db.query(qInsert, valuesInsert, (errorInsert) => {
           if (errorInsert) {
