@@ -908,3 +908,77 @@ exports.postPermissionDeclaration = (req, res) => {
     res.status(500).send({ error: "Erreur interne du serveur." });
   }
 };
+
+
+//Permission projet
+exports.getPermissionProjet = (req, res) => {
+  const { userId } = req.query;
+
+  const q = `SELECT id_user, can_view, can_edit, can_comment, can_delete, id_projet FROM permissions_projet pd WHERE pd.id_user  = ?`
+
+  db.query(q, [userId], (error, data) => {
+    if (error) {
+        return  res.status(500).send(error);
+    }
+    return res.status(200).json(data);
+  });
+}
+
+exports.postPermissionProjet = (req, res) => {
+  const { id_projet, id_user, can_view, can_edit, can_comment, can_delete } = req.body;
+
+  if (!id_projet || !id_user) {
+    return res.status(400).send({ error: "Les champs 'id_projet' et 'id_user' sont requis." });
+  }
+
+  try {
+    // Vérifiez si une ligne existe déjà pour id_declaration et id_user
+    const qSelect = `SELECT * FROM permissions_projet WHERE id_projet = ? AND id_user = ?`;
+    const valuesSelect = [id_projet, id_user];
+
+    db.query(qSelect, valuesSelect, (error, data) => {
+      if (error) {
+        console.error("Erreur lors de la récupération des permissions:", error);
+        return res.status(500).send({ error: "Erreur interne du serveur." });
+      }
+
+      if (data.length > 0) {
+        const qUpdate = `
+          UPDATE permissions_projet 
+          SET can_view = ?, can_edit = ?, can_comment = ?, can_delete = ? 
+          WHERE id_projet = ? AND id_user = ?
+        `;
+        const valuesUpdate = [can_view, can_edit, can_comment, can_delete, id_template, id_user];
+
+        db.query(qUpdate, valuesUpdate, (errorUpdate) => {
+          if (errorUpdate) {
+            console.error("Erreur lors de la mise à jour des permissions:", errorUpdate);
+            return res.status(500).send({ error: "Erreur lors de la mise à jour des permissions." });
+          }
+
+          // Ajoutez une notification après la mise à jour des permissions
+          addNotification(user_cr, id_user, "Vos permissions pour une declaration ont été mises à jour.", res);
+        });
+        
+      } else {
+        // Insérez une nouvelle ligne
+        const qInsert = `
+          INSERT INTO permissions_declaration  (id_template, id_user, id_client, id_ville, can_view, can_edit, can_comment, can_delete) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        const valuesInsert = [id_template, id_user, id_client,	id_ville, can_view, can_edit, can_comment, can_delete];
+
+        db.query(qInsert, valuesInsert, (errorInsert) => {
+          if (errorInsert) {
+            console.error("Erreur lors de l'insertion des permissions:", errorInsert);
+            return res.status(500).send({ error: "Erreur lors de l'insertion des permissions." });
+          }
+          addNotification(user_cr, id_user, "Vous avez reçu un accès à une nouvelle tâche.", res);
+        });
+      }
+    });
+  } catch (error) {
+    console.error("Erreur inattendue:", error);
+    res.status(500).send({ error: "Erreur interne du serveur." });
+  }
+};
