@@ -957,23 +957,23 @@ exports.postPermissionProjet = (req, res) => {
           }
 
           // Ajoutez une notification après la mise à jour des permissions
-          addNotification(user_cr, id_user, "Vos permissions pour une declaration ont été mises à jour.", res);
+          addNotification(user_cr, id_user, "Vos permissions pour un projet ont été mises à jour.", res);
         });
         
       } else {
         // Insérez une nouvelle ligne
         const qInsert = `
-          INSERT INTO permissions_declaration  (id_template, id_user, id_client, id_ville, can_view, can_edit, can_comment, can_delete) 
+          INSERT INTO permissions_projet (id_projet, id_user, can_view, can_edit, can_comment, can_delete) 
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
-        const valuesInsert = [id_template, id_user, id_client,	id_ville, can_view, can_edit, can_comment, can_delete];
+        const valuesInsert = [id_projet, id_user, can_view, can_edit, can_comment, can_delete];
 
         db.query(qInsert, valuesInsert, (errorInsert) => {
           if (errorInsert) {
             console.error("Erreur lors de l'insertion des permissions:", errorInsert);
             return res.status(500).send({ error: "Erreur lors de l'insertion des permissions." });
           }
-          addNotification(user_cr, id_user, "Vous avez reçu un accès à une nouvelle tâche.", res);
+          addNotification(user_cr, id_user, "Vous avez reçu un accès à un nouveau projet.", res);
         });
       }
     });
