@@ -964,7 +964,7 @@ exports.postPermissionProjet = (req, res) => {
         // Insérez une nouvelle ligne
         const qInsert = `
           INSERT INTO permissions_projet (id_projet, id_user, can_view, can_edit, can_comment, can_delete) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?)
         `;
         const valuesInsert = [id_projet, id_user, can_view, can_edit, can_comment, can_delete];
 
