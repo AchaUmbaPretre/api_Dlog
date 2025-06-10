@@ -18,8 +18,6 @@ exports.getProjet = (req, res) => {
     const { role, userId } = req.query;
     const isAdmin = role === 'Admin';
 
-    console.log(req.query)
-
     let q = `
                 SELECT
                     projet.id_projet,
