@@ -1,8 +1,47 @@
 const xlsx = require('xlsx');
 const fs = require('fs');
-const path = require('path');
 const { db } = require("./../config/database");
-const { getSocketIO, onlineUsers, notifyAdmin } = require('../socket');
+const util = require('util');
+const nodemailer = require('nodemailer');
+
+// 📦 Petite helper function pour convertir mysql en Promises
+function queryPromise(connection, sql, params) {
+    return new Promise((resolve, reject) => {
+      connection.query(sql, params, (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      });
+    });
+  }
+
+// Créer le transporteur avec les informations SMTP
+const transporter = nodemailer.createTransport({
+  host: 'mail.loginsmart-cd.com', // Serveur sortant
+  port: 465, // Port SMTP pour SSL
+  secure: true, // Utiliser SSL
+  auth: {
+    user: 'contact@loginsmart-cd.com', // Votre adresse email
+    pass: '824562776Acha', // Mot de passe du compte de messagerie
+  },
+});
+
+// Fonction pour envoyer l'email
+const sendEmail = async (options) => {
+  const mailOptions = {
+    from: '"Dlog" <contact@loginsmart-cd.com>', // Nom et adresse de l'expéditeur
+    to: options.email, // Adresse email du destinataire
+    subject: options.subject, // Sujet de l'email
+    text: options.message, // Message en texte brut
+    // html: options.htmlMessage, // Message en HTML si nécessaire
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('Email envoyé avec succès.');
+  } catch (error) {
+    console.error('Erreur lors de l\'envoi de l\'email:', error.message);
+  }
+};
 
 // Exemple d'implémentation dans un contrôleur ou un service
 exports.getTacheChart = (req, res) => {
@@ -191,7 +230,7 @@ exports.getTacheCount = (req, res) => {
                 return res.status(200).json(data);
             });
         });
-    };
+};
 
 /* exports.getTache = (req, res) => {
         const { id_user, role } = req.query;
@@ -337,6 +376,7 @@ exports.getTacheCount = (req, res) => {
         });
     }; */
 /* 
+
 exports.getTache = (req, res) => {
         const { id_user, role } = req.query;
         const { departement, client, statut, priorite, dateRange, owners } = req.body;
@@ -482,7 +522,7 @@ exports.getTache = (req, res) => {
                 });
             });
         });
-    }; */
+}; */
 
 exports.getTache = (req, res) => {
     const { id_user, role } = req.query;
@@ -1656,124 +1696,145 @@ exports.postTache = async (req, res) => {
 }; */
 
 exports.postTache = async (req, res) => {
-    try {
-        const {
-            nom_tache, description, statut = 1, date_debut, date_fin, priorite,
-            id_tache_parente, id_departement, id_client, id_frequence, id_control,
-            id_projet, id_point_supervision, responsable_principal, id_demandeur,
-            id_batiment, id_ville, id_cat_tache, id_corps_metier, doc, user_cr, categories
-        } = req.body;
+  const pool = db; // ton pool MySQL
 
-        // Validation des champs requis
-        if (!nom_tache || !user_cr) {
-            return res.status(400).json({ error: "Les champs 'nom_tache' et 'user_cr' sont obligatoires." });
-        }
+  let connection;
+  try {
+    connection = await new Promise((resolve, reject) => {
+      pool.getConnection((err, conn) => {
+        if (err) return reject(err);
+        resolve(conn);
+      });
+    });
 
-        // Requête pour insérer une tâche
-        const insertTaskQuery = `
-            INSERT INTO tache (
-                nom_tache, description, statut, date_debut, date_fin, priorite, 
-                id_tache_parente, id_departement, id_client, id_frequence, 
-                id_control, id_projet, id_point_supervision, responsable_principal, 
-                id_demandeur, id_batiment, id_ville, id_cat_tache, 
-                id_corps_metier, doc, user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
+    const {
+      nom_tache, description, statut = 1, date_debut, date_fin, priorite,
+      id_tache_parente, id_departement, id_client, id_frequence, id_control,
+      id_projet, id_point_supervision, responsable_principal, id_demandeur,
+      id_batiment, id_ville, id_cat_tache, id_corps_metier, doc, user_cr, categories
+    } = req.body;
 
-        const taskValues = [
-            nom_tache, description, statut, date_debut, date_fin, priorite,
-            id_tache_parente, id_departement, id_client, id_frequence,
-            id_control, id_projet, id_point_supervision, responsable_principal,
-            id_demandeur, id_batiment, id_ville, id_cat_tache,
-            id_corps_metier, doc, user_cr
-        ];
-
-        // Exécuter l'insertion de la tâche
-        db.query(insertTaskQuery, taskValues, (taskError, taskResult) => {
-            if (taskError) {
-                console.error("Erreur lors de l'insertion de la tâche :", taskError);
-                return res.status(500).json({ error: "Erreur lors de l'insertion de la tâche." });
-            }
-
-            const taskId = taskResult.insertId;
-
-            // Insérer dans les logs d'audit
-            const auditLogQuery = `
-                INSERT INTO audit_logs (action, user_id, id_tache, timestamp)
-                VALUES ('Création', ?, ?, NOW())
-            `;
-            db.query(auditLogQuery, [user_cr, taskId], (auditError) => {
-                if (auditError) {
-                    console.error("Erreur lors de l'ajout des logs d'audit :", auditError);
-                }
-            });
-
-            // Ajouter les permissions pour le créateur
-            const permissionsQuery = `
-                INSERT INTO permissions_tache (id_tache, id_user, can_view, can_edit, can_comment)
-                VALUES (?, ?, 1, 1, 1)
-            `;
-            db.query(permissionsQuery, [taskId, user_cr], (permError) => {
-                if (permError) {
-                    console.error("Erreur lors de l'ajout des permissions :", permError);
-                }
-            });
-
-            // Envoi de la notification au créateur
-            const notificationMessage = `Une nouvelle tâche vient d'être créée avec le titre de : ${nom_tache}`;
-            const notificationsQuery = `
-                INSERT INTO notifications (user_id, message, timestamp)
-                VALUES (?, ?, NOW())
-            `;
-            db.query(notificationsQuery, [user_cr, notificationMessage], (notifError, notifData) => {
-                if (notifError) {
-                    console.error("Erreur lors de l'envoi de la notification :", notifError);
-                }
-
-            });
-
-            // Gérer les catégories si elles existent
-            if (Array.isArray(categories) && categories.length > 0) {
-                const categoryQueries = categories.map(({ id_cat, cout }) => {
-                    return new Promise((resolve, reject) => {
-                        const categoryQuery = `
-                            INSERT INTO categorie_tache (id_tache, id_cat, cout)
-                            VALUES (?, ?, ?)
-                        `;
-                        db.query(categoryQuery, [taskId, id_cat, cout], (catError) => {
-                            if (catError) {
-                                console.error("Erreur lors de l'insertion des catégories :", catError);
-                                reject(catError);
-                            } else {
-                                resolve();
-                            }
-                        });
-                    });
-                });
-
-                // Attendre que toutes les catégories soient insérées
-                Promise.all(categoryQueries)
-                    .then(() => {
-                        return res.status(201).json({
-                            message: 'Tâche ajoutée avec succès.',
-                            data: { nom_tache }
-                        });
-                    })
-                    .catch((catError) => {
-                        console.error("Erreur lors de l'insertion des catégories :", catError);
-                        return res.status(500).json({ error: "Erreur lors de l'insertion des catégories." });
-                    });
-            } else {
-                return res.status(201).json({
-                    message: 'Tâche ajoutée avec succès.',
-                    data: { nom_tache }
-                });
-            }
-        });
-    } catch (error) {
-        console.error("Erreur inattendue lors de l'ajout de la tâche :", error);
-        return res.status(500).json({ error: "Une erreur inattendue s'est produite." });
+    if (!nom_tache || !user_cr) {
+      connection.release();
+      return res.status(400).json({ error: "Les champs 'nom_tache' et 'user_cr' sont obligatoires." });
     }
+
+    // Démarrer la transaction
+    await queryPromise(connection, 'START TRANSACTION');
+
+    // Insertion tâche
+    const insertTaskQuery = `
+      INSERT INTO tache (
+        nom_tache, description, statut, date_debut, date_fin, priorite, 
+        id_tache_parente, id_departement, id_client, id_frequence, 
+        id_control, id_projet, id_point_supervision, responsable_principal, 
+        id_demandeur, id_batiment, id_ville, id_cat_tache, 
+        id_corps_metier, doc, user_cr
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const taskValues = [
+      nom_tache, description, statut, date_debut, date_fin, priorite,
+      id_tache_parente, id_departement, id_client, id_frequence,
+      id_control, id_projet, id_point_supervision, responsable_principal,
+      id_demandeur, id_batiment, id_ville, id_cat_tache,
+      id_corps_metier, doc, user_cr
+    ];
+
+    const taskResult = await queryPromise(connection, insertTaskQuery, taskValues);
+    const taskId = taskResult.insertId;
+
+    // Audit logs
+    const auditLogQuery = `
+      INSERT INTO audit_logs (action, user_id, id_tache, timestamp)
+      VALUES ('Création', ?, ?, NOW())
+    `;
+    await queryPromise(connection, auditLogQuery, [user_cr, taskId]);
+
+    // Permissions
+    const permissionsQuery = `
+      INSERT INTO permissions_tache (id_tache, id_user, can_view, can_edit, can_comment)
+      VALUES (?, ?, 1, 1, 1)
+    `;
+    await queryPromise(connection, permissionsQuery, [taskId, user_cr]);
+
+    // Notification
+    const notificationMessage = `Une nouvelle tâche vient d'être créée avec le titre de : ${nom_tache}`;
+    const notificationsQuery = `
+      INSERT INTO notifications (user_id, message, timestamp)
+      VALUES (?, ?, NOW())
+    `;
+    await queryPromise(connection, notificationsQuery, [user_cr, notificationMessage]);
+
+    // Récupérer nom créateur
+    const userSQL = `SELECT nom FROM utilisateur WHERE id_utilisateur = ?`;
+    const getUserResult = await queryPromise(connection, userSQL, [user_cr]);
+    const nomCreateur = getUserResult.length > 0 ? getUserResult[0].nom : "Inconnu";
+
+    // Récupérer email responsable principal si défini
+    let emailResponsable = null;
+    if (responsable_principal) {
+      const ownerSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ?`;
+      const getOwnerResult = await queryPromise(connection, ownerSQL, [responsable_principal]);
+      emailResponsable = getOwnerResult.length > 0 ? getOwnerResult[0].email : null;
+    }
+
+    console.log(emailResponsable)
+
+    // Insertion catégories
+    if (Array.isArray(categories) && categories.length > 0) {
+      for (const { id_cat, cout } of categories) {
+        const categoryQuery = `
+          INSERT INTO categorie_tache (id_tache, id_cat, cout)
+          VALUES (?, ?, ?)
+        `;
+        await queryPromise(connection, categoryQuery, [taskId, id_cat, cout]);
+      }
+    }
+
+    // Commit
+    await queryPromise(connection, 'COMMIT');
+
+    // Libérer la connexion
+    connection.release();
+const stripHtml = (html) => html.replace(/<\/?[^>]+(>|$)/g, '');
+
+    // Envoyer email hors transaction
+    if (emailResponsable) {
+const message = `
+🆕 Nouvelle Tâche Créée
+
+📌 Titre         : ${nom_tache}
+📝 Description   : ${stripHtml(description || 'Aucune description')}
+⭐ Priorité       : ${priorite || 'Non définie'}
+👤 Créée par     : ${nomCreateur}
+
+Merci de consulter la plateforme pour plus de détails.
+`;
+
+      sendEmail({
+        email: emailResponsable,
+        subject: '📌 Nouvelle tâche',
+        message
+      });
+    }
+
+    return res.status(201).json({
+      message: 'Tâche ajoutée avec succès.',
+      data: { nom_tache, id_tache: taskId }
+    });
+
+  } catch (error) {
+    if (connection) {
+      try {
+        await queryPromise(connection, 'ROLLBACK');
+      } catch (rollbackErr) {
+        console.error('Erreur rollback transaction:', rollbackErr);
+      }
+      connection.release();
+    }
+    console.error("Erreur inattendue lors de l'ajout de la tâche :", error);
+    return res.status(500).json({ error: "Une erreur inattendue s'est produite." });
+  }
 };
 
 exports.postTacheExcel = async (req, res) => {
