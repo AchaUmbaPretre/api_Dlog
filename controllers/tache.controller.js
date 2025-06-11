@@ -2381,7 +2381,6 @@ Merci de consulter la plateforme pour plus de détails.
   }
 };
 
-
 exports.deleteTachePersonne = (req, res) => {
     const id = req.params.id;
   
