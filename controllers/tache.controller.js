@@ -2072,6 +2072,10 @@ exports.putTache = async (req, res) => {
     `;
     const dataP = await queryPromise(db, permissionSQL, [id_tache]);
 
+    const oldTaskQuery = `SELECT * FROM tache WHERE id_tache = ?`;
+    const oldTask = await queryPromise(db, oldTaskQuery, [id_tache]);
+
+
     const nomTache = dataP[0]?.nom_tache || nom_tache;
     const message = `
 📌 Mise à jour de la tâche : ${nomTache}
