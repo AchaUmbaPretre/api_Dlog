@@ -1874,7 +1874,6 @@ exports.getDeclarationOneClient = (req, res) => {
     const params = [id_client];
 
     query += `
-        GROUP BY tc.id_template
         ORDER BY 
             YEAR(ds.periode) DESC, 
             MONTH(ds.periode) DESC
