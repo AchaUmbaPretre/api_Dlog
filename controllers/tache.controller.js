@@ -2288,10 +2288,48 @@ exports.getTacheDocOne = (req, res) => {
 };
 
 exports.postTacheDoc = async (req, res) => {
-    const { id_tache, nom_document, type_document } = req.body;
+    const { id_tache, nom_document, type_document, user_cr } = req.body;
 
     if (!req.files || req.files.length === 0) {
         return res.status(400).json({ message: 'Aucun fichier téléchargé' });
+    }
+
+    const permissionSQL = `
+      SELECT u.email, t.nom_tache 
+      FROM permissions_tache pt
+      INNER JOIN utilisateur u ON pt.id_user = u.id_utilisateur
+      INNER JOIN tache t ON t.id_tache = pt.id_tache
+      WHERE pt.id_tache = ?
+      GROUP BY u.id_utilisateur
+    `;
+    const dataP = await queryPromise(db, permissionSQL, [id_tache]);
+    const nomTache = dataP[0]?.nom_tache;
+    const userSQL = `SELECT nom FROM utilisateur WHERE id_utilisateur = ?`;
+    const userData = await queryPromise(db, userSQL, [user_cr]);
+    const nomCreateur = userData[0]?.nom || 'Inconnu';
+
+    const horodatage = new Date().toLocaleString('fr-FR');
+
+    const message = `
+📌 Nom document : ${nom_document}
+
+👤 Modifiée par : ${nomCreateur}
+
+🕒 Date & Heure : ${horodatage}
+
+Merci de consulter la plateforme pour plus de détails.
+`;
+
+    for (const d of dataP) {
+      try {
+        await sendEmail({
+          email: d.email,
+          subject:  `📌 Nouveau document ajouté à la tache : ${nomTache}`,
+          message
+        });
+      } catch (emailErr) {
+        console.error(`Erreur lors de l'envoi de l'email à ${d.email} :`, emailErr.message);
+      }
     }
 
     const documents = req.files.map(file => ({
