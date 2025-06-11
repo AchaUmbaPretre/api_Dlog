@@ -297,7 +297,7 @@ exports.postSuivi = async (req, res) => {
     }
 };
 
-exports.postSuiviTache = async (req, res) => {
+/* exports.postSuiviTache = async (req, res) => {
     const { id_tache, status, commentaire, pourcentage_avancement, effectue_par, est_termine, user_cr} = req.body;
     try {
         const qTache = 'UPDATE tache SET statut = ? WHERE id_tache = ?';
@@ -386,7 +386,126 @@ Merci de consulter la plateforme pour plus de détails.
         console.error('Erreur lors de l\'ajout de la tâche :', error.message);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
+}; */
+
+exports.postSuiviTache = async (req, res) => {
+  const {
+    id_tache, status, commentaire, pourcentage_avancement,
+    effectue_par, est_termine, user_cr
+  } = req.body;
+
+  try {
+    // Ancien statut
+    const [oldStatusData] = await queryPromise(db, `SELECT statut FROM tache WHERE id_tache = ?`, [id_tache]);
+    const oldStatus = oldStatusData?.statut;
+
+    // Libellés de statuts
+    const [[oldStatusLabel], [newStatusLabel]] = await Promise.all([
+      queryPromise(db, `SELECT nom_type_statut FROM type_statut_suivi WHERE id_type_statut_suivi = ?`, [oldStatus]),
+      queryPromise(db, `SELECT nom_type_statut FROM type_statut_suivi WHERE id_type_statut_suivi = ?`, [status])
+    ]);
+
+    //Insertion dans suivi_tache
+    await queryPromise(db,
+      `INSERT INTO suivi_tache(id_tache, status, commentaire, pourcentage_avancement, effectue_par, est_termine)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        id_tache,
+        status,
+        commentaire,
+        pourcentage_avancement,
+        effectue_par,
+        est_termine ? 1 : 0
+      ]
+    );
+
+    //Mise à jour du statut dans tache
+    await queryPromise(db, `UPDATE tache SET statut = ? WHERE id_tache = ?`, [status, id_tache]);
+
+    //Récupérer infos tâche pour récapitulatif
+    const [tacheData] = await queryPromise(db, `
+      SELECT description, date_debut, date_fin, priorite
+      FROM tache
+      WHERE id_tache = ?
+    `, [id_tache]);
+
+    const PRIORITE_LABELS = {
+      1: 'Très faible',
+      2: 'Faible',
+      3: 'Moyenne',
+      4: 'Haute',
+      5: 'Très haute'
+    };
+
+    const description = tacheData?.description || 'Aucune description';
+    const echeance = tacheData?.date_fin ? new Date(tacheData.date_fin).toLocaleDateString('fr-FR') : 'Non définie';
+    const prioriteLabel = PRIORITE_LABELS[tacheData?.priorite] || 'Non définie';
+
+    //Participants & tâche
+    const dataP = await queryPromise(db, `
+      SELECT u.email, t.nom_tache 
+      FROM permissions_tache pt
+      INNER JOIN utilisateur u ON pt.id_user = u.id_utilisateur
+      INNER JOIN tache t ON t.id_tache = pt.id_tache
+      WHERE pt.id_tache = ?
+      GROUP BY u.id_utilisateur
+    `, [id_tache]);
+
+    const nomTache = dataP[0]?.nom_tache || 'Tâche inconnue';
+    const participants = dataP.map(p => p.email).join(', ');
+
+    //Nom du créateur
+    const [userData] = await queryPromise(db, `SELECT nom FROM utilisateur WHERE id_utilisateur = ?`, [user_cr]);
+    const nomCreateur = userData?.nom || 'Inconnu';
+
+    //Horodatage
+    const horodatage = new Date().toLocaleString('fr-FR');
+
+    //Message
+    const message = `
+📌 Titre de la tâche : ${nomTache}
+
+⏪ Statut précédent : ${oldStatusLabel?.nom_type_statut || 'Inconnu'}
+⏩ Nouveau statut : ${newStatusLabel?.nom_type_statut || 'Inconnu'}
+
+📈 Avancement : ${pourcentage_avancement || 0}%
+📝 Commentaire : ${commentaire || 'Aucun'}
+
+👤 Mis à jour par : ${nomCreateur}
+🕒 Date & Heure : ${horodatage}
+
+---
+📌 Récapitulatif rapide : 
+🗒️ Description : ${description}
+⚡ Priorité : ${prioriteLabel}
+📅 Échéance : ${echeance}
+👥 Participants : ${participants}
+
+Merci de consulter la plateforme pour plus de détails.
+`;
+
+    // Envoi à tous les participants
+    for (const d of dataP) {
+      try {
+        await sendEmail({
+          email: d.email,
+          subject: '📌 Mise à jour du statut de la tâche',
+          message
+        });
+      } catch (emailErr) {
+        console.error(`Erreur d'envoi à ${d.email} :`, emailErr.message);
+      }
+    }
+
+    return res.status(201).json({ message: 'Suivi de tâche ajouté avec succès.' });
+
+  } catch (error) {
+    console.error('Erreur lors du suivi de la tâche :', error);
+    return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du suivi de tâche." });
+  }
 };
+
+
 
 exports.deleteUpdatedSuiviTache = (req, res) => {
     const { id } = req.query;
