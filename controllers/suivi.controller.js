@@ -461,6 +461,8 @@ exports.postSuiviTache = async (req, res) => {
     //Horodatage
     const horodatage = new Date().toLocaleString('fr-FR');
 
+    const stripHtml = (html) => html.replace(/<\/?[^>]+(>|$)/g, '');
+
     //Message
     const message = `
 📌 Titre de la tâche : ${nomTache}
@@ -476,7 +478,7 @@ exports.postSuiviTache = async (req, res) => {
 
 ---
 📌 Récapitulatif rapide : 
-🗒️ Description : ${description}
+🗒️ Description : ${stripHtml(description || 'Aucune description')}
 ⚡ Priorité : ${prioriteLabel}
 📅 Échéance : ${echeance}
 👥 Participants : ${participants}
