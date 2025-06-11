@@ -298,17 +298,19 @@ exports.postSuivi = async (req, res) => {
 };
 
 exports.postSuiviTache = async (req, res) => {
+    const { id_tache, status, commentaire, pourcentage_avancement, effectue_par, est_termine, user_cr} = req.body;
     try {
         const qTache = 'UPDATE tache SET statut = ? WHERE id_tache = ?';
         const q = 'INSERT INTO suivi_tache(`id_tache`, `status`, `commentaire`, `pourcentage_avancement`, `effectue_par`, `est_termine`) VALUES(?,?,?,?,?,?)';
         const qStatut = `SELECT ts.nom_type_statut FROM type_statut_suivi ts WHERE ts.id_type_statut_suivi = ?`
+
         const values = [
-            req.body.id_tache,
-            req.body.status,
-            req.body.commentaire,
-            req.body.pourcentage_avancement,
-            req.body.effectue_par,
-            req.body.est_termine ? 1 : 0
+            id_tache,
+            status,
+            commentaire,
+            pourcentage_avancement,
+            effectue_par,
+            est_termine ? 1 : 0
         ];
 
         const insertSuiviTache = new Promise((resolve, reject) => {
@@ -333,6 +335,50 @@ exports.postSuiviTache = async (req, res) => {
         await insertSuiviTache;
         await updateTacheStatut;
 
+            // Récupérer les utilisateurs liés à la tâche via permissions
+        const permissionSQL = `
+        SELECT u.email, t.nom_tache 
+        FROM permissions_tache pt
+        INNER JOIN utilisateur u ON pt.id_user = u.id_utilisateur
+        INNER JOIN tache t ON t.id_tache = pt.id_tache
+        WHERE pt.id_tache = ?
+        GROUP BY u.id_utilisateur
+        `;
+        const dataP = await queryPromise(db, permissionSQL, [id_tache]);
+    
+            const userSQL = `SELECT nom FROM utilisateur WHERE id_utilisateur = ?`;
+            const userData = await queryPromise(db, userSQL, [user_cr]);
+            const nomCreateur = userData[0]?.nom || 'Inconnu';
+
+            const horodatage = new Date().toLocaleString('fr-FR');
+
+            const message = `
+📌 Titre de tâche : ${nom_tache}
+
+Statut précédent :
+
+Nouveau statut : 
+
+👤 Modifiée par : ${nomCreateur}
+
+🕒 Date & Heure : ${horodatage}
+
+commentaire : ${commentaire}
+
+Merci de consulter la plateforme pour plus de détails.
+`;
+
+    for (const d of dataP) {
+      try {
+        await sendEmail({
+          email: d.email,
+          subject: '📌 Le statut de la tache vient de changer',
+          message
+        });
+      } catch (emailErr) {
+        console.error(`Erreur lors de l'envoi de l'email à ${d.email} :`, emailErr.message);
+      }
+    }
         // Si tout se passe bien
         return res.status(201).json({ message: 'Suivi de tâche ajouté avec succès' });
 
