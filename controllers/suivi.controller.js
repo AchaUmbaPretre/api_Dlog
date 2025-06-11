@@ -301,7 +301,7 @@ exports.postSuiviTache = async (req, res) => {
     try {
         const qTache = 'UPDATE tache SET statut = ? WHERE id_tache = ?';
         const q = 'INSERT INTO suivi_tache(`id_tache`, `status`, `commentaire`, `pourcentage_avancement`, `effectue_par`, `est_termine`) VALUES(?,?,?,?,?,?)';
-
+        const qStatut = `SELECT ts.nom_type_statut FROM type_statut_suivi ts WHERE ts.id_type_statut_suivi = ?`
         const values = [
             req.body.id_tache,
             req.body.status,
