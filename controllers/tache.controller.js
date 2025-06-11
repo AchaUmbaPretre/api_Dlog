@@ -1757,6 +1757,12 @@ exports.postTache = async (req, res) => {
     `;
     await queryPromise(connection, permissionsQuery, [taskId, user_cr]);
 
+        // Permissions Owner
+    const permissionsOwnerQuery = `
+      INSERT INTO permissions_tache (id_tache, id_user, can_view, can_edit, can_comment)
+      VALUES (?, ?, 1, 1, 1)
+    `;
+    await queryPromise(connection, permissionsOwnerQuery, [taskId, responsable_principal]);
     // Notification
     const notificationMessage = `Une nouvelle tâche vient d'être créée avec le titre de : ${nom_tache}`;
     const notificationsQuery = `
@@ -1778,8 +1784,6 @@ exports.postTache = async (req, res) => {
       emailResponsable = getOwnerResult.length > 0 ? getOwnerResult[0].email : null;
     }
 
-    console.log(emailResponsable)
-
     // Insertion catégories
     if (Array.isArray(categories) && categories.length > 0) {
       for (const { id_cat, cout } of categories) {
@@ -1798,14 +1802,27 @@ exports.postTache = async (req, res) => {
     connection.release();
 const stripHtml = (html) => html.replace(/<\/?[^>]+(>|$)/g, '');
 
+const PRIORITE_LABELS = {
+  1: 'Très faible',
+  2: 'Faible',
+  3: 'Moyenne',
+  4: 'Haute',
+  5: 'Très haute'
+};
+
+const prioriteLabel = PRIORITE_LABELS[priorite] || 'Non définie';
+
     // Envoyer email hors transaction
     if (emailResponsable) {
 const message = `
 🆕 Nouvelle Tâche Créée
 
 📌 Titre         : ${nom_tache}
+
 📝 Description   : ${stripHtml(description || 'Aucune description')}
-⭐ Priorité       : ${priorite || 'Non définie'}
+
+⭐ Priorité       : ${prioriteLabel}
+
 👤 Créée par     : ${nomCreateur}
 
 Merci de consulter la plateforme pour plus de détails.
