@@ -519,14 +519,36 @@ exports.postPermissionTache = (req, res) => {
             console.error("Erreur lors de l'insertion des permissions:", errorInsert);
             return res.status(500).send({ error: "Erreur lors de l'insertion des permissions." });
           }
-          const userSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ?`
+          const tacheSQL = `SELECT t.nom_tache FROM tache t WHERE t.id_tache = ?`
+          db.query(tacheSQL, [id_tache], (error, datas) => {
+            if(error) {
+              console.error("Erreur lors de recupération des taches:", errorInsert);
+              return res.status(500).send({ error: "Erreur lors de la récuperation des taches." });
+            }
+
+            const nomTache = datas[0].nom_tache;
+
+            const userSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ?`
             db.query(userSQL, [id_user], (error,data) => {
               if (error) {
-              console.error("Erreur lors de l'insertion des permissions:", errorInsert);
-              return res.status(500).send({ error: "Erreur lors de l'insertion des permissions." });
+                console.error("Erreur lors de l'insertion des permissions:", errorInsert);
+                return res.status(500).send({ error: "Erreur lors de l'insertion des permissions." });
               }
+              const email = data[0]?.email;
 
+              const message = `
+🆕 Vous avez été ajouté à la tache : ${nomTache}
+
+Merci de consulter la plateforme pour plus de détails.
+`;
+      sendEmail({
+        email: email,
+        subject: '📌 Vous avez été ajouté',
+        message
+      });
             })
+          })
+
           // Ajoutez une notification après l'insertion des permissions
           addNotification(user_cr, id_user, "Vous avez reçu un accès à une nouvelle tâche.", res);
         });
