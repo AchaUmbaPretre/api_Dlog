@@ -1,6 +1,7 @@
 const { db } = require("./../config/database");
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
+const nodemailer = require('nodemailer');
 
 dotenv.config();
 
