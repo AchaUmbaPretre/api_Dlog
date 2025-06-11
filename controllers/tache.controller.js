@@ -2072,38 +2072,18 @@ exports.putTache = async (req, res) => {
     `;
     const dataP = await queryPromise(db, permissionSQL, [id_tache]);
 
-    const oldTaskQuery = `SELECT * FROM tache WHERE id_tache = ?`;
-    const oldTask = await queryPromise(db, oldTaskQuery, [id_tache]);
-
-    const fieldsToCheck = [
-    'nom_tache', 'description', 'statut', 'date_debut', 'date_fin', 'priorite',
-    'id_departement', 'id_client', 'id_frequence', 'responsable_principal',
-    'id_demandeur', 'id_batiment', 'id_ville', 'id_cat_tache', 'id_corps_metier'
-    ];
-
-    let changements = '';
-
-    fieldsToCheck.forEach(field => {
-    const oldVal = oldTask[field];
-    const newVal = req.body[field] ?? oldVal;
-
-    if (oldVal != newVal) {
-        changements += `- ${field} : "${oldVal}" → "${newVal}"\n`;
-    }
-    });
-
-    if (!changements) {
-    changements = 'Aucun changement détecté.';
-    }
-
     const userSQL = `SELECT nom FROM utilisateur WHERE id_utilisateur = ?`;
     const userData = await queryPromise(db, userSQL, [user_cr]);
-    const nomCreateur = userData?.nom || 'Inconnu';
+    const nomCreateur = userData[0]?.nom || 'Inconnu';
 
+    const horodatage = new Date().toLocaleString('fr-FR');
 
-    const nomTache = dataP[0]?.nom_tache || nom_tache;
-    const message = `
-📌 Mise à jour de la tâche : ${nomTache}
+const message = `
+📌 Mise à jour de la tâche : ${nom_tache}
+
+👤 Modifiée par : ${nomCreateur}
+
+🕒 Date & Heure : ${horodatage}
 
 Merci de consulter la plateforme pour plus de détails.
 `;
