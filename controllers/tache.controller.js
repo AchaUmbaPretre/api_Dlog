@@ -2288,72 +2288,99 @@ exports.getTacheDocOne = (req, res) => {
 };
 
 exports.postTacheDoc = async (req, res) => {
-    const { id_tache, nom_document, type_document, user_cr } = req.body;
+  const { id_tache, nom_document, type_document, user_cr } = req.body;
+  const baseURL = 'https://apidlog.loginsmart-cd.com';
 
-    if (!req.files || req.files.length === 0) {
-        return res.status(400).json({ message: 'Aucun fichier téléchargé' });
-    }
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ message: 'Aucun fichier téléchargé.' });
+  }
 
-    const permissionSQL = `
-      SELECT u.email, t.nom_tache 
-      FROM permissions_tache pt
-      INNER JOIN utilisateur u ON pt.id_user = u.id_utilisateur
-      INNER JOIN tache t ON t.id_tache = pt.id_tache
-      WHERE pt.id_tache = ?
-      GROUP BY u.id_utilisateur
-    `;
-    const dataP = await queryPromise(db, permissionSQL, [id_tache]);
-    const nomTache = dataP[0]?.nom_tache;
-    const userSQL = `SELECT nom FROM utilisateur WHERE id_utilisateur = ?`;
-    const userData = await queryPromise(db, userSQL, [user_cr]);
+  try {
+    // Récupérer les infos nécessaires
+    const [dataP, userData] = await Promise.all([
+      queryPromise(db, `
+        SELECT u.email, t.nom_tache 
+        FROM permissions_tache pt
+        INNER JOIN utilisateur u ON pt.id_user = u.id_utilisateur
+        INNER JOIN tache t ON t.id_tache = pt.id_tache
+        WHERE pt.id_tache = ?
+        GROUP BY u.id_utilisateur
+      `, [id_tache]),
+      queryPromise(db, `SELECT nom FROM utilisateur WHERE id_utilisateur = ?`, [user_cr])
+    ]);
+
+    const nomTache = dataP[0]?.nom_tache || 'Tâche inconnue';
     const nomCreateur = userData[0]?.nom || 'Inconnu';
-
     const horodatage = new Date().toLocaleString('fr-FR');
 
+    // Génération des documents avec URL
+    const documents = req.files.map(file => {
+      const cheminRelatif = file.path.replace(/\\/g, '/');
+      const urlDocument = `${baseURL}/${cheminRelatif}`;
+      return {
+        chemin_document: cheminRelatif,
+        id_tache,
+        nom_document,
+        type_document,
+        urlDocument
+      };
+    });
+
+    // Texte des liens
+    const liens = documents.map(doc =>
+      `📄 ${doc.nom_document} : ${doc.urlDocument}`
+    ).join('\n');
+
+    // Contenu du message
     const message = `
-📌 Nom document : ${nom_document}
+📌 Nouveau document ajouté à la tâche : ${nomTache}
 
-👤 Modifiée par : ${nomCreateur}
-
+👤 Ajouté par : ${nomCreateur}
 🕒 Date & Heure : ${horodatage}
 
-Merci de consulter la plateforme pour plus de détails.
-`;
+🔗 Documents :
+${liens}
 
+Merci de consulter la plateforme pour plus de détails.
+    `;
+
+    // Envoi des e-mails
     for (const d of dataP) {
       try {
         await sendEmail({
           email: d.email,
-          subject:  `📌 Nouveau document ajouté à la tache : ${nomTache}`,
+          subject: `📌 Nouveau document ajouté à la tâche : ${nomTache}`,
           message
         });
       } catch (emailErr) {
-        console.error(`Erreur lors de l'envoi de l'email à ${d.email} :`, emailErr.message);
+        console.error(`Erreur lors de l'envoi de l'e-mail à ${d.email} :`, emailErr.message);
       }
     }
 
-    const documents = req.files.map(file => ({
-        chemin_document: file.path.replace(/\\/g, '/'),
-        id_tache,
-        nom_document,
-        type_document
-    }));
-
-    // Insertion de chaque fichier dans la base de données
-    documents.forEach((doc) => {
-        const query = `INSERT INTO tache_documents (id_tache, nom_document, type_document, chemin_document)
-                       VALUES (?, ?, ?, ?)`;
-
-        db.query(query, [doc.id_tache, doc.nom_document, doc.type_document, doc.chemin_document], (err, result) => {
-            if (err) {
-                console.error('Erreur lors de l\'insertion du document:', err);
-                return res.status(500).json({ message: 'Erreur interne du serveur' });
-            }
-        });
+    // Insertion des documents dans la base
+    const insertPromises = documents.map(doc => {
+      const query = `
+        INSERT INTO tache_documents (id_tache, nom_document, type_document, chemin_document)
+        VALUES (?, ?, ?, ?)
+      `;
+      return queryPromise(db, query, [
+        doc.id_tache,
+        doc.nom_document,
+        doc.type_document,
+        doc.chemin_document
+      ]);
     });
 
-    res.status(200).json({ message: 'Documents ajoutés avec succès' });
+    await Promise.all(insertPromises);
+
+    return res.status(200).json({ message: 'Documents ajoutés avec succès.' });
+
+  } catch (err) {
+    console.error('Erreur lors de l\'ajout des documents :', err);
+    return res.status(500).json({ message: 'Erreur interne du serveur.' });
+  }
 };
+
 
 exports.deleteTachePersonne = (req, res) => {
     const id = req.params.id;
