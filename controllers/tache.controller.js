@@ -2096,7 +2096,10 @@ exports.putTache = async (req, res) => {
     changements = 'Aucun changement détecté.';
     }
 
-    
+    const userSQL = `SELECT nom FROM utilisateur WHERE id_utilisateur = ?`;
+    const userData = await queryPromise(db, userSQL, [user_cr]);
+    const nomCreateur = userData?.nom || 'Inconnu';
+
 
     const nomTache = dataP[0]?.nom_tache || nom_tache;
     const message = `
