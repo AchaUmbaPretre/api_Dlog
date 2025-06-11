@@ -5,6 +5,35 @@ const nodemailer = require('nodemailer');
 
 dotenv.config();
 
+// Créer le transporteur avec les informations SMTP
+const transporter = nodemailer.createTransport({
+  host: 'mail.loginsmart-cd.com', // Serveur sortant
+  port: 465, // Port SMTP pour SSL
+  secure: true, // Utiliser SSL
+  auth: {
+    user: 'contact@loginsmart-cd.com', // Votre adresse email
+    pass: '824562776Acha', // Mot de passe du compte de messagerie
+  },
+});
+
+// Fonction pour envoyer l'email
+const sendEmail = async (options) => {
+  const mailOptions = {
+    from: '"Dlog" <contact@loginsmart-cd.com>', // Nom et adresse de l'expéditeur
+    to: options.email, // Adresse email du destinataire
+    subject: options.subject, // Sujet de l'email
+    text: options.message, // Message en texte brut
+    // html: options.htmlMessage, // Message en HTML si nécessaire
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('Email envoyé avec succès.');
+  } catch (error) {
+    console.error('Erreur lors de l\'envoi de l\'email:', error.message);
+  }
+};
+
 /* exports.menusAllOne = (req, res) => {
     const { userId } = req.query;
 
@@ -490,7 +519,14 @@ exports.postPermissionTache = (req, res) => {
             console.error("Erreur lors de l'insertion des permissions:", errorInsert);
             return res.status(500).send({ error: "Erreur lors de l'insertion des permissions." });
           }
+          const userSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ?`
+            db.query(userSQL, [id_user], (error,data) => {
+              if (error) {
+              console.error("Erreur lors de l'insertion des permissions:", errorInsert);
+              return res.status(500).send({ error: "Erreur lors de l'insertion des permissions." });
+              }
 
+            })
           // Ajoutez une notification après l'insertion des permissions
           addNotification(user_cr, id_user, "Vous avez reçu un accès à une nouvelle tâche.", res);
         });
