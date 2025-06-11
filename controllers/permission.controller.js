@@ -546,12 +546,12 @@ Merci de consulter la plateforme pour plus de détails.
         subject: '📌 Vous avez été ajouté',
         message
       });
-            })
-          })
+    })
+  })
 
-          // Ajoutez une notification après l'insertion des permissions
-          addNotification(user_cr, id_user, "Vous avez reçu un accès à une nouvelle tâche.", res);
-        });
+  // Ajoutez une notification après l'insertion des permissions
+      addNotification(user_cr, id_user, "Vous avez reçu un accès à une nouvelle tâche.", res);
+      });
       }
     });
   } catch (error) {
