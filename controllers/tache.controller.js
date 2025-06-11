@@ -1696,7 +1696,7 @@ exports.postTache = async (req, res) => {
 }; */
 
 exports.postTache = async (req, res) => {
-  const pool = db; // ton pool MySQL
+  const pool = db;
 
   let connection;
   try {
@@ -1910,63 +1910,6 @@ exports.postTacheExcel = async (req, res) => {
 };
 
 /* exports.putTache = async (req, res) => {
-    const { id_tache, user_id } = req.query;
-
-    if (!id_tache || isNaN(id_tache)) {
-        return res.status(400).json({ error: 'Invalid tache ID provided' });
-    }
-
-    try {
-        const q = `
-            UPDATE tache 
-            SET 
-                nom_tache = ?,
-                description = ?,
-                statut = ?,
-                date_debut = ?,
-                date_fin = ?,
-                priorite = ?,
-                id_departement = ?,
-                id_client = ?,
-                id_frequence = ?,
-                responsable_principal = ?,
-                id_demandeur = ?,
-                id_batiment = ?,
-                id_ville = ?
-            WHERE id_tache = ?
-        `;
-      
-        const values = [
-            req.body.nom_tache,
-            req.body.description,
-            req.body.statut || 1,
-            req.body.date_debut,
-            req.body.date_fin,
-            req.body.priorite,
-            req.body.id_departement,
-            req.body.id_client,
-            req.body.id_frequence,
-            req.body.responsable_principal,
-            req.body.id_demandeur,
-            req.body.id_batiment,
-            req.body.id_ville,
-            id_tache
-        ];
-
-        db.query(q, values, (error, data)=>{
-            if(error){
-                console.log(error)
-                return res.status(404).json({ error: 'Tache record not found' });
-            }
-            return res.json({ message: 'Tache record updated successfully' });
-        })
-    } catch (err) {
-        console.error("Error updating tache:", err);
-        return res.status(500).json({ error: 'Failed to update Tache record' });
-    }
-} */
-
-exports.putTache = async (req, res) => {
         const { id_tache} = req.query;
     
         if (!id_tache || isNaN(id_tache)) {
@@ -2036,16 +1979,126 @@ exports.putTache = async (req, res) => {
                     if (logError) {
                         console.error("Error logging action:", logError);
                     }
-                });
-    
-                return res.json({ message: 'Tache a été modifiée avec succes' });
+                    const permissionSQL = `SELECT u.email, t.nom_tache FROM permissions_tache pt
+                                                INNER JOIN utilisateur u ON pt.id_user = u.id_utilisateur
+                                                INNER JOIN tache t ON t.id_tache = pt.id_tache
+                                                WHERE pt.id_tache = ?
+                                                GROUP BY u.id_utilisateur`
+                    db.query(permissionSQL, [id_tache], (pError, dataP) => {
+                        if(pError) {
+                            console.error("Erreur lors de recupération des permissions taches :", pError);
+                        }
+
+                        const nomTache = data[0]?.nom_tache;
+
+                        const message = `
+📌 Mise à jour de la tache ${nomTache}
+
+Merci de consulter la plateforme pour plus de détails.
+`;
+
+                    for (const d of dataP) {
+                        sendEmail({
+                        email: d.email,
+                        subject: '📌 Mise à jour de la tâche',
+                        message
+                        });
+                    }
+                    return res.json({ message: 'Tache a été modifiée avec succes' });
+
+                    })
+
+                });    
             });
         } catch (err) {
             console.error("Error updating tache:", err);
             return res.status(500).json({ error: 'Failed to update Tache record' });
         }
-    };
-    
+    }; */
+ 
+exports.putTache = async (req, res) => {
+  const { id_tache } = req.query;
+
+  if (!id_tache || isNaN(id_tache)) {
+    return res.status(400).json({ error: 'ID de tâche invalide.' });
+  }
+
+  const {
+    nom_tache, description, statut = 1, date_debut, date_fin, priorite,
+    id_departement, id_client, id_frequence, responsable_principal,
+    id_demandeur, id_batiment, id_ville, id_cat_tache, id_corps_metier,
+    user_cr
+  } = req.body;
+
+  try {
+    const updateQuery = `
+      UPDATE tache 
+      SET 
+        nom_tache = ?, description = ?, statut = ?, date_debut = ?, date_fin = ?, priorite = ?,
+        id_departement = ?, id_client = ?, id_frequence = ?, responsable_principal = ?,
+        id_demandeur = ?, id_batiment = ?, id_ville = ?, id_cat_tache = ?, id_corps_metier = ?
+      WHERE id_tache = ?
+    `;
+
+    const values = [
+      nom_tache, description, statut, date_debut, date_fin, priorite,
+      id_departement, id_client, id_frequence, responsable_principal,
+      id_demandeur, id_batiment, id_ville, id_cat_tache, id_corps_metier,
+      id_tache
+    ];
+
+    // Vérifier si la tâche existe et mettre à jour
+    const result = await queryPromise(db, updateQuery, values);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Tâche non trouvée ou aucun changement détecté.' });
+    }
+
+    // Log audit
+    const logQuery = `
+      INSERT INTO audit_logs (action, user_id, id_tache, timestamp)
+      VALUES (?, ?, ?, NOW())
+    `;
+    await queryPromise(db, logQuery, ['Modification', user_cr, id_tache]);
+
+    // Récupérer les utilisateurs liés à la tâche via permissions
+    const permissionSQL = `
+      SELECT u.email, t.nom_tache 
+      FROM permissions_tache pt
+      INNER JOIN utilisateur u ON pt.id_user = u.id_utilisateur
+      INNER JOIN tache t ON t.id_tache = pt.id_tache
+      WHERE pt.id_tache = ?
+      GROUP BY u.id_utilisateur
+    `;
+    const dataP = await queryPromise(db, permissionSQL, [id_tache]);
+
+    const nomTache = dataP[0]?.nom_tache || nom_tache;
+    const message = `
+📌 Mise à jour de la tâche : ${nomTache}
+
+Merci de consulter la plateforme pour plus de détails.
+`;
+
+    for (const d of dataP) {
+      try {
+        await sendEmail({
+          email: d.email,
+          subject: '📌 Mise à jour de la tâche',
+          message
+        });
+      } catch (emailErr) {
+        console.error(`Erreur lors de l'envoi de l'email à ${d.email} :`, emailErr.message);
+      }
+    }
+
+    return res.status(200).json({ message: 'La tâche a été modifiée avec succès.' });
+
+  } catch (err) {
+    console.error("Erreur lors de la mise à jour de la tâche :", err);
+    return res.status(500).json({ error: 'Une erreur est survenue lors de la mise à jour.' });
+  }
+};
+
 exports.putTacheDesc = async (req, res) => {
     const { id_tache } = req.query;
 
