@@ -479,7 +479,6 @@ exports.postPermissionTache = (req, res) => {
   }
 
   try {
-    // Vérifiez si une ligne existe déjà pour id_tache et id_user
     const qSelect = `SELECT * FROM permissions_tache WHERE id_tache = ? AND id_user = ?`;
     const valuesSelect = [id_tache, id_user];
 
@@ -507,7 +506,6 @@ exports.postPermissionTache = (req, res) => {
           addNotification(user_cr, id_user, "Vos permissions pour une tâche ont été mises à jour.", res);
         });
       } else {
-        // Insérez une nouvelle ligne
         const qInsert = `
           INSERT INTO permissions_tache (id_tache, id_user, id_ville, id_departement, can_view, can_edit, can_comment, can_delete) 
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
