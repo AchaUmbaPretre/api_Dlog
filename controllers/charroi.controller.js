@@ -3055,13 +3055,9 @@ exports.putInspectionGen = (req, res) => {
   
           // ✅ Traitement de la sous-inspection
           const rep = Array.isArray(reparations) ? reparations[0] : reparations;
-          const fieldName = `img_0`;
-          const file = req.files?.find(f => f.fieldname === fieldName);
-          const imagePath = file ? `public/uploads/${file.filename}` : rep.img || null;
-  
           await queryPromise(connection, `
             UPDATE sub_inspection_gen
-            SET id_type_reparation = ?, id_cat_inspection = ?, montant = ?, commentaire = ?, avis = ?, img = ?, statut = 1
+            SET id_type_reparation = ?, id_cat_inspection = ?, montant = ?, commentaire = ?, avis = ?, statut = 1
             WHERE id_sub_inspection_gen = ? AND id_inspection_gen = ?
           `, [
             rep.id_type_reparation,
@@ -3069,7 +3065,6 @@ exports.putInspectionGen = (req, res) => {
             rep.montant,
             rep.commentaire,
             rep.avis,
-            imagePath,
             idSub,
             idInspection
           ]);
