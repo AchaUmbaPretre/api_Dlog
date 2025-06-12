@@ -108,6 +108,7 @@ router.post('/delete_inspection', charroiController.deleteInspectionGen)
 router.get('/inspection_validation_all', charroiController.getValidationInspectionAll)
 router.get('/inspection_validation', charroiController.getValidationInspection)
 router.post('/inspection_validation', charroiController.postValidationInspection)
+router.put('/inspection_validation_put', charroiController.putValidationInspection)
 
 //Suivi inspection
 router.get('/suivi_inspections', charroiController.getSuiviInspection)

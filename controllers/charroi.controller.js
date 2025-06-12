@@ -3403,7 +3403,7 @@ exports.postValidationInspection = async (req, res) => {
 
 exports.putValidationInspection = (req, res) => {
   db.getConnection((connErr, connection) => {
-    if(connErr) {
+    if (connErr) {
       console.error("Erreur connexion DB :", connErr);
       return res.status(500).json({ error: "Connexion à la base de données échouée." });
     }
@@ -3415,45 +3415,38 @@ exports.putValidationInspection = (req, res) => {
       }
 
       try {
+        const updates = req.body; // C'est un tableau
 
-        const { budget_valide, manoeuvre, id_sub_inspection_gen } = req.body;
+        const updateSQL = `
+          UPDATE inspection_valide
+          SET budget_valide = ?, manoeuvre = ?
+          WHERE id_sub_inspection_gen = ?
+        `;
 
-        const insertQuery = `
-              UPDATE inspection_valide
-                SET 
-              budget_valide = ?, 
-              manoeuvre = ? 
-                 WHERE id_sub_inspection_gen = ?`;
-                 
-        const insertValue = [
-          budget_valide, 
-          manoeuvre, 
-          id_sub_inspection_gen
-        ]
-
-        await queryAsync(insertQuery, insertValue)
+        for (const item of updates) {
+          const { budget_valide, manoeuvre, id_sub_inspection_gen } = item;
+          await queryAsync(updateSQL, [budget_valide, manoeuvre, id_sub_inspection_gen]);
+        }
 
         connection.commit((commitErr) => {
           connection.release();
           if (commitErr) {
             console.error("Erreur commit :", commitErr);
-            return res.status(500).json({ error: "Erreur lors de la validation des données." });
+            return res.status(500).json({ error: "Erreur lors du commit de la transaction." });
           }
 
-          return res.status(200).json({ message: "la validation a été mise à jour avec succès." });
+          return res.status(200).json({ message: "Les validations ont été mises à jour avec succès." });
         });
-
-        
-      } catch (error) {
+      } catch (err) {
         console.error("Erreur :", err);
-          connection.rollback(() => {
-            connection.release();
-            return res.status(500).json({ error: err.message || "Erreur interne." });
+        connection.rollback(() => {
+          connection.release();
+          return res.status(500).json({ error: err.message || "Erreur interne." });
         });
       }
-    })
-  })
-} 
+    });
+  });
+};
 
 //Suivi d'inspection
 exports.getSuiviInspection = (req, res) => {
