@@ -5698,3 +5698,91 @@ exports.postRetour_vehicule = ( req, res ) => {
     })
   })
 }
+
+//Paiement reference
+exports.getPaiementRef = (req, res) => {
+
+    const q = `SELECT * FROM paiement_reference`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getPaiementRefOne = (req, res) => {
+  const { id_sub_inspection_gen } = req.query;
+
+    const q = `SELECT * FROM paiement_reference WHERE id_sub_inspection_gen = ?`;
+
+    db.query(q, [id_sub_inspection_gen], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postPaiementRef = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if(connErr) {
+      console.error("Erreur connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error("Erreur transaction :", trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const { 
+          id_sub_inspection_gen, 
+          reference, 
+          montant, 
+          date_paiement, 
+          mode_paiement, 
+          commentaire } = req.body;
+        
+        const insertMain = `
+              INSERT INTO paiement_reference (
+                id_sub_inspection_gen, 
+                reference, 
+                montant, 
+                date_paiement, 
+                mode_paiement, 
+                commentaire
+              ) VALUES (?, ?, ?, ?, ?, ?)
+                `
+          const mainValues = [
+            id_sub_inspection_gen, 
+            reference, 
+            montant, 
+            date_paiement, 
+            mode_paiement, 
+            commentaire
+          ]
+
+          await queryPromise(connection, insertMain, mainValues )
+
+          connection.commit((commitErr) => {
+            connection.release();
+            if (commitErr) {
+              console.error("Erreur commit :", commitErr);
+              return res.status(500).json({ error: "Erreur lors de la validation des données." });
+            }
+  
+            return res.status(201).json({
+              message: "Ref enregistrée avec succès.",
+            });
+          });
+      } catch (error) {
+        
+      }
+    })
+  })
+}
