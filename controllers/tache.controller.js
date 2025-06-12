@@ -2527,13 +2527,13 @@ exports.postTag = async (req, res) => {
         const qTag = 'INSERT INTO tags(`nom_tag`) VALUES(?)';
         const query = 'INSERT INTO tache_tags (id_tache, id_tag) VALUES (?, ?)';
     
-        try {
-            const id_tag = await new Promise((resolve, reject) => {
-                db.query(qTag, [tags], (err, data) => {
-                    if (err) {
-                        return reject(err);
-                    }
-                    resolve(data.insertId);
+    try {
+        const id_tag = await new Promise((resolve, reject) => {
+            db.query(qTag, [tags], (err, data) => {
+                if (err) {
+                    return reject(err);
+                }
+                resolve(data.insertId);
                 });
             });
     
