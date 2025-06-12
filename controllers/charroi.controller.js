@@ -3401,6 +3401,60 @@ exports.postValidationInspection = async (req, res) => {
     }
 };
 
+exports.putValidationInspection = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if(connErr) {
+      console.error("Erreur connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+
+        const { budget_valide, manoeuvre, id_sub_inspection_gen } = req.body;
+
+        const insertQuery = `
+              UPDATE inspection_valide
+                SET 
+              budget_valide = ?, 
+              manoeuvre = ? 
+                 WHERE id_sub_inspection_gen = ?`;
+                 
+        const insertValue = [
+          budget_valide, 
+          manoeuvre, 
+          id_sub_inspection_gen
+        ]
+
+        await queryAsync(insertQuery, insertValue)
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation des données." });
+          }
+
+          return res.status(200).json({ message: "la validation a été mise à jour avec succès." });
+        });
+
+        
+      } catch (error) {
+        console.error("Erreur :", err);
+          connection.rollback(() => {
+            connection.release();
+            return res.status(500).json({ error: err.message || "Erreur interne." });
+        });
+      }
+    })
+  })
+} 
+
 //Suivi d'inspection
 exports.getSuiviInspection = (req, res) => {
     const { id_sub_inspection_gen } = req.query;
