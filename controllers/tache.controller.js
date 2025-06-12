@@ -1721,6 +1721,21 @@ exports.postTache = async (req, res) => {
     // Démarrer la transaction
     await queryPromise(connection, 'START TRANSACTION');
 
+    const existingQuery = `
+        SELECT id_tache FROM tache 
+        WHERE nom_tache = ? AND date_debut = ? LIMIT 1
+        `;
+
+    const existingTask = await queryPromise(connection, existingQuery, [nom_tache, date_debut]);
+
+    if (existingTask.length > 0) {
+        connection.release();
+        return res.status(409).json({ 
+            error: "Une tâche avec les mêmes informations existe déjà.",
+            id_tache: existingTask[0].id_tache
+        });
+    }
+
     // Insertion tâche
     const insertTaskQuery = `
       INSERT INTO tache (
