@@ -2111,18 +2111,6 @@ const message = `
 Merci de consulter la plateforme pour plus de détails.
 `;
 
-    for (const d of dataP) {
-      try {
-        await sendEmail({
-          email: d.email,
-          subject: '📌 Mise à jour de la tâche',
-          message
-        });
-      } catch (emailErr) {
-        console.error(`Erreur lors de l'envoi de l'email à ${d.email} :`, emailErr.message);
-      }
-    }
-
     const emailPromises = dataP
         .filter(({ email })=> email && email !== userEmail) 
         .map(({ email }) => 
@@ -2134,7 +2122,7 @@ Merci de consulter la plateforme pour plus de détails.
           console.error(`Erreur d'envoi à ${email} :`, emailErr.message);
         })
         )
-        
+
         await Promise.all(emailPromises);
         return res.status(200).json({ message: 'La tâche a été modifiée avec succès.' });
 
