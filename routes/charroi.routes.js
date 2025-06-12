@@ -105,6 +105,7 @@ router.put('/sub_inspection_gen', upload.any(), charroiController.putInspectionG
 router.post('/delete_inspection', charroiController.deleteInspectionGen)
 
 //Validation inspection
+router.get('/inspection_validation_all', charroiController.getValidationInspectionAll)
 router.get('/inspection_validation', charroiController.getValidationInspection)
 router.post('/inspection_validation', charroiController.postValidationInspection)
 

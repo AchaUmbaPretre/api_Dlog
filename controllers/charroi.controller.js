@@ -3221,6 +3221,30 @@ exports.deleteInspectionGen = (req, res) => {
 };
   
 //Validation inspection
+exports.getValidationInspectionAll = (req, res) => {
+    const { id_inspection_gen } = req.query;
+
+    if (!id_inspection_gen) {
+        return res.status(400).json({ error: "L'identifiant de l'inspection est requis." });
+    }
+
+    const query = `
+                    SELECT iv.id_sub_inspection_gen, v.manoeuvre, ig.id_vehicule, iv.budget_valide FROM inspection_valide iv
+                        INNER JOIN sub_inspection_gen sub ON iv.id_sub_inspection_gen = sub.id_sub_inspection_gen
+                        INNER JOIN inspection_gen ig ON sub.id_inspection_gen = ig.id_inspection_gen
+                        WHERE ig.id_inspection_gen = ? AND sub.est_supprime = 0
+                    `;
+
+    db.query(query, [id_inspection_gen], (err, results) => {
+        if (err) {
+            console.error("Erreur lors de la récupération des sous-inspections :", err);
+            return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+        }
+
+        return res.status(200).json(results);
+    });
+};
+
 exports.getValidationInspection = (req, res) => {
     const { id_sub_inspection_gen } = req.query;
 
