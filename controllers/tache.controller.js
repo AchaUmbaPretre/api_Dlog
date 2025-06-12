@@ -2040,8 +2040,7 @@ exports.putTache = async (req, res) => {
   const {
     nom_tache, description, statut = 1, date_debut, date_fin, priorite,
     id_departement, id_client, id_frequence, responsable_principal,
-    id_demandeur, id_batiment, id_ville, id_cat_tache, id_corps_metier,
-    user_cr
+    id_demandeur, id_batiment, id_ville, id_cat_tache, id_corps_metier, user_cr
   } = req.body;
 
   try {
@@ -2086,11 +2085,21 @@ exports.putTache = async (req, res) => {
     `;
     const dataP = await queryPromise(db, permissionSQL, [id_tache]);
 
-    const userSQL = `SELECT nom FROM utilisateur WHERE id_utilisateur = ?`;
+    const userSQL = `SELECT nom, email FROM utilisateur WHERE id_utilisateur = ?`;
     const userData = await queryPromise(db, userSQL, [user_cr]);
     const nomCreateur = userData[0]?.nom || 'Inconnu';
+    const userEmail = userData[0]?.email || 'Inconnu';
 
-    const horodatage = new Date().toLocaleString('fr-FR');
+    // Horodatage
+    const horodatage = new Intl.DateTimeFormat('fr-FR', {
+        timeZone: 'Etc/GMT-1',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+        }).format(new Date());
 
 const message = `
 📌 Mise à jour de la tâche : ${nom_tache}
@@ -2114,7 +2123,20 @@ Merci de consulter la plateforme pour plus de détails.
       }
     }
 
-    return res.status(200).json({ message: 'La tâche a été modifiée avec succès.' });
+    const emailPromises = dataP
+        .filter(({ email })=> email && email !== userEmail) 
+        .map(({ email }) => 
+            sendEmail({
+            email,
+            subject: '📌 Mise à jour de la tâche',
+            message
+            }).catch((emailErr) => {
+          console.error(`Erreur d'envoi à ${email} :`, emailErr.message);
+        })
+        )
+        
+        await Promise.all(emailPromises);
+        return res.status(200).json({ message: 'La tâche a été modifiée avec succès.' });
 
   } catch (err) {
     console.error("Erreur lors de la mise à jour de la tâche :", err);

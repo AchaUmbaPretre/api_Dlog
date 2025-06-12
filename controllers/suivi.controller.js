@@ -209,7 +209,7 @@ exports.getSuiviTacheOne = (req, res) => {
             }
             return res.status(200).json(data);
         });
-    };
+};
 
 /* exports.getSuiviTacheOneV = (req, res) => {
     const {id_tache} = req.query;
@@ -496,7 +496,7 @@ exports.postSuiviTache = async (req, res) => {
 Merci de consulter la plateforme pour plus de détails.
 `;
 
-    // Envoi d'email à tous les participants sauf l'expéditeur
+    // Envoi d'email à tous les participants
     const emailPromises = dataP
       .filter(({ email }) => email && email !== userEmail)
       .map(({ email }) =>
