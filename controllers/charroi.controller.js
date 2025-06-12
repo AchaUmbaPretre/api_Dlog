@@ -2720,9 +2720,8 @@ exports.postInspectionGen = (req, res) => {
                 reference, 
                 montant, 
                 date_paiement, 
-                mode_paiement, 
                 commentaire
-              ) VALUES (?, ?, ?, ?, ?, ?)`
+              ) VALUES (?, ?, ?, ?, ?)`
 
         for (const refData of ref) {
           const refValues = [
