@@ -443,7 +443,7 @@ exports.postSuiviTache = async (req, res) => {
 
     //Participants & tâche
     const dataP = await queryPromise(db, `
-      SELECT u.email, t.nom_tache 
+      SELECT u.email, u.prenom, t.nom_tache 
       FROM permissions_tache pt
       INNER JOIN utilisateur u ON pt.id_user = u.id_utilisateur
       INNER JOIN tache t ON t.id_tache = pt.id_tache
@@ -455,8 +455,9 @@ exports.postSuiviTache = async (req, res) => {
     const participants = dataP.map(p => p.email).join(', ');
 
     //Nom du créateur
-    const [userData] = await queryPromise(db, `SELECT nom FROM utilisateur WHERE id_utilisateur = ?`, [user_cr]);
+    const [userData] = await queryPromise(db, `SELECT nom, email FROM utilisateur WHERE id_utilisateur = ?`, [user_cr]);
     const nomCreateur = userData?.nom || 'Inconnu';
+    const userEmail = userData?.email
 
     //Horodatage
     const horodatage = new Date().toLocaleString('fr-FR');
@@ -487,17 +488,15 @@ Merci de consulter la plateforme pour plus de détails.
 `;
 
     // Envoi à tous les participants
-    for (const d of dataP) {
-      try {
-        await sendEmail({
-          email: d.email,
-          subject: '📌 Mise à jour du statut de la tâche',
-          message
-        });
-      } catch (emailErr) {
-        console.error(`Erreur d'envoi à ${d.email} :`, emailErr.message);
-      }
-    }
+
+    dataP
+        .filter(({ email }) => email !== userEmail)
+        .forEach({ email })
+            sendEmail({
+            email,
+            subject: '📌 Mise à jour du statut de la tâche',
+            message
+            });
 
     return res.status(201).json({ message: 'Suivi de tâche ajouté avec succès.' });
 
