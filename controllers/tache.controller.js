@@ -1,7 +1,6 @@
 const xlsx = require('xlsx');
 const fs = require('fs');
 const { db } = require("./../config/database");
-const util = require('util');
 const nodemailer = require('nodemailer');
 
 // 📦 Petite helper function pour convertir mysql en Promises
