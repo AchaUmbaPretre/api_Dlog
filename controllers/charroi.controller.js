@@ -2563,7 +2563,8 @@ exports.postInspectionGen = (req, res) => {
           id_statut_vehicule,
           kilometrage,
           user_cr,
-          reparations
+          reparations,
+          ref
         } = req.body;
 
         if (!id_vehicule || !id_statut_vehicule) {
@@ -2712,6 +2713,26 @@ exports.postInspectionGen = (req, res) => {
               message
             });
           });
+        }
+
+        const refSQL = `INSERT INTO paiement_reference (
+                id_inspection_gen, 
+                reference, 
+                montant, 
+                date_paiement, 
+                mode_paiement, 
+                commentaire
+              ) VALUES (?, ?, ?, ?, ?, ?)`
+
+        for (const refData of ref) {
+          const refValues = [
+            insertId,
+            refData.reference,
+            refData.montant,
+            refData.date_paiement,
+            refData.commentaire
+          ]
+          await queryPromise(connection, refSQL, refValues)
         }
 
         connection.commit((commitErr) => {
