@@ -200,6 +200,7 @@ exports.getSuiviTacheOne = (req, res) => {
             WHERE 
                 suivi_tache.est_supprime = 0
                 ${additionalCondition}
+            ORDER BY suivi_tache.date_suivi DESC
         `;
     
         db.query(q, (error, data) => {
