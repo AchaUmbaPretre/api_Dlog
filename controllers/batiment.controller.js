@@ -1531,6 +1531,8 @@ exports.getInspectionOne = (req, res) => {
 exports.postInspections = async (req, res) => {
     const { id_batiment,id_type_photo, commentaire, id_cat_instruction, id_type_instruction, id_tache } = req.body;
 
+    console.log(req.body)
+    
     // Vérification si des fichiers ont été envoyés
     if (!req.files || req.files.length === 0) {
         return res.status(400).json({ message: 'Aucun fichier téléchargé' });
