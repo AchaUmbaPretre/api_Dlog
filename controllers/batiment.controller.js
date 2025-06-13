@@ -1,5 +1,25 @@
 const { db } = require("./../config/database");
 
+// 📦 Petite helper function pour convertir mysql en Promises
+function queryPromise(connection, sql, params) {
+    return new Promise((resolve, reject) => {
+      connection.query(sql, params, (err, results) => {
+        if (err) return reject(err);
+        resolve([results]);
+      });
+    });
+  }
+
+const queryAsync = (query, values = []) =>
+    new Promise((resolve, reject) => {
+        db.query(query, values, (error, results) => {
+            if (error) {
+                return reject(error);
+        }
+        resolve(results);
+    });
+});
+
 exports.getEquipement = (req, res) => {
 
     const q = `
@@ -1528,11 +1548,9 @@ exports.getInspectionOne = (req, res) => {
     });
 };
 
-exports.postInspections = async (req, res) => {
+/* exports.postInspections = async (req, res) => {
     const { id_batiment,id_type_photo, commentaire, id_cat_instruction, id_type_instruction, id_tache } = req.body;
 
-    console.log(req.body)
-    
     // Vérification si des fichiers ont été envoyés
     if (!req.files || req.files.length === 0) {
         return res.status(400).json({ message: 'Aucun fichier téléchargé' });
@@ -1593,6 +1611,96 @@ exports.postInspections = async (req, res) => {
         console.error("Erreur lors de l'ajout de la déclaration:", error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la déclaration." });
     }
+}; */
+
+exports.postInspections = async (req, res) => {
+    db.getConnection((connErr, connection) => {
+        if (connErr) {
+            console.error("Erreur de connexion DB :", connErr);
+            return res.status(500).json({ error: "Connexion à la base de données échouée." });
+        }
+
+        connection.beginTransaction(async (trxErr) => {
+            if (trxErr) {
+                connection.release();
+                console.error("Erreur transaction :", trxErr);
+                return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+            }
+
+            try {
+                const {
+                    id_batiment,
+                    id_type_photo,
+                    id_cat_instruction,
+                    id_type_instruction,
+                    id_tache,
+                    subData
+                } = req.body;
+
+                const insertSQL = `
+                    INSERT INTO inspections (
+                        id_tache,
+                        id_batiment,
+                        id_cat_instruction,
+                        id_type_instruction
+                    ) VALUES (?, ?, ?, ?)`;
+
+                const values = [
+                    id_tache,
+                    id_batiment,
+                    id_cat_instruction,
+                    id_type_instruction
+                ];
+
+                const [insertResult] = await queryPromise(connection, insertSQL, values);
+                const insertId = insertResult.insertId;
+
+                // Traitement des sous-données
+                let parsedSub = Array.isArray(subData) ? subData : JSON.parse(subData || '[]');
+
+                if (!Array.isArray(parsedSub)) {
+                    throw new Error("Le champ `subData` doit être un tableau.");
+                }
+
+                parsedSub = parsedSub.map((sub, index) => {
+                    const fieldName = `img_${index}`;
+                    const file = req.files?.find(f => f.fieldname === fieldName);
+                    return {
+                        ...sub,
+                        img: file ? `public/uploads/${file.filename}` : null
+                    };
+                });
+
+                const subQuery = `
+                    INSERT INTO inspection_img (id_inspection, id_type_photo, img, commentaire)
+                    VALUES (?, ?, ?, ?)
+                `;
+
+                for (const sub of parsedSub) {
+                    const subValues = [
+                        insertId,
+                        id_type_photo,
+                        sub.img,
+                        sub.commentaire
+                    ];
+                    await queryPromise(connection, subQuery, subValues);
+                }
+
+                await connection.commit();
+                connection.release();
+
+                return res.status(200).json({ success: true, message: "Inspection enregistrée avec succès." });
+
+            } catch (error) {
+                console.error("Erreur dans la transaction :", error);
+                connection.rollback(() => {
+                    connection.release();
+                    const msg = error.message || "Erreur inattendue lors du traitement.";
+                    return res.status(500).json({ error: msg });
+                });
+            }
+        });
+    });
 };
 
 exports.postInspectionsApre = async (req, res) => {
