@@ -167,7 +167,6 @@ exports.getBatimentPlans = (req, res) => {
   let whereClauses = [];
   let values = [];
 
-  // Recherche par nom de document
   if (searchValue) {
     whereClauses.push(`bp.nom_document LIKE ?`);
     values.push(`%${searchValue}%`);
@@ -180,7 +179,6 @@ exports.getBatimentPlans = (req, res) => {
     values.push(...ids);
   }
 
-  // Construction de la clause WHERE
   const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
   const q = `
