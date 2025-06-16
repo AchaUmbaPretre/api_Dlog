@@ -185,6 +185,7 @@ exports.getBatimentPlans = (req, res) => {
     SELECT bp.* 
     FROM batiment_plans bp
     ${whereClause}
+    ORDER BY bp.date_ajout DESC
   `;
 
   db.query(q, values, (error, data) => {
