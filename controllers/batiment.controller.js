@@ -162,18 +162,41 @@ exports.putEquipement = async (req, res) => {
 
 //Plan
 exports.getBatimentPlans = (req, res) => {
+  const { searchValue, selectedBatiment } = req.query;
 
-    const q = `
-                SELECT * FROM batiment_plans
-            `;
+  let whereClauses = [];
+  let values = [];
 
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    });
+  // Recherche par nom de document
+  if (searchValue) {
+    whereClauses.push(`bp.nom_document LIKE ?`);
+    values.push(`%${searchValue}%`);
+  }
+
+  // Filtrage par bâtiment(s)
+  if (selectedBatiment && (Array.isArray(selectedBatiment) ? selectedBatiment.length : true)) {
+    const ids = Array.isArray(selectedBatiment) ? selectedBatiment : [selectedBatiment];
+    whereClauses.push(`bp.id_batiment IN (${ids.map(() => '?').join(', ')})`);
+    values.push(...ids);
+  }
+
+  // Construction de la clause WHERE
+  const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+  const q = `
+    SELECT bp.* 
+    FROM batiment_plans bp
+    ${whereClause}
+  `;
+
+  db.query(q, values, (error, data) => {
+    if (error) {
+      return res.status(500).send(error);
+    }
+    return res.status(200).json(data);
+  });
 };
+
 
 exports.getBatimentPlansOne = (req, res) => {
     const {id_batiment} = req.query;
