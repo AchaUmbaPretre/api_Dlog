@@ -1506,7 +1506,7 @@ exports.postAdresse = (req, res) => {
       }
       res.status(200).send('Adresse a ete ajoutée avec succès');
     });
-  };
+};
 
 //Inspection
 exports.getInspection = (req, res) => {
@@ -1519,6 +1519,7 @@ exports.getInspection = (req, res) => {
                     LEFT JOIN cat_inspection ct ON inspections.id_cat_instruction = ct.id_cat_inspection
                 WHERE inspections.est_supprime = 0
                 GROUP BY inspections.id_inspection
+                ORDER BY inspections.date_creation DESC
             `;
 
     db.query(q, (error, data) => {
@@ -1974,4 +1975,4 @@ exports.deleteCatInspection = (req, res) => {
       return res.json(data);
     });
   
-  }
+}
