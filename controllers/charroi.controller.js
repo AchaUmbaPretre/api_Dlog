@@ -2715,23 +2715,21 @@ exports.postInspectionGen = (req, res) => {
           });
         }
 
-        const refSQL = `INSERT INTO paiement_reference (
-                id_inspection_gen, 
-                reference, 
-                montant, 
-                date_paiement, 
-                commentaire
-              ) VALUES (?, ?, ?, ?, ?)`
-
-        for (const refData of ref) {
-          const refValues = [
-            insertId,
-            refData.reference,
-            refData.montant,
-            refData.date_paiement,
-            refData.commentaire
-          ]
-          await queryPromise(connection, refSQL, refValues)
+        if (Array.isArray(ref) && ref.length > 0) {
+          const refSQL = `
+            INSERT INTO paiement_reference (
+              id_inspection_gen, reference, montant, date_paiement, commentaire
+            ) VALUES (?, ?, ?, ?, ?)
+          `;
+          for (const refData of ref) {
+            await queryPromise(connection, refSQL, [
+              insertId,
+              refData.reference,
+              refData.montant,
+              refData.date_paiement,
+              refData.commentaire
+            ]);
+          }
         }
 
         connection.commit((commitErr) => {
