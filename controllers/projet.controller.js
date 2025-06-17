@@ -114,11 +114,36 @@ exports.getProjetTache = (req, res) => {
                 tache.id_tache
 `;
 
+        const statsQuery = `
+        SELECT 
+            typeC.nom_type_statut AS statut,
+            COUNT(*) AS nombre_taches
+        FROM 
+            tache
+        LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+        WHERE tache.est_supprime = 0 AND tache.id_projet = ?
+        GROUP BY typeC.nom_type_statut
+    `;
+
+    let totalQuery = `
+        SELECT 
+            COUNT(*) AS total_taches
+        FROM 
+            tache
+        WHERE 
+            tache.est_supprime = 0 AND tache.id_projet = ?
+    `;
+
+
     db.query(q,[id_projet], (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
-        return res.status(200).json(data);
+        return res.status(200).json({
+            total_taches: totalData[0]?.total_taches || 0,
+            taches: data,
+            statistiques: statsData
+        });
     });
 };
 
