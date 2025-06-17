@@ -92,28 +92,26 @@ exports.getSuiviOne = (req, res) => {
 
 exports.getSuiviAllNbre = (req, res) => {
     const { id_tache } = req.query;
-    let q = `
-        SELECT 
-            (SELECT COUNT(suivi_tache.id_suivi)
-             FROM suivi_tache
-             WHERE suivi_tache.id_tache = ?) AS nbre_tracking,
-             
-            (SELECT COUNT(tache_documents.id_tache_document)
-             FROM tache_documents
-             WHERE tache_documents.id_tache = ?) AS nbre_doc,
 
-            (SELECT COUNT(inspections.id_tache)
-              FROM inspections
-             WHERE inspections.id_tache = ?) AS nbre_inspe
+    if (!id_tache) {
+        return res.status(400).json({ message: "Paramètre 'id_tache' requis" });
+    }
+
+    const q = `
+        SELECT 
+            (SELECT COUNT(*) FROM suivi_tache WHERE id_tache = ?) AS nbre_tracking,
+            (SELECT COUNT(*) FROM tache_documents WHERE id_tache = ?) AS nbre_doc,
+            (SELECT COUNT(*) FROM inspections WHERE id_tache = ?) AS nbre_inspe
     `;
 
-    db.query(q, [id_tache, id_tache], (error, data) => {
+    db.query(q, [id_tache, id_tache, id_tache], (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
         return res.status(200).json(data[0]);
     });
 };
+
 
 exports.getSuiviTacheUn = (req, res) => {
     const {id_suivi} = req.query;
