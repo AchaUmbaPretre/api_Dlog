@@ -1510,25 +1510,46 @@ exports.postAdresse = (req, res) => {
 
 //Inspection
 exports.getInspection = (req, res) => {
-    const q = `
-                SELECT inspections.*, im.img, im.commentaire, ti.nom_type_instruction, tache.nom_tache, batiment.nom_batiment, ct.nom_cat_inspection FROM inspections
-                    INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
-                    LEFT JOIN tache ON inspections.id_tache = tache.id_tache
-                    LEFT JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
-                    LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
-                    LEFT JOIN cat_inspection ct ON inspections.id_cat_instruction = ct.id_cat_inspection
-                WHERE inspections.est_supprime = 0
-                GROUP BY inspections.id_inspection
-                ORDER BY inspections.date_creation DESC
-            `;
+    const { idTache } = req.query;
 
-    db.query(q, (error, data) => {
+    const whereClauses = ["inspections.est_supprime = 0"];
+    const values = [];
+
+    if (idTache) {
+        whereClauses.push("inspections.id_tache = ?");
+        values.push(idTache);
+    }
+
+    const whereSQL = `WHERE ${whereClauses.join(" AND ")}`;
+
+    const q = `
+        SELECT 
+            inspections.*, 
+            im.img, 
+            im.commentaire, 
+            ti.nom_type_instruction, 
+            tache.nom_tache, 
+            batiment.nom_batiment, 
+            ct.nom_cat_inspection 
+        FROM inspections
+        INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
+        LEFT JOIN tache ON inspections.id_tache = tache.id_tache
+        LEFT JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
+        LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
+        LEFT JOIN cat_inspection ct ON inspections.id_cat_instruction = ct.id_cat_inspection
+        ${whereSQL}
+        GROUP BY inspections.id_inspection
+        ORDER BY inspections.date_creation DESC
+    `;
+
+    db.query(q, values, (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
         return res.status(200).json(data);
     });
 };
+
 
 exports.getInspectionOneV = (req, res) => {
     const {id} = req.query;
