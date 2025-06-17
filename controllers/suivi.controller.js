@@ -112,7 +112,6 @@ exports.getSuiviAllNbre = (req, res) => {
     });
 };
 
-
 exports.getSuiviTacheUn = (req, res) => {
     const {id_suivi} = req.query;
 
