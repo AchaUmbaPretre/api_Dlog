@@ -1749,36 +1749,79 @@ exports.postInspections = async (req, res) => {
 };
 
 exports.postInspectionsApre = async (req, res) => {
-    const { id_inspection ,id_type_photo, commentaire } = req.body;
-
-        if (!req.files || req.files.length === 0) {
-            return res.status(400).json({ message: 'Aucun fichier téléchargé' });
+    console.log(req.body);
+    
+    db.getConnection((connErr, connection) => {
+        if (connErr) {
+            console.error("Erreur de connexion DB :", connErr);
+            return res.status(500).json({ error: "Connexion à la base de données échouée." });
         }
 
-        try{
-            const query = `INSERT INTO inspection_img (id_inspection, id_type_photo, img, commentaire) VALUES (?, ?, ?, ?)`
+        connection.beginTransaction(async (trxErr) => {
+            if(trxErr) {
+                connection.release();
+                console.error("Erreur transaction :", trxErr);
+                return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+            }
 
-            const promises = req.files.map(file => {
-                const imgValues = [id_inspection, id_type_photo, file.path.replace(/\\/g, '/'), commentaire]; // Valeurs pour l'insertion de l'image
-                return new Promise((resolve, reject) => {
-                    db.query(query, imgValues, (imgError, imgResult) => {
-                        if (imgError) {
-                            reject(imgError); // On rejette l'erreur d'insertion de l'image
-                        } else {
-                            resolve(imgResult); // On résout la promesse si l'insertion est un succès
-                        }
-                    });
+            try {
+                const { id_inspection ,id_type_photo, subData } = req.body;
+                const query = `INSERT INTO inspection_img (id_inspection, id_type_photo, img, commentaire) VALUES (?, ?, ?, ?)`
+
+                const values = [
+                    id_inspection,
+                    id_type_photo
+                ]
+
+                const [insertResult] = await queryPromise(connection, query, values)
+                const insertId = insertResult.insertId;
+
+                 // Traitement des sous-données
+                let parsedSub = Array.isArray(subData) ? subData : JSON.parse(subData || '[]');
+
+                if (!Array.isArray(parsedSub)) {
+                    throw new Error("Le champ `subData` doit être un tableau.");
+                }
+
+                parsedSub = parsedSub.map((sub, index) => {
+                    const fieldName = `img_${index}`;
+                    const file = req.files?.find(f => f.fieldname === fieldName);
+                    return {
+                        ...sub,
+                        img: file ? `public/uploads/${file.filename}` : null
+                    };
                 });
-            });
 
-            // Attendre que toutes les promesses d'insertion d'image soient exécutées
-        await Promise.all(promises);
+                const subQuery = `
+                    INSERT INTO inspection_img (id_inspection, id_type_photo, img, commentaire)
+                    VALUES (?, ?, ?, ?)
+                `;
 
-        return res.status(201).json({ message: 'L inspection a ete ajoutée avec succès' });
-        } catch(error){
-            console.error("Erreur lors de l'ajout de l'inspection:", error);
-            return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de l'inspection." });
-        }
+                for (const sub of parsedSub) {
+                    const subValues = [
+                        insertId,
+                        id_type_photo,
+                        sub.img,
+                        sub.commentaire
+                    ];
+                    await queryPromise(connection, subQuery, subValues);
+                }
+
+                await connection.commit();
+                connection.release();
+
+                return res.status(200).json({ success: true, message: "Inspection enregistrée avec succès." });
+
+            } catch (error) {
+                console.error("Erreur dans la transaction :", error);
+                connection.rollback(() => {
+                    connection.release();
+                    const msg = error.message || "Erreur inattendue lors du traitement.";
+                    return res.status(500).json({ error: msg });
+                });
+            }
+        })
+    })
 }
 
 exports.putInspections = (req, res) => {
