@@ -1749,80 +1749,80 @@ exports.postInspections = async (req, res) => {
 };
 
 exports.postInspectionsApre = async (req, res) => {
-    console.log(req.body);
-    
-    db.getConnection((connErr, connection) => {
-        if (connErr) {
-            console.error("Erreur de connexion DB :", connErr);
-            return res.status(500).json({ error: "Connexion à la base de données échouée." });
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error("Erreur transaction :", trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const { id_inspection, id_type_photo, commentaire, subData } = req.body;
+
+        // 1. Image principale
+        const mainImage = req.files?.find((f) => f.fieldname === 'img');
+        const mainImgPath = mainImage ? `public/uploads/${mainImage.filename}` : null;
+
+        const insertQuery = `
+          INSERT INTO inspection_img (id_inspection, id_type_photo, img, commentaire)
+          VALUES (?, ?, ?, ?)
+        `;
+        const insertValues = [id_inspection, id_type_photo, mainImgPath, commentaire || null];
+
+        const [insertResult] = await queryPromise(connection, insertQuery, insertValues);
+        const insertId = insertResult.insertId;
+
+        // 2. Sous images
+        let parsedSub = Array.isArray(subData) ? subData : JSON.parse(subData || '[]');
+
+        if (!Array.isArray(parsedSub)) {
+          throw new Error("Le champ `subData` doit être un tableau.");
         }
 
-        connection.beginTransaction(async (trxErr) => {
-            if(trxErr) {
-                connection.release();
-                console.error("Erreur transaction :", trxErr);
-                return res.status(500).json({ error: "Impossible de démarrer la transaction." });
-            }
+        const subQuery = `
+          INSERT INTO inspection_img (id_inspection, id_type_photo, img, commentaire)
+          VALUES (?, ?, ?, ?)
+        `;
 
-            try {
-                const { id_inspection ,id_type_photo, subData } = req.body;
-                const query = `INSERT INTO inspection_img (id_inspection, id_type_photo, img, commentaire) VALUES (?, ?, ?, ?)`
+        for (let i = 0; i < parsedSub.length; i++) {
+          const sub = parsedSub[i];
+          const file = req.files?.find((f) => f.fieldname === `img_${i}`);
+          const subImgPath = file ? `public/uploads/${file.filename}` : null;
 
-                const values = [
-                    id_inspection,
-                    id_type_photo
-                ]
+          const subValues = [
+            id_inspection,
+            id_type_photo,
+            subImgPath,
+            sub.commentaire || null,
+          ];
 
-                const [insertResult] = await queryPromise(connection, query, values)
-                const insertId = insertResult.insertId;
+          await queryPromise(connection, subQuery, subValues);
+        }
 
-                 // Traitement des sous-données
-                let parsedSub = Array.isArray(subData) ? subData : JSON.parse(subData || '[]');
+        await connection.commit();
+        connection.release();
 
-                if (!Array.isArray(parsedSub)) {
-                    throw new Error("Le champ `subData` doit être un tableau.");
-                }
+        return res.status(200).json({ success: true, message: "Inspection enregistrée avec succès." });
 
-                parsedSub = parsedSub.map((sub, index) => {
-                    const fieldName = `img_${index}`;
-                    const file = req.files?.find(f => f.fieldname === fieldName);
-                    return {
-                        ...sub,
-                        img: file ? `public/uploads/${file.filename}` : null
-                    };
-                });
+      } catch (error) {
+        console.error("Erreur dans la transaction :", error);
+        connection.rollback(() => {
+          connection.release();
+          return res.status(500).json({
+            error: error.message || "Erreur inattendue lors du traitement.",
+          });
+        });
+      }
+    });
+  });
+};
 
-                const subQuery = `
-                    INSERT INTO inspection_img (id_inspection, id_type_photo, img, commentaire)
-                    VALUES (?, ?, ?, ?)
-                `;
-
-                for (const sub of parsedSub) {
-                    const subValues = [
-                        insertId,
-                        id_type_photo,
-                        sub.img,
-                        sub.commentaire
-                    ];
-                    await queryPromise(connection, subQuery, subValues);
-                }
-
-                await connection.commit();
-                connection.release();
-
-                return res.status(200).json({ success: true, message: "Inspection enregistrée avec succès." });
-
-            } catch (error) {
-                console.error("Erreur dans la transaction :", error);
-                connection.rollback(() => {
-                    connection.release();
-                    const msg = error.message || "Erreur inattendue lors du traitement.";
-                    return res.status(500).json({ error: msg });
-                });
-            }
-        })
-    })
-}
 
 exports.putInspections = (req, res) => {
     const { id_inspection } = req.query;
