@@ -100,7 +100,11 @@ exports.getSuiviAllNbre = (req, res) => {
              
             (SELECT COUNT(tache_documents.id_tache_document)
              FROM tache_documents
-             WHERE tache_documents.id_tache = ?) AS nbre_doc
+             WHERE tache_documents.id_tache = ?) AS nbre_doc,
+
+            (SELECT COUNT(inspections.id_tache)
+              FROM inspections
+             WHERE inspections.id_tache = ?) AS nbre_inspe
     `;
 
     db.query(q, [id_tache, id_tache], (error, data) => {
