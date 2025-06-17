@@ -1823,7 +1823,6 @@ exports.postInspectionsApre = async (req, res) => {
   });
 };
 
-
 exports.putInspections = (req, res) => {
     const { id_inspection } = req.query;
     const { id_batiment, commentaire, id_cat_instruction, id_type_instruction } = req.body;
