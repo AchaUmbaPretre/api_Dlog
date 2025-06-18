@@ -5357,6 +5357,113 @@ exports.putDemandeVehiculeRetour = (req, res) => {
   });
 };
 
+//Validation demande
+exports.getValidationDemande = (req, res) => {
+
+    const q = `
+            SELECT * FROM validation_demande
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getValidationDemandeOne = (req, res) => {
+    const { id_demande_vehicule } = req.query;
+
+    if (!id_demande_vehicule) {
+      return res.status(400).json({ error: 'L\'ID de la validation fourni est invalide ou manquant.' });
+    }
+
+    const q = `
+              SELECT 
+                vd.* 
+              FROM 
+              validation_demande vd 
+              WHERE vd.id_demande_vehicule = ?
+            `;
+
+    db.query(q, [id_demande_vehicule], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postValidationDemande = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error('Erreur de connexion DB :', connErr);
+      return res.status(500).json({ error: "Erreur de connexion à la base de données." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error('Erreur transaction :', trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const {
+          id_demande_vehicule,
+          validateur_id,
+          signature,
+          date_validation
+        } = req.body;
+
+        if (!id_demande_vehicule) {
+          throw new Error("Champs obligatoires manquants.");
+        }
+
+        const insertSQL = `
+          INSERT INTO validation_demande (
+            id_demande_vehicule, 
+            validateur_id, 
+            signature, 
+            date_validation
+          ) VALUES (?, ?, ?, ?)
+        `;
+
+        const valuesDemande = [
+          id_demande_vehicule,
+          validateur_id,
+          signature,
+          date_validation
+        ];
+
+        await queryPromise(connection, insertSQL, valuesDemande);
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur lors du commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de l'enregistrement de la transaction." });
+          }
+
+          return res.status(201).json({
+            message: "La demande a été enregistrée avec succès.",
+          });
+        });
+
+      } catch (error) {
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur pendant la transaction :", error);
+          return res.status(500).json({
+            error: error.message || "Une erreur est survenue lors de l'enregistrement.",
+          });
+        });
+      }
+    });
+  });
+};
+
 //Affectation
 exports.getAffectationDemande = (req, res) => {
 
