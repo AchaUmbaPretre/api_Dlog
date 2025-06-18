@@ -2,6 +2,9 @@ const { db } = require("./../config/database");
 const moment = require('moment');
 const util = require('util');
 const nodemailer = require('nodemailer');
+const fs = require('fs');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
 
 // 📦 Petite helper function pour convertir mysql en Promises
@@ -5381,9 +5384,10 @@ exports.getValidationDemandeOne = (req, res) => {
 
     const q = `
               SELECT 
-                vd.* 
+                vd.*, u.nom, u.prenom, u.role
               FROM 
               validation_demande vd 
+              INNER JOIN utilisateur u ON vd.validateur_id = u.id_utilisateur
               WHERE vd.id_demande_vehicule = ?
             `;
 
@@ -5413,50 +5417,65 @@ exports.postValidationDemande = (req, res) => {
         const {
           id_demande_vehicule,
           validateur_id,
-          signature,
+          signature_data,
           date_validation
         } = req.body;
 
-        if (!id_demande_vehicule) {
+        if (!id_demande_vehicule || !signature_data) {
           throw new Error("Champs obligatoires manquants.");
         }
 
+        // 🔄 Convertir base64 → fichier image
+        const matches = signature_data.match(/^data:image\/png;base64,(.+)$/);
+        if (!matches) {
+          throw new Error("Format de signature invalide.");
+        }
+
+        const base64Data = matches[1];
+        const filename = `signature-${uuidv4()}.png`;
+        const filePath = path.join(__dirname, '../public/uploads/', filename);
+        const relativePath = `/uploads/${filename}`;
+
+        fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+
+        // 💾 Enregistrement en base
         const insertSQL = `
           INSERT INTO validation_demande (
-            id_demande_vehicule, 
-            validateur_id, 
-            signature, 
+            id_demande_vehicule,
+            validateur_id,
+            signature,
             date_validation
           ) VALUES (?, ?, ?, ?)
         `;
 
-        const valuesDemande = [
+        const values = [
           id_demande_vehicule,
           validateur_id,
-          signature,
+          relativePath, // chemin enregistré (ex: /uploads/signatures/abc.png)
           date_validation
         ];
 
-        await queryPromise(connection, insertSQL, valuesDemande);
+        await queryPromise(connection, insertSQL, values);
 
         connection.commit((commitErr) => {
           connection.release();
           if (commitErr) {
-            console.error("Erreur lors du commit :", commitErr);
+            console.error("Erreur commit :", commitErr);
             return res.status(500).json({ error: "Erreur lors de l'enregistrement de la transaction." });
           }
 
           return res.status(201).json({
-            message: "La demande a été enregistrée avec succès.",
+            message: "Demande validée et signature enregistrée avec succès.",
+            signature_url: relativePath
           });
         });
 
       } catch (error) {
         connection.rollback(() => {
           connection.release();
-          console.error("Erreur pendant la transaction :", error);
+          console.error("Erreur transaction :", error);
           return res.status(500).json({
-            error: error.message || "Une erreur est survenue lors de l'enregistrement.",
+            error: error.message || "Erreur pendant l'enregistrement."
           });
         });
       }
