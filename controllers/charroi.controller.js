@@ -5919,6 +5919,20 @@ exports.postSortieRetour = (req, res) => {
           id_agent,
           observations
         } = req.body;
+
+        if (!id_demande || !id_agent) {
+          throw new Error("Champs obligatoires manquants.");
+        }
+
+        const insertSQL = `
+          INSERT INTO sortie_retour (
+            id_demande,
+            type,
+            date,
+            id_agent,
+            observations
+          )
+        `
         
       } catch (error) {
         
