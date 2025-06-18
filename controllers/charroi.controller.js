@@ -5663,7 +5663,7 @@ exports.postAffectationDemande = (req, res) => {
         `;
         await queryPromise(connection, insertSql, [id_demande_vehicule, id_vehicule, id_chauffeur, commentaire]);
 
-        const updateDemandeSql = `UPDATE demande_vehicule SET statut = 5 WHERE id_demande_vehicule = ?`;
+        const updateDemandeSql = `UPDATE demande_vehicule SET statut = 11 WHERE id_demande_vehicule = ?`;
         await queryPromise(connection, updateDemandeSql, [id_demande_vehicule]);
 
         const updateVehiculeSql = `
