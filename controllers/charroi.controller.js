@@ -5914,8 +5914,7 @@ exports.postSortieRetour = (req, res) => {
         const {
           id_demande,
           type,
-          date_sortie,
-          date_retour,
+          date,
           id_agent,
           observations
         } = req.body;
@@ -5931,8 +5930,32 @@ exports.postSortieRetour = (req, res) => {
             date,
             id_agent,
             observations
-          )
+          ) VALUES (?, ?, ?, ?, ?)
         `
+
+        const values = [
+          id_demande,
+          type,
+          date,
+          id_agent,
+          observations
+        ]
+
+        const [insertResult] = await queryPromise(connection, insertSQL, values);
+        const insertId = insertResult.insertId;
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+          }
+
+          return res.status(201).json({
+            message: "Inspection enregistrée avec succès.",
+            data: { id: insertId }
+          });
+        });
         
       } catch (error) {
         
