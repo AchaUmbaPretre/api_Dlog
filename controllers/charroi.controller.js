@@ -5897,7 +5897,9 @@ exports.getSortieRetourOne = (req, res) => {
 };
 
 exports.postSortieRetour = (req, res) => {
-  
+  db.getConnection((connErr, connection) => {
+    
+  })
 }
 
 //Paiement reference
