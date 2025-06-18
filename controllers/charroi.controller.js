@@ -5843,6 +5843,63 @@ exports.postRetour_vehicule = ( req, res ) => {
   })
 }
 
+//SORTIE_RETOUR
+exports.getSortieRetour = (req, res) => {
+
+    const q = `
+            SELECT * FROM sortie_retour
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getSortieRetourOne = (req, res) => {
+    const { id_demande } = req.query;
+
+    if (!id_demande) {
+        return res.status(400).json({
+            error: 'Le paramètre "id_demande" est requis.',
+        });
+    }
+
+    const query = `
+        SELECT sr.*, 
+               u.nom AS agent_nom,
+               c.nom AS chauffeur_nom
+        FROM sortie_retour sr
+        LEFT JOIN utilisateur u ON sr.agent_id = u.id_utilisateur
+        LEFT JOIN chauffeur c ON sr.chauffeur_id = c.id_chauffeur
+        WHERE sr.demande_id = ?
+        ORDER BY sr.date_heure ASC
+    `;
+
+    db.query(query, [id_demande], (error, results) => {
+        if (error) {
+            console.error('[getSortieRetourByDemande] DB error:', error);
+            return res.status(500).json({
+                error: "Erreur serveur lors de la récupération des données de sortie/retour.",
+            });
+        }
+
+        if (results.length === 0) {
+            return res.status(404).json({
+                message: `Aucun enregistrement trouvé pour la demande ID ${id_demande}.`
+            });
+        }
+
+        return res.status(200).json(results);
+    });
+};
+
+exports.postSortieRetour = (req, res) => {
+  
+}
+
 //Paiement reference
 exports.getPaiementRef = (req, res) => {
 
