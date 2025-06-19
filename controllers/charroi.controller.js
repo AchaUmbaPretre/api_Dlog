@@ -5480,12 +5480,40 @@ exports.postValidationDemande = (req, res) => {
 exports.getAffectationDemande = (req, res) => {
 
     const q = `
-            SELECT ad.id_affectation_demande, ad.commentaire, ad.created_at, c.nom, v.immatriculation, m.nom_marque, md.modele FROM affectation_demande ad
-              INNER JOIN chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
-              INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
-              INNER JOIN marque m ON m.id_marque = v.id_marque
-              INNER JOIN modeles md ON v.id_modele = md.id_modele
-              ORDER BY ad.created_at
+        SELECT 
+          ad.id_affectation_demande, 
+          ad.date_prevue,
+          ad.date_retour,
+          ad.personne_bord,
+          ad.commentaire, 
+          mfd.nom_motif_demande,
+          ts.nom_type_statut,
+          tv.nom_type_vehicule,
+          sd.nom_service,
+          l.nom AS localisation,
+          c.nom, 
+          v.immatriculation, 
+          m.nom_marque
+        FROM affectation_demande ad
+          INNER JOIN 
+            chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
+          INNER JOIN 
+            vehicules v ON ad.id_vehicule = v.id_vehicule
+          INNER JOIN 
+            marque m ON m.id_marque = v.id_marque
+          LEFT JOIN 
+            modeles md ON v.id_modele = md.id_modele
+          INNER JOIN 
+            type_statut_suivi ts ON ad.statut = ts.id_type_statut_suivi
+          LEFT JOIN
+            type_vehicule tv ON ad.id_type_vehicule = tv.id_type_vehicule
+          LEFT JOIN 
+            motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
+          LEFT JOIN
+            service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
+          LEFT JOIN 
+            localisation l ON ad.id_localisation = l.id_localisation
+          ORDER BY ad.created_at DESC
             `;
 
     db.query(q, (error, data) => {
@@ -5676,7 +5704,7 @@ exports.postAffectationDemande = (req, res) => {
             personne_bord,
             commentaire,
             user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const valuesDemande = [
@@ -5690,9 +5718,10 @@ exports.postAffectationDemande = (req, res) => {
             id_demandeur,
             id_client,
             id_localisation,
+            11,
             personne_bord,
             commentaire,
-            user_cr, 
+            user_cr
           ]
 
         await queryPromise(connection, insertSql, valuesDemande);
