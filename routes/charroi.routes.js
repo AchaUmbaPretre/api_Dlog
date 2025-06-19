@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const charroiController = require('./../controllers/charroi.controller');
 const multer = require('multer');
-const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
@@ -156,6 +155,7 @@ router.post('/serviceDemadeur', charroiController.postServiceDemandeur)
 router.get('/type_vehicule', charroiController.getTypeVehicule)
 router.get('/motif', charroiController.getMotif)
 
+//Demande
 router.get('/demande_vehicule', charroiController.getDemandeVehicule)
 router.get('/demande_vehiculeOne', charroiController.getDemandeVehiculeOne)
 router.post('/demande_vehicule', charroiController.postDemandeVehicule)
