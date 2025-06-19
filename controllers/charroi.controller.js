@@ -3240,7 +3240,7 @@ exports.deleteInspectionGen = (req, res) => {
       });
     });
 };
-  
+
 //Validation inspection
 exports.getValidationInspectionAll = (req, res) => {
     const { id_inspection_gen } = req.query;
