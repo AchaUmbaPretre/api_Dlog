@@ -177,5 +177,4 @@ router.post('/affectation_demande', charroiController.postAffectationDemande)
 router.get('/retour_vehicule', charroiController.getRetour_vehicule)
 router.post('/retour_vehicule', charroiController.postRetour_vehicule)
 
-
 module.exports = router;
