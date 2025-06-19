@@ -5742,7 +5742,7 @@ exports.getBandeSortie = (req, res) => {
     });
 };
 
-exports.getBandeSortie = (req, res) => {
+exports.getBandeSortieOne = (req, res) => {
     const { id_bande_sortie } = req.query;
 
     if (!id_bande_sortie) {

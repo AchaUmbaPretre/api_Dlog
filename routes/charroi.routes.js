@@ -174,6 +174,11 @@ router.get('/affectation_demande', charroiController.getAffectationDemande)
 router.get('/affectation_demandeOne', charroiController.getAffectationDemandeOne)
 router.post('/affectation_demande', charroiController.postAffectationDemande)
 
+//Bande de sortie
+router.get('/bande_sortie', charroiController.getBandeSortie)
+router.get('/bande_sortieOne', charroiController.getBandeSortieOne)
+router.post('/bande_sortie', charroiController.postBandeSortie)
+
 //Retour vehicule
 router.get('/retour_vehicule', charroiController.getRetour_vehicule)
 router.post('/retour_vehicule', charroiController.postRetour_vehicule)
