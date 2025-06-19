@@ -5699,7 +5699,7 @@ exports.getBandeSortie = (req, res) => {
 
     const q = `
         SELECT 
-          ad.bande_sortie, 
+          ad.id_bande_sortie, 
           ad.date_prevue,
           ad.date_retour,
           ad.personne_bord,
