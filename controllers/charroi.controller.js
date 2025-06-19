@@ -2209,12 +2209,12 @@ exports.getInspectionGen = (req, res) => {
 
         const queryStats = `
             SELECT 
-                COUNT(DISTINCT sug.id_sub_inspection_gen) AS nbre_inspection,
-                SUM(sug.montant) AS budget_total,
-                SUM(iv.budget_valide) AS budget_valide,
-                COUNT(DISTINCT ig.id_vehicule) AS nbre_vehicule,
-                COUNT(DISTINCT CASE WHEN ig.id_statut_vehicule = 1 THEN ig.id_vehicule END) AS nbre_vehicule_immobile,
-                COUNT(DISTINCT CASE WHEN ig.id_statut_vehicule = 3 THEN ig.id_vehicule END) AS nbre_reparation
+              COUNT(DISTINCT sug.id_sub_inspection_gen) AS nbre_inspection,
+              SUM(sug.montant) AS budget_total,
+              SUM(iv.budget_valide) AS budget_valide,
+              COUNT(DISTINCT ig.id_vehicule) AS nbre_vehicule,
+              COUNT(DISTINCT CASE WHEN ig.id_statut_vehicule = 1 THEN ig.id_vehicule END) AS nbre_vehicule_immobile,
+              COUNT(DISTINCT CASE WHEN ig.id_statut_vehicule = 3 THEN ig.id_vehicule END) AS nbre_reparation
             FROM sub_inspection_gen sug
             INNER JOIN inspection_gen ig ON sug.id_inspection_gen = ig.id_inspection_gen
             INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
