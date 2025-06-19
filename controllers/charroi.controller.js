@@ -2204,7 +2204,7 @@ exports.getInspectionGen = (req, res) => {
 
     db.query(queryInspections, values, (error, inspections) => {
         if (error) {
-            return res.status(500).send(error);
+          return res.status(500).send(error);
         }
 
         const queryStats = `
@@ -2250,10 +2250,10 @@ exports.getInspectionResume = (req, res) => {
                 LEFT JOIN inspection_valide iv ON sub.id_sub_inspection_gen = iv.id_sub_inspection_gen`;
 
     db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
+      if (error) {
+        return res.status(500).send(error);
+      }
+      return res.status(200).json(data);
     });
 };
 
