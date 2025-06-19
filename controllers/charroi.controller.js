@@ -5532,7 +5532,7 @@ exports.getAffectationDemandeOne = (req, res) => {
     }
 
     const q = `
-              SELECT * FROM affectation_demande id_affectation_demande = ?
+              SELECT * FROM affectation_demande WHERE id_affectation_demande = ?
             `;
 
     db.query(q, [id_affectation_demande], (error, data) => {
@@ -5542,116 +5542,6 @@ exports.getAffectationDemandeOne = (req, res) => {
         return res.status(200).json(data);
     });
 };
-
-/* exports.postAffectationDemande = (req, res) => {
-  db.getConnection((connErr, connection) => {
-    if (connErr) {
-      console.error('Erreur de connexion DB :', connErr);
-      return res.status(500).json({ error: "Erreur de connexion à la base de données." });
-    }
-
-    connection.beginTransaction(async (trxErr) => {
-      if (trxErr) {
-        connection.release();
-        console.error('Erreur transaction :', trxErr);
-        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
-      }
-
-      try {
-        const { id_demande_vehicule, id_vehicule, id_chauffeur, user_cr } = req.body;
-
-        if (!id_demande_vehicule || !id_vehicule || !id_chauffeur || !user_cr) {
-          throw new Error("Champs requis manquants dans la requête.");
-        }
-
-        const insertSql = `
-          INSERT INTO affectation_demande (
-            id_demande_vehicule,
-            id_vehicule,
-            id_chauffeur
-          ) VALUES (?, ?, ?)
-        `;
-
-        const values = [id_demande_vehicule, id_vehicule, id_chauffeur];
-
-        await queryPromise(connection, insertSql, values);
-
-        let query = `UPDATE demande_vehicule SET statut = 5 WHERE id_demande_vehicule = ?`
-
-        await queryPromise(connection, query, [id_demande_vehicule])
-
-        let queryUpdate = `
-              UPDATE vehicules v SET
-                IsDispo = 0
-                WHERE v.id_vehicule = ?
-                `
-        await queryPromise(connection, queryUpdate, [id_vehicule]);
-
-                const notifSQL = `
-          INSERT INTO notifications (user_id, message)
-          VALUES (?, ?)
-          `;
-
-        const notifMsg = `Votre demande a été approuvée avec succès`;
-
-        await queryPromise(connection, notifSQL, [user_cr, notifMsg]);
-
-                // Envoi d'emails aux utilisateurs autorisés
-        const permissionSQL = `
-              SELECT u.email FROM permission p 
-              INNER JOIN utilisateur u ON p.user_id = u.id_utilisateur
-              INNER JOIN submenus sub ON p.submenu_id = sub.id
-              WHERE sub.id = 50 AND p.can_read = 1
-              GROUP BY p.user_id
-            `;
-
-                    const [perResult] = await queryPromise(connection, permissionSQL);
-        const message = 
-        `
-        Bonjour,
-        
-        Votre demande a été approuvée avec succès
-                
-        Cordialement,  
-        L'équipe Maintenance GTM
-        `;
-
-        perResult
-          .filter(({ email }) => email !== userEmail)
-          .forEach(({ email }) => {
-            sendEmail({
-              email,
-              subject: '📌 Nouvelle inspection enregistrée',
-              message
-            });
-          });
-
-        connection.commit((commitErr) => {
-          connection.release();
-
-          if (commitErr) {
-            console.error("Erreur lors du commit :", commitErr);
-            return res.status(500).json({ error: "Erreur lors de l'enregistrement de la transaction." });
-          }
-
-          return res.status(201).json({
-            message: "L'affectation de demande a été enregistrée avec succès.",
-          });
-        });
-
-      } catch (error) {
-        connection.rollback(() => {
-          connection.release();
-          console.error("Erreur pendant la transaction :", error);
-          return res.status(500).json({
-            error: error.message || "Une erreur est survenue lors de l'enregistrement.",
-          });
-        });
-      }
-    });
-  });
-}; */
-
 
 exports.postAffectationDemande = (req, res) => {
   db.getConnection((connErr, connection) => {
@@ -5777,6 +5667,172 @@ L'équipe Logistique GTM
               message
             });
           });
+
+        connection.commit((commitErr) => {
+          connection.release();
+
+          if (commitErr) {
+            console.error("Erreur lors de la validation de la transaction :", commitErr);
+            return res.status(500).json({ error: "Une erreur est survenue lors de la finalisation de l’opération." });
+          }
+
+          return res.status(201).json({
+            message: "L'affectation de la demande a été enregistrée avec succès.",
+          });
+        });
+
+      } catch (error) {
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur pendant la transaction :", error);
+          return res.status(500).json({
+            error: error.message || "Une erreur est survenue lors du traitement de la demande.",
+          });
+        });
+      }
+    });
+  });
+};
+
+//Bande de sortie
+exports.getBandeSortie = (req, res) => {
+
+    const q = `
+        SELECT 
+          ad.bande_sortie, 
+          ad.date_prevue,
+          ad.date_retour,
+          ad.personne_bord,
+          ad.commentaire, 
+          mfd.nom_motif_demande,
+          ts.nom_type_statut,
+          tv.nom_type_vehicule,
+          sd.nom_service,
+          l.nom AS localisation,
+          c.nom, 
+          v.immatriculation, 
+          m.nom_marque
+        FROM bande_sortie ad
+          INNER JOIN 
+            chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
+          INNER JOIN 
+            vehicules v ON ad.id_vehicule = v.id_vehicule
+          INNER JOIN 
+            marque m ON m.id_marque = v.id_marque
+          LEFT JOIN 
+            modeles md ON v.id_modele = md.id_modele
+          INNER JOIN 
+            type_statut_suivi ts ON ad.statut = ts.id_type_statut_suivi
+          LEFT JOIN
+            type_vehicule tv ON ad.id_type_vehicule = tv.id_type_vehicule
+          LEFT JOIN 
+            motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
+          LEFT JOIN
+            service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
+          LEFT JOIN 
+            localisation l ON ad.id_localisation = l.id_localisation
+          ORDER BY ad.created_at DESC
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getBandeSortie = (req, res) => {
+    const { id_bande_sortie } = req.query;
+
+    if (!id_bande_sortie) {
+      return res.status(400).json({ message: "L'identifiant (id) est requis." });
+    }
+
+    const q = `
+              SELECT * FROM bande_sortie WHERE id_bande_sortie = ?
+            `;
+
+    db.query(q, [id_bande_sortie], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postBandeSortie = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error('Erreur de connexion à la base de données :', connErr);
+      return res.status(500).json({ error: "Impossible de se connecter à la base de données." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error('Erreur lors de l’ouverture de la transaction :', trxErr);
+        return res.status(500).json({ error: "Échec de l’initiation de la transaction." });
+      }
+
+      try {
+        const { 
+          id_affectation_demande, 
+          id_vehicule, 
+          id_chauffeur, 
+          date_prevue,
+          date_retour,
+          id_type_vehicule,
+          id_motif_demande,
+          id_demandeur,
+          id_client,
+          id_localisation,
+          personne_bord,
+          commentaire,
+          user_cr, 
+        } = req.body;
+
+        if (!id_vehicule || !id_chauffeur || !user_cr) {
+          throw new Error("Certains champs requis sont manquants dans la requête.");
+        }
+
+        const insertSql = `
+          INSERT INTO bande_sortie (
+            id_affectation_demande,
+            id_vehicule,
+            id_chauffeur,
+            date_prevue,
+            date_retour,
+            id_type_vehicule,
+            id_motif_demande,
+            id_demandeur,
+            id_client,
+            id_localisation,
+            statut,
+            personne_bord,
+            commentaire,
+            user_cr
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const valuesDemande = [
+            id_affectation_demande, 
+            id_vehicule, 
+            id_chauffeur, 
+            date_prevue,
+            date_retour,
+            id_type_vehicule,
+            id_motif_demande,
+            id_demandeur,
+            id_client,
+            id_localisation,
+            11,
+            personne_bord,
+            commentaire,
+            user_cr
+          ]
+
+        await queryPromise(connection, insertSql, valuesDemande);
 
         connection.commit((commitErr) => {
           connection.release();
