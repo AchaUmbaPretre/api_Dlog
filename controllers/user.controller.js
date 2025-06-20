@@ -145,7 +145,7 @@ exports.deleteUser = (req, res) => {
       return res.json(data);
     });
   
-  }
+}
 
 exports.putUserOne = async (req, res) => {
     const { id } = req.query;
@@ -171,7 +171,7 @@ exports.putUserOne = async (req, res) => {
       }
       return res.json(data);
     });
-  };
+};
 
 exports.getSignature =  async (req, res) => {
   const { userId } = req.query;
@@ -181,11 +181,11 @@ exports.getSignature =  async (req, res) => {
   }
 
   const q = `
-              SELECT 
+            SELECT 
               * 
-              FROM 
+            FROM 
               signature 
-              WHERE userId = ?
+            WHERE userId = ?
             `
   db.query(q, [userId], (err, result) => {
     if(err) {
