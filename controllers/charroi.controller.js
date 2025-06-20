@@ -5394,7 +5394,7 @@ exports.postValidationDemande = (req, res) => {
           throw new Error("Aucune signature trouvée pour ce validateur.");
         }
 
-        const idSignature = signatureRow.id_signature;
+        const idSignature = signatureRow[0].id_signature;
 
         // Insertion de la validation
         const insertSQL = `
@@ -5842,7 +5842,7 @@ exports.postBandeSortie = (req, res) => {
           throw new Error("Aucune signature disponible pour l'utilisateur.");
         }
 
-        const id_signature = signatureRow.id_signature;
+        const id_signature = signatureRow[0].id_signature;
 
         // Insertion de la validation
         const insertValidationSql = `
