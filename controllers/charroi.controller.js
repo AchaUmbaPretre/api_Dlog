@@ -5470,7 +5470,6 @@ exports.postValidationDemande = (req, res) => {
   });
 };
 
-
 //Affectation
 exports.getAffectationDemande = (req, res) => {
 
