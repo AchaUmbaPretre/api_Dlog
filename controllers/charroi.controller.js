@@ -5749,7 +5749,36 @@ exports.getBandeSortieOne = (req, res) => {
     }
 
     const q = `
-              SELECT * FROM bande_sortie WHERE id_bande_sortie = ?
+              SELECT bs.*, 
+                v.immatriculation, 
+                m.nom_marque, 
+                ml.modele, 
+                sd.nom_service, 
+                c.nom, 
+                tv.nom_type_vehicule,
+                md.nom_motif_demande
+                FROM 
+                bande_sortie bs
+                INNER JOIN 
+                  vehicules v ON bs.id_vehicule = v.id_vehicule
+                LEFT JOIN 
+                  marque m ON v.id_marque = m.id_marque
+                LEFT JOIN 
+                  modeles ml ON v.id_modele = ml.id_modele
+                LEFT JOIN
+                  service_demandeur sd ON bs.id_demandeur = sd.id_service_demandeur
+                INNER JOIN 
+                  chauffeurs c ON bs.id_chauffeur = c.id_chauffeur
+                INNER JOIN 
+                  type_vehicule tv ON bs.id_type_vehicule = tv.id_type_vehicule
+                INNER JOIN 
+                  motif_demande md ON bs.id_motif_demande = md.id_motif_demande
+                LEFT JOIN 
+                  client ON bs.id_client = client.id_client
+                LEFT JOIN 
+                  localisation l ON bs.id_localisation = l.id_localisation
+                WHERE 
+                id_bande_sortie = ?
             `;
 
     db.query(q, [id_bande_sortie], (error, data) => {
