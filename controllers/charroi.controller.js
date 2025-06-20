@@ -5407,42 +5407,31 @@ exports.postValidationDemande = (req, res) => {
 
       try {
         const {
-          id_demande_vehicule,
+          id_bande_sortie,
           validateur_id,
-          signature_data,
-          date_validation
         } = req.body;
 
-        if (!id_demande_vehicule || !signature_data) {
+        if (!id_bande_sortie || !validateur_id) {
           throw new Error("Champs obligatoires manquants.");
         }
 
-        // 🔄 Convertir base64 → fichier image
-        const matches = signature_data.match(/^data:image\/png;base64,(.+)$/);
-        if (!matches) {
-          throw new Error("Format de signature invalide.");
-        }
+        const signatureSql = `
+          SELECT id_signature WHERE userId = ?
+        `
+        const [resultSigna] = await queryPromise(connection, signatureSql, [userId]);
+        const insertId = resultSigna.insertId;
 
-        const base64Data = matches[1];
-        const filename = `signature-${uuidv4()}.png`;
-        const filePath = path.join(__dirname, '../public/uploads/', filename);
-        const relativePath = `/uploads/${filename}`;
-
-        fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
-
-        // 💾 Enregistrement en base
         const insertSQL = `
           INSERT INTO validation_demande (
-            id_demande_vehicule,
+            id_bande_sortie,
             validateur_id,
-            signature,
-            date_validation
-          ) VALUES (?, ?, ?, ?)
+            signature
+          ) VALUES (?, ?, ?)
         `;
 
         const values = [
           id_demande_vehicule,
-          validateur_id,
+          insertId,
           relativePath,
           date_validation
         ];

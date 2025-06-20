@@ -167,7 +167,7 @@ router.put('/demande_vehicule_retour', charroiController.putDemandeVehiculeRetou
 //Validation demande
 router.get('/validation_demande', charroiController.getValidationDemande)
 router.get('/validation_demandeOne', charroiController.getValidationDemandeOne)
-router.post('/validation_demande', upload.any(), charroiController.postValidationDemande)
+router.post('/validation_demande', charroiController.postValidationDemande)
 
 //Affectation
 router.get('/affectation_demande', charroiController.getAffectationDemande)
