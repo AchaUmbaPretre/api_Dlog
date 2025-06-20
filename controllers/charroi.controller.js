@@ -5405,34 +5405,42 @@ exports.postValidationDemande = (req, res) => {
       }
 
       try {
-        const {
-          id_bande_sortie,
-          validateur_id,
-        } = req.body;
+        const { id_bande_sortie, validateur_id } = req.body;
 
         if (!id_bande_sortie || !validateur_id) {
-          throw new Error("Champs obligatoires manquants.");
+          throw new Error("Les champs 'id_bande_sortie' et 'validateur_id' sont requis.");
         }
 
+        // Récupérer l'ID de la signature du validateur
         const signatureSql = `
-          SELECT id_signature WHERE userId = ?
-        `
-        const [resultSigna] = await queryPromise(connection, signatureSql, [userId]);
-        const insertId = resultSigna.insertId;
+          SELECT id_signature 
+          FROM signature 
+          WHERE userId = ?
+          LIMIT 1
+        `;
 
+        const [signatureRow] = await queryPromise(connection, signatureSql, [validateur_id]);
+
+        if (!signatureRow) {
+          throw new Error("Aucune signature trouvée pour ce validateur.");
+        }
+
+        const idSignature = signatureRow.id_signature;
+
+        // Insertion de la validation
         const insertSQL = `
           INSERT INTO validation_demande (
             id_bande_sortie,
             validateur_id,
-            signature
-          ) VALUES (?, ?, ?)
+            id_signature,
+            date_validation
+          ) VALUES (?, ?, ?, NOW())
         `;
 
         const values = [
-          id_demande_vehicule,
-          insertId,
-          relativePath,
-          date_validation
+          id_bande_sortie,
+          validateur_id,
+          idSignature
         ];
 
         await queryPromise(connection, insertSQL, values);
@@ -5441,27 +5449,27 @@ exports.postValidationDemande = (req, res) => {
           connection.release();
           if (commitErr) {
             console.error("Erreur commit :", commitErr);
-            return res.status(500).json({ error: "Erreur lors de l'enregistrement de la transaction." });
+            return res.status(500).json({ error: "Erreur lors de l'enregistrement de la validation." });
           }
 
           return res.status(201).json({
-            message: "Demande validée et signature enregistrée avec succès.",
-            signature_url: relativePath
+            message: "Bon de sortie validé avec succès et signature enregistrée.",
           });
         });
 
       } catch (error) {
         connection.rollback(() => {
           connection.release();
-          console.error("Erreur transaction :", error);
+          console.error("Erreur dans la transaction :", error);
           return res.status(500).json({
-            error: error.message || "Erreur pendant l'enregistrement."
+            error: error.message || "Une erreur est survenue lors de la validation."
           });
         });
       }
     });
   });
 };
+
 
 //Affectation
 exports.getAffectationDemande = (req, res) => {
