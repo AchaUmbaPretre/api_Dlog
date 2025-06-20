@@ -216,7 +216,7 @@ exports.postSignature = async (req, res) => {
           const base64Data = matches[1];
           const filename = `signature-${uuidv4()}.png`;
           const filePath = path.join(__dirname, '../public/uploads/', filename);
-          const relativePath = `/uploads/${filename}`;
+          const relativePath = `/public/uploads/${filename}`;
         
           fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
         
