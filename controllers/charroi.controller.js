@@ -5444,7 +5444,7 @@ exports.postValidationDemande = (req, res) => {
         const values = [
           id_demande_vehicule,
           validateur_id,
-          relativePath, // chemin enregistré (ex: /uploads/signatures/abc.png)
+          relativePath,
           date_validation
         ];
 

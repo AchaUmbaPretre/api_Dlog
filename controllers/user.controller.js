@@ -2,6 +2,9 @@ const { db } = require("./../config/database");
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
+const fs = require('fs');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
 dotenv.config();
 
@@ -198,14 +201,28 @@ exports.getSignature =  async (req, res) => {
 
 exports.postSignature = async (req, res) => {
     try {
-        const { userId, signature } = req.body;
+        const { userId, signature_data } = req.body;
 
-        if (!userId || !signature) {
+        if (!userId || !signature_data) {
             return res.status(400).json({ error: "Les champs 'userId' et 'signature' sont requis." });
         }
 
+        // 🔄 Convertir base64 → fichier image
+        const matches = signature_data.match(/^data:image\/png;base64,(.+)$/);
+          if (!matches) {
+            throw new Error("Format de signature invalide.");
+          }
+        
+          const base64Data = matches[1];
+          const filename = `signature-${uuidv4()}.png`;
+          const filePath = path.join(__dirname, '../public/uploads/', filename);
+          const relativePath = `/uploads/${filename}`;
+        
+          fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+        
+
         const query = 'INSERT INTO signature (userId, signature) VALUES (?, ?)';
-        const values = [userId, signature];
+        const values = [userId, relativePath];
 
         await db.query(query, values);
 
