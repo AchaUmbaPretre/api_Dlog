@@ -5820,15 +5820,14 @@ exports.postBandeSortie = (req, res) => {
           id_demandeur || null,
           id_client || null,
           id_localisation || null,
-          11, // statut par défaut
+          11,
           personne_bord || '',
           commentaire || '',
           user_cr
         ];
 
         const insertResult = await queryPromise(connection, insertBonSql, bonValues);
-        const id_bande_sortie = insertResult.insertId;
-
+        const id_bande_sortie = insertResult[0].insertId;
         // Récupération de la signature du validateur
         const signatureSql = `
           SELECT id_signature 
