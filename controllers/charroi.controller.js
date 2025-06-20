@@ -5368,9 +5368,9 @@ exports.getValidationDemande = (req, res) => {
 };
 
 exports.getValidationDemandeOne = (req, res) => {
-    const { id_demande_vehicule } = req.query;
+    const { id_bande_sortie } = req.query;
 
-    if (!id_demande_vehicule) {
+    if (!id_bande_sortie) {
       return res.status(400).json({ error: 'L\'ID de la validation fourni est invalide ou manquant.' });
     }
 
@@ -5380,10 +5380,10 @@ exports.getValidationDemandeOne = (req, res) => {
               FROM 
               validation_demande vd 
               INNER JOIN utilisateur u ON vd.validateur_id = u.id_utilisateur
-              WHERE vd.id_demande_vehicule = ?
+              WHERE vd.id_bande_sortie = ?
             `;
 
-    db.query(q, [id_demande_vehicule], (error, data) => {
+    db.query(q, [id_bande_sortie], (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
