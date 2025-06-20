@@ -172,3 +172,51 @@ exports.putUserOne = async (req, res) => {
       return res.json(data);
     });
   };
+
+exports.getSignature =  async (req, res) => {
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: "L'id userId est requis"})
+  }
+
+  const q = `
+              SELECT 
+              * 
+              FROM 
+              signature 
+              WHERE userId = ?
+            `
+  db.query(q, [userId], (err, result) => {
+    if(err) {
+      console.error("Erreur lors de la récupération de signature :", err);
+      return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+    }
+    return res.status(200).json(results);
+  })
+};
+
+exports.postSignature = async (req, res) => {
+    try {
+        const { userId, signature } = req.body;
+
+        if (!userId || !signature) {
+            return res.status(400).json({ error: "Les champs 'userId' et 'signature' sont requis." });
+        }
+
+        const query = 'INSERT INTO signature (userId, signature) VALUES (?, ?)';
+        const values = [userId, signature];
+
+        await db.query(query, values);
+
+        return res.status(201).json({ message: 'Signature a été enregistrée avec succès.' });
+
+    } catch (error) {
+        console.error('Erreur dans postModele:', error);
+
+        return res.status(500).json({
+            error: "Une erreur s'est produite lors de l'ajout du véhicule.",
+            details: error?.message || null,
+        });
+    }
+};
