@@ -5754,7 +5754,7 @@ exports.getBandeSortieOne = (req, res) => {
                 m.nom_marque, 
                 ml.modele, 
                 sd.nom_service, 
-                c.nom, 
+                c.nom AS nom_chauffeur, 
                 tv.nom_type_vehicule,
                 md.nom_motif_demande
                 FROM 
