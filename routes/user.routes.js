@@ -10,4 +10,8 @@ router.put('/', userController.putUser)
 router.put('/one', userController.putUserOne)
 router.delete('/:id', userController.deleteUser)
  
+//Signature
+router.get('/signature', userController.getSignature);
+router.post('/signature', userController.postSignature);
+
 module.exports = router;
