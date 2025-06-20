@@ -4896,37 +4896,6 @@ exports.getMotif = (req, res) => {
     });
 }
 
-/* exports.getDemandeVehicule = (req, res) => {
-    const q = `SELECT 
-              dv.id_demande_vehicule, 
-              dv.date_chargement, 
-              dv.date_prevue, 
-              dv.date_retour,
-              dv.vu,
-              tv.nom_type_vehicule,
-              md.nom_motif_demande,
-              sd.nom_service,
-              c.nom,
-              u.nom AS nom_user,
-              l.nom AS localisation,
-              tss.nom_type_statut
-            FROM demande_vehicule dv
-              INNER JOIN type_vehicule tv ON dv.id_type_vehicule = tv.id_type_vehicule
-              INNER JOIN motif_demande md ON dv.id_motif_demande = md.id_motif_demande
-              INNER JOIN service_demandeur sd ON dv.id_demandeur = sd.id_service_demandeur
-              INNER JOIN client c ON dv.id_client = c.id_client
-              LEFT JOIN localisation l ON dv.id_localisation = l.id_localisation
-              INNER JOIN type_statut_suivi tss ON dv.statut = tss.id_type_statut_suivi
-              INNER JOIN utilisateur u ON dv.user_cr = u.id_utilisateur`;
-
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    });
-} */
-
 exports.getDemandeVehicule = (req, res) => {
   const { userId, userRole } = req.query;
 
@@ -5799,10 +5768,10 @@ exports.postBandeSortie = (req, res) => {
       }
 
       try {
-        const { 
-          id_affectation_demande, 
-          id_vehicule, 
-          id_chauffeur, 
+        const {
+          id_affectation_demande,
+          id_vehicule,
+          id_chauffeur,
           date_prevue,
           date_retour,
           id_type_vehicule,
@@ -5812,14 +5781,16 @@ exports.postBandeSortie = (req, res) => {
           id_localisation,
           personne_bord,
           commentaire,
-          user_cr, 
+          user_cr
         } = req.body;
 
-        if (!id_vehicule || !id_chauffeur || !user_cr) {
-          throw new Error("Certains champs requis sont manquants dans la requête.");
+        // Vérification des champs obligatoires
+        if (!id_vehicule || !id_chauffeur || !user_cr || !date_prevue || !date_retour) {
+          throw new Error("Champs requis manquants.");
         }
 
-        const insertSql = `
+        // Insertion du bon de sortie
+        const insertBonSql = `
           INSERT INTO bande_sortie (
             id_affectation_demande,
             id_vehicule,
@@ -5838,44 +5809,77 @@ exports.postBandeSortie = (req, res) => {
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
-        const valuesDemande = [
-            id_affectation_demande, 
-            id_vehicule, 
-            id_chauffeur, 
-            date_prevue,
-            date_retour,
-            id_type_vehicule,
-            id_motif_demande,
-            id_demandeur,
-            id_client,
-            id_localisation,
-            11,
-            personne_bord,
-            commentaire,
-            user_cr
-          ]
+        const bonValues = [
+          id_affectation_demande || null,
+          id_vehicule,
+          id_chauffeur,
+          date_prevue,
+          date_retour,
+          id_type_vehicule || null,
+          id_motif_demande || null,
+          id_demandeur || null,
+          id_client || null,
+          id_localisation || null,
+          11, // statut par défaut
+          personne_bord || '',
+          commentaire || '',
+          user_cr
+        ];
 
-        await queryPromise(connection, insertSql, valuesDemande);
+        const insertResult = await queryPromise(connection, insertBonSql, bonValues);
+        const id_bande_sortie = insertResult.insertId;
 
+        // Récupération de la signature du validateur
+        const signatureSql = `
+          SELECT id_signature 
+          FROM signature 
+          WHERE userId = ?
+          LIMIT 1
+        `;
+        const [signatureRow] = await queryPromise(connection, signatureSql, [user_cr]);
+
+        if (!signatureRow) {
+          throw new Error("Aucune signature disponible pour l'utilisateur.");
+        }
+
+        const id_signature = signatureRow.id_signature;
+
+        // Insertion de la validation
+        const insertValidationSql = `
+          INSERT INTO validation_demande (
+            id_bande_sortie,
+            validateur_id,
+            id_signature,
+            date_validation
+          ) VALUES (?, ?, ?, NOW())
+        `;
+
+        await queryPromise(connection, insertValidationSql, [
+          id_bande_sortie,
+          user_cr,
+          id_signature
+        ]);
+
+        // Commit final
         connection.commit((commitErr) => {
           connection.release();
-
           if (commitErr) {
-            console.error("Erreur lors de la validation de la transaction :", commitErr);
-            return res.status(500).json({ error: "Une erreur est survenue lors de la finalisation de l’opération." });
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation finale." });
           }
 
           return res.status(201).json({
-            message: "L'affectation de la demande a été enregistrée avec succès.",
+            message: "Bon de sortie enregistré et validé avec succès.",
+            id_bande_sortie
           });
         });
 
       } catch (error) {
         connection.rollback(() => {
           connection.release();
-          console.error("Erreur pendant la transaction :", error);
+          console.error("Erreur transactionnelle :", error);
           return res.status(500).json({
-            error: error.message || "Une erreur est survenue lors du traitement de la demande.",
+            error: error.message || "Erreur lors du traitement de la demande."
           });
         });
       }
