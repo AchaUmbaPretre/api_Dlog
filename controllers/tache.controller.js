@@ -374,154 +374,7 @@ exports.getTacheCount = (req, res) => {
             });
         });
     }; */
-/* 
 
-exports.getTache = (req, res) => {
-        const { id_user, role } = req.query;
-        const { departement, client, statut, priorite, dateRange, owners } = req.body;
-
-        let query = `
-            SELECT 
-                tache.id_tache, 
-                tache.description, 
-                tache.date_debut, 
-                tache.date_fin,
-                tache.nom_tache, 
-                tache.priorite,
-                tache.id_tache_parente,
-                typeC.nom_type_statut AS statut, 
-                client.nom AS nom_client, 
-                frequence.nom AS frequence, 
-                utilisateur.nom AS owner, 
-                provinces.name AS ville, 
-                departement.nom_departement AS departement,
-                cb.controle_de_base,
-                cb.id_controle,
-                DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour,
-                ct.nom_cat_tache,
-                cm.nom_corps_metier,
-                tg.nom_tag,
-                pt.can_view,
-                pt.can_edit,
-                pt.can_comment,
-                pt.id_user
-            FROM 
-                tache
-            LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
-            LEFT JOIN client ON tache.id_client = client.id_client
-            INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
-            LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
-            LEFT JOIN provinces ON tache.id_ville = provinces.id
-            LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
-            LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
-            LEFT JOIN departement ON tache.id_departement = departement.id_departement
-            LEFT JOIN categorietache AS ct ON tache.id_cat_tache = ct.id_cat_tache
-            LEFT JOIN corpsmetier AS cm ON tache.id_corps_metier = cm.id_corps_metier
-            LEFT JOIN tache_tags tt ON tache.id_tache = tt.id_tache
-            LEFT JOIN tags tg ON tt.id_tag = tg.id_tag
-            LEFT JOIN permissions_tache pt ON tache.id_tache = pt.id_tache
-            WHERE 
-                tache.est_supprime = 0
-        `;
-    
-        // Filtrage pour les rôles autres que Admin
-        if (role !== 'Admin') {
-            // Manager - filtrer par départements et villes accessibles
-            if (role === 'Manager' && id_user) {
-                query += `
-                    AND (
-                        (tache.id_departement = (SELECT id_departement FROM utilisateur WHERE id_utilisateur = ${db.escape(id_user)}))
-                        AND (tache.id_ville = (SELECT id_ville FROM utilisateur WHERE id_utilisateur = ${db.escape(id_user)}))
-                        AND (pt.id_user = ${db.escape(id_user)} AND pt.can_view = 1)
-                    )
-                `;
-            }
-        }
-
-                    // Owner - filtrer par tâches de l'utilisateur ou ses tâches créées
-            if (role === 'Owner' && id_user) {
-                query += `AND (pt.id_user = ${db.escape(id_user)} AND pt.can_view = 1 OR tache.user_cr = ${db.escape(id_user)})`;
-            }
-    
-            // Filtrage par départements, clients, statut, priorité, etc.
-            if (departement && departement.length > 0) {
-                query += ` AND tache.id_departement IN (${departement.map(d => db.escape(d)).join(',')})`;
-            }
-            if (client && client.length > 0) {
-                query += ` AND tache.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
-            }
-            if (statut && statut.length > 0) {
-                query += ` AND tache.statut IN (${statut.map(s => db.escape(s)).join(',')})`;
-            }
-            if (priorite && priorite.length > 0) {
-                query += ` AND tache.priorite IN (${priorite.map(p => db.escape(p)).join(',')})`;
-            }
-            if (dateRange && dateRange.length === 2) {
-                query += ` AND tache.date_debut >= ${db.escape(dateRange[0])} AND tache.date_fin <= ${db.escape(dateRange[1])}`;
-            }
-            if (owners && owners.length > 0) {
-                query += ` AND tache.responsable_principal IN (${owners.map(o => db.escape(o)).join(',')})`;
-            }
-    
-        // Trier les résultats par date de création
-        query += ` ORDER BY tache.date_creation DESC`;
-    
-        // Requêtes supplémentaires pour les statistiques et le total
-        const statsQuery = `
-            SELECT 
-                typeC.nom_type_statut AS statut,
-                COUNT(*) AS nombre_taches
-            FROM 
-                tache
-            LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
-            WHERE 
-                tache.est_supprime = 0
-            ${ role == 'Admin' && departement ? ` AND tache.id_departement IN (${departement.map(d => db.escape(d)).join(',')})` : ''}
-            ${ client.length > 0 && ` AND tache.id_client IN (${client.map(c => db.escape(c)).join(',')})`}
-            ${ statut.length > 0 && ` AND tache.statut IN (${statut.map(s => db.escape(s)).join(',')})`}
-            ${ priorite.length > 0 && ` AND tache.priorite IN (${priorite.map(p => db.escape(p)).join(',')})`}
-            ${ dateRange.length === 2 && ` AND tache.date_debut >= ${db.escape(dateRange[0])} AND tache.date_fin <= ${db.escape(dateRange[1])}`}
-            ${ owners.length > 0 && ` AND tache.responsable_principal IN (${owners.map(o => db.escape(o)).join(',')})`}
-            GROUP BY typeC.nom_type_statut
-        `;
-    
-        const totalQuery = `
-            SELECT 
-                COUNT(*) AS total_taches
-            FROM 
-                tache
-            WHERE 
-                tache.est_supprime = 0
-            ${role !== 'Admin' && departement ? ` AND tache.id_departement IN (${departement.map(d => db.escape(d)).join(',')})` : ''}
-            ${ client.length > 0 && ` AND tache.id_client IN (${client.map(c => db.escape(c)).join(',')})`}
-            ${ statut.length > 0 && ` AND tache.statut IN (${statut.map(s => db.escape(s)).join(',')})`}
-            ${ priorite.length > 0 && ` AND tache.priorite IN (${priorite.map(p => db.escape(p)).join(',')})`}
-            ${ dateRange.length === 2 && ` AND tache.date_debut >= ${db.escape(dateRange[0])} AND tache.date_fin <= ${db.escape(dateRange[1])}`}
-            ${ owners.length > 0 && ` AND tache.responsable_principal IN (${owners.map(o => db.escape(o)).join(',')})`}
-        `;
-    
-        // Exécution des requêtes
-        db.query(query, (error, data) => {
-            if (error) {
-                return res.status(500).send(error);
-            }
-            db.query(statsQuery, (statsError, statsData) => {
-                if (statsError) {
-                    return res.status(500).send(statsError);
-                }
-                db.query(totalQuery, (totalError, totalData) => {
-                    if (totalError) {
-                        return res.status(500).send(totalError);
-                    }
-                    return res.status(200).json({
-                        total_taches: totalData[0]?.total_taches || 0,
-                        taches: data,
-                        statistiques: statsData
-                    });
-                });
-            });
-        });
-}; */
 
 exports.getTache = (req, res) => {
     const { id_user, role } = req.query;
@@ -653,6 +506,114 @@ exports.getTache = (req, res) => {
         });
     });
 };
+
+/* function buildWhereClause({ role, id_user, departement, client, statut, priorite, dateRange, owners, projet }) {
+    const where = ['tache.est_supprime = 0'];
+
+    if (role !== 'Admin' && role === 'Manager' && id_user) {
+        where.push(`
+            tache.id_departement = (SELECT id_departement FROM utilisateur WHERE id_utilisateur = ${db.escape(id_user)})
+            AND tache.id_ville = (SELECT id_ville FROM utilisateur WHERE id_utilisateur = ${db.escape(id_user)})
+            AND pt.id_user = ${db.escape(id_user)} AND pt.can_view = 1
+        `);
+    } else if (role === 'Owner' && id_user) {
+        where.push(`(pt.id_user = ${db.escape(id_user)} AND pt.can_view = 1 OR tache.user_cr = ${db.escape(id_user)})`);
+    }
+
+    const filters = [
+        { field: 'tache.id_departement', values: departement },
+        { field: 'tache.id_client', values: client },
+        { field: 'tache.statut', values: statut },
+        { field: 'tache.priorite', values: priorite },
+        { field: 'tache.responsable_principal', values: owners },
+        { field: 'tache.id_projet', values: projet }
+    ];
+
+    filters.forEach(({ field, values }) => {
+        if (Array.isArray(values) && values.length > 0) {
+            const escaped = values.map(v => db.escape(v)).join(',');
+            where.push(`${field} IN (${escaped})`);
+        }
+    });
+
+    if (Array.isArray(dateRange) && dateRange.length === 2) {
+        const [start, end] = dateRange;
+        where.push(`tache.date_debut >= ${db.escape(start)} AND tache.date_fin <= ${db.escape(end)}`);
+    }
+
+    return where.join(' AND ');
+};
+
+exports.getTache = (req, res) => {
+    const { id_user, role } = req.query;
+    const {
+        departement = [], client = [], statut = [], priorite = [],
+        dateRange = [], owners = [], projet = []
+    } = req.body;
+
+    const whereClause = buildWhereClause({ role, id_user, departement, client, statut, priorite, dateRange, owners, projet });
+
+    const query = `
+        SELECT 
+            tache.id_tache, tache.description, tache.date_debut, tache.date_fin,
+            tache.nom_tache, tache.priorite, tache.id_tache_parente,
+            typeC.nom_type_statut AS statut, client.nom AS nom_client, 
+            frequence.nom AS frequence, utilisateur.nom AS owner, 
+            provinces.name AS ville, departement.nom_departement AS departement,
+            cb.controle_de_base, cb.id_controle,
+            DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour,
+            ct.nom_cat_tache, cm.nom_corps_metier, tg.nom_tag,
+            pt.can_view, pt.can_edit, pt.can_comment, pt.id_user
+        FROM tache
+        LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+        LEFT JOIN client ON tache.id_client = client.id_client
+        INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
+        LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
+        LEFT JOIN provinces ON tache.id_ville = provinces.id
+        LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
+        LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
+        LEFT JOIN departement ON tache.id_departement = departement.id_departement
+        LEFT JOIN categorietache AS ct ON tache.id_cat_tache = ct.id_cat_tache
+        LEFT JOIN corpsmetier AS cm ON tache.id_corps_metier = cm.id_corps_metier
+        LEFT JOIN tache_tags tt ON tache.id_tache = tt.id_tache
+        LEFT JOIN tags tg ON tt.id_tag = tg.id_tag
+        LEFT JOIN permissions_tache pt ON tache.id_tache = pt.id_tache
+        WHERE ${whereClause}
+        ORDER BY tache.date_creation DESC
+    `;
+
+    const statsQuery = `
+        SELECT typeC.nom_type_statut AS statut, COUNT(*) AS nombre_taches
+        FROM tache
+        LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+        WHERE ${whereClause}
+        GROUP BY typeC.nom_type_statut
+    `;
+
+    const totalQuery = `
+        SELECT COUNT(*) AS total_taches
+        FROM tache
+        WHERE ${whereClause}
+    `;
+
+    db.query(query, (error, data) => {
+        if (error) return res.status(500).send(error);
+
+        db.query(statsQuery, (statsError, statsData) => {
+            if (statsError) return res.status(500).send(statsError);
+
+            db.query(totalQuery, (totalError, totalData) => {
+                if (totalError) return res.status(500).send(totalError);
+
+                res.status(200).json({
+                    total_taches: totalData[0]?.total_taches || 0,
+                    taches: data,
+                    statistiques: statsData
+                });
+            });
+        });
+    });
+}; */
 
 exports.getTacheCorbeille = (req, res) => {
 
