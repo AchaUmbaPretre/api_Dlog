@@ -4190,7 +4190,6 @@ exports.postDocumentReparation = async (req, res) => {
         type_document
     }));
     
-
     try {
         await Promise.all(
             documents.map((doc) => {
