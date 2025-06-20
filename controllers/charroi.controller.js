@@ -6,7 +6,6 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
-
 // 📦 Petite helper function pour convertir mysql en Promises
 function queryPromise(connection, sql, params) {
     return new Promise((resolve, reject) => {

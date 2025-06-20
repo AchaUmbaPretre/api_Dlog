@@ -195,7 +195,7 @@ exports.getSignature =  async (req, res) => {
       console.error("Erreur lors de la récupération de signature :", err);
       return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
     }
-    return res.status(200).json(results);
+    return res.status(200).json(result);
   })
 };
 
@@ -216,7 +216,7 @@ exports.postSignature = async (req, res) => {
           const base64Data = matches[1];
           const filename = `signature-${uuidv4()}.png`;
           const filePath = path.join(__dirname, '../public/uploads/', filename);
-          const relativePath = `/public/uploads/${filename}`;
+          const relativePath = `public/uploads/${filename}`;
         
           fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
         
