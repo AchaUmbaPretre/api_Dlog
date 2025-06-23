@@ -6100,7 +6100,7 @@ exports.postSortieRetour = (req, res) => {
           }
 
           return res.status(201).json({
-            message: "Inspection enregistrée avec succès.",
+            message: "La sortie a été enregistrée avec succès.",
             data: { id: insertId }
           });
         });
