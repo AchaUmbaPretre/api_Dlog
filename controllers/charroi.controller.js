@@ -4925,7 +4925,7 @@ exports.getDemandeVehicule = (req, res) => {
 
   const params = [];
 
-  if (userRole !== 'Admin' || userRole !== 'RH' || userRole !== 'RS') {
+  if (userRole !== 'Admin' && userRole !== 'RH' && userRole !== 'RS') {
     q += ` WHERE dv.user_cr = ?`;
     params.push(userId);
   }
