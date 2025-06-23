@@ -6008,11 +6008,11 @@ exports.getSortieRetour = (req, res) => {
 };
 
 exports.getSortieRetourOne = (req, res) => {
-    const { id_demande } = req.query;
+    const { id_bande_sortie } = req.query;
 
-    if (!id_demande) {
+    if (!id_bande_sortie) {
         return res.status(400).json({
-            error: 'Le paramètre "id_demande" est requis.',
+            error: 'Le paramètre "id_bande_sortie" est requis.',
         });
     }
 
@@ -6023,11 +6023,11 @@ exports.getSortieRetourOne = (req, res) => {
         FROM sortie_retour sr
         LEFT JOIN utilisateur u ON sr.agent_id = u.id_utilisateur
         LEFT JOIN chauffeur c ON sr.chauffeur_id = c.id_chauffeur
-        WHERE sr.demande_id = ?
+        WHERE sr.id_bande_sortie = ?
         ORDER BY sr.date_heure ASC
     `;
 
-    db.query(query, [id_demande], (error, results) => {
+    db.query(query, [id_bande_sortie], (error, results) => {
         if (error) {
             console.error('[getSortieRetourByDemande] DB error:', error);
             return res.status(500).json({
