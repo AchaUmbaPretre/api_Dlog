@@ -5533,8 +5533,11 @@ exports.postValidationDemande = (req, res) => {
 
 //Destination
 exports.getDestination = (req, res) => {
-    const q = `SELECT d.* FROM destination d
-                    INNER JOIN villes v ON d.id_ville = v.id_ville`;
+    const q = `SELECT 
+                d.*, 
+                v.nom_ville 
+                FROM destination d
+                  INNER JOIN villes v ON d.id_ville = v.id_ville`;
 
     db.query(q, (error, data) => {
         if (error) {
