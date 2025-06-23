@@ -6061,14 +6061,14 @@ exports.postSortieRetour = (req, res) => {
 
       try {
         const {
-          id_demande,
+          id_bande_sortie,
           type,
           date,
           id_agent,
           observations
         } = req.body;
 
-        if (!id_demande || !id_agent) {
+        if (!id_bande_sortie || !id_bande_sortie) {
           throw new Error("Champs obligatoires manquants.");
         }
 
@@ -6083,7 +6083,7 @@ exports.postSortieRetour = (req, res) => {
         `
 
         const values = [
-          id_demande,
+          id_bande_sortie,
           type,
           date,
           id_agent,
