@@ -5531,6 +5531,73 @@ exports.postValidationDemande = (req, res) => {
   });
 };
 
+//Destination
+exports.getDestination = (req, res) => {
+    const q = `SELECT d.* FROM destination d
+                    INNER JOIN villes v ON d.id_ville = v.id_ville`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postDestination = (req, res) => {
+    db.getConnection((connErr, connection) => {
+        if(connErr) {
+            console.error("Erreur de connexion DB : ", connErr)
+            return res.status(500).json({ error: "Connexion à la base de données échouée." });
+        }
+
+        connection.beginTransaction(async (trxErr) => {
+            if(trxErr) {
+                connection.release();
+                console.error("Erreur transaction : ", trxErr)
+                return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+            }
+
+            try {
+                const { nom_destination, id_ville } = req.body;
+
+                if (!nom_destination || !id_ville) {
+                    throw new Error("Champs obligatoires manquants.");   
+                }
+
+                const insertSql = `
+                    INSERT INTO destination (
+                    nom_destination, id_ville
+                    ) VALUES (?, ?)
+                `
+                const values = [
+                    nom_destination,
+                    id_ville
+                ]
+
+                const [insertResult] = await queryPromise(connection, insertSql, values);
+                const insertId = insertResult.insertId;
+
+            connection.commit((commitErr) => {
+                connection.release();
+                if (commitErr) {
+                    console.error("Erreur commit :", commitErr);
+                    return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+                }
+
+                return res.status(201).json({
+                    message: "La destination a été enregistrée avec succès.",
+                    data: { id: insertId }
+                });
+                });
+
+            } catch (error) {
+               console.log(error)               
+            }
+        })
+    })
+};
+
 //Affectation
 exports.getAffectationDemande = (req, res) => {
 

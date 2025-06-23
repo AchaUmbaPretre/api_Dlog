@@ -169,6 +169,10 @@ router.get('/validation_demande', charroiController.getValidationDemande)
 router.get('/validation_demandeOne', charroiController.getValidationDemandeOne)
 router.post('/validation_demande', charroiController.postValidationDemande)
 
+//Destination
+router.get('/destination', charroiController.getDestination)
+router.post('/destination', charroiController.postDestination)
+
 //Affectation
 router.get('/affectation_demande', charroiController.getAffectationDemande)
 router.get('/affectation_demandeOne', charroiController.getAffectationDemandeOne)
