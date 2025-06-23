@@ -6134,8 +6134,80 @@ exports.postRetour_vehicule = ( req, res ) => {
 }
 
 //Sortie
+exports.postSortie = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if(connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
 
-//SORTIE_RETOUR
+    connection.beginTransaction(async (trxErr) => {
+      if(trxErr) {
+        connection.release();
+        console.error('Erreur transaction : ', trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const {
+          id_bande_sortie,
+          type,
+          date,
+          id_agent,
+          observations
+        } = req.body;
+
+        if (!id_bande_sortie || !id_bande_sortie) {
+          throw new Error("Champs obligatoires manquants.");
+        }
+
+        const insertSQL = `
+          INSERT INTO sortie_retour (
+            id_bande_sortie,
+            type,
+            date,
+            id_agent,
+            observations
+          ) VALUES (?, ?, ?, ?, ?)
+        `
+        const values = [
+          id_bande_sortie,
+          'Sortie',
+          date,
+          id_agent,
+          observations
+        ]
+
+        const [insertResult] = await queryPromise(connection, insertSQL, values);
+        const insertId = insertResult.insertId;
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+          }
+
+          return res.status(201).json({
+            message: "La sortie a été enregistrée avec succès.",
+            data: { id: insertId }
+          });
+        });
+        
+      } catch (error) {
+          connection.rollback(() => {
+          connection.release();
+          console.error("Erreur transactionnelle :", error);
+          return res.status(500).json({
+            error: error.message || "Erreur lors du traitement de la sortie."
+          });
+        });
+      }
+    })
+  })
+};
+
+//RETOUR
 exports.getSortieRetour = (req, res) => {
 
     const q = `
@@ -6187,7 +6259,7 @@ exports.getSortieRetourOne = (req, res) => {
     });
 };
 
-exports.postSortieRetour = (req, res) => {
+exports.postRetour = (req, res) => {
   db.getConnection((connErr, connection) => {
     if(connErr) {
       console.error("Erreur de connexion DB :", connErr);
@@ -6225,7 +6297,7 @@ exports.postSortieRetour = (req, res) => {
         `
         const values = [
           id_bande_sortie,
-          type,
+          'Retour',
           date,
           id_agent,
           observations
