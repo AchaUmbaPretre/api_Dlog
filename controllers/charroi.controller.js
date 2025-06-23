@@ -6208,7 +6208,7 @@ exports.postSortie = (req, res) => {
 };
 
 //RETOUR
-exports.getSortieRetour = (req, res) => {
+/* exports.getSortieRetour = (req, res) => {
 
     const q = `
             SELECT * FROM sortie_retour
@@ -6257,7 +6257,7 @@ exports.getSortieRetourOne = (req, res) => {
         }
         return res.status(200).json(results);
     });
-};
+}; */
 
 exports.postRetour = (req, res) => {
   db.getConnection((connErr, connection) => {
