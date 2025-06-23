@@ -427,7 +427,6 @@ exports.getTache = (req, res) => {
     const query = `
         SELECT 
             tache.id_tache, 
-            tache.description, 
             tache.date_debut, 
             tache.date_fin,
             tache.nom_tache, 

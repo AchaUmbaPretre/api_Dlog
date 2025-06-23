@@ -5884,8 +5884,8 @@ exports.postBandeSortie = (req, res) => {
           });
         });
       }
-    });
-  });
+    })
+  })
 };
 
 //Retour vehicule
