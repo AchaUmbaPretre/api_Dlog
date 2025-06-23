@@ -5495,6 +5495,7 @@ exports.postValidationDemande = (req, res) => {
           FROM validation_demande
           WHERE id_bande_sortie = ?
         `;
+        
         const [countRow] = await queryPromise(connection, countSQL, [id_bande_sortie]);
         const totalValidations = countRow[0].total_validations;
 
