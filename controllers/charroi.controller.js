@@ -6074,14 +6074,13 @@ exports.postSortieRetour = (req, res) => {
 
         const insertSQL = `
           INSERT INTO sortie_retour (
-            id_demande,
+            id_bande_sortie,
             type,
             date,
             id_agent,
             observations
           ) VALUES (?, ?, ?, ?, ?)
         `
-
         const values = [
           id_bande_sortie,
           type,
@@ -6107,7 +6106,13 @@ exports.postSortieRetour = (req, res) => {
         });
         
       } catch (error) {
-        
+          connection.rollback(() => {
+          connection.release();
+          console.error("Erreur transactionnelle :", error);
+          return res.status(500).json({
+            error: error.message || "Erreur lors du traitement de la sortie."
+          });
+        });
       }
     })
   })
