@@ -6133,6 +6133,8 @@ exports.postRetour_vehicule = ( req, res ) => {
   })
 }
 
+//Sortie
+
 //SORTIE_RETOUR
 exports.getSortieRetour = (req, res) => {
 
