@@ -5359,7 +5359,7 @@ exports.getValidationDemandeOne = (req, res) => {
     });
 };
 
-exports.postValidationDemande = (req, res) => {
+/* exports.postValidationDemande = (req, res) => {
   db.getConnection((connErr, connection) => {
     if (connErr) {
       console.error('Erreur de connexion DB :', connErr);
@@ -5413,6 +5413,9 @@ exports.postValidationDemande = (req, res) => {
         ];
 
         await queryPromise(connection, insertSQL, values);
+        
+        const updateBonSortie = `UPDATE bande_sortie SET statut = 2 WHERE id_bande_sortie = ?`;
+        
 
         connection.commit((commitErr) => {
           connection.release();
@@ -5423,6 +5426,94 @@ exports.postValidationDemande = (req, res) => {
 
           return res.status(201).json({
             message: "Bon de sortie validé avec succès et signature enregistrée.",
+          });
+        });
+
+      } catch (error) {
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur dans la transaction :", error);
+          return res.status(500).json({
+            error: error.message || "Une erreur est survenue lors de la validation."
+          });
+        });
+      }
+    });
+  });
+}; */
+
+exports.postValidationDemande = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error('Erreur de connexion DB :', connErr);
+      return res.status(500).json({ error: "Erreur de connexion à la base de données." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error('Erreur transaction :', trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const { id_bande_sortie, validateur_id } = req.body;
+
+        if (!id_bande_sortie || !validateur_id) {
+          throw new Error("Les champs 'id_bande_sortie' et 'validateur_id' sont requis.");
+        }
+
+        // Récupérer l'ID de la signature du validateur
+        const signatureSql = `
+          SELECT id_signature 
+          FROM signature 
+          WHERE userId = ?
+          LIMIT 1
+        `;
+        const [signatureRow] = await queryPromise(connection, signatureSql, [validateur_id]);
+
+        if (!signatureRow) {
+          throw new Error("Aucune signature trouvée pour ce validateur.");
+        }
+
+        const idSignature = signatureRow[0].id_signature;
+
+        // Insertion de la validation
+        const insertSQL = `
+          INSERT INTO validation_demande (
+            id_bande_sortie,
+            validateur_id,
+            id_signature,
+            date_validation
+          ) VALUES (?, ?, ?, NOW())
+        `;
+        await queryPromise(connection, insertSQL, [id_bande_sortie, validateur_id, idSignature]);
+
+        // Compter combien de validations existent déjà pour ce bon de sortie
+        const countSQL = `
+          SELECT COUNT(DISTINCT validateur_id) AS total_validations
+          FROM validation_demande
+          WHERE id_bande_sortie = ?
+        `;
+        const [countRow] = await queryPromise(connection, countSQL, [id_bande_sortie]);
+        const totalValidations = countRow[0].total_validations;
+
+        // Si 3 validateurs différents ont validé, changer le statut
+        if (totalValidations >= 3) {
+          const updateSQL = `UPDATE bande_sortie SET statut = 2 WHERE id_bande_sortie = ?`;
+          await queryPromise(connection, updateSQL, [id_bande_sortie]);
+        }
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de l'enregistrement de la validation." });
+          }
+
+          return res.status(201).json({
+            message: "Validation enregistrée avec succès.",
+            statut_mis_a_jour: totalValidations >= 3
           });
         });
 
