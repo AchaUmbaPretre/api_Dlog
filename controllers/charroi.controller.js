@@ -5594,7 +5594,7 @@ exports.postAffectationDemande = (req, res) => {
           INSERT INTO notifications (user_id, message)
           VALUES (?, ?)
         `;
-        
+
         const notifMsg = `Votre demande a été approuvée avec succès.`;
         await queryPromise(connection, notifSQL, [user_cr, notifMsg]);
 
