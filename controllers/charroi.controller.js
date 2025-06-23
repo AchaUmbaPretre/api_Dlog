@@ -6040,7 +6040,6 @@ exports.getSortieRetourOne = (req, res) => {
                 message: `Aucun enregistrement trouvé pour la demande ID ${id_demande}.`
             });
         }
-
         return res.status(200).json(results);
     });
 };
