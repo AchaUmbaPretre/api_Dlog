@@ -6165,8 +6165,6 @@ exports.postSortie = (req, res) => {
       try {
         const {
           id_bande_sortie,
-          type,
-          date,
           id_agent,
           observations
         } = req.body;
@@ -6179,21 +6177,23 @@ exports.postSortie = (req, res) => {
           INSERT INTO sortie_retour (
             id_bande_sortie,
             type,
-            date,
             id_agent,
             observations
-          ) VALUES (?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?)
         `
         const values = [
           id_bande_sortie,
           'Sortie',
-          date,
           id_agent,
           observations
         ]
 
         const [insertResult] = await queryPromise(connection, insertSQL, values);
         const insertId = insertResult.insertId;
+
+        const updateSQL = `UPDATE bande_sortie SET statut = 12 WHERE  id_bande_sortie = ?`;
+
+        await queryPromise(connection, updateSQL, [id_bande_sortie]);
 
         connection.commit((commitErr) => {
           connection.release();
