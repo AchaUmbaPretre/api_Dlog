@@ -5615,7 +5615,7 @@ exports.getAffectationDemande = (req, res) => {
           ts.nom_type_statut,
           tv.nom_type_vehicule,
           sd.nom_service,
-          l.nom AS localisation,
+          l.nom_destination,
           c.nom, 
           v.immatriculation, 
           m.nom_marque
@@ -5637,7 +5637,7 @@ exports.getAffectationDemande = (req, res) => {
           LEFT JOIN
             service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
           LEFT JOIN 
-            localisation l ON ad.id_localisation = l.id_localisation
+            destination l ON ad.id_destination = l.id_destination
           ORDER BY ad.created_at DESC
             `;
 
@@ -5693,7 +5693,7 @@ exports.postAffectationDemande = (req, res) => {
           id_motif_demande,
           id_demandeur,
           id_client,
-          id_localisation,
+          id_destination,
           personne_bord,
           commentaire,
           user_cr, 
@@ -5714,7 +5714,7 @@ exports.postAffectationDemande = (req, res) => {
             id_motif_demande,
             id_demandeur,
             id_client,
-            id_localisation,
+            id_destination,
             statut,
             personne_bord,
             commentaire,
@@ -5732,7 +5732,7 @@ exports.postAffectationDemande = (req, res) => {
             id_motif_demande,
             id_demandeur,
             id_client,
-            id_localisation,
+            id_destination,
             11,
             personne_bord,
             commentaire,
@@ -5835,7 +5835,7 @@ exports.getBandeSortie = (req, res) => {
           ts.nom_type_statut,
           tv.nom_type_vehicule,
           sd.nom_service,
-          l.nom AS localisation,
+          l.nom_destination,
           c.nom, 
           v.immatriculation, 
           m.nom_marque
@@ -5857,7 +5857,7 @@ exports.getBandeSortie = (req, res) => {
           LEFT JOIN
             service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
           LEFT JOIN 
-            localisation l ON ad.id_localisation = l.id_localisation
+            destination l ON ad.id_destination = l.id_destination
           ORDER BY ad.created_at DESC
             `;
 
@@ -5904,7 +5904,7 @@ exports.getBandeSortieOne = (req, res) => {
                 LEFT JOIN 
                   client ON bs.id_client = client.id_client
                 LEFT JOIN 
-                  localisation l ON bs.id_localisation = l.id_localisation
+                  destination l ON bs.id_destination = l.id_destination
                 WHERE 
                 id_bande_sortie = ?
             `;
@@ -5942,7 +5942,7 @@ exports.postBandeSortie = (req, res) => {
           id_motif_demande,
           id_demandeur,
           id_client,
-          id_localisation,
+          id_destination,
           personne_bord,
           commentaire,
           user_cr
@@ -5965,7 +5965,7 @@ exports.postBandeSortie = (req, res) => {
             id_motif_demande,
             id_demandeur,
             id_client,
-            id_localisation,
+            id_destination,
             statut,
             personne_bord,
             commentaire,
@@ -5983,7 +5983,7 @@ exports.postBandeSortie = (req, res) => {
           id_motif_demande || null,
           id_demandeur || null,
           id_client || null,
-          id_localisation || null,
+          id_destination || null,
           11,
           personne_bord || '',
           commentaire || '',
@@ -6064,7 +6064,7 @@ exports.getVehiculeCourse = (req, res) => {
           ts.nom_type_statut,
           tv.nom_type_vehicule,
           sd.nom_service,
-          l.nom AS localisation,
+          l.nom_destination,
           c.nom, 
           v.immatriculation, 
           m.nom_marque
@@ -6086,7 +6086,7 @@ exports.getVehiculeCourse = (req, res) => {
           LEFT JOIN
             service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
           LEFT JOIN 
-            localisation l ON ad.id_localisation = l.id_localisation
+            destination l ON ad.id_destination = l.id_destination
             WHERE ad.statut != 11
           ORDER BY ad.created_at DESC
             `;
@@ -6113,7 +6113,7 @@ exports.getSortie = (req, res) => {
           ts.nom_type_statut,
           tv.nom_type_vehicule,
           sd.nom_service,
-          l.nom AS localisation,
+          l.nom_destination,
           c.nom, 
           v.immatriculation, 
           m.nom_marque
@@ -6135,7 +6135,7 @@ exports.getSortie = (req, res) => {
           LEFT JOIN
             service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
           LEFT JOIN 
-            localisation l ON ad.id_localisation = l.id_localisation
+            destination l ON ad.id_destination = l.id_destination
             WHERE ad.statut = 2
           ORDER BY ad.created_at DESC
             `;
@@ -6286,7 +6286,7 @@ exports.getRetour = (req, res) => {
           ts.nom_type_statut,
           tv.nom_type_vehicule,
           sd.nom_service,
-          l.nom AS localisation,
+          l.nom_destination,
           c.nom, 
           v.immatriculation, 
           m.nom_marque
@@ -6308,7 +6308,7 @@ exports.getRetour = (req, res) => {
           LEFT JOIN
             service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
           LEFT JOIN 
-            localisation l ON ad.id_localisation = l.id_localisation
+            destination l ON ad.id_destination = l.id_destination
             WHERE ad.statut = 12
           ORDER BY ad.created_at DESC
             `;
