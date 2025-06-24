@@ -187,6 +187,7 @@ router.post('/bande_sortie', charroiController.postBandeSortie)
 router.get('/vehicule_course', charroiController.getVehiculeCourse)
 
 //Sortie véhicule
+router.get('/sortie_vehicule', charroiController.getSortie)
 router.post('/sortie_vehicule', charroiController.postSortie)
 
 //Retour véhicule
