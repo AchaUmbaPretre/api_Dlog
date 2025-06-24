@@ -4999,7 +4999,7 @@ exports.postDemandeVehicule = (req, res) => {
           id_motif_demande,
           id_demandeur,
           id_client,
-          id_localisation,
+          id_destination,
           user_cr,
           personne_bord
         } = req.body;
@@ -5017,7 +5017,7 @@ exports.postDemandeVehicule = (req, res) => {
             id_motif_demande,
             id_demandeur,
             id_client,
-            id_localisation,
+            id_destination,
             statut,
             user_cr,
             personne_bord
@@ -5032,7 +5032,7 @@ exports.postDemandeVehicule = (req, res) => {
           id_motif_demande,
           id_demandeur,
           id_client,
-          id_localisation,
+          id_destination,
           1,
           user_cr,
           personne_bord
