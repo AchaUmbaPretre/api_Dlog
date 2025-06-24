@@ -4911,14 +4911,14 @@ exports.getDemandeVehicule = (req, res) => {
       sd.nom_service,
       c.nom,
       u.nom AS nom_user,
-      l.nom AS localisation,
+      l.nom_destination,
       tss.nom_type_statut
     FROM demande_vehicule dv
     INNER JOIN type_vehicule tv ON dv.id_type_vehicule = tv.id_type_vehicule
     INNER JOIN motif_demande md ON dv.id_motif_demande = md.id_motif_demande
     INNER JOIN service_demandeur sd ON dv.id_demandeur = sd.id_service_demandeur
     INNER JOIN client c ON dv.id_client = c.id_client
-    LEFT JOIN localisation l ON dv.id_localisation = l.id_localisation
+    LEFT JOIN destination l ON dv.id_destination = l.id_destination
     INNER JOIN type_statut_suivi tss ON dv.statut = tss.id_type_statut_suivi
     INNER JOIN utilisateur u ON dv.user_cr = u.id_utilisateur
   `;
@@ -4955,14 +4955,14 @@ exports.getDemandeVehiculeOne = (req, res) => {
                   sd.nom_service,
                   c.nom,
                   u.nom AS nom_user,
-                  l.nom AS localisation,
+                  l.nom_destination,
                   tss.nom_type_statut
                 FROM demande_vehicule dv
                 INNER JOIN type_vehicule tv ON dv.id_type_vehicule = tv.id_type_vehicule
                 INNER JOIN motif_demande md ON dv.id_motif_demande = md.id_motif_demande
                 INNER JOIN service_demandeur sd ON dv.id_demandeur = sd.id_service_demandeur
                 INNER JOIN client c ON dv.id_client = c.id_client
-                LEFT JOIN localisation l ON dv.id_localisation = l.id_localisation
+                LEFT JOIN destination l ON dv.id_destination = l.id_destination
                 INNER JOIN type_statut_suivi tss ON dv.statut = tss.id_type_statut_suivi
                 INNER JOIN utilisateur u ON dv.user_cr = u.id_utilisateur
                 WHERE dv.id_demande_vehicule = ?
