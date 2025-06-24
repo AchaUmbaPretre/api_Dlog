@@ -6373,7 +6373,7 @@ exports.postRetour = (req, res) => {
         const getVehiculeQuery = `
           SELECT id_vehicule
           FROM bande_sortie
-          WHERE id_vehicule = ?
+          WHERE id_bande_sortie  = ?
         `;
 
         const [vehiculeResult] = await queryPromise(connection, getVehiculeQuery, [id_bande_sortie]);
