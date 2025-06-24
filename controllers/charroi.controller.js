@@ -6385,7 +6385,6 @@ exports.postRetour = (req, res) => {
 
         const idVehicule = vehiculeResult[0].id_vehicule;
 
-        // Mettre à jour la disponibilité du véhicule
         const updateDispoQuery = `
           UPDATE vehicules
           SET IsDispo = 1
