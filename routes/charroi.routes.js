@@ -194,4 +194,8 @@ router.post('/sortie_vehicule', charroiController.postSortie)
 router.get('/retour_vehicule', charroiController.getRetour)
 router.post('/retour_vehicule', charroiController.postRetour)
 
+//Visiteur
+router.get('/visiteur_vehicule', charroiController.getVisiteur)
+router.post('/visiteur_vehicule', charroiController.postVisiteur)
+
 module.exports = router;
