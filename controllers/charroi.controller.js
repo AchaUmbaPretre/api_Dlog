@@ -6464,8 +6464,7 @@ exports.postVisiteur = (req, res) => {
           }
 
           return res.status(201).json({
-            message: "La sortie a été enregistrée avec succès.",
-            data: { id: insertId }
+            message: "Le visiteur a été enregistré avec succès.",
           });
         });
         
