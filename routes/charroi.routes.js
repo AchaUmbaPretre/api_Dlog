@@ -191,6 +191,7 @@ router.get('/sortie_vehicule', charroiController.getSortie)
 router.post('/sortie_vehicule', charroiController.postSortie)
 
 //Retour véhicule
+router.get('/retour_vehicule', charroiController.getRetour)
 router.post('/retour_vehicule', charroiController.postRetour)
 
 module.exports = router;
