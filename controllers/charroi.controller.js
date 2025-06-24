@@ -6370,6 +6370,28 @@ exports.postRetour = (req, res) => {
 
         await queryPromise(connection, updateSQL, [id_bande_sortie]);
 
+        const getVehiculeQuery = `
+          SELECT id_vehicule
+          FROM bande_sortie
+          WHERE id_vehicule = ?
+        `;
+
+        const [vehiculeResult] = await queryPromise(connection, getVehiculeQuery, [id_bande_sortie]);
+
+        if (!vehiculeResult || vehiculeResult.length === 0) {
+          connection.release();
+          return res.status(404).json({ error: "Aucun véhicule trouvé pour ce bon de sortie." });
+        }
+
+        const idVehicule = vehiculeResult[0].id_vehicule;
+
+        // Mettre à jour la disponibilité du véhicule
+        const updateDispoQuery = `
+          UPDATE vehicules
+          SET IsDispo = 1
+          WHERE id_vehicule = ?
+        `;
+        await queryPromise(connection, updateDispoQuery, [idVehicule]);
 
         connection.commit((commitErr) => {
           connection.release();
