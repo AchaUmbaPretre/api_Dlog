@@ -38,6 +38,7 @@ exports.getEquipement = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
 exports.getEquipementOneV = (req, res) => {
     const {id} = req.query;
 
@@ -185,7 +186,6 @@ exports.getBatimentPlans = (req, res) => {
     return res.status(200).json(data);
   });
 };
-
 
 exports.getBatimentPlansOne = (req, res) => {
     const {id_batiment} = req.query;
