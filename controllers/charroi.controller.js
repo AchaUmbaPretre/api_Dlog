@@ -5103,7 +5103,7 @@ exports.putDemandeVehicule = (req, res) => {
           id_motif_demande,
           id_demandeur,
           id_client,
-          id_localisation,
+          id_destination,
           id_utilisateur
         } = req.body;
 
@@ -5121,7 +5121,7 @@ exports.putDemandeVehicule = (req, res) => {
             id_motif_demande = ?,
             id_demandeur = ?,
             id_client = ?,
-            id_localisation = ?
+            id_destination = ?
           WHERE id_demande_vehicule = ?
         `;
 
@@ -5133,7 +5133,7 @@ exports.putDemandeVehicule = (req, res) => {
           id_motif_demande,
           id_demandeur,
           id_client,
-          id_localisation,
+          id_destination,
           id_demande_vehicule
         ];
 
