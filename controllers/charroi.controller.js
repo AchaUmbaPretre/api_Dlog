@@ -5949,7 +5949,7 @@ exports.postBandeSortie = (req, res) => {
         } = req.body;
 
         // Vérification des champs obligatoires
-        if (!id_vehicule || !id_chauffeur || !user_cr || !date_prevue || !date_retour) {
+        if (!id_vehicule || !id_chauffeur || !user_cr || !date_prevue) {
           throw new Error("Champs requis manquants.");
         }
 
