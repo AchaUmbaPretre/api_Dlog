@@ -5500,7 +5500,7 @@ exports.postValidationDemande = (req, res) => {
         const totalValidations = countRow[0].total_validations;
 
         // Si 3 validateurs différents ont validé, changer le statut
-        if (totalValidations >= 3) {
+        if (totalValidations >= 1) {
           const updateSQL = `UPDATE bande_sortie SET statut = 2 WHERE id_bande_sortie = ?`;
           await queryPromise(connection, updateSQL, [id_bande_sortie]);
         }
