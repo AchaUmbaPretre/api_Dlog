@@ -8,17 +8,7 @@ function queryPromise(connection, sql, params) {
         resolve([results]);
       });
     });
-  }
-
-const queryAsync = (query, values = []) =>
-    new Promise((resolve, reject) => {
-        db.query(query, values, (error, results) => {
-            if (error) {
-                return reject(error);
-        }
-        resolve(results);
-    });
-});
+}
 
 exports.getEquipement = (req, res) => {
 
