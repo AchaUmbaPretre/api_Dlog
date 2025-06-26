@@ -1244,7 +1244,7 @@ exports.deleteUpdateNiveau = (req, res) => {
       return res.json(data);
     });
   
-  }
+};
 
 //Denomination batiment
 exports.getDenominationCount = (req, res) => {
