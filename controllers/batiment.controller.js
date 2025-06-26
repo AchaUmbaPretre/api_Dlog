@@ -767,16 +767,23 @@ exports.getBins = (req, res) => {
 
     q += ` ORDER BY bins.date_creation DESC`;
 
-    const qSQL = `
+    let qSQL = `
         SELECT 
+            COUNT(id) AS nbre_bin,
             SUM(b.superficie) AS total_superficie, 
             SUM(b.longueur) AS total_longueur, 
             SUM(b.largeur) AS total_largeur, 
             SUM(b.hauteur) AS total_hauteur, 
             SUM(b.capacite) AS total_capacite 
         FROM bins b 
+        INNER JOIN batiment ON b.id_batiment = batiment.id_batiment
         WHERE b.est_supprime = 0
     `;
+
+    if (search) {
+        const escapedSearch = db.escape(`%${search}%`);
+        qSQL += ` AND (b.nom LIKE ${escapedSearch} OR batiment.nom_batiment LIKE ${escapedSearch})`;
+    }
 
     db.query(q, (error, data) => {
         if (error) {
