@@ -6567,3 +6567,81 @@ exports.postVisiteur = (req, res) => {
     })
   })
 };
+
+//Liste de SORTIE & ENTREE
+exports.getEntreeSortie = (req, res) => {
+
+    const q = `
+        SELECT 
+        sr.id_sortie_retour, 
+        sr.type, 
+        sr.created_at, 
+        u.nom, 
+        v.immatriculation,
+        m.nom_marque, 
+        cv.nom_cat,
+        c.nom AS nom_chauffeur
+        FROM sortie_retour sr
+        LEFT JOIN 
+          bande_sortie bs ON sr.id_bande_sortie = bs.id_bande_sortie
+        LEFT JOIN 
+          vehicules v ON bs.id_vehicule = v.id_vehicule
+        LEFT JOIN 
+          marque m ON v.id_marque = m.id_marque
+        LEFT JOIN 
+          cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+        LEFT JOIN 
+          chauffeurs c ON bs.id_chauffeur = c.id_chauffeur
+        INNER JOIN 
+          utilisateur u ON sr.id_agent = u.id_utilisateur
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getEntreeSortieOne = (req, res) => {
+    const { id_sortie_retour } = req.query;
+
+    // Validation
+    if (!id_sortie_retour || isNaN(id_sortie_retour)) {
+        return res.status(400).json({ error: "ID de sortie/retour invalide ou manquant." });
+    }
+
+    const q = `
+        SELECT 
+            sr.id_sortie_retour, 
+            sr.type, 
+            sr.created_at, 
+            u.nom AS nom_agent, 
+            v.immatriculation,
+            m.nom_marque, 
+            cv.nom_cat,
+            c.nom AS nom_chauffeur
+        FROM sortie_retour sr
+        LEFT JOIN bande_sortie bs ON sr.id_bande_sortie = bs.id_bande_sortie
+        LEFT JOIN vehicules v ON bs.id_vehicule = v.id_vehicule
+        LEFT JOIN marque m ON v.id_marque = m.id_marque
+        LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+        LEFT JOIN chauffeurs c ON bs.id_chauffeur = c.id_chauffeur
+        INNER JOIN utilisateur u ON sr.id_agent = u.id_utilisateur
+        WHERE sr.id_sortie_retour = ?
+    `;
+
+    db.query(q, [id_sortie_retour], (error, data) => {
+        if (error) {
+            console.error("Erreur lors de la récupération :", error);
+            return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+        }
+
+        if (data.length === 0) {
+            return res.status(404).json({ message: "Aucune sortie/retour trouvée avec cet ID." });
+        }
+
+        return res.status(200).json(data[0]);
+    });
+};
