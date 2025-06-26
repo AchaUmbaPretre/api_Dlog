@@ -1886,9 +1886,15 @@ exports.putInspections = (req, res) => {
             UPDATE inspections 
             SET 
                 id_batiment = ?,
-                commentaire = ?,
                 id_cat_instruction = ?,
                 id_type_instruction = ?
+            WHERE id_inspection = ?
+        `;
+
+        const subQuery = `
+            UPDATE inspection_img 
+            SET 
+                commentaire = ?
             WHERE id_inspection = ?
         `;
 
@@ -1900,11 +1906,16 @@ exports.putInspections = (req, res) => {
                 return res.status(500).json({ error: 'Erreur lors de la mise à jour de l\'inspection.' });
             }
 
-            if (result.affectedRows === 0) {
-                return res.status(404).json({ error: 'Aucune inspection trouvée avec l\'ID fourni.' });
-            }
+            db.query(subQuery, [commentaire, id_inspection], (errorSub, resultSub) => {
+                if(errorSub) {
+                    console.error('Erreur lors de la mise à jour :', error);
+                    return res.status(500).json({ error: 'Erreur lors de la mise à jour de l\'inspection.' });
+                }
+                
+                return res.json({ message: 'Inspection mise à jour avec succès.' });
 
-            return res.json({ message: 'Inspection mise à jour avec succès.' });
+            })
+
         });
     } catch (err) {
         console.error('Erreur serveur :', err);

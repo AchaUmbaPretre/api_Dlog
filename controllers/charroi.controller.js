@@ -6159,54 +6159,6 @@ exports.getVehiculeCourseOne = (req, res) => {
 };
 
 //Sortie
-/* exports.getSortie = (req, res) => {
-
-    const q = `
-        SELECT 
-          ad.id_bande_sortie, 
-          ad.date_prevue,
-          ad.date_retour,
-          ad.personne_bord,
-          ad.commentaire,
-          mfd.nom_motif_demande,
-          ts.nom_type_statut,
-          tv.nom_type_vehicule,
-          sd.nom_service,
-          l.nom_destination,
-          c.nom, 
-          v.immatriculation, 
-          m.nom_marque
-        FROM bande_sortie ad
-          INNER JOIN 
-            chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
-          INNER JOIN 
-            vehicules v ON ad.id_vehicule = v.id_vehicule
-          INNER JOIN 
-            marque m ON m.id_marque = v.id_marque
-          LEFT JOIN 
-            modeles md ON v.id_modele = md.id_modele
-          INNER JOIN 
-            type_statut_suivi ts ON ad.statut = ts.id_type_statut_suivi
-          LEFT JOIN
-            type_vehicule tv ON ad.id_type_vehicule = tv.id_type_vehicule
-          LEFT JOIN 
-            motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
-          LEFT JOIN
-            service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
-          LEFT JOIN 
-            destination l ON ad.id_destination = l.id_destination
-            WHERE ad.statut = 2
-          ORDER BY ad.created_at DESC
-            `;
-
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    });
-}; */
-
 exports.getSortie = (req, res) => {
 
     const q = `
