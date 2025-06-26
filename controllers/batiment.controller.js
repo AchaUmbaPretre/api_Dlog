@@ -807,30 +807,6 @@ exports.getBinsOneV = (req, res) => {
     });
 };
 
-/* exports.postBins = (req, res) => {
-    const { id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut, adresse } = req.body;
-    const q = 'INSERT INTO bins (id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut) VALUES (?,?,?,?,?,?,?,?,?)';
-
-    const qAdresse = 'INSERT INTO adresse (adresse, id_bin) VALUES (?,?)';
-
-    db.query(q, [id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut], (err, result) => {
-        if (err) {
-            console.log(err);
-            return res.status(500).send('Erreur lors de la création de bins');
-        }
-
-        const id_bin = result.insertId;
-
-        db.query(qAdresse, [adresse, id_bin], (err, data) => {
-            if (err) {
-                console.log(err);
-                return res.status(500).send('Erreur lors de la création de l\'adresse');
-            }
-            res.status(201).send('Bins créé avec adresse');
-        });
-    });
-}; */
-
 exports.postBins = (req, res) => {
     const { id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut, adresse } = req.body;
     const q = 'INSERT INTO bins (id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut) VALUES (?,?,?,?,?,?,?,?,?)';
