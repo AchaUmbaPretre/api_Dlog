@@ -1871,57 +1871,51 @@ exports.putInspections = (req, res) => {
     const { id_inspection } = req.query;
     const { id_batiment, commentaire, id_cat_instruction, id_type_instruction } = req.body;
 
+    // Vérification des paramètres
     if (!id_inspection || isNaN(id_inspection)) {
-        return res.status(400).json({ error: 'L\'ID de l\'inspection fourni est invalide ou manquant.' });
+        return res.status(400).json({ error: "L'ID de l'inspection fourni est invalide ou manquant." });
     }
 
     if (!id_batiment || !id_cat_instruction || !id_type_instruction) {
         return res.status(400).json({ 
-            error: 'Les champs id_batiment, id_cat_instruction, et id_type_instruction sont obligatoires.' 
+            error: "Les champs id_batiment, id_cat_instruction et id_type_instruction sont obligatoires." 
         });
     }
 
-    try {
-        const query = `
-            UPDATE inspections 
-            SET 
-                id_batiment = ?,
-                id_cat_instruction = ?,
-                id_type_instruction = ?
-            WHERE id_inspection = ?
-        `;
+    const query = `
+        UPDATE inspections 
+        SET 
+            id_batiment = ?,
+            id_cat_instruction = ?,
+            id_type_instruction = ?
+        WHERE id_inspection = ?
+    `;
 
-        const subQuery = `
-            UPDATE inspection_img 
-            SET 
-                commentaire = ?
-            WHERE id_inspection = ?
-        `;
+    const subQuery = `
+        UPDATE inspection_img 
+        SET commentaire = ?
+        WHERE id_inspection = ?
+    `;
 
-        const values = [id_batiment, commentaire, id_cat_instruction, id_type_instruction, id_inspection];
+    // Première mise à jour dans la table `inspections`
+    db.query(query, [id_batiment, id_cat_instruction, id_type_instruction, id_inspection], (error, result) => {
+        if (error) {
+            console.error("Erreur lors de la mise à jour de l'inspection :", error);
+            return res.status(500).json({ error: "Erreur lors de la mise à jour de l'inspection." });
+        }
 
-        db.query(query, values, (error, result) => {
-            if (error) {
-                console.error('Erreur lors de la mise à jour :', error);
-                return res.status(500).json({ error: 'Erreur lors de la mise à jour de l\'inspection.' });
+        // Mise à jour du commentaire dans `inspection_img`
+        db.query(subQuery, [commentaire, id_inspection], (errorSub, resultSub) => {
+            if (errorSub) {
+                console.error("Erreur lors de la mise à jour du commentaire :", errorSub);
+                return res.status(500).json({ error: "Erreur lors de la mise à jour du commentaire." });
             }
 
-            db.query(subQuery, [commentaire, id_inspection], (errorSub, resultSub) => {
-                if(errorSub) {
-                    console.error('Erreur lors de la mise à jour :', error);
-                    return res.status(500).json({ error: 'Erreur lors de la mise à jour de l\'inspection.' });
-                }
-                
-                return res.json({ message: 'Inspection mise à jour avec succès.' });
-
-            })
-
+            return res.status(200).json({ message: "Inspection mise à jour avec succès." });
         });
-    } catch (err) {
-        console.error('Erreur serveur :', err);
-        return res.status(500).json({ error: 'Une erreur serveur est survenue.' });
-    }
+    });
 };
+
 
 exports.inspectionsTache = (req, res) => {
     const { id_inspection } = req.query;
