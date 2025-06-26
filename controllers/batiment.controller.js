@@ -810,36 +810,77 @@ exports.getBinsOneV = (req, res) => {
 
 exports.postBins = (req, res) => {
     const { id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut, adresse } = req.body;
-    const q = 'INSERT INTO bins (id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut) VALUES (?,?,?,?,?,?,?,?,?)';
+
+    const qBin = 'INSERT INTO bins (id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut) VALUES (?,?,?,?,?,?,?,?,?)';
     const qAdresse = 'INSERT INTO adresse (adresse, id_bin) VALUES (?,?)';
 
-    // Exécution de la requête d'insertion pour la table 'bins'
-    db.query(q, [id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut], (err, result) => {
-        if (err) {
-            console.log(err);
-            return res.status(500).send('Erreur lors de la création de bins');
+    db.getConnection((connErr, connection) => {
+        if (connErr) {
+            console.error('Erreur de connexion à la base de données :', connErr);
+            return res.status(500).send('Erreur de connexion');
         }
 
-        // Récupération de l'ID du bin nouvellement créé
-        const id_bin = result.insertId;
+        connection.beginTransaction((err) => {
+            if (err) {
+                console.error('Erreur lors du début de la transaction :', err);
+                connection.release();
+                return res.status(500).send("Erreur lors de l'initialisation de la transaction");
+            }
 
-        // Vérification si l'adresse est fournie dans le corps de la requête
-        if (adresse && adresse.trim() !== "") {
-            // Si une adresse est fournie, on effectue l'insertion
-            db.query(qAdresse, [adresse, id_bin], (err, data) => {
+            // Étape 1 : Insertion dans bins
+            connection.query(qBin, [id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut], (err, result) => {
                 if (err) {
-                    console.log(err);
-                    return res.status(500).send('Erreur lors de la création de l\'adresse');
+                    console.error('Erreur lors de l\'insertion dans bins :', err);
+                    return connection.rollback(() => {
+                        connection.release();
+                        res.status(500).send('Erreur lors de la création du bin');
+                    });
                 }
-                // Si l'insertion de l'adresse réussit
-                res.status(201).send('Bins créé avec adresse');
+
+                const id_bin = result.insertId;
+
+                // Étape 2 : Adresse (si fournie)
+                if (adresse && adresse.trim() !== "") {
+                    connection.query(qAdresse, [adresse, id_bin], (err) => {
+                        if (err) {
+                            console.error('Erreur lors de l\'insertion de l\'adresse :', err);
+                            return connection.rollback(() => {
+                                connection.release();
+                                res.status(500).send('Erreur lors de la création de l\'adresse');
+                            });
+                        }
+
+                        // Commit
+                        connection.commit((err) => {
+                            connection.release();
+                            if (err) {
+                                console.error('Erreur lors du commit :', err);
+                                return connection.rollback(() => {
+                                    res.status(500).send('Erreur lors de la validation de la transaction');
+                                });
+                            }
+                            res.status(201).send('Bin créé avec adresse');
+                        });
+                    });
+
+                } else {
+                    // Pas d'adresse à insérer
+                    connection.commit((err) => {
+                        connection.release();
+                        if (err) {
+                            console.error('Erreur lors du commit :', err);
+                            return connection.rollback(() => {
+                                res.status(500).send('Erreur lors de la validation de la transaction');
+                            });
+                        }
+                        res.status(201).send('Bin créé sans adresse');
+                    });
+                }
             });
-        } else {
-            // Si l'adresse n'est pas fournie, on répond simplement
-            res.status(201).send('Bins créé sans adresse');
-        }
+        });
     });
 };
+
 
 exports.deleteUpdatedBins = (req, res) => {
     const { id } = req.query;
