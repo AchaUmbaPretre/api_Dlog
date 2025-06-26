@@ -6103,7 +6103,7 @@ exports.getVehiculeCourseOne = (req, res) => {
   const { id_bande_sortie } = req.query;
 
     const q = `
-        SELECT 
+          SELECT 
           ad.id_bande_sortie, 
           ad.date_prevue,
           ad.date_retour,
@@ -6111,12 +6111,14 @@ exports.getVehiculeCourseOne = (req, res) => {
           ad.commentaire,
           mfd.nom_motif_demande,
           ts.nom_type_statut,
-          cv.nom_cat,
+          tv.nom_type_vehicule,
           sd.nom_service,
           l.nom_destination,
           c.nom, 
           v.immatriculation, 
-          m.nom_marque
+          m.nom_marque,
+          u.nom AS personne_signe,
+          u.role
         FROM bande_sortie ad
           INNER JOIN 
             chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
@@ -6128,15 +6130,20 @@ exports.getVehiculeCourseOne = (req, res) => {
             modeles md ON v.id_modele = md.id_modele
           INNER JOIN 
             type_statut_suivi ts ON ad.statut = ts.id_type_statut_suivi
-          LEFT JOIN 
-          	cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+          LEFT JOIN
+            type_vehicule tv ON ad.id_type_vehicule = tv.id_type_vehicule
           LEFT JOIN 
             motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
           LEFT JOIN
             service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
           LEFT JOIN 
             destination l ON ad.id_destination = l.id_destination
-            WHERE ad.id_bande = ?
+          LEFT JOIN 
+          	validation_demande vd ON ad.id_bande_sortie = vd.id_bande_sortie
+          LEFT JOIN 
+          	utilisateur u ON vd.validateur_id = u.id_utilisateur
+            WHERE ad.id_bande_sortie = ?
+          GROUP BY u.id_utilisateur
           ORDER BY ad.created_at DESC
             `;
 
