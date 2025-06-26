@@ -744,26 +744,55 @@ exports.putEntrepot = async (req, res) => {
 
 //BINS
 exports.getBins = (req, res) => {
+    const { search } = req.query;
 
-    const q = `
-                SELECT bins.id, bins.id_batiment, bins.nom, bins.superficie, 
-                    bins.longueur, bins.largeur, bins.hauteur, 
-                    bins.capacite, statut_bins.nom_statut_bins AS statut, 
-                    type_stockage_bins.nom_stockage AS type_stockage,
-                    batiment.nom_batiment
-                FROM bins
-                    INNER JOIN statut_bins ON bins.statut = statut_bins.id_statut_bins
-                    INNER JOIN type_stockage_bins ON bins.type_stockage = type_stockage_bins.id_type_stockage_bins
-                    INNER JOIN batiment ON bins.id_batiment = batiment.id_batiment
-                    WHERE bins.est_supprime = 0
-                    ORDER BY bins.date_creation DESC
-            `;
+    let q = `
+        SELECT 
+            bins.id, bins.id_batiment, bins.nom, bins.superficie, 
+            bins.longueur, bins.largeur, bins.hauteur, 
+            bins.capacite, statut_bins.nom_statut_bins AS statut, 
+            type_stockage_bins.nom_stockage AS type_stockage,
+            batiment.nom_batiment
+        FROM bins
+        INNER JOIN statut_bins ON bins.statut = statut_bins.id_statut_bins
+        INNER JOIN type_stockage_bins ON bins.type_stockage = type_stockage_bins.id_type_stockage_bins
+        INNER JOIN batiment ON bins.id_batiment = batiment.id_batiment
+        WHERE bins.est_supprime = 0
+    `;
+
+    if (search) {
+        const escapedSearch = db.escape(`%${search}%`);
+        q += ` AND (bins.nom LIKE ${escapedSearch} OR batiment.nom_batiment LIKE ${escapedSearch})`;
+    }
+
+    q += ` ORDER BY bins.date_creation DESC`;
+
+    const qSQL = `
+        SELECT 
+            SUM(b.superficie) AS total_superficie, 
+            SUM(b.longueur) AS total_longueur, 
+            SUM(b.largeur) AS total_largeur, 
+            SUM(b.hauteur) AS total_hauteur, 
+            SUM(b.capacite) AS total_capacite 
+        FROM bins b 
+        WHERE b.est_supprime = 0
+    `;
 
     db.query(q, (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
-        return res.status(200).json(data);
+
+        db.query(qSQL, (errorSub, dataSub) => {
+            if (errorSub) {
+                return res.status(500).send(errorSub);
+            }
+
+            return res.status(200).json({
+                data: data,
+                statistiques: dataSub[0]
+            });
+        });
     });
 };
 
