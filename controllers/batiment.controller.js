@@ -756,6 +756,7 @@ exports.getBins = (req, res) => {
                     INNER JOIN type_stockage_bins ON bins.type_stockage = type_stockage_bins.id_type_stockage_bins
                     INNER JOIN batiment ON bins.id_batiment = batiment.id_batiment
                     WHERE bins.est_supprime = 0
+                    ORDER BY bins.date_creation DESC
             `;
 
     db.query(q, (error, data) => {
