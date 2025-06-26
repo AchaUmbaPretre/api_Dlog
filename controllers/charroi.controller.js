@@ -5613,12 +5613,12 @@ exports.getAffectationDemande = (req, res) => {
           ad.commentaire, 
           mfd.nom_motif_demande,
           ts.nom_type_statut,
-          tv.nom_type_vehicule,
           sd.nom_service,
           l.nom_destination,
           c.nom, 
           v.immatriculation, 
-          m.nom_marque
+          m.nom_marque,
+          cv.nom_cat
         FROM affectation_demande ad
           INNER JOIN 
             chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
@@ -5628,10 +5628,10 @@ exports.getAffectationDemande = (req, res) => {
             marque m ON m.id_marque = v.id_marque
           LEFT JOIN 
             modeles md ON v.id_modele = md.id_modele
+          LEFT JOIN 
+          	cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
           INNER JOIN 
             type_statut_suivi ts ON ad.statut = ts.id_type_statut_suivi
-          LEFT JOIN
-            type_vehicule tv ON ad.id_type_vehicule = tv.id_type_vehicule
           LEFT JOIN 
             motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
           LEFT JOIN
@@ -5833,7 +5833,7 @@ exports.getBandeSortie = (req, res) => {
           ad.commentaire, 
           mfd.nom_motif_demande,
           ts.nom_type_statut,
-          tv.nom_type_vehicule,
+          cv.nom_cat,
           sd.nom_service,
           l.nom_destination,
           c.nom, 
@@ -5850,8 +5850,8 @@ exports.getBandeSortie = (req, res) => {
             modeles md ON v.id_modele = md.id_modele
           INNER JOIN 
             type_statut_suivi ts ON ad.statut = ts.id_type_statut_suivi
-          LEFT JOIN
-            type_vehicule tv ON ad.id_type_vehicule = tv.id_type_vehicule
+          LEFT JOIN 
+          	cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
           LEFT JOIN 
             motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
           LEFT JOIN
@@ -6062,7 +6062,7 @@ exports.getVehiculeCourse = (req, res) => {
           ad.commentaire,
           mfd.nom_motif_demande,
           ts.nom_type_statut,
-          tv.nom_type_vehicule,
+          cv.nom_cat,
           sd.nom_service,
           l.nom_destination,
           c.nom, 
@@ -6079,8 +6079,8 @@ exports.getVehiculeCourse = (req, res) => {
             modeles md ON v.id_modele = md.id_modele
           INNER JOIN 
             type_statut_suivi ts ON ad.statut = ts.id_type_statut_suivi
-          LEFT JOIN
-            type_vehicule tv ON ad.id_type_vehicule = tv.id_type_vehicule
+          LEFT JOIN 
+          	cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
           LEFT JOIN 
             motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
           LEFT JOIN
