@@ -881,7 +881,6 @@ exports.postBins = (req, res) => {
     });
 };
 
-
 exports.deleteUpdatedBins = (req, res) => {
     const { id } = req.query;
 
@@ -896,7 +895,7 @@ exports.deleteUpdatedBins = (req, res) => {
         
       return res.json(data);
     });
-  }
+};
 
 exports.putBins = async (req, res) => {
     const { id } = req.query;
@@ -934,7 +933,7 @@ exports.putBins = async (req, res) => {
         console.error("Error updating bins:", err);
         return res.status(500).json({ error: 'Failed to update bins record' });
     }
-}
+};
 
 //Maintenance Bins
 exports.getMaintenanceBin = (req, res) => {
@@ -1038,7 +1037,7 @@ exports.postBureaux = (req, res) => {
       }
       res.status(200).send('Bureau ajouté avec succès');
     });
-  };
+};
 
 exports.putBureaux = (req, res) => {
     const { id_bureau } = req.query;
@@ -1074,7 +1073,7 @@ exports.putBureaux = (req, res) => {
         console.error("Error updating Bureau:", err);
         return res.status(500).json({ error: 'Failed to update bureau record' });
     }
-}
+};
 
 exports.deleteUpdateBureaux = (req, res) => {
     const {id} = req.query;
@@ -1088,7 +1087,7 @@ exports.deleteUpdateBureaux = (req, res) => {
       return res.json(data);
     });
   
-  }
+};
 
 //Niveau batiment
 exports.getNiveauCount = (req, res) => {
@@ -1129,6 +1128,7 @@ exports.getNiveau = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
 exports.getNiveauOneV = (req, res) => {
     const {id_niveau} = req.query;
 
@@ -1230,7 +1230,7 @@ exports.putNiveau = (req, res) => {
         console.error("Error updating niveau:", err);
         return res.status(500).json({ error: 'Failed to update bins record' });
     }
-}
+};
 
 exports.deleteUpdateNiveau = (req, res) => {
     const {id} = req.query;
