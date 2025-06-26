@@ -199,4 +199,8 @@ router.post('/retour_vehicule', charroiController.postRetour)
 router.get('/visiteur_vehicule', charroiController.getVisiteur)
 router.post('/visiteur_vehicule', charroiController.postVisiteur)
 
+//Liste de sortie et entree
+router.get('/sortie_entree', charroiController.getEntreeSortie)
+router.get('/sortie_entreeOne', charroiController.getEntreeSortieOne)
+
 module.exports = router;
