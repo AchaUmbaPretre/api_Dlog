@@ -254,11 +254,34 @@ exports.getSociete =  async (req, res) => {
   })
 };
 
+exports.getSocieteOne =  async (req, res) => {
+  const { id_societe } = req.query;
+
+  if(!id_societe) {
+    return res.status(400).json({ message: "L'identifiant est requis"})
+  }
+
+  const q = `
+            SELECT 
+              * 
+            FROM 
+              societes
+            WHERE 
+              id_societe = ?
+            `
+  db.query(q, [id_societe], (err, result) => {
+    if(err) {
+      console.error("Erreur lors de la récupération de société :", err);
+      return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+    }
+    return res.status(200).json(result);
+  })
+};
+
 exports.postSociete = async (req, res) => {
   try {
     const { nom_societe, adresse, rccm, nif, telephone, email, logo } = req.body;
 
-    // Validation basique
     if (!nom_societe) {
       return res.status(400).json({ error: "Le champ 'nom_societe' est requis." });
     }
@@ -266,7 +289,6 @@ exports.postSociete = async (req, res) => {
       return res.status(400).json({ error: "Le champ 'logo' est requis." });
     }
 
-    // Extraction et vérification du base64
     const matches = logo.match(/^data:image\/(png|jpeg|jpg);base64,(.+)$/);
     if (!matches) {
       throw new Error("Format du logo invalide. Assurez-vous qu'il soit en base64 PNG ou JPEG.");

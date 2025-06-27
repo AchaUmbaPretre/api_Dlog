@@ -32,6 +32,7 @@ router.post('/signature', upload.any(),userController.postSignature);
 
 //Société
 router.get('/societe', userController.getSociete);
+router.get('/societeOne', userController.getSocieteOne);
 router.post('/societe', upload.any(),userController.postSociete);
 
 module.exports = router;
