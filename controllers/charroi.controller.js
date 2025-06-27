@@ -5906,7 +5906,7 @@ exports.getBandeSortieOne = (req, res) => {
                 LEFT JOIN 
                   destination l ON bs.id_destination = l.id_destination
                 WHERE 
-                id_bande_sortie = ?
+                bs.id_bande_sortie = ?
             `;
 
     db.query(q, [id_bande_sortie], (error, data) => {
@@ -5945,11 +5945,12 @@ exports.postBandeSortie = (req, res) => {
           id_destination,
           personne_bord,
           commentaire,
+          id_societe,
           user_cr
         } = req.body;
 
         // Vérification des champs obligatoires
-        if (!id_vehicule || !id_chauffeur || !user_cr || !date_prevue) {
+        if (!id_vehicule || !id_chauffeur || !user_cr || !date_prevue || !id_societe) {
           throw new Error("Champs requis manquants.");
         }
 
@@ -5969,8 +5970,9 @@ exports.postBandeSortie = (req, res) => {
             statut,
             personne_bord,
             commentaire,
+            id_societe,
             user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const bonValues = [
@@ -5987,6 +5989,7 @@ exports.postBandeSortie = (req, res) => {
           11,
           personne_bord || '',
           commentaire || '',
+          id_societe,
           user_cr
         ];
 
@@ -6119,7 +6122,14 @@ exports.getVehiculeCourseOne = (req, res) => {
             m.nom_marque,
             u.nom AS personne_signe,
             u.role,
-            s.signature
+            s.signature,
+            st.nom_societe,
+            st.adresse,
+            st.rccm,
+            st.nif,
+            st.telephone,
+            st.email,
+            st.logo
           FROM bande_sortie ad
             INNER JOIN 
               chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
@@ -6145,6 +6155,8 @@ exports.getVehiculeCourseOne = (req, res) => {
               utilisateur u ON vd.validateur_id = u.id_utilisateur
             LEFT JOIN 
               signature s ON u.id_utilisateur = s.userId
+            LEFT JOIN 
+              societes st ON ad.id_societe = st.id_societe
             WHERE ad.id_bande_sortie = ?
           GROUP BY u.id_utilisateur
           ORDER BY ad.created_at DESC
