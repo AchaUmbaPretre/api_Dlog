@@ -30,4 +30,8 @@ router.delete('/:id', userController.deleteUser)
 router.get('/signature', userController.getSignature);
 router.post('/signature', upload.any(),userController.postSignature);
 
+//Société
+router.get('/societe', userController.getSociete);
+router.post('/societe', upload.any(),userController.postSociete);
+
 module.exports = router;
