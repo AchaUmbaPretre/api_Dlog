@@ -235,3 +235,59 @@ exports.postSignature = async (req, res) => {
         });
     }
 };
+
+//Société
+exports.getSociete =  async (req, res) => {
+
+  const q = `
+            SELECT 
+              * 
+            FROM 
+              societes
+            `
+  db.query(q, (err, result) => {
+    if(err) {
+      console.error("Erreur lors de la récupération de société :", err);
+      return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+    }
+    return res.status(200).json(result);
+  })
+};
+
+exports.postSociete = async (req, res) => {
+    try {
+        const { nom_societe, adresse, rccm, nif, telephone, email, logo } = req.body;
+
+        if (!nom_societe) {
+            return res.status(400).json({ error: "Les champs 'userId' et 'signature' sont requis." });
+        }
+
+        const matches = logo.match(/^data:image\/png;base64,(.+)$/);
+          if (!matches) {
+            throw new Error("Format du logo invalide.");
+          }
+        
+          const base64Data = matches[1];
+          const filename = `logo-${uuidv4()}.png`;
+          const filePath = path.join(__dirname, '../public/uploads/', filename);
+          const relativePath = `public/uploads/${filename}`;
+        
+          fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+        
+
+        const query = 'INSERT INTO societes (nom_societe, adresse, rccm, nif, telephone, email, logo) VALUES (?, ?, ?, ?, ?, ? , ?)';
+        const values = [nom_societe, adresse, rccm, nif, telephone, email, relativePath];
+
+        await db.query(query, values);
+
+        return res.status(201).json({ message: 'Société a été enregistrée avec succès.' });
+
+    } catch (error) {
+        console.error('Erreur dans Société:', error);
+
+        return res.status(500).json({
+            error: "Une erreur s'est produite lors de l'ajout de société.",
+            details: error?.message || null,
+        });
+    }
+};
