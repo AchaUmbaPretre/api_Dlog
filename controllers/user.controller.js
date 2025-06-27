@@ -255,39 +255,50 @@ exports.getSociete =  async (req, res) => {
 };
 
 exports.postSociete = async (req, res) => {
-    try {
-        const { nom_societe, adresse, rccm, nif, telephone, email, logo } = req.body;
+  try {
+    const { nom_societe, adresse, rccm, nif, telephone, email, logo } = req.body;
 
-        if (!nom_societe) {
-            return res.status(400).json({ error: "Les champs 'userId' et 'signature' sont requis." });
-        }
-
-        const matches = logo.match(/^data:image\/png;base64,(.+)$/);
-          if (!matches) {
-            throw new Error("Format du logo invalide.");
-          }
-        
-          const base64Data = matches[1];
-          const filename = `logo-${uuidv4()}.png`;
-          const filePath = path.join(__dirname, '../public/uploads/', filename);
-          const relativePath = `public/uploads/${filename}`;
-        
-          fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
-        
-
-        const query = 'INSERT INTO societes (nom_societe, adresse, rccm, nif, telephone, email, logo) VALUES (?, ?, ?, ?, ?, ? , ?)';
-        const values = [nom_societe, adresse, rccm, nif, telephone, email, relativePath];
-
-        await db.query(query, values);
-
-        return res.status(201).json({ message: 'Société a été enregistrée avec succès.' });
-
-    } catch (error) {
-        console.error('Erreur dans Société:', error);
-
-        return res.status(500).json({
-            error: "Une erreur s'est produite lors de l'ajout de société.",
-            details: error?.message || null,
-        });
+    // Validation basique
+    if (!nom_societe) {
+      return res.status(400).json({ error: "Le champ 'nom_societe' est requis." });
     }
+    if (!logo) {
+      return res.status(400).json({ error: "Le champ 'logo' est requis." });
+    }
+
+    // Extraction et vérification du base64
+    const matches = logo.match(/^data:image\/(png|jpeg|jpg);base64,(.+)$/);
+    if (!matches) {
+      throw new Error("Format du logo invalide. Assurez-vous qu'il soit en base64 PNG ou JPEG.");
+    }
+
+    const extension = matches[1]; // png, jpeg...
+    const base64Data = matches[2];
+
+    // Génération du chemin et nom de fichier
+    const filename = `logo-${uuidv4()}.${extension}`;
+    const filePath = path.join(__dirname, '../public/uploads/', filename);
+    const relativePath = `public/uploads/${filename}`;
+
+    // Enregistrement du fichier sur le disque
+    fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+
+    // Enregistrement en base de données
+    const query = `
+      INSERT INTO societes (nom_societe, adresse, rccm, nif, telephone, email, logo)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+    const values = [nom_societe, adresse, rccm, nif, telephone, email, relativePath];
+
+    await db.query(query, values);
+
+    return res.status(201).json({ message: 'Société enregistrée avec succès.' });
+  } catch (error) {
+    console.error('Erreur dans Société:', error);
+
+    return res.status(500).json({
+      error: "Une erreur s'est produite lors de l'enregistrement.",
+      details: error?.message || null,
+    });
+  }
 };
