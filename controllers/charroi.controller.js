@@ -6501,9 +6501,18 @@ exports.getVisiteur = (req, res) => {
 
     const q = `
         SELECT 
-          rv.*
+          rv.id_registre_visiteur,
+          rv.immatriculation,
+          rv.nom_chauffeur,
+          md.nom_motif_demande AS nom_motif,
+          u.nom,
+          rv.created_at
         FROM 
         registre_visiteur rv
+        INNER JOIN 
+        	motif_demande md ON rv.id_motif = md.id_motif_demande
+        LEFT JOIN	
+        	utilisateur u ON rv.user_cr = u.id_utilisateur
           ORDER BY rv.created_at DESC
             `;
 
