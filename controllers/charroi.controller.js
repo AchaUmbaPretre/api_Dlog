@@ -6533,7 +6533,8 @@ exports.postVisiteur = (req, res) => {
         const {
           immatriculation,
           nom_chauffeur,
-          id_motif
+          id_motif,
+          user_cr
         } = req.body;
 
         if (!immatriculation || !nom_chauffeur) {
@@ -6544,13 +6545,15 @@ exports.postVisiteur = (req, res) => {
           INSERT INTO registre_visiteur (
             immatriculation,
             nom_chauffeur,
-            id_motif
-          ) VALUES (?, ?, ?)
+            id_motif,
+            user_cr
+          ) VALUES (?, ?, ?, ?)
         `
         const values = [
           immatriculation,
           nom_chauffeur,
-          id_motif
+          id_motif,
+          user_cr
         ]
 
         await queryPromise(connection, insertSQL, values);
