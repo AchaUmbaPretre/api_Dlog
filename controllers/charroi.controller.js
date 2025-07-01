@@ -5986,7 +5986,7 @@ exports.postBandeSortie = (req, res) => {
           id_demandeur || null,
           id_client || null,
           id_destination || null,
-          12,
+          2,
           personne_bord || '',
           commentaire || '',
           id_societe,
@@ -6213,7 +6213,7 @@ exports.getSortie = (req, res) => {
           	validation_demande vd ON ad.id_bande_sortie = vd.id_bande_sortie
           LEFT JOIN 
           	utilisateur u ON vd.validateur_id = u.id_utilisateur
-            WHERE ad.statut = 12
+            WHERE ad.statut = 2
           GROUP BY u.id_utilisateur
           ORDER BY ad.created_at DESC
             `;
