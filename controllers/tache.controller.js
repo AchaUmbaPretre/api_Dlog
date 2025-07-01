@@ -1672,8 +1672,9 @@ exports.postTache = async (req, res) => {
       nom_tache, description, statut = 1, date_debut, date_fin, priorite,
       id_tache_parente, id_departement, id_client, id_frequence, id_control,
       id_projet, id_point_supervision, responsable_principal, id_demandeur,
-      id_batiment, id_ville, id_cat_tache, id_corps_metier, doc, user_cr, categories
+      id_batiment, id_ville, id_cat_tache, id_corps_metier, doc, user_cr, categories, idInspection
     } = req.body;
+
 
     if (!nom_tache || !user_cr) {
       connection.release();
@@ -1719,6 +1720,12 @@ exports.postTache = async (req, res) => {
     const taskResult = await queryPromise(connection, insertTaskQuery, taskValues);
     const taskId = taskResult.insertId;
 
+    //Inspection
+    if(idInspection) {
+        const inspectionQuery = `UPDATE inspections SET id_tache = ? WHERE id_inspection = ?`;
+            await queryPromise(connection, inspectionQuery, [taskId, idInspection]);
+
+    }
     // Audit logs
     const auditLogQuery = `
       INSERT INTO audit_logs (action, user_id, id_tache, timestamp)
