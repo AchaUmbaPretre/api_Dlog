@@ -5986,7 +5986,7 @@ exports.postBandeSortie = (req, res) => {
           id_demandeur || null,
           id_client || null,
           id_destination || null,
-          11,
+          12,
           personne_bord || '',
           commentaire || '',
           id_societe,
@@ -6090,7 +6090,7 @@ exports.getVehiculeCourse = (req, res) => {
             service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
           LEFT JOIN 
             destination l ON ad.id_destination = l.id_destination
-            WHERE ad.statut != 11
+            WHERE ad.statut = 13
           ORDER BY ad.created_at DESC
             `;
 
@@ -6213,7 +6213,7 @@ exports.getSortie = (req, res) => {
           	validation_demande vd ON ad.id_bande_sortie = vd.id_bande_sortie
           LEFT JOIN 
           	utilisateur u ON vd.validateur_id = u.id_utilisateur
-            WHERE ad.statut = 2
+            WHERE ad.statut = 12
           GROUP BY u.id_utilisateur
           ORDER BY ad.created_at DESC
             `;
@@ -6269,7 +6269,7 @@ exports.postSortie = (req, res) => {
         const [insertResult] = await queryPromise(connection, insertSQL, values);
         const insertId = insertResult.insertId;
 
-        const updateSQL = `UPDATE bande_sortie SET statut = 12 WHERE  id_bande_sortie = ?`;
+        const updateSQL = `UPDATE bande_sortie SET statut = 13 WHERE  id_bande_sortie = ?`;
 
         await queryPromise(connection, updateSQL, [id_bande_sortie]);
 
@@ -6387,7 +6387,7 @@ exports.getRetour = (req, res) => {
             service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
           LEFT JOIN 
             destination l ON ad.id_destination = l.id_destination
-            WHERE ad.statut = 12
+            WHERE ad.statut = 13
           ORDER BY ad.created_at DESC
             `;
 
@@ -6444,7 +6444,7 @@ exports.postRetour = (req, res) => {
         const [insertResult] = await queryPromise(connection, insertSQL, values);
         const insertId = insertResult.insertId;
 
-        const updateSQL = `UPDATE bande_sortie SET statut = 13 WHERE  id_bande_sortie = ?`;
+        const updateSQL = `UPDATE bande_sortie SET statut = 14 WHERE  id_bande_sortie = ?`;
 
         await queryPromise(connection, updateSQL, [id_bande_sortie]);
 
