@@ -5877,13 +5877,13 @@ exports.getBandeSortieOne = (req, res) => {
     }
 
     const q = `
-              SELECT bs.*, 
+             SELECT bs.*, 
                 v.immatriculation, 
                 m.nom_marque, 
                 ml.modele, 
                 sd.nom_service, 
                 c.nom AS nom_chauffeur, 
-                tv.nom_type_vehicule,
+                cv.nom_cat AS nom_type_vehicule,
                 md.nom_motif_demande
                 FROM 
                 bande_sortie bs
@@ -5895,10 +5895,10 @@ exports.getBandeSortieOne = (req, res) => {
                   modeles ml ON v.id_modele = ml.id_modele
                 LEFT JOIN
                   service_demandeur sd ON bs.id_demandeur = sd.id_service_demandeur
-                INNER JOIN 
+                LEFT JOIN 
                   chauffeurs c ON bs.id_chauffeur = c.id_chauffeur
                 INNER JOIN 
-                  type_vehicule tv ON bs.id_type_vehicule = tv.id_type_vehicule
+                  cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
                 INNER JOIN 
                   motif_demande md ON bs.id_motif_demande = md.id_motif_demande
                 LEFT JOIN 
