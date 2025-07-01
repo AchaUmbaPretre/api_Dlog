@@ -6114,7 +6114,7 @@ exports.getVehiculeCourseOne = (req, res) => {
             ad.commentaire,
             mfd.nom_motif_demande,
             ts.nom_type_statut,
-            tv.nom_type_vehicule,
+            cv.nom_cat AS nom_type_vehicule,
             sd.nom_service,
             l.nom_destination,
             c.nom, 
@@ -6135,6 +6135,8 @@ exports.getVehiculeCourseOne = (req, res) => {
               chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
             INNER JOIN 
               vehicules v ON ad.id_vehicule = v.id_vehicule
+            INNER JOIN 
+            cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule 
             INNER JOIN 
               marque m ON m.id_marque = v.id_marque
             LEFT JOIN 

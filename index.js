@@ -26,6 +26,11 @@ const rapportRoutes = require('./routes/rapport.routes');
 const charroiRoutes = require('./routes/charroi.routes');
 const transporteurRoutes = require('./routes/transporteur.routes');
 
+const https = require('https');
+const http = require('http');
+const { URL } = require('url');
+
+
 const app = express();
 
 dotenv.config();
@@ -83,6 +88,36 @@ app.use('/api/template', templateRoutes)
 app.use('/api/rapport', rapportRoutes)
 app.use('/api/charroi', charroiRoutes)
 app.use('/api/transporteur', transporteurRoutes)
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+
+app.get('/api/image-proxy', (req, res) => {
+  const imageUrl = req.query.url;
+  if (!imageUrl) {
+    return res.status(400).send('URL manquante');
+  }
+
+  try {
+    const parsedUrl = new URL(imageUrl);
+    const client = parsedUrl.protocol === 'https:' ? https : http;
+
+    client.get(imageUrl, (imageRes) => {
+      if (imageRes.statusCode !== 200) {
+        res.status(imageRes.statusCode).send(`Erreur: ${imageRes.statusCode}`);
+        return;
+      }
+
+      res.setHeader('Content-Type', imageRes.headers['content-type'] || 'image/*');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      imageRes.pipe(res);
+    }).on('error', (err) => {
+      console.error('Erreur proxy image:', err.message);
+      res.status(500).send('Erreur proxy');
+    });
+  } catch (error) {
+    console.error('URL invalide:', error.message);
+    res.status(400).send('URL invalide');
+  }
+});
 
 app.listen(port, () => {
     console.log(
