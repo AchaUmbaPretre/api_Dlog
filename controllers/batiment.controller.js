@@ -750,7 +750,7 @@ exports.getBins = (req, res) => {
         SELECT 
             bins.id, bins.id_batiment, bins.nom, bins.superficie, 
             bins.longueur, bins.largeur, bins.hauteur, 
-            bins.capacite, statut_bins.nom_statut_bins AS statut, 
+            bins.capacite, bins.superfice_sol, bins.volume_m3, statut_bins.nom_statut_bins AS statut, 
             type_stockage_bins.nom_stockage AS type_stockage,
             batiment.nom_batiment
         FROM bins
@@ -809,7 +809,7 @@ exports.getBinsOne = (req, res) => {
     const q = `
                 SELECT bins.id, bins.id_batiment, bins.nom, bins.superficie, 
                     bins.longueur, bins.largeur, bins.hauteur, 
-                    bins.capacite, statut_bins.nom_statut_bins AS statut, 
+                    bins.capacite, bins.superfice_sol, bins.volume_m3, statut_bins.nom_statut_bins AS statut, 
                     type_stockage_bins.nom_stockage AS type_stockage,
                     batiment.nom_batiment
                 FROM bins
@@ -919,8 +919,6 @@ exports.postBins = (req, res) => {
 
 exports.deleteUpdatedBins = (req, res) => {
     const { id } = req.query;
-
-    console.log(id)
   
     const q = "UPDATE bins SET est_supprime = 1 WHERE id = ?";
   
@@ -935,7 +933,7 @@ exports.deleteUpdatedBins = (req, res) => {
 
 exports.putBins = async (req, res) => {
     const { id } = req.query;
-    const { nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut} = req.body;
+    const { nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut, superfice_sol, volume_m3 } = req.body;
 
     if (!id || isNaN(id)) {
         return res.status(400).json({ error: 'ID de bins fourni non valide' });
@@ -952,11 +950,13 @@ exports.putBins = async (req, res) => {
                 hauteur = ?,
                 capacite = ?,
                 type_stockage = ?,
-                statut = ?
+                statut = ?,
+                superfice_sol = ?, 
+                volume_m3 = ?
             WHERE id = ?
         `;
       
-        const values = [nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut, id]
+        const values = [nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut, superfice_sol, volume_m3, id]
 
         db.query(q, values, (error, data)=>{
             if(error){
