@@ -408,3 +408,43 @@ exports.postVisiteurPieton = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du personnel." });
     }
 };
+
+//Visiteurs_véhicule
+exports.getVisiteurVehicule=  async (req, res) => {
+
+  const q = `
+            SELECT 
+              *
+            FROM 
+              visiteur_vehicules
+            `
+  db.query(q, (err, result) => {
+    if(err) {
+      console.error("Erreur lors de la récupération de visiteur pieton :", err);
+      return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+    }
+    return res.status(200).json(result);
+  })
+};
+
+exports.postVisiteurVehicule = async (req, res) => {
+    try {
+        
+        const q = 'INSERT INTO visiteur_vehicules(`immatriculation`, `type_vehicule`, `id_chauffeur`, `proprietaire`, `motif`, `entreprise`,`vehicule_connu`) VALUES(?,?,?,?,?,?)';
+
+        const values = [
+            req.body.immatriculation,
+            req.body.type_vehicule,
+            req.body.id_chauffeur,
+            req.body.proprietaire,
+            req.body.motif,
+            req.body.entreprise
+        ];
+
+        await db.query(q, values);
+        return res.status(201).json({ message: 'Visiteur vehiculé a été ajouté avec succès'});
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout du nouveau personnel:', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du personnel." });
+    }
+};
