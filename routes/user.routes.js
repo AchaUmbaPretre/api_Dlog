@@ -36,8 +36,8 @@ router.get('/societeOne', userController.getSocieteOne);
 router.post('/societe', upload.any(),userController.postSociete);
 
 //Personnel
-router.get('/personnel', userController.getSociete);
-router.post('/personnel', upload.any(),userController.postSociete);
+router.get('/personnel', userController.getPersonnel);
+router.post('/personnel', userController.postPersonnel);
 
 
 module.exports = router;

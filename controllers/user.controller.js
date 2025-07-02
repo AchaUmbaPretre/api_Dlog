@@ -330,9 +330,15 @@ exports.getPersonnel =  async (req, res) => {
 
   const q = `
             SELECT 
-              * 
+              p.id_personnel,
+              p.nom,
+              p.prenom,
+              p.matricule,
+              d.nom_departement
             FROM 
-              personnel
+              personnel p
+              LEFT JOIN 
+              	departement d ON p.id_departement = d.id_departement
             `
   db.query(q, (err, result) => {
     if(err) {
