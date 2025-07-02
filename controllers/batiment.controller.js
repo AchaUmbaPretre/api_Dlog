@@ -1545,7 +1545,6 @@ exports.postAdresse = (req, res) => {
     return res.status(400).json({ error: "Au moins une adresse est requise." });
   }
 
-  // Format attendu : [adresse, id_bin, superficie_sol, volume_m3]
   const values = adresses.map(({ adresse, superficie_sol, volume_m3 }) => [
     adresse,
     id_bin,
@@ -1553,7 +1552,7 @@ exports.postAdresse = (req, res) => {
     volume_m3
   ]);
 
-  const query = 'INSERT INTO adresse (adresse, id_bin, superficie_sol, volume_m3) VALUES ?';
+  const query = 'INSERT INTO adresse (adresse, id_bin, superfice_sol, volume_m3) VALUES ?';
 
   db.query(query, [values], (err, result) => {
     if (err) {
