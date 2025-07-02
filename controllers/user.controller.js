@@ -368,3 +368,43 @@ exports.postPersonnel = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du personnel." });
     }
 };
+
+//Visiteurs_Pietons
+exports.getVisiteurPieton =  async (req, res) => {
+
+  const q = `
+            SELECT 
+              *
+            FROM 
+              visiteurs_pietons
+            `
+  db.query(q, (err, result) => {
+    if(err) {
+      console.error("Erreur lors de la récupération de visiteur pieton :", err);
+      return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+    }
+    return res.status(200).json(result);
+  })
+};
+
+exports.postVisiteurPieton = async (req, res) => {
+    try {
+        
+        const q = 'INSERT INTO visiteurs_pietons(`nom_complet`, `piece_identite`, `entreprise`, `motif`, `date_heure_arrivee`, `date_heure_depart`) VALUES(?,?,?,?,?,?)';
+
+        const values = [
+            req.body.nom_complet,
+            req.body.piece_identite,
+            req.body.entreprise,
+            req.body.motif,
+            req.body.date_heure_arrivee,
+            req.body.date_heure_depart
+        ];
+
+        await db.query(q, values);
+        return res.status(201).json({ message: 'Visiteur piéton a été ajouté avec succès'});
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout du nouveau personnel:', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du personnel." });
+    }
+};

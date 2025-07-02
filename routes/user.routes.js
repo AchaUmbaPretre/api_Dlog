@@ -39,5 +39,9 @@ router.post('/societe', upload.any(),userController.postSociete);
 router.get('/personnel', userController.getPersonnel);
 router.post('/personnel', userController.postPersonnel);
 
+//Visiteur pieton
+router.get('/pieton', userController.getVisiteurPieton);
+router.post('/pieton', userController.postVisiteurPieton);
+
 
 module.exports = router;
