@@ -1500,6 +1500,7 @@ exports.getAdresse = (req, res) => {
                 SELECT adresse.*, bins.nom, batiment.nom_batiment FROM adresse
                     LEFT JOIN bins ON adresse.id_bin = bins.id
                     LEFT JOIN batiment ON bins.id_batiment = batiment.id_batiment
+                    WHERE bins.est_supprime = 0
                     ORDER BY adresse.created_at DESC
             `;
 
