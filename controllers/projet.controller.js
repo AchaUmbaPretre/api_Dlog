@@ -255,8 +255,7 @@ exports.getProjetOne = (req, res) => {
             });
         });
     });
-}
-
+};
 
 exports.postProjet = async (req, res) => {
     try {

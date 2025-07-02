@@ -324,3 +324,41 @@ exports.postSociete = async (req, res) => {
     });
   }
 };
+
+//Personnel
+exports.getPersonnel =  async (req, res) => {
+
+  const q = `
+            SELECT 
+              * 
+            FROM 
+              personnel
+            `
+  db.query(q, (err, result) => {
+    if(err) {
+      console.error("Erreur lors de la récupération de personnel :", err);
+      return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+    }
+    return res.status(200).json(result);
+  })
+};
+
+exports.postPersonnel = async (req, res) => {
+    try {
+        
+        const q = 'INSERT INTO personnel(`nom`, `prenom`, `matricule`, `id_departement`) VALUES(?,?,?,?)';
+
+        const values = [
+            req.body.nom,
+            req.body.prenom,
+            req.body.matricule,
+            req.body.id_departement
+        ];
+
+        await db.query(q, values);
+        return res.status(201).json({ message: 'Personnel a été ajouté avec succès'});
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout du nouveau personnel:', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du personnel." });
+    }
+};
