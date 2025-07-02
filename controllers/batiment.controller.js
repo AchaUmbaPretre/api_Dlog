@@ -1627,7 +1627,6 @@ exports.getInspection = (req, res) => {
     });
 };
 
-
 exports.getInspectionOneV = (req, res) => {
     const {id} = req.query;
     const q = `
