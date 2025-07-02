@@ -845,9 +845,9 @@ exports.getBinsOneV = (req, res) => {
 };
 
 exports.postBins = (req, res) => {
-    const { id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut, adresse } = req.body;
+    const { id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut, superfice_sol, volume_m3 } = req.body;
 
-    const qBin = 'INSERT INTO bins (id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut) VALUES (?,?,?,?,?,?,?,?,?)';
+    const qBin = 'INSERT INTO bins (id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut, superfice_sol, volume_m3) VALUES (?,?,?,?,?,?,?,?,?,?,?)';
     const qAdresse = 'INSERT INTO adresse (adresse, id_bin) VALUES (?,?)';
 
     db.getConnection((connErr, connection) => {
@@ -864,7 +864,7 @@ exports.postBins = (req, res) => {
             }
 
             // Étape 1 : Insertion dans bins
-            connection.query(qBin, [id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut], (err, result) => {
+            connection.query(qBin, [id_batiment, nom, superficie, longueur, largeur, hauteur, capacite, type_stockage, statut, superfice_sol, volume_m3], (err, result) => {
                 if (err) {
                     console.error('Erreur lors de l\'insertion dans bins :', err);
                     return connection.rollback(() => {
@@ -876,8 +876,8 @@ exports.postBins = (req, res) => {
                 const id_bin = result.insertId;
 
                 // Étape 2 : Adresse (si fournie)
-                if (adresse && adresse.trim() !== "") {
-                    connection.query(qAdresse, [adresse, id_bin], (err) => {
+                if ( nom ) {
+                    connection.query(qAdresse, [nom, id_bin], (err) => {
                         if (err) {
                             console.error('Erreur lors de l\'insertion de l\'adresse :', err);
                             return connection.rollback(() => {
