@@ -1534,22 +1534,26 @@ exports.getAdresseBinOne = (req, res) => {
 };
 
 exports.postAdresse = (req, res) => {
-    const { id_bin, adresse } = req.body;
+  const { id_bin, adresses } = req.body;
 
-    if(!id_bin){
-        return res.status(400).json({ error: "L'ID de bin est requis." })
+  if (!id_bin) {
+    return res.status(400).json({ error: "L'ID de bin est requis." });
+  }
+
+  if (!Array.isArray(adresses) || adresses.length === 0) {
+    return res.status(400).json({ error: "Au moins une adresse est requise." });
+  }
+
+  const values = adresses.map(adresse => [adresse, id_bin]);
+  const query = 'INSERT INTO adresse (adresse, id_bin) VALUES ?';
+
+  db.query(query, [values], (err, result) => {
+    if (err) {
+      console.error("Erreur lors de l'insertion:", err);
+      return res.status(500).send("Erreur serveur");
     }
-  
-    const query = 'INSERT INTO adresse (adresse, id_bin) VALUES (?, ?)';
-    const values = [adresse, id_bin];
-  
-    db.query(query, values, (err, result) => {
-      if (err) {
-        console.error('Erreur lors de l\'insertion:', err);
-        return res.status(500).send('Erreur serveur');
-      }
-      res.status(200).send('Adresse a ete ajoutée avec succès');
-    });
+    res.status(200).send('Les adresses ont été ajoutées avec succès');
+  });
 };
 
 //Inspection
