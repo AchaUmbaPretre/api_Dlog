@@ -1555,7 +1555,6 @@ exports.getAdresse = (req, res) => {
     });
 };
 
-
 exports.getAdresseBinOne = (req, res) => {
     const { id_bin} = req.query;
 
