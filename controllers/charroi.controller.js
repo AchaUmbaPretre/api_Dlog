@@ -6499,27 +6499,66 @@ exports.postRetour = (req, res) => {
 //Visiteur
 exports.getVisiteur = (req, res) => {
 
-    const q = `
-        SELECT 
-          rv.*,
-          md.nom_motif_demande AS nom_motif,
-          u.nom,
-          rv.created_at
-        FROM 
-        registre_visiteur rv
-        INNER JOIN 
-        	motif_demande md ON rv.id_motif = md.id_motif_demande
-        LEFT JOIN	
-        	utilisateur u ON rv.user_cr = u.id_utilisateur
-          ORDER BY rv.created_at DESC
-            `;
+  let q = `
+    SELECT 
+      rv.*,
+      md.nom_motif_demande AS nom_motif,
+      u.nom,
+      rv.created_at
+    FROM 
+      registre_visiteur rv
+    INNER JOIN 
+      motif_demande md ON rv.id_motif = md.id_motif_demande
+    LEFT JOIN	
+      utilisateur u ON rv.user_cr = u.id_utilisateur
+      ORDER BY rv.created_at DESC
+  `;
 
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    });
+  db.query(q, (error, data) => {
+    if (error) {
+      return res.status(500).send(error);
+    }
+    return res.status(200).json(data);
+  });
+};
+
+exports.getVisiteurSearch = (req, res) => {
+  const { search } = req.query;
+
+  let q = `
+    SELECT 
+      rv.*,
+      md.nom_motif_demande AS nom_motif,
+      u.nom,
+      rv.created_at
+    FROM 
+      registre_visiteur rv
+    INNER JOIN 
+      motif_demande md ON rv.id_motif = md.id_motif_demande
+    LEFT JOIN	
+      utilisateur u ON rv.user_cr = u.id_utilisateur
+  `;
+
+  const values = [];
+
+  if (search) {
+    q += `
+      WHERE 
+        rv.immatriculation LIKE ? OR 
+        rv.nom_chauffeur LIKE ? OR 
+        rv.entreprise LIKE ?
+    `;
+    values.push(`%${search}%`, `%${search}%`, `%${search}%`);
+  }
+
+  q += ` ORDER BY rv.created_at DESC`;
+
+  db.query(q, values, (error, data) => {
+    if (error) {
+      return res.status(500).send(error);
+    }
+    return res.status(200).json(data);
+  });
 };
 
 exports.postVisiteur = (req, res) => {
@@ -6538,14 +6577,15 @@ exports.postVisiteur = (req, res) => {
 
       try {
         const {
-          immatriculation,
-          type_vehicule,
-          nom_chauffeur,
-          proprietaire,
-          id_motif,
-          entreprise,
-          user_cr
-        } = req.body;
+            immatriculation,
+            type_vehicule,
+            nom_chauffeur,
+            proprietaire,
+            id_motif,
+            entreprise,
+            vehicule_connu,
+            user_cr
+          } = req.body;
 
         if (!immatriculation || !nom_chauffeur) {
           throw new Error("Champs obligatoires manquants.");
@@ -6559,18 +6599,20 @@ exports.postVisiteur = (req, res) => {
             proprietaire,
             id_motif,
             entreprise,
+            vehicule_connu,
             user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `
         const values = [
-            immatriculation,
-            type_vehicule,
-            nom_chauffeur,
-            proprietaire,
-            id_motif,
-            entreprise,
-            user_cr
-        ]
+              immatriculation,
+              type_vehicule,
+              nom_chauffeur,
+              proprietaire,
+              id_motif,
+              entreprise,
+              vehicule_connu ? 1 : 0,
+              user_cr
+            ];
 
         await queryPromise(connection, insertSQL, values);
 
