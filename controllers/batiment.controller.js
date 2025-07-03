@@ -1493,24 +1493,68 @@ exports.postWHSE_FACT = (req, res) => {
     });
   };
 
-  //Adresse
+//Adresse
 exports.getAdresse = (req, res) => {
+    const { search } = req.query;
 
-    const q = `
-                SELECT adresse.*, bins.nom, batiment.nom_batiment FROM adresse
-                    LEFT JOIN bins ON adresse.id_bin = bins.id
-                    LEFT JOIN batiment ON bins.id_batiment = batiment.id_batiment
-                    WHERE bins.est_supprime = 0
-                    ORDER BY adresse.created_at DESC
-            `;
+    let q = `
+        SELECT adresse.*, bins.nom, batiment.nom_batiment 
+        FROM adresse
+        LEFT JOIN bins ON adresse.id_bin = bins.id
+        LEFT JOIN batiment ON bins.id_batiment = batiment.id_batiment
+        WHERE bins.est_supprime = 0
+    `;
+
+    if (search) {
+        const escapedSearch = `%${search}%`;
+        q += ` AND (
+            adresse.adresse LIKE ${db.escape(escapedSearch)} OR 
+            batiment.nom_batiment LIKE ${db.escape(escapedSearch)} OR 
+            bins.nom LIKE ${db.escape(escapedSearch)}
+        )`;
+    }
+
+    q += ` ORDER BY adresse.created_at DESC`;
+
+    let qSQL = `
+        SELECT 
+            COUNT(DISTINCT a.id_adresse) AS nbre_adresse,
+            COUNT(DISTINCT b.id) AS nbre_bins,
+            COUNT(DISTINCT batiment.id_batiment) AS nbre_batiment,
+            SUM(a.superfice_sol) AS total_superficie,
+            SUM(a.volume_m3) AS total_volume
+        FROM adresse a
+        INNER JOIN bins b ON a.id_bin = b.id
+        INNER JOIN batiment ON b.id_batiment = batiment.id_batiment
+        WHERE b.est_supprime = 0
+    `;
+
+    if (search) {
+        const escapedSearch = `%${search}%`;
+        qSQL += ` AND (
+            a.adresse LIKE ${db.escape(escapedSearch)} OR 
+            batiment.nom_batiment LIKE ${db.escape(escapedSearch)} OR 
+            b.nom LIKE ${db.escape(escapedSearch)}
+        )`;
+    }
 
     db.query(q, (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
-        return res.status(200).json(data);
+        db.query(qSQL, (errorSub, dataSub) => {
+            if (errorSub) {
+                return res.status(500).send(errorSub);
+            }
+
+            return res.status(200).json({
+                data: data,
+                statistiques: dataSub[0]
+            });
+        });
     });
 };
+
 
 exports.getAdresseBinOne = (req, res) => {
     const { id_bin} = req.query;
