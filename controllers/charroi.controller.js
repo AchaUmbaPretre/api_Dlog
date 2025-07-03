@@ -6501,9 +6501,7 @@ exports.getVisiteur = (req, res) => {
 
     const q = `
         SELECT 
-          rv.id_registre_visiteur,
-          rv.immatriculation,
-          rv.nom_chauffeur,
+          rv.*,
           md.nom_motif_demande AS nom_motif,
           u.nom,
           rv.created_at
@@ -6541,8 +6539,11 @@ exports.postVisiteur = (req, res) => {
       try {
         const {
           immatriculation,
+          type_vehicule,
           nom_chauffeur,
+          proprietaire,
           id_motif,
+          entreprise,
           user_cr
         } = req.body;
 
@@ -6553,16 +6554,22 @@ exports.postVisiteur = (req, res) => {
         const insertSQL = `
           INSERT INTO registre_visiteur (
             immatriculation,
+            type_vehicule,
             nom_chauffeur,
+            proprietaire,
             id_motif,
+            entreprise,
             user_cr
-          ) VALUES (?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
         `
         const values = [
-          immatriculation,
-          nom_chauffeur,
-          id_motif,
-          user_cr
+            immatriculation,
+            type_vehicule,
+            nom_chauffeur,
+            proprietaire,
+            id_motif,
+            entreprise,
+            user_cr
         ]
 
         await queryPromise(connection, insertSQL, values);
