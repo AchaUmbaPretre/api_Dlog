@@ -6641,8 +6641,8 @@ exports.postVisiteur = (req, res) => {
   })
 };
 
-//VEHICULE VISITEUR
-exports.getVehiculeVisiteur = (req, res) => {
+//VISITEUR PIETON
+exports.getVisiteurP = (req, res) => {
 
     const q = `
               SELECT 

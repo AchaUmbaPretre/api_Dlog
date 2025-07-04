@@ -43,5 +43,4 @@ router.post('/personnel', userController.postPersonnel);
 router.get('/pieton', userController.getVisiteurPieton);
 router.post('/pieton', userController.postVisiteurPieton);
 
-
 module.exports = router;

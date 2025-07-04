@@ -374,9 +374,11 @@ exports.getVisiteurPieton =  async (req, res) => {
 
   const q = `
             SELECT 
-              *
+              vp.*,
+              md.nom_motif_demande
             FROM 
-              visiteurs_pietons
+              visiteurs_pietons vp
+              INNER JOIN motif_demande md ON vp.motif = md.id_motif_demande
             `
   db.query(q, (err, result) => {
     if(err) {
@@ -390,15 +392,13 @@ exports.getVisiteurPieton =  async (req, res) => {
 exports.postVisiteurPieton = async (req, res) => {
     try {
         
-        const q = 'INSERT INTO visiteurs_pietons(`nom_complet`, `piece_identite`, `entreprise`, `motif`, `date_heure_arrivee`, `date_heure_depart`) VALUES(?,?,?,?,?,?)';
+        const q = 'INSERT INTO visiteurs_pietons(`nom_complet`, `piece_identite`, `entreprise`, `motif`) VALUES(?,?,?,?)';
 
         const values = [
             req.body.nom_complet,
             req.body.piece_identite,
             req.body.entreprise,
-            req.body.motif,
-            req.body.date_heure_arrivee,
-            req.body.date_heure_depart
+            req.body.id_motif
         ];
 
         await db.query(q, values);
@@ -407,6 +407,80 @@ exports.postVisiteurPieton = async (req, res) => {
         console.error('Erreur lors de l\'ajout du nouveau personnel:', error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du personnel." });
     }
+};
+
+//PIETONS RETOUR 
+exports.getVisiteurPietonRetour =  async (req, res) => {
+
+  const q = `
+            SELECT 
+              vp.*, 
+              md.nom_motif_demande
+            FROM 
+              visiteurs_pietons vp
+              INNER JOIN motif_demande md ON vp.motif = md.id_motif_demande
+            WHERE 
+              vp.date_heure_depart IS NULL;
+            `
+  db.query(q, (err, result) => {
+    if(err) {
+      console.error("Erreur lors de la récupération de visiteur pieton :", err);
+      return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+    }
+    return res.status(200).json(result);
+  })
+};
+
+exports.putVisiteurPietonRetour = async (req, res) => {
+  const { id_visiteur } = req.query;
+
+  if (!id_visiteur) {
+    return res.status(400).json({ error: "Champs requis manquants." });
+  }
+
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error("Erreur de début de transaction :", trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const sql = `
+          UPDATE visiteurs_pietons 
+          SET date_heure_depart = ?
+          WHERE id_visiteur = ?
+        `;
+
+        const params = [timestamp(), id_visiteur];
+
+        await queryPromise(connection, sql, params);
+
+        connection.commit((commitErr) => {
+          connection.release();
+
+          if (commitErr) {
+            console.error("Erreur lors du commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors du commit." });
+          }
+
+          return res.status(200).json({ message: "Date de sortie mise à jour avec succès." });
+        });
+      } catch (error) {
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur lors de la mise à jour :", error);
+          return res.status(500).json({ error: error.message || "Erreur inattendue." });
+        });
+      }
+    });
+  });
 };
 
 //Visiteurs_véhicule
@@ -447,4 +521,78 @@ exports.postVisiteurVehicule = async (req, res) => {
         console.error('Erreur lors de l\'ajout du nouveau personnel:', error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du personnel." });
     }
+};
+
+// SORTIE VEHICULE VISITEUR
+exports.getVisiteurVehiculeRetour =  async (req, res) => {
+
+  const q = `
+            SELECT 
+              rv.*, 
+              md.nom_motif_demande
+            FROM 
+              registre_visiteur rv
+              INNER JOIN motif_demande md ON rv.id_motif = md.id_motif_demande
+            WHERE 
+              rv.date_sortie IS NULL;
+            `
+  db.query(q, (err, result) => {
+    if(err) {
+      console.error("Erreur lors de la récupération de vehicule visiteur :", err);
+      return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+    }
+    return res.status(200).json(result);
+  })
+};
+
+exports.putVisiteurVehiculeRetour = async (req, res) => {
+  const { id_registre_visiteur } = req.query;
+
+  if (!id_registre_visiteur) {
+    return res.status(400).json({ error: "Champs requis manquants." });
+  }
+
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error("Erreur de début de transaction :", trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const sql = `
+          UPDATE visiteur_vehicules 
+          SET date_sortie = ?
+          WHERE id_registre_visiteur = ?
+        `;
+
+        const params = [timestamp(), id_registre_visiteur];
+
+        await queryPromise(connection, sql, params);
+
+        connection.commit((commitErr) => {
+          connection.release(); // Toujours libérer la connexion
+
+          if (commitErr) {
+            console.error("Erreur lors du commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors du commit." });
+          }
+
+          return res.status(200).json({ message: "Date de sortie mise à jour avec succès." });
+        });
+      } catch (error) {
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur lors de la mise à jour :", error);
+          return res.status(500).json({ error: error.message || "Erreur inattendue." });
+        });
+      }
+    });
+  });
 };
