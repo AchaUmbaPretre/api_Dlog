@@ -200,6 +200,10 @@ router.get('/visiteur_vehicule', charroiController.getVisiteur)
 router.get('/visiteur_vehicule_search', charroiController.getVisiteurSearch)
 router.post('/visiteur_vehicule', charroiController.postVisiteur)
 
+//Visiteur Retour
+router.get('/visiteur_retour', charroiController.getVisiteurVehiculeRetour);
+router.put('/visiteur_retour', charroiController.putVisiteurVehiculeRetour);
+
 //Liste de sortie et entree
 router.get('/sortie_entree', charroiController.getEntreeSortie)
 router.get('/sortie_entreeOne', charroiController.getEntreeSortieOne)

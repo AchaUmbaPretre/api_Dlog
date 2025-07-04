@@ -43,4 +43,9 @@ router.post('/personnel', userController.postPersonnel);
 router.get('/pieton', userController.getVisiteurPieton);
 router.post('/pieton', userController.postVisiteurPieton);
 
+//Visiteur pieton Retour
+router.get('/pieton_retour', userController.getVisiteurPietonRetour);
+router.put('/pieton_retour', userController.putVisiteurPietonRetour);
+
+
 module.exports = router;

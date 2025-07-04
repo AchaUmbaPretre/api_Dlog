@@ -6642,7 +6642,7 @@ exports.postVisiteur = (req, res) => {
 };
 
 //VISITEUR PIETON
-exports.getVisiteurP = (req, res) => {
+exports.getVehiculeVisiteur = (req, res) => {
 
     const q = `
               SELECT 
@@ -6731,6 +6731,80 @@ exports.postVehiculeVisiteur = (req, res) => {
       }
     })
   })
+};
+
+// SORTIE VEHICULE VISITEUR
+exports.getVisiteurVehiculeRetour =  async (req, res) => {
+
+  const q = `
+            SELECT 
+              rv.*, 
+              md.nom_motif_demande
+            FROM 
+              registre_visiteur rv
+              INNER JOIN motif_demande md ON rv.id_motif = md.id_motif_demande
+            WHERE 
+              rv.date_sortie IS NULL;
+            `
+  db.query(q, (err, result) => {
+    if(err) {
+      console.error("Erreur lors de la récupération de vehicule visiteur :", err);
+      return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+    }
+    return res.status(200).json(result);
+  })
+};
+
+exports.putVisiteurVehiculeRetour = async (req, res) => {
+  const { id_registre_visiteur } = req.query;
+
+  if (!id_registre_visiteur) {
+    return res.status(400).json({ error: "Champs requis manquants." });
+  }
+
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error("Erreur de début de transaction :", trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const sql = `
+          UPDATE visiteur_vehicules 
+          SET date_sortie = ?
+          WHERE id_registre_visiteur = ?
+        `;
+
+        const params = [timestamp(), id_registre_visiteur];
+
+        await queryPromise(connection, sql, params);
+
+        connection.commit((commitErr) => {
+          connection.release(); // Toujours libérer la connexion
+
+          if (commitErr) {
+            console.error("Erreur lors du commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors du commit." });
+          }
+
+          return res.status(200).json({ message: "Date de sortie mise à jour avec succès." });
+        });
+      } catch (error) {
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur lors de la mise à jour :", error);
+          return res.status(500).json({ error: error.message || "Erreur inattendue." });
+        });
+      }
+    });
+  });
 };
 
 //Liste de SORTIE & ENTREE
