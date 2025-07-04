@@ -6113,6 +6113,7 @@ exports.postBonSortiePerso = (req, res) => {
         const {
           id_personnel,
           id_motif,
+          id_demandeur,
           id_destination,
           statut,
           id_societe,
@@ -6130,18 +6131,20 @@ exports.postBonSortiePerso = (req, res) => {
           INSERT INTO bon_de_sortie_perso (
             id_personnel,
             id_motif,
+            id_demandeur,
             id_destination,
             statut,
             id_societe,
             date_sortie,
             date_retour,
             user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const bonValues = [
           id_personnel,
           id_motif,
+          id_demandeur,
           id_destination,
           statut,
           id_societe,

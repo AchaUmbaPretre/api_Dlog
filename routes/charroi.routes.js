@@ -185,7 +185,7 @@ router.post('/bande_sortie', charroiController.postBandeSortie)
 
 //Bon de sortie du personnel
 router.get('/bon_sortie_perso', charroiController.getBonSortiePerso)
-router.get('/bon_sortieOne_pero', charroiController.getBonSortiePersoOne)
+router.get('/bon_sortieOne_perso', charroiController.getBonSortiePersoOne)
 router.post('/bon_sortie_perso', charroiController.postBonSortiePerso)
 
 
