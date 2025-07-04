@@ -6782,7 +6782,7 @@ exports.putVisiteurVehiculeRetour = async (req, res) => {
           WHERE id_registre_visiteur = ?
         `;
 
-        const params = [timestamp(), id_registre_visiteur];
+        const params = [new Date(), id_registre_visiteur];
 
         await queryPromise(connection, sql, params);
 

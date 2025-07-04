@@ -458,7 +458,7 @@ exports.putVisiteurPietonRetour = async (req, res) => {
           WHERE id_visiteur = ?
         `;
 
-        const params = [timestamp(), id_visiteur];
+        const params = [new Date(), id_visiteur];
 
         await queryPromise(connection, sql, params);
 
