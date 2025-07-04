@@ -183,6 +183,12 @@ router.get('/bande_sortie', charroiController.getBandeSortie)
 router.get('/bande_sortieOne', charroiController.getBandeSortieOne)
 router.post('/bande_sortie', charroiController.postBandeSortie)
 
+//Bon de sortie du personnel
+router.get('/bon_sortie_perso', charroiController.getBonSortiePerso)
+router.get('/bon_sortieOne_pero', charroiController.getBonSortiePersoOne)
+router.post('/bon_sortie_perso', charroiController.postBonSortiePerso)
+
+
 //Véhicule en Course
 router.get('/vehicule_course', charroiController.getVehiculeCourse)
 router.get('/vehicule_courseOne', charroiController.getVehiculeCourseOne)

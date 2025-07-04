@@ -6114,6 +6114,7 @@ exports.postBonSortiePerso = (req, res) => {
           id_personnel,
           id_motif,
           id_destination,
+          statut,
           id_societe,
           date_sortie,
           date_retour,
@@ -6130,17 +6131,19 @@ exports.postBonSortiePerso = (req, res) => {
             id_personnel,
             id_motif,
             id_destination,
+            statut,
             id_societe,
             date_sortie,
             date_retour,
             user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const bonValues = [
           id_personnel,
           id_motif,
           id_destination,
+          statut,
           id_societe,
           date_sortie,
           date_retour,
@@ -6159,7 +6162,6 @@ exports.postBonSortiePerso = (req, res) => {
 
           return res.status(201).json({
             message: "Bon de sortie enregistré et validé avec succès.",
-            id_bande_sortie
           });
         });
 
