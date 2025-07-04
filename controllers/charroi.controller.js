@@ -6777,7 +6777,7 @@ exports.putVisiteurVehiculeRetour = async (req, res) => {
 
       try {
         const sql = `
-          UPDATE visiteur_vehicules 
+          UPDATE registre_visiteur 
           SET date_sortie = ?
           WHERE id_registre_visiteur = ?
         `;
