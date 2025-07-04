@@ -6053,6 +6053,129 @@ exports.postBandeSortie = (req, res) => {
   })
 };
 
+//Bon de sortie du personnel
+exports.getBonSortiePerso = (req, res) => {
+
+    const q = `
+        SELECT 
+          *
+        FROM 
+          bon_de_sortie_perso
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getBonSortiePersoOne = (req, res) => {
+    const { id_bon_sortie } = req.query;
+
+    if (!id_bon_sortie) {
+      return res.status(400).json({ message: "L'identifiant (id) est requis." });
+    }
+
+    const q = `
+          SELECT 
+            bps.*
+          FROM 
+            bon_de_sortie_perso bps
+          WHERE 
+            bps.id_bon_sortie = ?
+            `;
+
+    db.query(q, [id_bon_sortie], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postBonSortiePerso = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error('Erreur de connexion à la base de données :', connErr);
+      return res.status(500).json({ error: "Impossible de se connecter à la base de données." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error('Erreur lors de l’ouverture de la transaction :', trxErr);
+        return res.status(500).json({ error: "Échec de l’initiation de la transaction." });
+      }
+
+      try {
+        const {
+          id_personnel,
+          id_motif,
+          id_destination,
+          id_societe,
+          date_sortie,
+          date_retour,
+          user_cr
+        } = req.body;
+
+        if (!id_personnel || !id_motif ) {
+          throw new Error("Champs requis manquants.");
+        }
+
+        // Insertion du bon de sortie
+        const insertBonSql = `
+          INSERT INTO bon_de_sortie_perso (
+            id_personnel,
+            id_motif,
+            id_destination,
+            id_societe,
+            date_sortie,
+            date_retour,
+            user_cr
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const bonValues = [
+          id_personnel,
+          id_motif,
+          id_destination,
+          id_societe,
+          date_sortie,
+          date_retour,
+          user_cr
+        ];
+
+        queryPromise(connection, insertBonSql, bonValues);
+
+        // Commit final
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation finale." });
+          }
+
+          return res.status(201).json({
+            message: "Bon de sortie enregistré et validé avec succès.",
+            id_bande_sortie
+          });
+        });
+
+      } catch (error) {
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur transactionnelle :", error);
+          return res.status(500).json({
+            error: error.message || "Erreur lors du traitement de la demande."
+          });
+        });
+      }
+    })
+  })
+};
+
 //Véhicule en course
 exports.getVehiculeCourse = (req, res) => {
 
