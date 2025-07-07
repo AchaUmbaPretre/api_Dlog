@@ -5817,7 +5817,6 @@ L'équipe Logistique GTM
         });
       }
     });
-
   });
 };
 
