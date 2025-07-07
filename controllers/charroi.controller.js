@@ -6090,6 +6090,76 @@ exports.getBonSortiePerso = (req, res) => {
     });
 };
 
+exports.getBonSortiePersoEncours = (req, res) => {
+
+    const q = `
+            SELECT bsp.id_bon_sortie, 
+              bsp.date_sortie, 
+              bsp.date_retour, 
+              p.nom, 
+              p.prenom, 
+              sd.nom_service, 
+              md.nom_motif_demande, 
+              c.nom AS nom_client,
+              d.nom_destination,
+              u.nom AS user,
+              tsv.nom_type_statut
+            FROM bon_de_sortie_perso bsp
+            INNER JOIN personnel p ON bsp.id_personnel = p.id_personnel
+            INNER JOIN service_demandeur sd ON bsp.id_demandeur = sd.id_service_demandeur
+            LEFT JOIN motif_demande md ON bsp.id_motif = md.id_motif_demande
+            LEFT JOIN client c ON bsp.id_client = c.id_client
+            LEFT JOIN destination d ON bsp.id_destination = d.id_destination
+            LEFT JOIN societes s ON bsp.id_societe = bsp.id_societe
+            INNER JOIN type_statut_suivi tsv ON bsp.statut = tsv.id_type_statut_suivi
+            INNER JOIN utilisateur u ON bsp.user_cr = u.id_utilisateur
+            WHERE bsp.statut = 2
+            ORDER BY bsp.created_at DESC
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getBonSortiePersoSortie = (req, res) => {
+
+    const q = `
+            SELECT bsp.id_bon_sortie, 
+              bsp.date_sortie, 
+              bsp.date_retour, 
+              p.nom, 
+              p.prenom, 
+              sd.nom_service, 
+              md.nom_motif_demande, 
+              c.nom AS nom_client,
+              d.nom_destination,
+              u.nom AS user,
+              tsv.nom_type_statut
+            FROM bon_de_sortie_perso bsp
+            INNER JOIN personnel p ON bsp.id_personnel = p.id_personnel
+            INNER JOIN service_demandeur sd ON bsp.id_demandeur = sd.id_service_demandeur
+            LEFT JOIN motif_demande md ON bsp.id_motif = md.id_motif_demande
+            LEFT JOIN client c ON bsp.id_client = c.id_client
+            LEFT JOIN destination d ON bsp.id_destination = d.id_destination
+            LEFT JOIN societes s ON bsp.id_societe = bsp.id_societe
+            INNER JOIN type_statut_suivi tsv ON bsp.statut = tsv.id_type_statut_suivi
+            INNER JOIN utilisateur u ON bsp.user_cr = u.id_utilisateur
+            WHERE bsp.statut = 13
+            ORDER BY bsp.created_at DESC
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getBonSortiePersoOne = (req, res) => {
     const { id_bon_sortie } = req.query;
 
