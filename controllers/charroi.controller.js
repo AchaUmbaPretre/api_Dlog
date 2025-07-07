@@ -6090,76 +6090,6 @@ exports.getBonSortiePerso = (req, res) => {
     });
 };
 
-exports.getBonSortiePersoEncours = (req, res) => {
-
-    const q = `
-            SELECT bsp.id_bon_sortie, 
-              bsp.date_sortie, 
-              bsp.date_retour, 
-              p.nom, 
-              p.prenom, 
-              sd.nom_service, 
-              md.nom_motif_demande, 
-              c.nom AS nom_client,
-              d.nom_destination,
-              u.nom AS user,
-              tsv.nom_type_statut
-            FROM bon_de_sortie_perso bsp
-            INNER JOIN personnel p ON bsp.id_personnel = p.id_personnel
-            INNER JOIN service_demandeur sd ON bsp.id_demandeur = sd.id_service_demandeur
-            LEFT JOIN motif_demande md ON bsp.id_motif = md.id_motif_demande
-            LEFT JOIN client c ON bsp.id_client = c.id_client
-            LEFT JOIN destination d ON bsp.id_destination = d.id_destination
-            LEFT JOIN societes s ON bsp.id_societe = bsp.id_societe
-            INNER JOIN type_statut_suivi tsv ON bsp.statut = tsv.id_type_statut_suivi
-            INNER JOIN utilisateur u ON bsp.user_cr = u.id_utilisateur
-            WHERE bsp.statut = 2
-            ORDER BY bsp.created_at DESC
-            `;
-
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    });
-};
-
-exports.getBonSortiePersoSortie = (req, res) => {
-
-    const q = `
-            SELECT bsp.id_bon_sortie, 
-              bsp.date_sortie, 
-              bsp.date_retour, 
-              p.nom, 
-              p.prenom, 
-              sd.nom_service, 
-              md.nom_motif_demande, 
-              c.nom AS nom_client,
-              d.nom_destination,
-              u.nom AS user,
-              tsv.nom_type_statut
-            FROM bon_de_sortie_perso bsp
-            INNER JOIN personnel p ON bsp.id_personnel = p.id_personnel
-            INNER JOIN service_demandeur sd ON bsp.id_demandeur = sd.id_service_demandeur
-            LEFT JOIN motif_demande md ON bsp.id_motif = md.id_motif_demande
-            LEFT JOIN client c ON bsp.id_client = c.id_client
-            LEFT JOIN destination d ON bsp.id_destination = d.id_destination
-            LEFT JOIN societes s ON bsp.id_societe = bsp.id_societe
-            INNER JOIN type_statut_suivi tsv ON bsp.statut = tsv.id_type_statut_suivi
-            INNER JOIN utilisateur u ON bsp.user_cr = u.id_utilisateur
-            WHERE bsp.statut = 13
-            ORDER BY bsp.created_at DESC
-            `;
-
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    });
-};
-
 exports.getBonSortiePersoOne = (req, res) => {
     const { id_bon_sortie } = req.query;
 
@@ -6280,6 +6210,218 @@ exports.postBonSortiePerso = (req, res) => {
           console.error("Erreur transactionnelle :", error);
           return res.status(500).json({
             error: error.message || "Erreur lors du traitement de la demande."
+          });
+        });
+      }
+    })
+  })
+};
+
+//Entree Personnel
+exports.getBonSortiePersoEntree = (req, res) => {
+
+    const q = `
+            SELECT bsp.id_bon_sortie, 
+              bsp.date_sortie, 
+              bsp.date_retour, 
+              p.nom, 
+              p.prenom, 
+              sd.nom_service, 
+              md.nom_motif_demande, 
+              c.nom AS nom_client,
+              d.nom_destination,
+              u.nom AS user,
+              tsv.nom_type_statut
+            FROM bon_de_sortie_perso bsp
+            INNER JOIN personnel p ON bsp.id_personnel = p.id_personnel
+            INNER JOIN service_demandeur sd ON bsp.id_demandeur = sd.id_service_demandeur
+            LEFT JOIN motif_demande md ON bsp.id_motif = md.id_motif_demande
+            LEFT JOIN client c ON bsp.id_client = c.id_client
+            LEFT JOIN destination d ON bsp.id_destination = d.id_destination
+            LEFT JOIN societes s ON bsp.id_societe = bsp.id_societe
+            INNER JOIN type_statut_suivi tsv ON bsp.statut = tsv.id_type_statut_suivi
+            INNER JOIN utilisateur u ON bsp.user_cr = u.id_utilisateur
+            WHERE bsp.statut = 2
+            ORDER BY bsp.created_at DESC
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postBonSortiePersoEntree = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if(connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if(trxErr) {
+        connection.release();
+        console.error('Erreur transaction : ', trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const {
+          id_bon_sortie,
+          id_agent        
+        } = req.body;
+
+        if (!id_bon_sortie || !id_bon_sortie) {
+          throw new Error("Champs obligatoires manquants.");
+        }
+
+        const insertSQL = `
+          INSERT INTO sortie_retour_perso (
+            id_bon_sortie,
+            type,
+            id_agent,
+          ) VALUES (?, ?, ?)
+        `
+        const values = [
+          id_bon_sortie,
+          'Retour',
+          id_agent
+        ]
+
+        const [insertResult] = await queryPromise(connection, insertSQL, values);
+        const insertId = insertResult.insertId;
+
+        const updateSQL = `UPDATE bon_de_sortie_perso SET statut = 14 WHERE  id_bon_sortie = ?`;
+
+        await queryPromise(connection, updateSQL, [id_bon_sortie]);
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+          }
+
+          return res.status(201).json({
+            message: "La sortie a été enregistrée avec succès.",
+            data: { id: insertId }
+          });
+        });
+        
+      } catch (error) {
+          connection.rollback(() => {
+          connection.release();
+          console.error("Erreur transactionnelle :", error);
+          return res.status(500).json({
+            error: error.message || "Erreur lors du traitement de la sortie."
+          });
+        });
+      }
+    })
+  })
+};
+
+//sortie Personnel
+exports.getBonSortiePersoSortie = (req, res) => {
+
+    const q = `
+            SELECT bsp.id_bon_sortie, 
+              bsp.date_sortie, 
+              bsp.date_retour, 
+              p.nom, 
+              p.prenom, 
+              sd.nom_service, 
+              md.nom_motif_demande, 
+              c.nom AS nom_client,
+              d.nom_destination,
+              u.nom AS user,
+              tsv.nom_type_statut
+            FROM bon_de_sortie_perso bsp
+            INNER JOIN personnel p ON bsp.id_personnel = p.id_personnel
+            INNER JOIN service_demandeur sd ON bsp.id_demandeur = sd.id_service_demandeur
+            LEFT JOIN motif_demande md ON bsp.id_motif = md.id_motif_demande
+            LEFT JOIN client c ON bsp.id_client = c.id_client
+            LEFT JOIN destination d ON bsp.id_destination = d.id_destination
+            LEFT JOIN societes s ON bsp.id_societe = bsp.id_societe
+            INNER JOIN type_statut_suivi tsv ON bsp.statut = tsv.id_type_statut_suivi
+            INNER JOIN utilisateur u ON bsp.user_cr = u.id_utilisateur
+            WHERE bsp.statut = 13
+            ORDER BY bsp.created_at DESC
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postBonSortiePersoSortie = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if(connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if(trxErr) {
+        connection.release();
+        console.error('Erreur transaction : ', trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const {
+          id_bon_sortie,
+          id_agent        
+        } = req.body;
+
+        if (!id_bon_sortie || !id_bon_sortie) {
+          throw new Error("Champs obligatoires manquants.");
+        }
+
+        const insertSQL = `
+          INSERT INTO sortie_retour_perso (
+            id_bon_sortie,
+            type,
+            id_agent,
+          ) VALUES (?, ?, ?)
+        `
+        const values = [
+          id_bon_sortie,
+          'Sortie',
+          id_agent
+        ]
+
+        const [insertResult] = await queryPromise(connection, insertSQL, values);
+        const insertId = insertResult.insertId;
+
+        const updateSQL = `UPDATE bon_de_sortie_perso SET statut = 13 WHERE  id_bon_sortie = ?`;
+
+        await queryPromise(connection, updateSQL, [id_bon_sortie]);
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+          }
+
+          return res.status(201).json({
+            message: "La sortie a été enregistrée avec succès.",
+            data: { id: insertId }
+          });
+        });
+        
+      } catch (error) {
+          connection.rollback(() => {
+          connection.release();
+          console.error("Erreur transactionnelle :", error);
+          return res.status(500).json({
+            error: error.message || "Erreur lors du traitement de la sortie."
           });
         });
       }
