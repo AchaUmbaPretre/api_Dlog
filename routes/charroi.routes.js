@@ -189,13 +189,16 @@ router.get('/bon_sortie_sortie', charroiController.getBonSortiePersoSortie)
 router.get('/bon_sortieOne_perso', charroiController.getBonSortiePersoOne)
 router.post('/bon_sortie_perso', charroiController.postBonSortiePerso)
 
-//Entree personnel
-router.get('/bon_sortie_entree', charroiController.getBonSortiePersoEntree)
-router.post('/bon_sortie_entree', charroiController.postBonSortiePersoSortie)
-
 //Sortie personnel
 router.get('/bon_sortie_sortie', charroiController.getBonSortiePersoSortie)
 router.post('/bon_sortie_sortie', charroiController.postBonSortiePersoSortie)
+
+//Retour personnel
+router.get('/bon_sortie_retour', charroiController.getBonSortiePersoRetour)
+router.post('/bon_sortie_retour', charroiController.postBonSortiePersoRetour)
+
+//ENTREE ET SORTIE PERSONNEL
+router.get('/entree_sortie_personnel', charroiController.getEntreeSortiePersonnel )
 
 
 //Véhicule en Course
