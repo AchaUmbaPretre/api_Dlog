@@ -5618,7 +5618,8 @@ exports.getAffectationDemande = (req, res) => {
           c.nom, 
           v.immatriculation, 
           m.nom_marque,
-          cv.nom_cat
+          cv.nom_cat,
+          d.nom_departement
         FROM affectation_demande ad
           INNER JOIN 
             chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
@@ -5638,6 +5639,8 @@ exports.getAffectationDemande = (req, res) => {
             service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
           LEFT JOIN 
             destination l ON ad.id_destination = l.id_destination
+          LEFT JOIN 
+          	departement d ON sd.id_departement = d.id_departement
           ORDER BY ad.created_at DESC
             `;
 
