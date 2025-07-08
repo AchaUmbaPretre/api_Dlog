@@ -6585,7 +6585,7 @@ exports.getVehiculeCourseOne = (req, res) => {
 exports.getSortie = (req, res) => {
 
     const q = `
-        SELECT 
+                SELECT 
           ad.id_bande_sortie, 
           ad.date_prevue,
           ad.date_retour,
@@ -6625,7 +6625,7 @@ exports.getSortie = (req, res) => {
           LEFT JOIN 
           	utilisateur u ON vd.validateur_id = u.id_utilisateur
             WHERE ad.statut = 2
-          GROUP BY u.id_utilisateur
+          GROUP BY ad.id_bande_sortie
           ORDER BY ad.created_at DESC
             `;
 
