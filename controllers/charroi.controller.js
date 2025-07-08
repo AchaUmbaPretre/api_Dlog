@@ -6907,6 +6907,84 @@ exports.postRetour = (req, res) => {
   })
 };
 
+//Sortie exceptionnelle
+exports.postSortieExceptionnelle = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if(connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if(trxErr) {
+        connection.release();
+        console.error('Erreur transaction : ', trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const {
+          id_bande_sortie,
+          id_agent,
+          mouvement_exceptionnel,
+          id_vehicule,
+        } = req.body;
+
+        if (!id_bande_sortie || !id_bande_sortie) {
+          throw new Error("Champs obligatoires manquants.");
+        }
+
+        const insertSQL = `
+          INSERT INTO sortie_retour (
+            id_bande_sortie,
+            type,
+            id_agent,
+            mouvement_exceptionnel,
+            id_vehicule,
+            id_chauffeur,
+            id_destination,
+            id_motif
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `
+        const values = [
+          id_bande_sortie,
+          'Sortie',
+          id_agent,
+          mouvement_exceptionnel,
+          id_vehicule,
+          id_chauffeur,
+          id_destination,
+          id_motif
+        ]
+
+        await queryPromise(connection, insertSQL, values);
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+          }
+
+          return res.status(201).json({
+            message: "La sortie a été enregistrée avec succès.",
+            data: { id: insertId }
+          });
+        });
+        
+      } catch (error) {
+          connection.rollback(() => {
+          connection.release();
+          console.error("Erreur transactionnelle :", error);
+          return res.status(500).json({
+            error: error.message || "Erreur lors du traitement de la sortie."
+          });
+        });
+      }
+    })
+  })
+};
+
 //Visiteur
 exports.getVisiteur = (req, res) => {
 
@@ -7217,6 +7295,8 @@ exports.putVisiteurVehiculeRetour = async (req, res) => {
     });
   });
 };
+
+
 
 //Liste de SORTIE & ENTREE
 exports.getEntreeSortie = (req, res) => {
