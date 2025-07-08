@@ -6908,7 +6908,7 @@ exports.postRetour = (req, res) => {
 };
 
 //Sortie exceptionnelle
-exports.postSortieExceptionnelle = (req, res) => {
+exports.postSortieExceptionnel = (req, res) => {
   db.getConnection((connErr, connection) => {
     if(connErr) {
       console.error("Erreur de connexion DB :", connErr);
