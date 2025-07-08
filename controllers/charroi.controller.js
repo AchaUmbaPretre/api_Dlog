@@ -6926,15 +6926,15 @@ exports.postSortieExceptionnel = (req, res) => {
         const {
           id_bande_sortie,
           id_agent,
-          mouvement_exceptionnel,
           id_vehicule,
+          id_chauffeur,
           id_destination,
           id_motif,
           id_demandeur,
           personne_bord
         } = req.body;
 
-        if (!id_bande_sortie || !id_bande_sortie) {
+        if (!id_vehicule || !id_motif) {
           throw new Error("Champs obligatoires manquants.");
         }
 
@@ -6956,7 +6956,7 @@ exports.postSortieExceptionnel = (req, res) => {
           id_bande_sortie,
           'Sortie',
           id_agent,
-          mouvement_exceptionnel,
+          1,
           id_vehicule,
           id_chauffeur,
           id_destination,
@@ -6975,8 +6975,7 @@ exports.postSortieExceptionnel = (req, res) => {
           }
 
           return res.status(201).json({
-            message: "La sortie a été enregistrée avec succès.",
-            data: { id: insertId }
+            message: "La sortie exceptionnelle a été enregistrée avec succès.",
           });
         });
         
@@ -7310,8 +7309,9 @@ exports.putVisiteurVehiculeRetour = async (req, res) => {
 exports.getEntreeSortie = (req, res) => {
 
     const q = `
-        SELECT 
+      SELECT 
         sr.id_sortie_retour, 
+        sr.id_bande_sortie, 
         sr.type, 
         sr.created_at, 
         u.nom, 
@@ -7320,7 +7320,7 @@ exports.getEntreeSortie = (req, res) => {
         cv.nom_cat,
         c.nom AS nom_chauffeur
         FROM sortie_retour sr
-        LEFT JOIN 
+        INNER JOIN 
           bande_sortie bs ON sr.id_bande_sortie = bs.id_bande_sortie
         LEFT JOIN 
           vehicules v ON bs.id_vehicule = v.id_vehicule
