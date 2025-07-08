@@ -1488,11 +1488,11 @@ exports.getDeclaration = (req, res) => {
         if (!data?.length) return res.status(404).json({ message: 'Aucune déclaration trouvée.' });
 
         let qTotal = `
-            SELECT 
-                COUNT(DISTINCT ds.id_client) AS nbre_client,
-                SUM(ds.m2_facture) AS total_m2_facture,
-                SUM(ds.m2_occupe) AS total_m2_occupe
-        `;
+                SELECT 
+                    COUNT(DISTINCT ds.id_client) AS nbre_client,
+                    SUM(ds.m2_facture) AS total_m2_facture,
+                    SUM(ds.m2_occupe) AS total_m2_occupe
+                `;
 
         if (isAdmin) {
             qTotal += `,
@@ -1531,7 +1531,7 @@ exports.getDeclaration = (req, res) => {
 
         if (ville?.length > 0) qTotal += ` AND ds.id_ville IN (${ville.map(v => db.escape(v)).join(',')})`;
         if (client?.length > 0) qTotal += ` AND ds.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
-        if (batiment?.length > 0) qTotal += ` AND ds.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;
+        if (batiment?.length > 0) qTotal += ` AND tc.id_batiment IN (${batiment.map(b => db.escape(b)).join(',')})`;
         if (months.length > 0) qTotal += ` AND MONTH(ds.periode) IN (${months.map(m => db.escape(m)).join(',')})`;
         if (years.length > 0) qTotal += ` AND YEAR(ds.periode) IN (${years.map(y => db.escape(y)).join(',')})`;
         if (search) qTotal += ` AND (client.nom LIKE ${db.escape(`%${search}%`)} OR tc.desc_template LIKE ${db.escape(`%${search}%`)})`;
