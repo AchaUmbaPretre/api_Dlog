@@ -5736,7 +5736,7 @@ exports.postAffectationDemande = (req, res) => {
             id_demandeur,
             id_client,
             id_destination,
-            11,
+            4,
             personne_bord,
             commentaire,
             user_cr
