@@ -6928,6 +6928,10 @@ exports.postSortieExceptionnel = (req, res) => {
           id_agent,
           mouvement_exceptionnel,
           id_vehicule,
+          id_destination,
+          id_motif,
+          id_demandeur,
+          personne_bord
         } = req.body;
 
         if (!id_bande_sortie || !id_bande_sortie) {
@@ -6943,8 +6947,10 @@ exports.postSortieExceptionnel = (req, res) => {
             id_vehicule,
             id_chauffeur,
             id_destination,
-            id_motif
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            id_motif,
+            id_demandeur,
+            personne_bord
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
         const values = [
           id_bande_sortie,
@@ -6954,7 +6960,9 @@ exports.postSortieExceptionnel = (req, res) => {
           id_vehicule,
           id_chauffeur,
           id_destination,
-          id_motif
+          id_motif,
+          id_demandeur,
+          personne_bord
         ]
 
         await queryPromise(connection, insertSQL, values);
