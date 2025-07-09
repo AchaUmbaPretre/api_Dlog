@@ -6908,6 +6908,35 @@ exports.postRetour = (req, res) => {
 };
 
 //Sortie exceptionnelle
+exports.getSortieExceptionnelle = (req, res) => {
+
+    const q = `
+            SELECT 
+                sr.id_sortie_retour, 
+                sr.type, 
+                sr.created_at, 
+                u.nom AS agent_nom, 
+                v.immatriculation,
+                m.nom_marque, 
+                cv.nom_cat,
+                c.nom AS nom_chauffeur
+            FROM sortie_retour sr
+            LEFT JOIN vehicules v ON sr.id_vehicule = v.id_vehicule
+            LEFT JOIN marque m ON v.id_marque = m.id_marque
+            LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+            LEFT JOIN chauffeurs c ON sr.id_chauffeur = c.id_chauffeur
+            INNER JOIN utilisateur u ON sr.id_agent = u.id_utilisateur
+            WHERE sr.mouvement_exceptionnel = TRUE;
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.postSortieExceptionnel = (req, res) => {
   db.getConnection((connErr, connection) => {
     if(connErr) {
@@ -7302,8 +7331,6 @@ exports.putVisiteurVehiculeRetour = async (req, res) => {
     });
   });
 };
-
-
 
 //Liste de SORTIE & ENTREE
 exports.getEntreeSortie = (req, res) => {
