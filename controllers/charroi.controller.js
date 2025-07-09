@@ -6912,6 +6912,7 @@ exports.getSortieExceptionnelle = (req, res) => {
 
     const q = `
             SELECT 
+                sr.autorise_par,
                 sr.id_sortie_retour, 
                 sr.type, 
                 sr.created_at, 
@@ -6960,7 +6961,8 @@ exports.postSortieExceptionnel = (req, res) => {
           id_destination,
           id_motif,
           id_demandeur,
-          personne_bord
+          personne_bord,
+          autorise_par
         } = req.body;
 
         if (!id_vehicule || !id_motif) {
@@ -6978,8 +6980,10 @@ exports.postSortieExceptionnel = (req, res) => {
             id_destination,
             id_motif,
             id_demandeur,
-            personne_bord
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            statut,
+            personne_bord,
+            autorise_par
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
         const values = [
           id_bande_sortie,
@@ -6991,10 +6995,18 @@ exports.postSortieExceptionnel = (req, res) => {
           id_destination,
           id_motif,
           id_demandeur,
-          personne_bord
+          13,
+          personne_bord,
+          autorise_par
         ]
 
         await queryPromise(connection, insertSQL, values);
+
+        const updateVehiculeSql = `
+          UPDATE vehicules SET IsDispo = 0 WHERE id_vehicule = ?
+        `;
+        await queryPromise(connection, updateVehiculeSql, [id_vehicule]);
+
 
         connection.commit((commitErr) => {
           connection.release();
@@ -7026,9 +7038,7 @@ exports.getRetourExceptionnelle = (req, res) => {
 
     const q = `
             SELECT 
-                sr.id_sortie_retour, 
-                sr.type, 
-                sr.created_at, 
+                sr.*, 
                 u.nom AS agent_nom, 
                 v.immatriculation,
                 m.nom_marque, 
@@ -7040,7 +7050,7 @@ exports.getRetourExceptionnelle = (req, res) => {
             LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
             LEFT JOIN chauffeurs c ON sr.id_chauffeur = c.id_chauffeur
             INNER JOIN utilisateur u ON sr.id_agent = u.id_utilisateur
-            WHERE sr.mouvement_exceptionnel = TRUE AND sr.type = 'Sortie';
+            WHERE sr.mouvement_exceptionnel = TRUE AND sr.statut = 13
             `;
 
     db.query(q, (error, data) => {
@@ -7067,14 +7077,15 @@ exports.postRetourExceptionnel = (req, res) => {
 
       try {
         const {
-          id_bande_sortie,
+          id_sortieRetourParent,
           id_agent,
           id_vehicule,
           id_chauffeur,
           id_destination,
           id_motif,
           id_demandeur,
-          personne_bord
+          personne_bord,
+          autorise_par
         } = req.body;
 
         if (!id_vehicule || !id_motif) {
@@ -7083,32 +7094,46 @@ exports.postRetourExceptionnel = (req, res) => {
 
         const insertSQL = `
           INSERT INTO sortie_retour (
-            id_bande_sortie,
             type,
             id_agent,
+            id_sortieRetourParent,
             mouvement_exceptionnel,
             id_vehicule,
             id_chauffeur,
             id_destination,
             id_motif,
             id_demandeur,
-            personne_bord
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            personne_bord,
+            autorise_par
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
         const values = [
-          id_bande_sortie,
           'Retour',
           id_agent,
+          id_sortieRetourParent,
           1,
           id_vehicule,
           id_chauffeur,
           id_destination,
           id_motif,
           id_demandeur,
-          personne_bord
+          personne_bord,
+          autorise_par
         ]
 
         await queryPromise(connection, insertSQL, values);
+
+        const updateSql = `UPDATE sortie_retour SET statut = 14 WHERE id_sortie_retour = ?`
+
+        await queryPromise(connection, updateSql, [id_sortieRetourParent]);
+
+        const updateDispoQuery = `
+          UPDATE vehicules
+          SET IsDispo = 1
+          WHERE id_vehicule = ?
+        `;
+
+        await queryPromise(connection, updateDispoQuery, [id_vehicule]);
 
         connection.commit((commitErr) => {
           connection.release();
