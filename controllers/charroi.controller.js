@@ -7021,6 +7021,120 @@ exports.postSortieExceptionnel = (req, res) => {
   })
 };
 
+//Retour exceptionnelle
+exports.getRetourExceptionnelle = (req, res) => {
+
+    const q = `
+            SELECT 
+                sr.id_sortie_retour, 
+                sr.type, 
+                sr.created_at, 
+                u.nom AS agent_nom, 
+                v.immatriculation,
+                m.nom_marque, 
+                cv.nom_cat,
+                c.nom AS nom_chauffeur
+            FROM sortie_retour sr
+            LEFT JOIN vehicules v ON sr.id_vehicule = v.id_vehicule
+            LEFT JOIN marque m ON v.id_marque = m.id_marque
+            LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+            LEFT JOIN chauffeurs c ON sr.id_chauffeur = c.id_chauffeur
+            INNER JOIN utilisateur u ON sr.id_agent = u.id_utilisateur
+            WHERE sr.mouvement_exceptionnel = TRUE AND sr.type = 'Sortie';
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postRetourExceptionnel = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if(connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if(trxErr) {
+        connection.release();
+        console.error('Erreur transaction : ', trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const {
+          id_bande_sortie,
+          id_agent,
+          id_vehicule,
+          id_chauffeur,
+          id_destination,
+          id_motif,
+          id_demandeur,
+          personne_bord
+        } = req.body;
+
+        if (!id_vehicule || !id_motif) {
+          throw new Error("Champs obligatoires manquants.");
+        }
+
+        const insertSQL = `
+          INSERT INTO sortie_retour (
+            id_bande_sortie,
+            type,
+            id_agent,
+            mouvement_exceptionnel,
+            id_vehicule,
+            id_chauffeur,
+            id_destination,
+            id_motif,
+            id_demandeur,
+            personne_bord
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `
+        const values = [
+          id_bande_sortie,
+          'Retour',
+          id_agent,
+          1,
+          id_vehicule,
+          id_chauffeur,
+          id_destination,
+          id_motif,
+          id_demandeur,
+          personne_bord
+        ]
+
+        await queryPromise(connection, insertSQL, values);
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+          }
+
+          return res.status(201).json({
+            message: "La sortie exceptionnelle a été enregistrée avec succès.",
+          });
+        });
+        
+      } catch (error) {
+          connection.rollback(() => {
+          connection.release();
+          console.error("Erreur transactionnelle :", error);
+          return res.status(500).json({
+            error: error.message || "Erreur lors du traitement de la sortie."
+          });
+        });
+      }
+    })
+  })
+};
+
 //Visiteur
 exports.getVisiteur = (req, res) => {
 

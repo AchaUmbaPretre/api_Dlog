@@ -217,6 +217,10 @@ router.post('/retour_vehicule', charroiController.postRetour)
 router.get('/sortie_vehicule_exceptionnel', charroiController.getSortieExceptionnelle)
 router.post('/sortie_vehicule_exceptionnel', charroiController.postSortieExceptionnel)
 
+//Retour exceptionnelle
+router.get('/retour_vehicule_exceptionnel', charroiController.getRetourExceptionnelle)
+router.post('/retour_vehicule_exceptionnel', charroiController.postRetourExceptionnel)
+
 //Visiteur
 router.get('/visiteur_vehicule', charroiController.getVisiteur)
 router.get('/visiteur_vehicule_search', charroiController.getVisiteurSearch)
