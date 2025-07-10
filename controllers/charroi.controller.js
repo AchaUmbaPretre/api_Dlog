@@ -6835,6 +6835,7 @@ exports.getRetour = (req, res) => {
 };
 
 exports.postRetour = (req, res) => {
+
   db.getConnection((connErr, connection) => {
     if(connErr) {
       console.error("Erreur de connexion DB :", connErr);
@@ -6864,7 +6865,6 @@ exports.postRetour = (req, res) => {
           id_agent,
           autorise_par
         } = req.body;
-
         if (!id_motif || !id_vehicule) {
           throw new Error("Champs obligatoires manquants.");
         }
@@ -7553,6 +7553,7 @@ exports.getEntreeSortie = (req, res) => {
           chauffeurs c ON sr.id_chauffeur = c.id_chauffeur
         INNER JOIN 
           utilisateur u ON sr.id_agent = u.id_utilisateur
+        ORDER BY sr.created_at DESC
             `;
 
     db.query(q, (error, data) => {
