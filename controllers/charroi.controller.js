@@ -4873,7 +4873,6 @@ exports.postServiceDemandeur = (req, res) => {
   })
 }
 
-
 exports.getTypeVehicule = (req, res) => {
     const q = `SELECT * FROM type_vehicule`;
 
@@ -4901,6 +4900,7 @@ exports.getDemandeVehicule = (req, res) => {
 
   let q = `
     SELECT 
+      dv.id_destination,
       dv.id_demande_vehicule, 
       dv.date_chargement, 
       dv.date_prevue, 
@@ -4948,16 +4948,16 @@ exports.getDemandeVehiculeOne = (req, res) => {
       return res.status(400).json({ error: 'Invalid id demande'})
     }
 
-    let q = `    SELECT 
-                  dv.*,
-                  tv.nom_type_vehicule,
-                  md.nom_motif_demande,
-                  sd.nom_service,
-                  c.nom,
-                  u.nom AS nom_user,
-                  l.nom_destination,
-                  tss.nom_type_statut
-                FROM demande_vehicule dv
+    let q = `SELECT 
+              dv.*,
+              tv.nom_type_vehicule,
+              md.nom_motif_demande,
+              sd.nom_service,
+              c.nom,
+              u.nom AS nom_user,
+              l.nom_destination,
+              tss.nom_type_statut
+            FROM demande_vehicule dv
                 INNER JOIN type_vehicule tv ON dv.id_type_vehicule = tv.id_type_vehicule
                 INNER JOIN motif_demande md ON dv.id_motif_demande = md.id_motif_demande
                 INNER JOIN service_demandeur sd ON dv.id_demandeur = sd.id_service_demandeur
@@ -6592,11 +6592,7 @@ exports.getSortie = (req, res) => {
 
     const q = `
             SELECT 
-                ad.id_bande_sortie, 
-                ad.date_prevue,
-                ad.date_retour,
-                ad.personne_bord,
-                ad.commentaire,
+                ad.*,
                 mfd.nom_motif_demande,
                 ts.nom_type_statut,
                 tv.nom_type_vehicule,
@@ -6660,11 +6656,18 @@ exports.postSortie = (req, res) => {
       try {
         const {
           id_bande_sortie,
+          id_vehicule,
+          id_chauffeur,
+          id_destination,
+          id_motif,
+          id_demandeur,
+          id_client,
+          personne_bord,
+          id_societe,
           id_agent,
-          observations
         } = req.body;
 
-        if (!id_bande_sortie || !id_bande_sortie) {
+        if (!id_bande_sortie || !id_vehicule) {
           throw new Error("Champs obligatoires manquants.");
         }
 
@@ -6673,22 +6676,41 @@ exports.postSortie = (req, res) => {
             id_bande_sortie,
             type,
             id_agent,
-            observations
-          ) VALUES (?, ?, ?, ?)
+            mouvement_exceptionnel,
+            id_vehicule,
+            id_chauffeur,
+            id_destination,
+            statut,
+            id_motif,
+            id_demandeur,
+            id_client,
+            personne_bord,
+            id_societe
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
         const values = [
-          id_bande_sortie,
-          'Sortie',
-          id_agent,
-          observations
+            id_bande_sortie,
+            'Sortie',
+            id_agent,
+            mouvement_exceptionnel = 0,
+            id_vehicule,
+            id_chauffeur,
+            id_destination,
+            13,
+            id_motif,
+            id_demandeur,
+            id_client,
+            personne_bord,
+            id_societe
         ]
 
         const [insertResult] = await queryPromise(connection, insertSQL, values);
         const insertId = insertResult.insertId;
 
-        const updateSQL = `UPDATE bande_sortie SET statut = 13 WHERE  id_bande_sortie = ?`;
-
-        await queryPromise(connection, updateSQL, [id_bande_sortie]);
+        if (id_bande_sortie) {
+          const updateSQL = `UPDATE bande_sortie SET statut = 13 WHERE  id_bande_sortie = ?`;
+          await queryPromise(connection, updateSQL, [id_bande_sortie]);
+        }
 
         connection.commit((commitErr) => {
           connection.release();
@@ -6772,11 +6794,7 @@ exports.getRetour = (req, res) => {
 
     const q = `
         SELECT 
-          ad.id_bande_sortie, 
-          ad.date_prevue,
-          ad.date_retour,
-          ad.personne_bord,
-          ad.commentaire,
+          ad.*,
           mfd.nom_motif_demande,
           ts.nom_type_statut,
           tv.nom_type_vehicule,
@@ -6833,10 +6851,15 @@ exports.postRetour = (req, res) => {
       try {
         const {
           id_bande_sortie,
-          type,
-          date,
+          id_vehicule,
+          id_chauffeur,
+          id_destination,
+          id_motif,
+          id_demandeur,
+          id_client,
+          personne_bord,
+          id_societe,
           id_agent,
-          observations
         } = req.body;
 
         if (!id_bande_sortie || !id_bande_sortie) {
@@ -6848,22 +6871,42 @@ exports.postRetour = (req, res) => {
             id_bande_sortie,
             type,
             id_agent,
-            observations
-          ) VALUES (?, ?, ?, ?)
-        `
+            mouvement_exceptionnel,
+            id_vehicule,
+            id_chauffeur,
+            id_destination,
+            statut,
+            id_motif,
+            id_demandeur,
+            id_client,
+            personne_bord,
+            id_societe
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
         const values = [
-          id_bande_sortie,
-          'Retour',
-          id_agent,
-          observations
+            id_bande_sortie,
+            'Retour',
+            id_agent,
+            mouvement_exceptionnel = 0,
+            id_vehicule,
+            id_chauffeur,
+            id_destination,
+            14,
+            id_motif,
+            id_demandeur,
+            id_client,
+            personne_bord,
+            id_societe
         ]
 
         const [insertResult] = await queryPromise(connection, insertSQL, values);
         const insertId = insertResult.insertId;
 
-        const updateSQL = `UPDATE bande_sortie SET statut = 14 WHERE  id_bande_sortie = ?`;
-
-        await queryPromise(connection, updateSQL, [id_bande_sortie]);
+        if(id_bande_sortie) {
+          const updateSQL = `UPDATE bande_sortie SET statut = 14 WHERE  id_bande_sortie = ?`;
+          await queryPromise(connection, updateSQL, [id_bande_sortie]);
+        }
 
         const getVehiculeQuery = `
           SELECT id_vehicule
@@ -6967,6 +7010,7 @@ exports.postSortieExceptionnel = (req, res) => {
           id_destination,
           id_motif,
           id_demandeur,
+          id_client,
           personne_bord,
           autorise_par
         } = req.body;
@@ -6986,10 +7030,11 @@ exports.postSortieExceptionnel = (req, res) => {
             id_destination,
             id_motif,
             id_demandeur,
+            id_client,
             statut,
             personne_bord,
             autorise_par
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
         const values = [
           id_bande_sortie,
@@ -7001,6 +7046,7 @@ exports.postSortieExceptionnel = (req, res) => {
           id_destination,
           id_motif,
           id_demandeur,
+          id_client,
           13,
           personne_bord,
           autorise_par
@@ -7090,6 +7136,7 @@ exports.postRetourExceptionnel = (req, res) => {
           id_destination,
           id_motif,
           id_demandeur,
+          id_client,
           personne_bord,
           autorise_par
         } = req.body;
@@ -7109,10 +7156,13 @@ exports.postRetourExceptionnel = (req, res) => {
             id_destination,
             id_motif,
             id_demandeur,
+            id_client,
+            statut,
             personne_bord,
             autorise_par
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
         const values = [
           'Retour',
           id_agent,
@@ -7123,6 +7173,8 @@ exports.postRetourExceptionnel = (req, res) => {
           id_destination,
           id_motif,
           id_demandeur,
+          id_client,
+          14,
           personne_bord,
           autorise_par
         ]
@@ -7485,6 +7537,7 @@ exports.getEntreeSortie = (req, res) => {
         sr.id_sortie_retour, 
         sr.id_bande_sortie, 
         sr.type, 
+        sr.mouvement_exceptionnel,
         sr.created_at, 
         u.nom, 
         v.immatriculation,
@@ -7492,16 +7545,14 @@ exports.getEntreeSortie = (req, res) => {
         cv.nom_cat,
         c.nom AS nom_chauffeur
         FROM sortie_retour sr
-        INNER JOIN 
-          bande_sortie bs ON sr.id_bande_sortie = bs.id_bande_sortie
         LEFT JOIN 
-          vehicules v ON bs.id_vehicule = v.id_vehicule
+          vehicules v ON sr.id_vehicule = v.id_vehicule
         LEFT JOIN 
           marque m ON v.id_marque = m.id_marque
         LEFT JOIN 
           cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
         LEFT JOIN 
-          chauffeurs c ON bs.id_chauffeur = c.id_chauffeur
+          chauffeurs c ON sr.id_chauffeur = c.id_chauffeur
         INNER JOIN 
           utilisateur u ON sr.id_agent = u.id_utilisateur
             `;
