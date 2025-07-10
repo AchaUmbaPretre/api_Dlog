@@ -5611,6 +5611,7 @@ exports.getAffectationDemande = (req, res) => {
           ad.date_retour,
           ad.personne_bord,
           ad.commentaire, 
+          ad.statut,
           mfd.nom_motif_demande,
           ts.nom_type_statut,
           sd.nom_service,
@@ -5976,6 +5977,11 @@ exports.postBandeSortie = (req, res) => {
             user_cr
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
+
+        const updateVehiculeSql = `
+          UPDATE affectation_demande SET statut = 2 WHERE id_affectation_demande = ?
+        `;
+        await queryPromise(connection, updateVehiculeSql, [id_affectation_demande]);
 
         const bonValues = [
           id_affectation_demande || null,
