@@ -6803,7 +6803,7 @@ exports.getRetour = (req, res) => {
           c.nom, 
           v.immatriculation, 
           m.nom_marque
-        FROM bande_sortie ad
+        FROM sortie_retour ad
           INNER JOIN 
             chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
           INNER JOIN 
@@ -6815,9 +6815,9 @@ exports.getRetour = (req, res) => {
           INNER JOIN 
             type_statut_suivi ts ON ad.statut = ts.id_type_statut_suivi
           LEFT JOIN
-            type_vehicule tv ON ad.id_type_vehicule = tv.id_type_vehicule
+            type_vehicule tv ON v.id_cat_vehicule = tv.id_type_vehicule
           LEFT JOIN 
-            motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
+            motif_demande mfd ON ad.id_motif = mfd.id_motif_demande
           LEFT JOIN
             service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
           LEFT JOIN 
@@ -6850,6 +6850,8 @@ exports.postRetour = (req, res) => {
 
       try {
         const {
+          mouvement_exceptionnel,
+          id_sortieRetourParent,
           id_bande_sortie,
           id_vehicule,
           id_chauffeur,
@@ -6860,9 +6862,10 @@ exports.postRetour = (req, res) => {
           personne_bord,
           id_societe,
           id_agent,
+          autorise_par
         } = req.body;
 
-        if (!id_bande_sortie || !id_bande_sortie) {
+        if (!id_motif || !id_vehicule) {
           throw new Error("Champs obligatoires manquants.");
         }
 
@@ -6871,6 +6874,7 @@ exports.postRetour = (req, res) => {
             id_bande_sortie,
             type,
             id_agent,
+            id_sortieRetourParent,
             mouvement_exceptionnel,
             id_vehicule,
             id_chauffeur,
@@ -6880,15 +6884,17 @@ exports.postRetour = (req, res) => {
             id_demandeur,
             id_client,
             personne_bord,
+            autorise_par,
             id_societe
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const values = [
             id_bande_sortie,
             'Retour',
             id_agent,
-            mouvement_exceptionnel = 0,
+            id_sortieRetourParent,
+            mouvement_exceptionnel,
             id_vehicule,
             id_chauffeur,
             id_destination,
@@ -6897,6 +6903,7 @@ exports.postRetour = (req, res) => {
             id_demandeur,
             id_client,
             personne_bord,
+            autorise_par,
             id_societe
         ]
 
@@ -6908,27 +6915,15 @@ exports.postRetour = (req, res) => {
           await queryPromise(connection, updateSQL, [id_bande_sortie]);
         }
 
-        const getVehiculeQuery = `
-          SELECT id_vehicule
-          FROM bande_sortie
-          WHERE id_bande_sortie  = ?
-        `;
-
-        const [vehiculeResult] = await queryPromise(connection, getVehiculeQuery, [id_bande_sortie]);
-
-        if (!vehiculeResult || vehiculeResult.length === 0) {
-          connection.release();
-          return res.status(404).json({ error: "Aucun véhicule trouvé pour ce bon de sortie." });
-        }
-
-        const idVehicule = vehiculeResult[0].id_vehicule;
+          const updateSQLRetour = `UPDATE sortie_retour SET statut = 14 WHERE id_sortie_retour = ?`;
+          await queryPromise(connection, updateSQLRetour, [id_sortieRetourParent]);
 
         const updateDispoQuery = `
           UPDATE vehicules
           SET IsDispo = 1
           WHERE id_vehicule = ?
         `;
-        await queryPromise(connection, updateDispoQuery, [idVehicule]);
+        await queryPromise(connection, updateDispoQuery, [id_vehicule]);
 
         connection.commit((commitErr) => {
           connection.release();
@@ -6988,6 +6983,7 @@ exports.getSortieExceptionnelle = (req, res) => {
 };
 
 exports.postSortieExceptionnel = (req, res) => {
+
   db.getConnection((connErr, connection) => {
     if(connErr) {
       console.error("Erreur de connexion DB :", connErr);
@@ -7129,8 +7125,10 @@ exports.postRetourExceptionnel = (req, res) => {
 
       try {
         const {
+          type,
           id_sortieRetourParent,
           id_agent,
+          mouvement_exceptionnel,
           id_vehicule,
           id_chauffeur,
           id_destination,
@@ -7164,10 +7162,10 @@ exports.postRetourExceptionnel = (req, res) => {
         `;
 
         const values = [
-          'Retour',
+          type,
           id_agent,
           id_sortieRetourParent,
-          1,
+          mouvement_exceptionnel,
           id_vehicule,
           id_chauffeur,
           id_destination,
@@ -7544,7 +7542,7 @@ exports.getEntreeSortie = (req, res) => {
         m.nom_marque, 
         cv.nom_cat,
         c.nom AS nom_chauffeur
-        FROM sortie_retour sr
+      FROM sortie_retour sr
         LEFT JOIN 
           vehicules v ON sr.id_vehicule = v.id_vehicule
         LEFT JOIN 
