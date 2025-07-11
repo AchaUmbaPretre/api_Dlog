@@ -7304,6 +7304,7 @@ exports.postVisiteur = (req, res) => {
             id_motif,
             entreprise,
             vehicule_connu,
+            date_sortie,
             user_cr
           } = req.body;
 
@@ -7320,8 +7321,9 @@ exports.postVisiteur = (req, res) => {
             id_motif,
             entreprise,
             vehicule_connu,
+            date_sortie,
             user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
         const values = [
               immatriculation,
@@ -7331,6 +7333,7 @@ exports.postVisiteur = (req, res) => {
               id_motif,
               entreprise,
               vehicule_connu ? 1 : 0,
+              date_sortie,
               user_cr
             ];
 
@@ -7541,7 +7544,10 @@ exports.getEntreeSortie = (req, res) => {
         v.immatriculation,
         m.nom_marque, 
         cv.nom_cat,
-        c.nom AS nom_chauffeur
+        c.nom AS nom_chauffeur,
+        d.nom_destination,
+        sd.nom_service,
+        cl.nom AS nom_client
       FROM sortie_retour sr
         LEFT JOIN 
           vehicules v ON sr.id_vehicule = v.id_vehicule
@@ -7551,6 +7557,12 @@ exports.getEntreeSortie = (req, res) => {
           cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
         LEFT JOIN 
           chauffeurs c ON sr.id_chauffeur = c.id_chauffeur
+        LEFT JOIN
+        	destination d ON sr.id_destination = d.id_destination
+        LEFT JOIN
+        	service_demandeur sd ON sr.id_demandeur = sd.id_service_demandeur
+        LEFT JOIN
+        	client cl ON sr.id_client = cl.id_client
         INNER JOIN 
           utilisateur u ON sr.id_agent = u.id_utilisateur
         ORDER BY sr.created_at DESC
