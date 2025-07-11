@@ -1749,10 +1749,10 @@ exports.postTache = async (req, res) => {
     // Notification
     const notificationMessage = `Une nouvelle tâche vient d'être créée avec le titre de : ${nom_tache}`;
     const notificationsQuery = `
-      INSERT INTO notifications (user_id, message, timestamp)
-      VALUES (?, ?, NOW())
+      INSERT INTO notifications (user_id, message, timestamp, target_type, target_id)
+      VALUES (?, ?, NOW(), ?, ?)
     `;
-    await queryPromise(connection, notificationsQuery, [user_cr, notificationMessage]);
+    await queryPromise(connection, notificationsQuery, [user_cr, notificationMessage, 'Tache', taskId]);
 
     // Récupérer nom créateur
     const userSQL = `SELECT nom FROM utilisateur WHERE id_utilisateur = ?`;
@@ -2892,6 +2892,43 @@ exports.getNotificationTache = (req, res) => {
         });
     });
 };
+/* exports.getNotificationTacheOne = (req, res) => {
+    const { id_notification } = req.query;
+
+    // Vérification de la présence du paramètre requis
+    if (!id_notification) {
+        return res.status(400).json({
+            error: "Le paramètre 'id_notification' est requis.",
+        });
+    }
+
+    // Requête SQL pour récupérer les données
+    const query = `
+        SELECT notifications.*, u.nom, u.prenom 
+        FROM notifications
+        INNER JOIN utilisateur u ON notifications.user_id = u.id_utilisateur
+        WHERE notifications.id_notifications = ?
+    `;
+
+    db.query(query, [id_notification], (error, results) => {
+        if (error) {
+            console.error("Erreur lors de l'exécution de la requête:", error);
+            return res.status(500).json({
+                error: "Une erreur est survenue lors de la récupération de la notification.",
+            });
+        }
+
+        // Vérification si une notification est trouvée
+        if (results.length === 0) {
+            return res.status(404).json({
+                message: "Aucune notification trouvée avec cet ID.",
+            });
+        }
+
+        // Réponse avec les données de la notification
+        return res.status(200).json(results[0]);
+    });
+}; */
 
 exports.getNotificationTacheOne = (req, res) => {
     const { id_notification } = req.query;
