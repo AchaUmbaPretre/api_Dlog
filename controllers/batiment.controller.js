@@ -153,7 +153,7 @@ exports.putEquipement = async (req, res) => {
 
 //Plan
 exports.getBatimentPlans = (req, res) => {
-  const { searchValue, selectedBatiment } = req.query;
+  const { searchValue, selectedBatiment, currentPage = 1, pageSize = 10 } = req.query;
 
   let whereClauses = [];
   let values = [];
@@ -163,27 +163,41 @@ exports.getBatimentPlans = (req, res) => {
     values.push(`%${searchValue}%`);
   }
 
-  // Filtrage par bâtiment(s)
   if (selectedBatiment && (Array.isArray(selectedBatiment) ? selectedBatiment.length : true)) {
     const ids = Array.isArray(selectedBatiment) ? selectedBatiment : [selectedBatiment];
     whereClauses.push(`bp.id_batiment IN (${ids.map(() => '?').join(', ')})`);
     values.push(...ids);
   }
 
-  const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+  const whereClause = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
+  const offset = (parseInt(currentPage) - 1) * parseInt(pageSize);
 
-  const q = `
-    SELECT bp.* 
+  const countQuery = `SELECT COUNT(*) AS total FROM batiment_plans bp ${whereClause}`;
+  const dataQuery = `
+    SELECT bp.*
     FROM batiment_plans bp
     ${whereClause}
     ORDER BY bp.date_ajout DESC
+    LIMIT ? OFFSET ?
   `;
 
-  db.query(q, values, (error, data) => {
-    if (error) {
-      return res.status(500).send(error);
+  db.query(countQuery, values, (countErr, countResult) => {
+    if (countErr) {
+      return res.status(500).json({ error: countErr });
     }
-    return res.status(200).json(data);
+
+    const total = countResult[0].total;
+
+    db.query(dataQuery, [...values, parseInt(pageSize), offset], (dataErr, data) => {
+      if (dataErr) {
+        return res.status(500).json({ error: dataErr });
+      }
+
+      return res.status(200).json({
+        rows: data,
+        total,
+      });
+    });
   });
 };
 
