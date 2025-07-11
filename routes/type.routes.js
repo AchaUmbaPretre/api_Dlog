@@ -43,5 +43,4 @@ router.get('/statut_bin',typesController.statut_bins)
 //Statut batiment
 router.get('/status_batiment',typesController.statusBatiment)
 
-
 module.exports = router;

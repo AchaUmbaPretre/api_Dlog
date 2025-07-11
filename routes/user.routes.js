@@ -47,5 +47,4 @@ router.post('/pieton', userController.postVisiteurPieton);
 router.get('/pieton_retour', userController.getVisiteurPietonRetour);
 router.put('/pieton_retour', userController.putVisiteurPietonRetour);
 
-
 module.exports = router;
