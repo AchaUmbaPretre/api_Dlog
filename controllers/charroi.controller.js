@@ -1561,13 +1561,13 @@ exports.postReparation = (req, res) => {
 
           // 🔔 Ajout de la notification
           const notifQuery = `
-          INSERT INTO notifications (user_id, message)
-          VALUES (?, ?)
+          INSERT INTO notifications (user_id, message, target_type, target_id)
+          VALUES (?, ?, ?, ?)
           `;
 
           const notifMessage = `Une nouvelle réparation a été enregistrée pour le véhicule ${getVehiculeResult?.[0].nom_marque}, immatriculé ${getVehiculeResult?.[0].immatriculation}, de type ${getTypeResult?.[0].type_rep}.`;
 
-          await queryPromise(connection, notifQuery, [user_cr, notifMessage]);
+          await queryPromise(connection, notifQuery, [user_cr, notifMessage, 'Reparation', insertedSudReparationId]);
 
           //Utilisateur
           const getUserEmailSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ?`;
@@ -1732,9 +1732,9 @@ exports.deleteReparation = (req, res) => {
         // 🔔 Notification
         const notifMessage = `La sous-réparation #${id_sud_reparation} a été supprimée par l'utilisateur ${user_id}.`;
         await queryPromise(connection, `
-          INSERT INTO notifications (user_id, message)
-          VALUES (?, ?)
-        `, [user_id, notifMessage]);
+          INSERT INTO notifications (user_id, message, target_type, target_id)
+          VALUES (?, ?, ?, ?)
+        `, [user_id, notifMessage, 'Reparation', id_sud_reparation]);
 
         // Commit
         connection.commit((commitErr) => {
@@ -3811,77 +3811,6 @@ exports.getSuiviReparationOne = (req, res) => {
     }
 }; */
 
-/* exports.postSuiviReparation = async (req, res) => {
-    let connection;
-
-    try {
-
-        const {id_evaluation, id_sud_reparation, user_cr, info} = req.body
-        
-        if(!id_evaluation) {
-            return res.status(400).json({ error: 'Champs requis manquants.'});
-        }
-
-        connection = await new Promise((resolve, reject) => {
-            db.getConnection((err, conn) => {
-                if(err) return reject(err);
-                resolve(conn)
-            });
-        });
-
-        const beginTransaction = util.promisify(connection.beginTransaction).bind(connection);
-        const commit = util.promisify(connection.commit).bind(connection);
-        const connQuery = util.promisify(connection.query).bind(connection);
-
-        await beginTransaction();
-
-        const insertQuery = `
-            INSERT INTO suivi_reparation (
-                id_sud_reparation,
-                id_tache_rep,
-                id_piece,
-                budget,
-                commentaire,
-                user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?)`;
-
-            for (const rep of info) {
-                const repValues = [
-                    id_sud_reparation,
-                    rep.id_tache_rep,
-                    rep.id_piece,
-                    rep.budget,
-                    rep.commentaire,
-                    user_cr
-                ]
-
-                await connQuery(insertQuery,repValues)
-            }
-
-            const updateQuery = `
-                UPDATE sud_reparation 
-                SET id_evaluation = ?
-                WHERE id_sud_reparation = ?
-            `;
-            await connQuery(updateQuery, [id_evaluation, id_sud_reparation])
-
-            await commit();
-            connection.release();
-
-            return res.status(201).json({ message: 'Suivi de reparation ajouté avec succès.' });
-
-    } catch (error) {
-        if(connection) {
-            try {
-                await connection.rollback();
-                connection.release();
-            } catch (rollbackError) {
-                console.error('Erreur pendant le rollback :', rollbackError);
-            }
-        }
-    }
-} */
-
 exports.postSuiviReparation = async (req, res) => {
       let connection;
   
@@ -4064,7 +3993,7 @@ exports.postSuiviReparation = async (req, res) => {
           }
           return res.status(500).json({ error: 'Erreur interne du serveur.' });
       }
-  };
+};
 
 exports.putSuiviReparation = async (req, res) => {
     let connection;
@@ -4158,12 +4087,12 @@ exports.getDocumentReparation = (req, res) => {
     const {id_sud_reparation} = req.query;
     const q = `
                 SELECT 
-                    dr.nom_document, 
-                    dr.type_document, 
-                    dr.chemin_document, 
-                    dr.created_at
+                  dr.nom_document, 
+                  dr.type_document, 
+                  dr.chemin_document, 
+                  dr.created_at
                 FROM 
-                    document_reparation dr
+                  document_reparation dr
                 WHERE dr.id_sud_reparation = ?
             `;
 
