@@ -2675,11 +2675,11 @@ exports.postInspectionGen = (req, res) => {
         const userEmail = userResult?.[0]?.email;
 
         const notifSQL = `
-            INSERT INTO notifications (user_id, message)
-            VALUES (?, ?)
+            INSERT INTO notifications (user_id, message, target_type, target_id)
+            VALUES (?, ?, ?, ?)
           `;
         const notifMsg = `Une nouvelle inspection a été ajoutée pour le véhicule ${getVehiculeResult?.[0].nom_marque}, immatriculé ${getVehiculeResult?.[0].immatriculation}, de type ${getTypeResult?.[0].type_rep}.`;  
-        await queryPromise(connection, notifSQL, [user_cr, notifMsg]);
+        await queryPromise(connection, notifSQL, [user_cr, notifMsg, 'Inspection', subInspectionId]);
 
         // Envoi d'emails aux utilisateurs autorisés
         const permissionSQL = `
@@ -3114,9 +3114,9 @@ exports.putInspectionGen = (req, res) => {
         const notifMessage = `L’inspection n°${idInspection} du véhicule ${getVehiculeResult?.[0].nom_marque}, immatriculé ${getVehiculeResult?.[0].immatriculation}, de type ${getTypeResult?.[0].type_rep}, a été mise à jour.`;
 
         await queryPromise(connection, `
-          INSERT INTO notifications (user_id, message)
-          VALUES (?, ?)
-        `, [user_cr, notifMessage]);
+          INSERT INTO notifications (user_id, message, target_type, target_id)
+          VALUES (?, ?, ?, ?)
+        `, [user_cr, notifMessage, 'Inspection', idSub]);
 
         // Envoi d'emails aux utilisateurs autorisés
         const permissionSQL = `

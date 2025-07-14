@@ -1382,61 +1382,6 @@ exports.postTache = async (req, res) => {
  */
 
 
-/*1 exports.postTache = async (req, res) => {
-    console.log(req.body.categories)
-
-    try {
-        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_tache_parente`, `id_departement`,`id_client`, `id_frequence`,`id_control`,`id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`,`id_batiment`, `id_ville`,`id_cat_tache`,`id_corps_metier`, `doc`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
-        const qCat ='INSERT INTO categorie_tache(`id_tache`, `id_cat`, `cout`)'
-
-        const values = [
-            req.body.nom_tache,
-            req.body.description,
-            req.body.statut || 1,
-            req.body.date_debut,
-            req.body.date_fin,
-            req.body.priorite,
-            req.body.id_tache_parente,
-            req.body.id_departement,
-            req.body.id_client,
-            req.body.id_frequence,
-            req.body.id_control,
-            req.body.id_projet,
-            req.body.id_point_supervision,
-            req.body.responsable_principal,
-            req.body.id_demandeur,
-            req.body.id_batiment,
-            req.body.id_ville,
-            req.body.id_cat_tache,
-            req.body.id_corps_metier,
-            req.body.doc
-        ];
-
-        db.query(q, values, (error, data)=>{
-            if(error){
-                console.log(error)
-            }
-            else{
-                const insertId = data.insertId;
-                if(req.body.categories.length > 0){
-                    req.body.categories.forEach(datas => {
-                        const catValues = [insertId, datas.id_cat, datas.cout]
-                        db.query(qCat, catValues, (errorCat, dataCat)=> {
-                            if(errorCat){
-                                console.log(errorCat)
-                            }
-                        })
-                    })
-                }
-                return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
-            }
-        })
-    } catch (error) {
-        console.error('Erreur lors de l\'ajout de la tâche :', error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
-    }
-}; */
-
 /* exports.postTache = async (req, res) => {
     const tags = req.body.tags;
 
