@@ -1496,7 +1496,6 @@ exports.postReparation = (req, res) => {
         ];
 
         await queryPromise(connection, historiqueSQL, historiqueValues);
-
   
             sudReparationIds.push(insertedSudReparationId);  // Ajouter l'ID `id_sud_reparation` pour log
             // Si la réparation est liée à une inspection, on met à jour la sous-inspection
@@ -1567,7 +1566,7 @@ exports.postReparation = (req, res) => {
 
           const notifMessage = `Une nouvelle réparation a été enregistrée pour le véhicule ${getVehiculeResult?.[0].nom_marque}, immatriculé ${getVehiculeResult?.[0].immatriculation}, de type ${getTypeResult?.[0].type_rep}.`;
 
-          await queryPromise(connection, notifQuery, [user_cr, notifMessage, 'Reparation', insertedSudReparationId]);
+          await queryPromise(connection, notifQuery, [user_cr, notifMessage, 'Reparation', insertedRepairId]);
 
           //Utilisateur
           const getUserEmailSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ?`;
