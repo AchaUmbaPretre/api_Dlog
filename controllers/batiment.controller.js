@@ -1713,6 +1713,105 @@ exports.getInspectionOneV = (req, res) => {
     });
 };
 
+/* exports.getInspectionDetailAll = (req, res) => {
+    let { ids } = req.query;
+
+    if (!ids) {
+        return res.status(400).json({ error: "Paramètre 'ids' requis" });
+    }
+
+    if (typeof ids === 'string') {
+        ids = ids.split(',').map(id => parseInt(id)).filter(id => !isNaN(id));
+    }
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "Le paramètre 'ids' est invalide" });
+    }
+
+    const placeholders = ids.map(() => '?').join(', ');
+    const q = `
+        SELECT inspections.*, im.img, im.commentaire, ti.nom_type_instruction,
+               tache.nom_tache, batiment.nom_batiment, ct.nom_cat_inspection, type_photo.nom_type_photo
+        FROM inspections
+        INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
+        INNER JOIN type_photo ON im.id_type_photo = type_photo.id_type_photo
+        LEFT JOIN tache ON inspections.id_tache = tache.id_tache
+        LEFT JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
+        LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
+        LEFT JOIN cat_inspection ct ON inspections.id_cat_instruction = ct.id_cat_inspection
+        WHERE inspections.id_inspection IN (${placeholders})
+    `;
+
+    db.query(q, ids, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+}; */
+
+exports.getInspectionDetailAll = (req, res) => {
+    let { ids, page = 1, limit = 10 } = req.query;
+
+    if (!ids) {
+        return res.status(400).json({ error: "Paramètre 'ids' requis" });
+    }
+
+    // Convertir ids en tableau de nombres
+    if (typeof ids === 'string') {
+        ids = ids.split(',').map(id => parseInt(id)).filter(id => !isNaN(id));
+    }
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "Le paramètre 'ids' est invalide" });
+    }
+
+    // Convertir limit et page en nombres
+    limit = parseInt(limit);
+    page = parseInt(page);
+    const offset = (page - 1) * limit;
+
+    const placeholders = ids.map(() => '?').join(', ');
+
+    const dataQuery = `
+        SELECT inspections.*, im.img, im.commentaire, ti.nom_type_instruction,
+               tache.nom_tache, batiment.nom_batiment, ct.nom_cat_inspection, type_photo.nom_type_photo
+        FROM inspections
+        INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
+        INNER JOIN type_photo ON im.id_type_photo = type_photo.id_type_photo
+        LEFT JOIN tache ON inspections.id_tache = tache.id_tache
+        LEFT JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
+        LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
+        LEFT JOIN cat_inspection ct ON inspections.id_cat_instruction = ct.id_cat_inspection
+        WHERE inspections.id_inspection IN (${placeholders})
+        LIMIT ? OFFSET ?
+    `;
+
+    const countQuery = `
+        SELECT COUNT(*) AS total
+        FROM inspections
+        INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
+        WHERE inspections.id_inspection IN (${placeholders})
+    `;
+
+    // Exécuter les deux requêtes : COUNT puis les données paginées
+    db.query(countQuery, ids, (countErr, countResult) => {
+        if (countErr) return res.status(500).send(countErr);
+
+        db.query(dataQuery, [...ids, limit, offset], (dataErr, dataResult) => {
+            if (dataErr) return res.status(500).send(dataErr);
+
+            return res.status(200).json({
+                data: dataResult,
+                total: countResult[0].total,
+                page,
+                limit
+            });
+        });
+    });
+};
+
+
 exports.getInspectionOne = (req, res) => {
     const {id_batiment} = req.query;
     const q = `

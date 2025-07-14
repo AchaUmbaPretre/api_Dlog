@@ -118,6 +118,7 @@ router.post('/whse_fact', batimentController.postWHSE_FACT)
 //Instruction
 router.get('/inspections', batimentController.getInspection)
 router.get('/inspectionsOneV', batimentController.getInspectionOneV)
+router.get('/inspectionsOneAll', batimentController.getInspectionDetailAll)
 router.get('/inspectionsOne', batimentController.getInspectionOne)
 router.post('/inspections_post',upload.any(), batimentController.postInspections)
 router.post('/inspections_post_apres', upload.any(), batimentController.postInspectionsApre)
