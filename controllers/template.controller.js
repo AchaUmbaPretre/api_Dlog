@@ -4447,6 +4447,7 @@ exports.getRapportTemplate = (req, res) => {
                     ds.id_declaration_super,
                     tc.desc_template,
                     client.nom,
+                    b.nom_batiment,
                     MONTH(ds.periode) AS Mois,
                     YEAR(ds.periode) AS Année,
                     SUM(ds.m2_facture) AS total_facture,
