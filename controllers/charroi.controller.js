@@ -7224,6 +7224,12 @@ exports.postVisiteur = (req, res) => {
       }
 
       try {
+
+        let img = null;
+          if (req.files && req.files.length > 0) {
+            img = req.files.map((file) => file.path.replace(/\\/g, '/')).join(',');
+        }
+
         const {
             immatriculation,
             type_vehicule,
@@ -7250,8 +7256,9 @@ exports.postVisiteur = (req, res) => {
             entreprise,
             vehicule_connu,
             date_sortie,
+            img,
             user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
         const values = [
               immatriculation,
@@ -7262,6 +7269,7 @@ exports.postVisiteur = (req, res) => {
               entreprise,
               vehicule_connu ? 1 : 0,
               date_sortie,
+              img,
               user_cr
             ];
 
