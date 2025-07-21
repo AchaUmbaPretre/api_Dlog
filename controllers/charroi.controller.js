@@ -5671,7 +5671,8 @@ exports.postAffectationDemande = (req, res) => {
             user_cr
           ]
 
-        await queryPromise(connection, insertSql, valuesDemande);
+        const insertResult = await queryPromise(connection, insertSql, valuesDemande);
+        const id_affectation = insertResult[0].insertId;
 
         if (id_demande_vehicule) {
           const updateDemandeSql = `UPDATE demande_vehicule SET statut = 11 WHERE id_demande_vehicule = ?`;
@@ -5736,6 +5737,7 @@ L'équipe Logistique GTM
 
           return res.status(201).json({
             message: "L'affectation de la demande a été enregistrée avec succès.",
+            id_affectation
           });
         });
 
@@ -6519,11 +6521,11 @@ exports.getVehiculeCourseOne = (req, res) => {
 exports.getSortie = (req, res) => {
 
     const q = `
-            SELECT 
+              SELECT 
                 ad.*,
                 mfd.nom_motif_demande,
                 ts.nom_type_statut,
-                tv.nom_type_vehicule,
+                cv.nom_cat AS type_vehicule,
                 sd.nom_service,
                 l.nom_destination,
                 c.nom, 
@@ -6543,7 +6545,7 @@ exports.getSortie = (req, res) => {
               INNER JOIN 
                 type_statut_suivi ts ON ad.statut = ts.id_type_statut_suivi
               LEFT JOIN
-                type_vehicule tv ON ad.id_type_vehicule = tv.id_type_vehicule
+                cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
               LEFT JOIN 
                 motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
               LEFT JOIN
@@ -6725,7 +6727,7 @@ exports.getRetour = (req, res) => {
           ad.*,
           mfd.nom_motif_demande,
           ts.nom_type_statut,
-          tv.nom_type_vehicule,
+          cv.nom_cat AS nom_type_vehicule,
           sd.nom_service,
           l.nom_destination,
           c.nom, 
@@ -6743,7 +6745,7 @@ exports.getRetour = (req, res) => {
           INNER JOIN 
             type_statut_suivi ts ON ad.statut = ts.id_type_statut_suivi
           LEFT JOIN
-            type_vehicule tv ON v.id_cat_vehicule = tv.id_type_vehicule
+           cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
           LEFT JOIN 
             motif_demande mfd ON ad.id_motif = mfd.id_motif_demande
           LEFT JOIN
@@ -7224,10 +7226,10 @@ exports.postVisiteur = (req, res) => {
       }
 
       try {
-
+        console.log(req.body)
         let img = null;
-          if (req.files && req.files.length > 0) {
-            img = req.files.map((file) => file.path.replace(/\\/g, '/')).join(',');
+        if (req.file) {
+          img = req.file.path.replace(/\\/g, '/');
         }
 
         const {
