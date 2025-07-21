@@ -234,4 +234,7 @@ router.put('/visiteur_retour', charroiController.putVisiteurVehiculeRetour);
 router.get('/sortie_entree', charroiController.getEntreeSortie)
 router.get('/sortie_entreeOne', charroiController.getEntreeSortieOne)
 
+//STATUS BS
+router.get('/status_bs', charroiController.getStatusBs)
+
 module.exports = router;

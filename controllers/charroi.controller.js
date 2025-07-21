@@ -4840,14 +4840,14 @@ exports.getDemandeVehicule = (req, res) => {
       c.nom,
       u.nom AS nom_user,
       l.nom_destination,
-      tss.nom_type_statut
+      bs.nom_statut_bs
     FROM demande_vehicule dv
     INNER JOIN type_vehicule tv ON dv.id_type_vehicule = tv.id_type_vehicule
     INNER JOIN motif_demande md ON dv.id_motif_demande = md.id_motif_demande
     INNER JOIN service_demandeur sd ON dv.id_demandeur = sd.id_service_demandeur
     INNER JOIN client c ON dv.id_client = c.id_client
     LEFT JOIN destination l ON dv.id_destination = l.id_destination
-    INNER JOIN type_statut_suivi tss ON dv.statut = tss.id_type_statut_suivi
+    LEFT JOIN statut_bs bs ON dv.statut = bs.id_statut_bs
     INNER JOIN utilisateur u ON dv.user_cr = u.id_utilisateur
   `;
 
@@ -4877,22 +4877,22 @@ exports.getDemandeVehiculeOne = (req, res) => {
     }
 
     let q = `SELECT 
-              dv.*,
-              tv.nom_type_vehicule,
-              md.nom_motif_demande,
-              sd.nom_service,
-              c.nom,
-              u.nom AS nom_user,
-              l.nom_destination,
-              tss.nom_type_statut
-            FROM demande_vehicule dv
-                INNER JOIN type_vehicule tv ON dv.id_type_vehicule = tv.id_type_vehicule
-                INNER JOIN motif_demande md ON dv.id_motif_demande = md.id_motif_demande
-                INNER JOIN service_demandeur sd ON dv.id_demandeur = sd.id_service_demandeur
-                INNER JOIN client c ON dv.id_client = c.id_client
-                LEFT JOIN destination l ON dv.id_destination = l.id_destination
-                INNER JOIN type_statut_suivi tss ON dv.statut = tss.id_type_statut_suivi
-                INNER JOIN utilisateur u ON dv.user_cr = u.id_utilisateur
+                dv.*,
+                tv.nom_type_vehicule,
+                md.nom_motif_demande,
+                sd.nom_service,
+                c.nom,
+                u.nom AS nom_user,
+                l.nom_destination,
+                bs.nom_statut_bs
+              FROM demande_vehicule dv
+              INNER JOIN type_vehicule tv ON dv.id_type_vehicule = tv.id_type_vehicule
+              INNER JOIN motif_demande md ON dv.id_motif_demande = md.id_motif_demande
+              INNER JOIN service_demandeur sd ON dv.id_demandeur = sd.id_service_demandeur
+              INNER JOIN client c ON dv.id_client = c.id_client
+              LEFT JOIN destination l ON dv.id_destination = l.id_destination
+              LEFT JOIN statut_bs bs ON dv.statut = bs.id_statut_bs
+              INNER JOIN utilisateur u ON dv.user_cr = u.id_utilisateur
                 WHERE dv.id_demande_vehicule = ?
               `;
 
@@ -7553,5 +7553,18 @@ exports.getEntreeSortieOne = (req, res) => {
         }
 
         return res.status(200).json(data[0]);
+    });
+};
+
+//Status BS
+exports.getStatusBs = (req, res) => {
+
+    const q = `SELECT * FROM statut_bs`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
     });
 };
