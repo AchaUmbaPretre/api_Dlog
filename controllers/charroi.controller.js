@@ -4845,7 +4845,7 @@ exports.getDemandeVehicule = (req, res) => {
     INNER JOIN type_vehicule tv ON dv.id_type_vehicule = tv.id_type_vehicule
     INNER JOIN motif_demande md ON dv.id_motif_demande = md.id_motif_demande
     INNER JOIN service_demandeur sd ON dv.id_demandeur = sd.id_service_demandeur
-    INNER JOIN client c ON dv.id_client = c.id_client
+    LEFT JOIN client c ON dv.id_client = c.id_client
     LEFT JOIN destination l ON dv.id_destination = l.id_destination
     LEFT JOIN statut_bs bs ON dv.statut = bs.id_statut_bs
     INNER JOIN utilisateur u ON dv.user_cr = u.id_utilisateur
