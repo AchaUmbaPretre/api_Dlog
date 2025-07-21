@@ -5541,14 +5541,14 @@ exports.getAffectationDemande = (req, res) => {
           ad.commentaire, 
           ad.statut,
           mfd.nom_motif_demande,
-          ts.nom_type_statut,
           sd.nom_service,
           l.nom_destination,
           c.nom, 
           v.immatriculation, 
           m.nom_marque,
           cv.nom_cat,
-          d.nom_departement
+          d.nom_departement,
+          bs.nom_statut_bs
         FROM affectation_demande ad
           INNER JOIN 
             chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
@@ -5561,7 +5561,7 @@ exports.getAffectationDemande = (req, res) => {
           LEFT JOIN 
           	cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
           INNER JOIN 
-            type_statut_suivi ts ON ad.statut = ts.id_type_statut_suivi
+            statut_bs bs ON ad.statut = bs.id_statut_bs
           LEFT JOIN 
             motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
           LEFT JOIN
@@ -5665,7 +5665,7 @@ exports.postAffectationDemande = (req, res) => {
             id_demandeur,
             id_client,
             id_destination,
-            4,
+            3,
             personne_bord,
             commentaire,
             user_cr
