@@ -6556,7 +6556,7 @@ exports.getSortie = (req, res) => {
                 validation_demande vd ON ad.id_bande_sortie = vd.id_bande_sortie
               LEFT JOIN 
                 utilisateur u ON vd.validateur_id = u.id_utilisateur
-                WHERE ad.statut = 2
+                WHERE ad.statut = 4
               GROUP BY ad.id_bande_sortie
               ORDER BY ad.created_at DESC
             `;
