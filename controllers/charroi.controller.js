@@ -5429,7 +5429,7 @@ exports.postValidationDemande = (req, res) => {
 
         // Si 3 validateurs différents ont validé, changer le statut
         if (totalValidations >= 1) {
-          const updateSQL = `UPDATE bande_sortie SET statut = 2 WHERE id_bande_sortie = ?`;
+          const updateSQL = `UPDATE bande_sortie SET statut = 4 WHERE id_bande_sortie = ?`;
           await queryPromise(connection, updateSQL, [id_bande_sortie]);
         }
 
@@ -5442,7 +5442,6 @@ exports.postValidationDemande = (req, res) => {
 
           return res.status(201).json({
             message: "Validation enregistrée avec succès.",
-            statut_mis_a_jour: totalValidations >= 3
           });
         });
 
