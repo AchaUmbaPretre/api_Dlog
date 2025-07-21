@@ -5125,7 +5125,7 @@ exports.putDemandeVehiculeVue = (req, res) => {
   try {
     let query = `UPDATE 
                   demande_vehicule 
-                  SET vu = 1, statut = 2 WHERE id_demande_vehicule = ?`
+                  SET vu = 1 WHERE id_demande_vehicule = ?`
     db.query(query, [id_demande], (error, results) => {
       if(error) {
         console.error("Erreur execution : ", error)
@@ -5665,7 +5665,7 @@ exports.postAffectationDemande = (req, res) => {
             id_demandeur,
             id_client,
             id_destination,
-            3,
+            2,
             personne_bord,
             commentaire,
             user_cr
@@ -5765,7 +5765,7 @@ exports.getBandeSortie = (req, res) => {
           ad.personne_bord,
           ad.commentaire, 
           mfd.nom_motif_demande,
-          ts.nom_type_statut,
+          bs.nom_statut_bs,
           cv.nom_cat,
           sd.nom_service,
           l.nom_destination,
@@ -5782,7 +5782,7 @@ exports.getBandeSortie = (req, res) => {
           LEFT JOIN 
             modeles md ON v.id_modele = md.id_modele
           INNER JOIN 
-            type_statut_suivi ts ON ad.statut = ts.id_type_statut_suivi
+            statut_bs bs ON ad.statut = bs.id_statut_bs
           LEFT JOIN 
           	cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
           LEFT JOIN 
@@ -5909,7 +5909,7 @@ exports.postBandeSortie = (req, res) => {
         `;
 
         const updateVehiculeSql = `
-          UPDATE affectation_demande SET statut = 2 WHERE id_affectation_demande = ?
+          UPDATE affectation_demande SET statut = 4 WHERE id_affectation_demande = ?
         `;
         await queryPromise(connection, updateVehiculeSql, [id_affectation_demande]);
 
@@ -5924,7 +5924,7 @@ exports.postBandeSortie = (req, res) => {
           id_demandeur || null,
           id_client || null,
           id_destination || null,
-          2,
+          4,
           personne_bord || '',
           commentaire || '',
           id_societe,
