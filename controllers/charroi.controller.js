@@ -6524,7 +6524,7 @@ exports.getSortie = (req, res) => {
               SELECT 
                 ad.*,
                 mfd.nom_motif_demande,
-                ts.nom_type_statut,
+                bs.nom_statut_bs,
                 cv.nom_cat AS type_vehicule,
                 sd.nom_service,
                 l.nom_destination,
@@ -6543,7 +6543,7 @@ exports.getSortie = (req, res) => {
               LEFT JOIN 
                 modeles md ON v.id_modele = md.id_modele
               INNER JOIN 
-                type_statut_suivi ts ON ad.statut = ts.id_type_statut_suivi
+                statut_bs bs ON ad.statut = bs.id_statut_bs
               LEFT JOIN
                 cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
               LEFT JOIN 
@@ -6626,7 +6626,7 @@ exports.postSortie = (req, res) => {
             id_vehicule,
             id_chauffeur,
             id_destination,
-            13,
+            5,
             id_motif,
             id_demandeur,
             id_client,
@@ -6726,7 +6726,7 @@ exports.getRetour = (req, res) => {
         SELECT 
           ad.*,
           mfd.nom_motif_demande,
-          ts.nom_type_statut,
+          bs.nom_statut_bs,
           cv.nom_cat AS nom_type_vehicule,
           sd.nom_service,
           l.nom_destination,
@@ -6743,7 +6743,7 @@ exports.getRetour = (req, res) => {
           LEFT JOIN 
             modeles md ON v.id_modele = md.id_modele
           INNER JOIN 
-            type_statut_suivi ts ON ad.statut = ts.id_type_statut_suivi
+            statut_bs bs ON ad.statut = bs.id_statut_bs
           LEFT JOIN
            cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
           LEFT JOIN 
@@ -6752,7 +6752,7 @@ exports.getRetour = (req, res) => {
             service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
           LEFT JOIN 
             destination l ON ad.id_destination = l.id_destination
-            WHERE ad.statut = 13
+            WHERE ad.statut = 5
           ORDER BY ad.created_at DESC
             `;
 
@@ -6828,7 +6828,7 @@ exports.postRetour = (req, res) => {
             id_vehicule,
             id_chauffeur,
             id_destination,
-            14,
+            7,
             id_motif,
             id_demandeur,
             id_client,
