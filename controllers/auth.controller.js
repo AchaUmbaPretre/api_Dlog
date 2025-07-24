@@ -75,14 +75,15 @@ exports.loginController = async (req, res) => {
           { expiresIn: '3d' }
         );
   
-        const { password: userPassword, ...userWithoutPassword } = user;
-  
+        const { mot_de_passe, ...userWithoutPassword } = user;
+
         res.status(200).json({
           message: 'Connexion réussie',
           success: true,
           ...userWithoutPassword,
           accessToken,
         });
+
       });
     } catch (err) {
       res.status(500).json({ error: err.message });

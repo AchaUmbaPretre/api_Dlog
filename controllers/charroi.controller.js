@@ -5385,10 +5385,31 @@ exports.postValidationDemande = (req, res) => {
       }
 
       try {
-        const { id_bande_sortie, validateur_id } = req.body;
+        const { id_bande_sortie, validateur_id, remplacer } = req.body;
 
         if (!id_bande_sortie || !validateur_id) {
           throw new Error("Les champs 'id_bande_sortie' et 'validateur_id' sont requis.");
+        }
+
+        // Vérifier si le validateur a déjà validé ce bon de sortie
+        const alreadyValidatedSQL = `
+          SELECT id_validation_demande , date_validation 
+          FROM validation_demande 
+          WHERE id_bande_sortie = ? AND validateur_id = ?
+          LIMIT 1
+        `;
+
+        const [alreadyValidatedRow] = await queryPromise(connection, alreadyValidatedSQL, [id_bande_sortie, validateur_id]);
+
+        if (alreadyValidatedRow.length > 0) {
+          if (!remplacer) {
+            const validationDate = new Date(alreadyValidatedRow[0].date_validation).toLocaleString('fr-FR');
+            throw new Error(`Vous avez déjà validé ce BS le ${validationDate}`);
+          } else {
+            // Supprimer la validation précédente
+            const deleteSQL = `DELETE FROM validation_demande WHERE id_validation_demande  = ?`;
+            await queryPromise(connection, deleteSQL, [alreadyValidatedRow[0].id_validation_demande ]);
+          }
         }
 
         // Récupérer l'ID de la signature du validateur
@@ -6556,7 +6577,6 @@ exports.getSortie = (req, res) => {
               LEFT JOIN 
                 utilisateur u ON vd.validateur_id = u.id_utilisateur
                 WHERE ad.statut = 4
-              GROUP BY ad.id_bande_sortie
               ORDER BY ad.created_at DESC
             `;
 
@@ -6637,7 +6657,7 @@ exports.postSortie = (req, res) => {
         const insertId = insertResult.insertId;
 
         if (id_bande_sortie) {
-          const updateSQL = `UPDATE bande_sortie SET statut = 13 WHERE  id_bande_sortie = ?`;
+          const updateSQL = `UPDATE bande_sortie SET statut = 5 WHERE  id_bande_sortie = ?`;
           await queryPromise(connection, updateSQL, [id_bande_sortie]);
         }
 
@@ -6840,11 +6860,11 @@ exports.postRetour = (req, res) => {
         const insertId = insertResult.insertId;
 
         if(id_bande_sortie) {
-          const updateSQL = `UPDATE bande_sortie SET statut = 14 WHERE  id_bande_sortie = ?`;
+          const updateSQL = `UPDATE bande_sortie SET statut = 7 WHERE  id_bande_sortie = ?`;
           await queryPromise(connection, updateSQL, [id_bande_sortie]);
         }
 
-          const updateSQLRetour = `UPDATE sortie_retour SET statut = 14 WHERE id_sortie_retour = ?`;
+          const updateSQLRetour = `UPDATE sortie_retour SET statut = 7 WHERE id_sortie_retour = ?`;
           await queryPromise(connection, updateSQLRetour, [id_sortieRetourParent]);
 
         const updateDispoQuery = `
@@ -6939,6 +6959,8 @@ exports.postSortieExceptionnel = (req, res) => {
           personne_bord,
           autorise_par
         } = req.body;
+
+        console.log(req.body)
 
         if (!id_vehicule || !id_motif) {
           throw new Error("Champs obligatoires manquants.");
