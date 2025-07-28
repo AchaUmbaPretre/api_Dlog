@@ -180,6 +180,7 @@ router.post('/affectation_demande', charroiController.postAffectationDemande)
 
 //Bon de sortie
 router.get('/bande_sortie', charroiController.getBandeSortie)
+router.get('/bande_sortie_unique', charroiController.getBandeSortieUnique)
 router.get('/bande_sortieOne', charroiController.getBandeSortieOne)
 router.post('/bande_sortie', charroiController.postBandeSortie)
 
