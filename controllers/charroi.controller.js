@@ -6960,8 +6960,6 @@ exports.postSortieExceptionnel = (req, res) => {
           autorise_par
         } = req.body;
 
-        console.log(req.body)
-
         if (!id_vehicule || !id_motif) {
           throw new Error("Champs obligatoires manquants.");
         }
@@ -7246,8 +7244,7 @@ exports.postVisiteur = (req, res) => {
         return res.status(500).json({ error: "Impossible de démarrer la transaction." });
       }
 
-      try {
-        console.log(req.body)
+      try {        
         let img = null;
         if (req.file) {
           img = req.file.path.replace(/\\/g, '/');
