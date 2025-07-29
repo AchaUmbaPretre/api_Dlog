@@ -5387,8 +5387,6 @@ exports.postValidationDemande = (req, res) => {
       try {
         const { id_bande_sortie, validateur_id, remplacer } = req.body;
 
-        console.log(req.body)
-
         if (!id_bande_sortie || !validateur_id) {
           throw new Error("Les champs 'id_bande_sortie' et 'validateur_id' sont requis.");
         }
@@ -6706,6 +6704,12 @@ exports.postSortie = (req, res) => {
           await queryPromise(connection, updateSQL, [id_bande_sortie]);
         }
 
+        //Update sortie_time
+        const updateSortieTimeSql = `
+          UPDATE bande_sortie SET sortie_time = NOW() WHERE id_bande_sortie = ?
+        `;
+        await queryPromise(connection, updateSortieTimeSql, [id_bande_sortie]);
+
         connection.commit((commitErr) => {
           connection.release();
           if (commitErr) {
@@ -6918,6 +6922,12 @@ exports.postRetour = (req, res) => {
           WHERE id_vehicule = ?
         `;
         await queryPromise(connection, updateDispoQuery, [id_vehicule]);
+
+        //Update Retour_time
+        const updateSortieTimeSql = `
+          UPDATE bande_sortie SET retour_time = NOW() WHERE id_bande_sortie = ?
+        `;
+        await queryPromise(connection, updateSortieTimeSql, [id_bande_sortie]);
 
         connection.commit((commitErr) => {
           connection.release();
