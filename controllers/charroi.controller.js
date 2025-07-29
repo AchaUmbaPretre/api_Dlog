@@ -5778,7 +5778,7 @@ L'équipe Logistique GTM
 exports.getBandeSortie = (req, res) => {
 
     const q = `
-                SELECT 
+        SELECT 
           ad.id_bande_sortie, 
           ad.date_prevue,
           ad.date_retour,
@@ -5818,7 +5818,7 @@ exports.getBandeSortie = (req, res) => {
 
     db.query(q, (error, data) => {
         if (error) {
-            return res.status(500).send(error);
+          return res.status(500).send(error);
         }
         return res.status(200).json(data);
     });
