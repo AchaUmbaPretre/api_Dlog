@@ -5778,12 +5778,14 @@ L'équipe Logistique GTM
 exports.getBandeSortie = (req, res) => {
 
     const q = `
-        SELECT 
+                SELECT 
           ad.id_bande_sortie, 
           ad.date_prevue,
           ad.date_retour,
           ad.personne_bord,
           ad.commentaire, 
+          ad.sortie_time,
+          ad.retour_time,
           mfd.nom_motif_demande,
           bs.nom_statut_bs,
           cv.nom_cat,
