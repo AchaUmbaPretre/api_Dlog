@@ -5387,6 +5387,8 @@ exports.postValidationDemande = (req, res) => {
       try {
         const { id_bande_sortie, validateur_id, remplacer } = req.body;
 
+        console.log(req.body)
+
         if (!id_bande_sortie || !validateur_id) {
           throw new Error("Les champs 'id_bande_sortie' et 'validateur_id' sont requis.");
         }
@@ -5864,7 +5866,6 @@ exports.getBandeSortieUnique = (req, res) => {
     return res.status(200).json(data);
   });
 };
-
 
 exports.getBandeSortieOne = (req, res) => {
     const { id_bande_sortie } = req.query;
