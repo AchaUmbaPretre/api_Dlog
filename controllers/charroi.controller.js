@@ -4869,6 +4869,42 @@ exports.getDemandeVehicule = (req, res) => {
   });
 };
 
+exports.getDemandeVehiculeUserOne = (req, res) => {
+    const { userId } = req.query;
+
+    if(!userId) {
+      return res.status(400).json({ error: 'Invalid id demande'})
+    }
+
+    let q = `SELECT 
+                dv.*,
+                cv.nom_cat AS nom_type_vehicule,
+                md.nom_motif_demande,
+                sd.nom_service,
+                c.nom,
+                u.nom AS nom_user,
+                l.nom_destination,
+                bs.nom_statut_bs
+              FROM demande_vehicule dv
+              LEFT JOIN cat_vehicule cv ON dv.id_type_vehicule = cv.id_cat_vehicule
+              INNER JOIN motif_demande md ON dv.id_motif_demande = md.id_motif_demande
+              INNER JOIN service_demandeur sd ON dv.id_demandeur = sd.id_service_demandeur
+              LEFT JOIN client c ON dv.id_client = c.id_client
+              LEFT JOIN destination l ON dv.id_destination = l.id_destination
+              LEFT JOIN statut_bs bs ON dv.statut = bs.id_statut_bs
+              INNER JOIN utilisateur u ON dv.user_cr = u.id_utilisateur
+                WHERE dv.user_cr = ?
+              ORDER BY dv.created_at DESC
+              `;
+
+    db.query(q, [userId], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getDemandeVehiculeOne = (req, res) => {
     const { id_demande_vehicule } = req.query;
 
@@ -4932,7 +4968,7 @@ exports.postDemandeVehicule = (req, res) => {
           personne_bord
         } = req.body;
 
-        if (!user_cr || !id_type_vehicule) {
+        if (!user_cr) {
           throw new Error("Champs obligatoires manquants.");
         }
 
