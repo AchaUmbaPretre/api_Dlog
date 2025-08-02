@@ -5604,7 +5604,8 @@ exports.getAffectationDemande = (req, res) => {
           m.nom_marque,
           cv.nom_cat,
           d.nom_departement,
-          bs.nom_statut_bs
+          bs.nom_statut_bs,
+          u.nom AS created
         FROM affectation_demande ad
           INNER JOIN 
             chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
@@ -5626,6 +5627,8 @@ exports.getAffectationDemande = (req, res) => {
             destination l ON ad.id_destination = l.id_destination
           LEFT JOIN 
           	departement d ON sd.id_departement = d.id_departement
+          INNER JOIN 
+          	utilisateur u ON ad.user_cr = u.id_utilisateur
           ORDER BY ad.created_at DESC
             `;
 
@@ -5829,7 +5832,8 @@ exports.getBandeSortie = (req, res) => {
           l.nom_destination,
           c.nom, 
           v.immatriculation, 
-          m.nom_marque
+          m.nom_marque,
+          u.nom AS created
         FROM bande_sortie ad
           INNER JOIN 
             chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
@@ -5849,6 +5853,8 @@ exports.getBandeSortie = (req, res) => {
             service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
           LEFT JOIN 
             destination l ON ad.id_destination = l.id_destination
+          INNER JOIN
+          	utilisateur u ON ad.user_cr = u.id_utilisateur
           ORDER BY ad.created_at DESC
             `;
 
