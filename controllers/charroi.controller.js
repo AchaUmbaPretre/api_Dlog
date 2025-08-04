@@ -6204,8 +6204,6 @@ L'équipe Dlog.
   });
 };
 
-
-
 //Bon de sortie du personnel
 exports.getBonSortiePerso = (req, res) => {
 
