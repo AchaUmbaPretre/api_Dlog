@@ -5485,10 +5485,10 @@ exports.postValidationDemande = (req, res) => {
         const totalValidations = countRow[0].total_validations;
 
         // Si 3 validateurs différents ont validé, changer le statut
-        if (totalValidations >= 1) {
+/*         if (totalValidations >= 1) {
           const updateSQL = `UPDATE bande_sortie SET statut = 4 WHERE id_bande_sortie = ?`;
           await queryPromise(connection, updateSQL, [id_bande_sortie]);
-        }
+        } */
 
         connection.commit((commitErr) => {
           connection.release();
@@ -5855,6 +5855,7 @@ exports.getBandeSortie = (req, res) => {
             destination l ON ad.id_destination = l.id_destination
           INNER JOIN
           	utilisateur u ON ad.user_cr = u.id_utilisateur
+          WHERE ad.est_supprime = 0
           ORDER BY ad.created_at DESC
             `;
 
@@ -6097,6 +6098,113 @@ exports.postBandeSortie = (req, res) => {
     })
   })
 };
+
+exports.putSupprimeBandeSortie = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error('Erreur de connexion DB :', connErr);
+      return res.status(500).json({ error: "Erreur de connexion à la base de données." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error('Erreur transaction :', trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const { id_bande_sortie, userId } = req.query;
+
+        if (!id_bande_sortie || !userId) {
+          connection.release();
+          return res.status(400).json({ error: 'ID bon de sortie ou utilisateur manquant.' });
+        }
+
+        // Générer le numéro de bon de sortie au format AAxxxx (ex: 250001)
+        const currentYear = new Date().getFullYear();
+        const yearPrefix = currentYear.toString().slice(-2); // "25"
+        const paddedId = id_bande_sortie.toString().padStart(4, '0'); // "0001"
+        const numeroBonDeSortie = `${yearPrefix}${paddedId}`; // "250001"
+
+        // Marquer le bon de sortie comme supprimé
+        const updateEstSupprimeQuery = `
+          UPDATE bande_sortie
+          SET est_supprime = 1
+          WHERE id_bande_sortie = ?
+        `;
+        await queryPromise(connection, updateEstSupprimeQuery, [id_bande_sortie]);
+
+        // Récupération des infos utilisateur
+        const getUserSQL = `SELECT nom, email FROM utilisateur WHERE id_utilisateur = ?`;
+        const [userResult] = await queryPromise(connection, getUserSQL, [userId]);
+
+        if (!userResult || userResult.length === 0) {
+          connection.release();
+          return res.status(404).json({ error: "Utilisateur introuvable." });
+        }
+
+        const userName = userResult[0].nom;
+        const userEmail = userResult[0].email;
+
+        // Récupérer les utilisateurs autorisés à recevoir la notification
+        const permissionSQL = `
+          SELECT email FROM utilisateur WHERE role IN ('Admin', 'RH', 'RS');
+        `;
+        const [perResult] = await queryPromise(connection, permissionSQL);
+
+        // Date et heure actuelle formatée
+        const now = moment().format('DD-MM-YYYY à HH:mm:ss');
+
+        // Message email
+        const message = `
+Bonjour,
+
+Nous vous informons que le bon de sortie validé portant le numéro ${numeroBonDeSortie} a été supprimé.
+
+Informations de l'opération :
+- Effectuée par : ${userName}
+- Date et heure : ${now}
+
+Nous vous prions de bien vouloir en prendre note.
+
+Cordialement,  
+L'équipe Dlog.
+        `;
+
+        // Envoi d'emails aux autres utilisateurs concernés (sauf l'utilisateur ayant effectué l'action)
+        perResult
+          .filter(({ email }) => email !== userEmail)
+          .forEach(({ email }) => {
+            sendEmail({
+              email,
+              subject: `Suppression du bon de sortie N° ${numeroBonDeSortie}`,
+              message,
+            });
+          });
+
+        // Commit final
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation des données." });
+          }
+          return res.status(200).json({ message: `Le bon de sortie N° ${numeroBonDeSortie} a été supprimé avec succès.` });
+        });
+
+      } catch (err) {
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur lors du traitement :", err);
+          return res.status(500).json({ error: "Échec de la suppression du bon de sortie." });
+        });
+      }
+    });
+  });
+};
+
+
 
 //Bon de sortie du personnel
 exports.getBonSortiePerso = (req, res) => {

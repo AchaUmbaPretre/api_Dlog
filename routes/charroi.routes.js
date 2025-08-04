@@ -184,6 +184,7 @@ router.get('/bande_sortie', charroiController.getBandeSortie)
 router.get('/bande_sortie_unique', charroiController.getBandeSortieUnique)
 router.get('/bande_sortieOne', charroiController.getBandeSortieOne)
 router.post('/bande_sortie', charroiController.postBandeSortie)
+router.put('/bande_sortie_est_supprime', charroiController.putSupprimeBandeSortie)
 
 //Bon de sortie du personnel
 router.get('/bon_sortie', charroiController.getBonSortiePerso)
