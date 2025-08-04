@@ -6950,7 +6950,8 @@ exports.getRetour = (req, res) => {
           l.nom_destination,
           c.nom, 
           v.immatriculation, 
-          m.nom_marque
+          m.nom_marque,
+          bst.sortie_time
         FROM sortie_retour ad
           INNER JOIN 
             chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
@@ -6970,6 +6971,7 @@ exports.getRetour = (req, res) => {
             service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
           LEFT JOIN 
             destination l ON ad.id_destination = l.id_destination
+          LEFT JOIN bande_sortie bst ON ad.id_bande_sortie = bst.id_bande_sortie
             WHERE ad.statut = 5
           ORDER BY ad.created_at DESC
             `;
