@@ -5884,7 +5884,8 @@ exports.getBandeSortieUnique = (req, res) => {
       l.nom_destination,
       c.nom AS nom_chauffeur, 
       v.immatriculation, 
-      m.nom_marque
+      m.nom_marque,
+      us.nom AS user_cr
     FROM bande_sortie ad
       INNER JOIN chauffeurs c ON ad.id_chauffeur = c.id_chauffeur
       INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
@@ -5895,9 +5896,10 @@ exports.getBandeSortieUnique = (req, res) => {
       LEFT JOIN motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
       LEFT JOIN service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
       LEFT JOIN destination l ON ad.id_destination = l.id_destination
+      LEFT JOIN utilisateur us ON ad.user_cr = us.id_utilisateur
       LEFT JOIN validation_demande vd 
-        ON ad.id_bande_sortie = vd.id_bande_sortie AND vd.validateur_id = ?
-    WHERE vd.id_bande_sortie IS NULL
+        ON ad.id_bande_sortie = vd.id_bande_sortie AND vd.validateur_id = 2
+    WHERE vd.id_bande_sortie IS NULL AND ad.est_supprime = 0
     GROUP BY ad.id_bande_sortie
     ORDER BY ad.created_at DESC
   `;
