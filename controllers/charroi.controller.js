@@ -288,15 +288,29 @@ exports.getVehiculeDispo = (req, res) => {
 exports.getVehiculeOccupe = (req, res) => {
 
     const q = `
-            SELECT v.id_vehicule, v.immatriculation, marque.nom_marque, modeles.modele, cv.nom_cat, c.nom FROM vehicules v
-              INNER JOIN marque ON v.id_marque = marque.id_marque
-              LEFT JOIN modeles ON v.id_modele = modeles.id_modele
-              INNER JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
-              INNER JOIN affectation_demande ad ON v.id_vehicule = ad.id_vehicule
-              INNER JOIN chauffeurs c ON ad.id_chauffeur = c.id_chauffeur
-              WHERE v.IsDispo = 0
-              GROUP BY v.id_vehicule
-            `;
+        SELECT 
+          v.id_vehicule, 
+          v.immatriculation, 
+          m.nom_marque, 
+          mo.modele, 
+          cv.nom_cat, 
+          c.nom AS nom_chauffeur,
+          ad1.created_at
+        FROM vehicules v
+        INNER JOIN marque m ON v.id_marque = m.id_marque
+        LEFT JOIN modeles mo ON v.id_modele = mo.id_modele
+        INNER JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+        INNER JOIN (
+            SELECT ad1.id_vehicule, ad1.id_chauffeur, ad1.date_prevue, ad1.created_at
+            FROM affectation_demande ad1
+            INNER JOIN (
+                SELECT id_vehicule, MAX(created_at) AS max_created
+                FROM affectation_demande
+                GROUP BY id_vehicule
+            ) last_affect ON ad1.id_vehicule = last_affect.id_vehicule AND ad1.created_at = last_affect.max_created
+        ) ad1 ON v.id_vehicule = ad1.id_vehicule
+        INNER JOIN chauffeurs c ON ad1.id_chauffeur = c.id_chauffeur
+        WHERE v.IsDispo = 0;`;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -452,7 +466,6 @@ exports.postVehicule = async (req, res) => {
         return res.status(statusCode).json({ error: errorMessage });
     }
 };
-
 
 exports.putVehicule = async (req, res) => {
     try {
@@ -5825,6 +5838,7 @@ exports.getBandeSortie = (req, res) => {
           ad.commentaire, 
           ad.sortie_time,
           ad.retour_time,
+          ad.id_vehicule,
           mfd.nom_motif_demande,
           bs.nom_statut_bs,
           cv.nom_cat,
@@ -5898,7 +5912,7 @@ exports.getBandeSortieUnique = (req, res) => {
       LEFT JOIN destination l ON ad.id_destination = l.id_destination
       LEFT JOIN utilisateur us ON ad.user_cr = us.id_utilisateur
       LEFT JOIN validation_demande vd 
-        ON ad.id_bande_sortie = vd.id_bande_sortie AND vd.validateur_id = 2
+        ON ad.id_bande_sortie = vd.id_bande_sortie AND vd.validateur_id = ?
     WHERE vd.id_bande_sortie IS NULL AND ad.est_supprime = 0
     GROUP BY ad.id_bande_sortie
     ORDER BY ad.created_at DESC
@@ -6116,7 +6130,9 @@ exports.putSupprimeBandeSortie = (req, res) => {
       }
 
       try {
-        const { id_bande_sortie, userId } = req.query;
+        const { id_bande_sortie, id_vehicule, userId } = req.query;
+
+        console.log(req.query)
 
         if (!id_bande_sortie || !userId) {
           connection.release();
@@ -6135,7 +6151,17 @@ exports.putSupprimeBandeSortie = (req, res) => {
           SET est_supprime = 1
           WHERE id_bande_sortie = ?
         `;
+        
         await queryPromise(connection, updateEstSupprimeQuery, [id_bande_sortie]);
+
+         // Marquer le bon de sortie comme supprimé
+        const updateVehiculeQuery = `
+          UPDATE vehicules
+          SET IsDispo = 1
+          WHERE id_vehicule = ?
+        `;
+        
+        await queryPromise(connection, updateVehiculeQuery, [id_vehicule]);
 
         // Récupération des infos utilisateur
         const getUserSQL = `SELECT nom, email FROM utilisateur WHERE id_utilisateur = ?`;
@@ -6193,6 +6219,120 @@ L'équipe Dlog.
             return res.status(500).json({ error: "Erreur lors de la validation des données." });
           }
           return res.status(200).json({ message: `Le bon de sortie N° ${numeroBonDeSortie} a été supprimé avec succès.` });
+        });
+
+      } catch (err) {
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur lors du traitement :", err);
+          return res.status(500).json({ error: "Échec de la suppression du bon de sortie." });
+        });
+      }
+    });
+  });
+};
+
+exports.putBandeSortieAnnuler = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error('Erreur de connexion DB :', connErr);
+      return res.status(500).json({ error: "Erreur de connexion à la base de données." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error('Erreur transaction :', trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const { id_bande_sortie, id_vehicule, userId } = req.query;
+
+        if (!id_bande_sortie || !userId) {
+          connection.release();
+          return res.status(400).json({ error: 'ID bon de sortie ou utilisateur manquant.' });
+        }
+
+        // Génération du numéro de bon de sortie
+        const currentYear = new Date().getFullYear();
+        const yearPrefix = currentYear.toString().slice(-2); // "25"
+        const paddedId = id_bande_sortie.toString().padStart(4, '0'); // "0001"
+        const numeroBonDeSortie = `${yearPrefix}${paddedId}`; // "250001"
+
+        // 1. Marquer le bon de sortie comme annulé
+        const updateBandeSortieQuery = `
+          UPDATE bande_sortie
+          SET statut = 9
+          WHERE id_bande_sortie = ?
+        `;
+        await queryPromise(connection, updateBandeSortieQuery, [id_bande_sortie]);
+
+        // 2. Rendre le véhicule dispo
+        if (id_vehicule) {
+          const updateVehiculeQuery = `
+            UPDATE vehicules
+            SET IsDispo = 1
+            WHERE id_vehicule = ?
+          `;
+          await queryPromise(connection, updateVehiculeQuery, [id_vehicule]);
+        }
+
+        // 3. Récupération de l'utilisateur
+        const getUserSQL = `SELECT nom, email FROM utilisateur WHERE id_utilisateur = ?`;
+        const [userResult] = await queryPromise(connection, getUserSQL, [userId]);
+
+        if (!userResult || userResult.length === 0) {
+          connection.release();
+          return res.status(404).json({ error: "Utilisateur introuvable." });
+        }
+
+        const userName = userResult[0].nom;
+        const userEmail = userResult[0].email;
+
+        // 4. Utilisateurs autorisés à recevoir la notification
+        const permissionSQL = `
+          SELECT email FROM utilisateur WHERE role IN ('Admin', 'RH', 'RS');
+        `;
+        const [perResult] = await queryPromise(connection, permissionSQL);
+
+        const now = moment().format('DD-MM-YYYY à HH:mm:ss');
+        const message = `
+Bonjour,
+
+Nous vous informons que le bon de sortie validé portant le numéro ${numeroBonDeSortie} a été annulé.
+
+Informations de l'opération :
+- Effectuée par : ${userName}
+- Date et heure : ${now}
+
+Nous vous prions de bien vouloir en prendre note.
+
+Cordialement,  
+L'équipe Dlog.
+        `;
+
+        // 5. Envoi des mails (sauf à l’auteur de l’action)
+        perResult
+          .filter(({ email }) => email !== userEmail)
+          .forEach(({ email }) => {
+            sendEmail({
+              email,
+              subject: `Suppression du bon de sortie N° ${numeroBonDeSortie}`,
+              message,
+            });
+          });
+
+        // 6. Commit final
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation des données." });
+          }
+          return res.status(200).json({
+            message: `Le bon de sortie N° ${numeroBonDeSortie} a été supprimé avec succès.`,
+          });
         });
 
       } catch (err) {
@@ -6771,7 +6911,7 @@ exports.getSortie = (req, res) => {
                 validation_demande vd ON ad.id_bande_sortie = vd.id_bande_sortie
               LEFT JOIN 
                 utilisateur u ON vd.validateur_id = u.id_utilisateur
-                WHERE ad.statut = 4
+                WHERE ad.statut = 4 AND ad.est_supprime = 0
               ORDER BY ad.created_at DESC
             `;
 
@@ -6947,14 +7087,15 @@ exports.getRetour = (req, res) => {
           ad.*,
           mfd.nom_motif_demande,
           bs.nom_statut_bs,
-          cv.nom_cat AS nom_type_vehicule,
+          cv.nom_cat AS type_vehicule,
           sd.nom_service,
           l.nom_destination,
           c.nom, 
           v.immatriculation, 
           m.nom_marque,
-          bst.sortie_time
-        FROM sortie_retour ad
+          u.nom AS personne_signe,
+          u.role
+        FROM bande_sortie ad
           INNER JOIN 
             chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
           INNER JOIN 
@@ -6966,16 +7107,19 @@ exports.getRetour = (req, res) => {
           INNER JOIN 
             statut_bs bs ON ad.statut = bs.id_statut_bs
           LEFT JOIN
-           cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+            cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
           LEFT JOIN 
-            motif_demande mfd ON ad.id_motif = mfd.id_motif_demande
+            motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
           LEFT JOIN
             service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
           LEFT JOIN 
             destination l ON ad.id_destination = l.id_destination
-          LEFT JOIN bande_sortie bst ON ad.id_bande_sortie = bst.id_bande_sortie
-            WHERE ad.statut = 5
-          ORDER BY ad.created_at DESC
+          LEFT JOIN 
+            validation_demande vd ON ad.id_bande_sortie = vd.id_bande_sortie
+          LEFT JOIN 
+            utilisateur u ON vd.validateur_id = u.id_utilisateur
+            WHERE ad.statut = 5 AND ad.est_supprime = 0
+            ORDER BY ad.created_at DESC
             `;
 
     db.query(q, (error, data) => {
