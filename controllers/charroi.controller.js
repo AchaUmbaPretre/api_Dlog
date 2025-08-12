@@ -5707,6 +5707,9 @@ exports.postAffectationDemande = (req, res) => {
           throw new Error("Certains champs requis sont manquants dans la requête.");
         }
 
+        const datePrevue = moment(date_prevue, moment.ISO_8601).format('YYYY-MM-DD HH:mm:ss');
+        const dateRetour = moment(date_retour, moment.ISO_8601).format('YYYY-MM-DD HH:mm:ss');
+
         const insertSql = `
           INSERT INTO affectation_demande (
             id_demande_vehicule,
@@ -5730,8 +5733,8 @@ exports.postAffectationDemande = (req, res) => {
             id_demande_vehicule, 
             id_vehicule, 
             id_chauffeur, 
-            date_prevue,
-            date_retour,
+            datePrevue,
+            dateRetour,
             id_type_vehicule,
             id_motif_demande,
             id_demandeur,
@@ -5845,6 +5848,7 @@ exports.getBandeSortie = (req, res) => {
           sd.nom_service,
           l.nom_destination,
           c.nom, 
+          c.prenom AS prenom_chauffeur,
           v.immatriculation, 
           m.nom_marque,
           u.nom AS created
@@ -5897,6 +5901,7 @@ exports.getBandeSortieUnique = (req, res) => {
       sd.nom_service,
       l.nom_destination,
       c.nom AS nom_chauffeur, 
+      c.prenom AS prenom_chauffeur,
       v.immatriculation, 
       m.nom_marque,
       us.nom AS user_cr
@@ -6011,6 +6016,9 @@ exports.postBandeSortie = (req, res) => {
           throw new Error("Champs requis manquants.");
         }
 
+        const datePrevue = moment(date_prevue, moment.ISO_8601).format('YYYY-MM-DD HH:mm:ss');
+        const dateRetour = moment(date_retour, moment.ISO_8601).format('YYYY-MM-DD HH:mm:ss');
+
         // Insertion du bon de sortie
         const insertBonSql = `
           INSERT INTO bande_sortie (
@@ -6041,8 +6049,8 @@ exports.postBandeSortie = (req, res) => {
           id_affectation_demande || null,
           id_vehicule,
           id_chauffeur,
-          date_prevue,
-          date_retour,
+          datePrevue,
+          dateRetour,
           id_type_vehicule || null,
           id_motif_demande || null,
           id_demandeur || null,
@@ -6267,6 +6275,25 @@ exports.putBandeSortieAnnuler = (req, res) => {
           WHERE id_bande_sortie = ?
         `;
         await queryPromise(connection, updateBandeSortieQuery, [id_bande_sortie]);
+
+        const getBonSortieOne = `SELECT id_affectation_demande FROM bande_sortie WHERE id_bande_sortie = ?`
+        const [affResult] = await queryPromise(connection, getBonSortieOne, [id_bande_sortie]);
+
+        if (!affResult || affResult.length === 0) {
+          connection.release();
+          return res.status(404).json({ error: "Bon introuvable." });
+        }
+        
+        const idAffectation = affResult[0].id_affectation_demande;
+        
+        if(idAffectation) {
+          const updateAffectationQuery = `
+            UPDATE affectation_demande
+            SET statut = 9
+            WHERE id_affectation_demande  = ?
+          `;
+          await queryPromise(connection, updateAffectationQuery, [idAffectation]);
+        }
 
         // 2. Rendre le véhicule dispo
         if (id_vehicule) {
@@ -7087,15 +7114,14 @@ exports.getRetour = (req, res) => {
           ad.*,
           mfd.nom_motif_demande,
           bs.nom_statut_bs,
-          cv.nom_cat AS type_vehicule,
+          cv.nom_cat AS nom_type_vehicule,
           sd.nom_service,
           l.nom_destination,
           c.nom, 
           v.immatriculation, 
           m.nom_marque,
-          u.nom AS personne_signe,
-          u.role
-        FROM bande_sortie ad
+          bst.sortie_time
+        FROM sortie_retour ad
           INNER JOIN 
             chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
           INNER JOIN 
@@ -7107,19 +7133,16 @@ exports.getRetour = (req, res) => {
           INNER JOIN 
             statut_bs bs ON ad.statut = bs.id_statut_bs
           LEFT JOIN
-            cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+           cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
           LEFT JOIN 
-            motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
+            motif_demande mfd ON ad.id_motif = mfd.id_motif_demande
           LEFT JOIN
             service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
           LEFT JOIN 
             destination l ON ad.id_destination = l.id_destination
-          LEFT JOIN 
-            validation_demande vd ON ad.id_bande_sortie = vd.id_bande_sortie
-          LEFT JOIN 
-            utilisateur u ON vd.validateur_id = u.id_utilisateur
-            WHERE ad.statut = 5 AND ad.est_supprime = 0
-            ORDER BY ad.created_at DESC
+          LEFT JOIN bande_sortie bst ON ad.id_bande_sortie = bst.id_bande_sortie
+            WHERE ad.statut = 5
+          ORDER BY ad.created_at DESC
             `;
 
     db.query(q, (error, data) => {
