@@ -4985,6 +4985,9 @@ exports.postDemandeVehicule = (req, res) => {
           throw new Error("Champs obligatoires manquants.");
         }
 
+        const datePrevue = moment(date_prevue, moment.ISO_8601).format('YYYY-MM-DD HH:mm:ss');
+        const dateRetour = moment(date_retour, moment.ISO_8601).format('YYYY-MM-DD HH:mm:ss');
+
         const insertSQL = `
           INSERT INTO demande_vehicule (
             date_chargement, 
@@ -5003,8 +5006,8 @@ exports.postDemandeVehicule = (req, res) => {
 
         const valuesDemande = [
           date_chargement,
-          date_prevue,
-          date_retour,
+          datePrevue,
+          dateRetour,
           id_type_vehicule,
           id_motif_demande,
           id_demandeur,
