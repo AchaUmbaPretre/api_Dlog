@@ -5301,35 +5301,38 @@ exports.putDemandeVehiculeRetour = (req, res) => {
 };
 
 exports.putBonSortieDate = (req, res) => {
-  const { id_bon, sortie_time, retour_time} = req.query;
+  const { id_bon, sortie_time, retour_time } = req.body;
 
-  if(!id_bon) {
-    return res.status(400).json({ error: 'Invalid id demande'})
+  if (!id_bon) {
+    return res.status(400).json({ error: 'id_bon est requis' });
   }
 
-  const datePrevue = moment(sortie_time, moment.ISO_8601).format('YYYY-MM-DD HH:mm:ss');
-  const dateRetour = moment(retour_time, moment.ISO_8601).format('YYYY-MM-DD HH:mm:ss');
+  const format = 'YYYY-MM-DD HH:mm:ss';
 
-  try {
-    let query = `UPDATE 
-                  bande_sortie
-                  SET sortie_time = ?, retour_time = ? WHERE id_bande_sortie = ?`
-    db.query(query, [datePrevue, dateRetour, id_bon], (error, results) => {
-      if(error) {
-        console.error("Erreur execution : ", error)
-        return res.status(500).json({ error: 'Failed to update bon date'})
-      }
-
-      if (results.affectedRows === 0) {
-        return res.status(404).json({ error: 'Bon de sortie not found' });
-      }
-      return res.json({ message: 'Bon de sortie status updated successfully' });
-    });
-    
-  } catch (error) {
-    console.error("Error updating demande status:", err);
-    return res.status(500).json({ error: 'Failed to update demande status' });
+  if (!moment(sortie_time, format, true).isValid() ||
+      !moment(retour_time, format, true).isValid()) {
+    return res.status(400).json({ error: 'Dates invalides' });
   }
+
+  const datePrevue = moment(sortie_time, format).format('YYYY-MM-DD HH:mm:ss');
+  const dateRetour = moment(retour_time, format).format('YYYY-MM-DD HH:mm:ss');
+
+  const query = `
+    UPDATE bande_sortie
+    SET sortie_time = ?, retour_time = ?
+    WHERE id_bande_sortie = ?
+  `;
+
+  db.query(query, [datePrevue, dateRetour, id_bon], (err, results) => {
+    if (err) {
+      console.error("Erreur d’exécution : ", err);
+      return res.status(500).json({ error: 'Échec de mise à jour des dates' });
+    }
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ error: 'Bon de sortie non trouvé' });
+    }
+    return res.json({ message: 'Dates mises à jour avec succès' });
+  });
 };
 
 //Validation demande
@@ -6876,6 +6879,8 @@ exports.getVehiculeCourseOne = (req, res) => {
             ad.date_retour,
             ad.personne_bord,
             ad.commentaire,
+            ad.sortie_time,
+            ad.retour_time,
             mfd.nom_motif_demande,
             ts.nom_type_statut,
             cv.nom_cat AS nom_type_vehicule,
