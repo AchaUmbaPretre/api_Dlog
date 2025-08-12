@@ -164,7 +164,6 @@ router.put('/demande_vehicule', charroiController.putDemandeVehicule)
 router.put('/demande_vehiculeVue', charroiController.putDemandeVehiculeVue)
 router.put('/demande_vehiculeAnnuler', charroiController.putDemandeVehiculeAnnuler)
 router.put('/demande_vehicule_retour', charroiController.putDemandeVehiculeRetour)
-router.put('/bon_update_date', charroiController.putBonSortieDate)
 
 //Validation demande
 router.get('/validation_demande', charroiController.getValidationDemande)
@@ -187,6 +186,7 @@ router.get('/bande_sortieOne', charroiController.getBandeSortieOne)
 router.post('/bande_sortie', charroiController.postBandeSortie)
 router.put('/bande_sortie_est_supprime', charroiController.putSupprimeBandeSortie)
 router.put('/bande_sortie_annuler', charroiController.putBandeSortieAnnuler)
+router.put('/bon_update_date', charroiController.putBonSortieDate)
 
 //Bon de sortie du personnel
 router.get('/bon_sortie', charroiController.getBonSortiePerso)
