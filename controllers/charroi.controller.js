@@ -5300,6 +5300,38 @@ exports.putDemandeVehiculeRetour = (req, res) => {
   });
 };
 
+exports.putBonSortieDate = (req, res) => {
+  const { id_bon, sortie_time, retour_time} = req.query;
+
+  if(!id_bon) {
+    return res.status(400).json({ error: 'Invalid id demande'})
+  }
+
+  const datePrevue = moment(sortie_time, moment.ISO_8601).format('YYYY-MM-DD HH:mm:ss');
+  const dateRetour = moment(retour_time, moment.ISO_8601).format('YYYY-MM-DD HH:mm:ss');
+
+  try {
+    let query = `UPDATE 
+                  bande_sortie
+                  SET sortie_time = ?, retour_time = ? WHERE id_bande_sortie = ?`
+    db.query(query, [datePrevue, dateRetour, id_bon], (error, results) => {
+      if(error) {
+        console.error("Erreur execution : ", error)
+        return res.status(500).json({ error: 'Failed to update bon date'})
+      }
+
+      if (results.affectedRows === 0) {
+        return res.status(404).json({ error: 'Bon de sortie not found' });
+      }
+      return res.json({ message: 'Bon de sortie status updated successfully' });
+    });
+    
+  } catch (error) {
+    console.error("Error updating demande status:", err);
+    return res.status(500).json({ error: 'Failed to update demande status' });
+  }
+};
+
 //Validation demande
 exports.getValidationDemande = (req, res) => {
 
