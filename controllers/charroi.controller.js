@@ -5300,40 +5300,106 @@ exports.putDemandeVehiculeRetour = (req, res) => {
   });
 };
 
+const connection = db;
+
 exports.putBonSortieDate = (req, res) => {
-  const { id_bon, sortie_time, retour_time } = req.body;
-
-  if (!id_bon) {
-    return res.status(400).json({ error: 'id_bon est requis' });
-  }
-
-  const format = 'YYYY-MM-DD HH:mm:ss';
-
-  if (!moment(sortie_time, format, true).isValid() ||
-      !moment(retour_time, format, true).isValid()) {
-    return res.status(400).json({ error: 'Dates invalides' });
-  }
-
-  const datePrevue = moment(sortie_time, format).format('YYYY-MM-DD HH:mm:ss');
-  const dateRetour = moment(retour_time, format).format('YYYY-MM-DD HH:mm:ss');
-
-  const query = `
-    UPDATE bande_sortie
-    SET sortie_time = ?, retour_time = ?
-    WHERE id_bande_sortie = ?
-  `;
-
-  db.query(query, [datePrevue, dateRetour, id_bon], (err, results) => {
-    if (err) {
-      console.error("Erreur d’exécution : ", err);
-      return res.status(500).json({ error: 'Échec de mise à jour des dates' });
+  connection.getConnection((connErr, conn) => {
+    if (connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
     }
-    if (results.affectedRows === 0) {
-      return res.status(404).json({ error: 'Bon de sortie non trouvé' });
-    }
-    return res.json({ message: 'Dates mises à jour avec succès' });
+
+    conn.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        conn.release();
+        console.error('Erreur transaction : ', trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const { id_bon, sortie_time, retour_time, user_cr } = req.body;
+        if (!id_bon || !user_cr) {
+          throw new Error("Champs requis manquants.");
+        }
+
+        const format = 'YYYY-MM-DD HH:mm:ss';
+        if (!moment(sortie_time, format, true).isValid() ||
+            !moment(retour_time, format, true).isValid()) {
+          throw new Error("Dates invalides");
+        }
+
+        const datePrevue = moment(sortie_time, format).format(format);
+        const dateRetour = moment(retour_time, format).format(format);
+
+        // Mise à jour des dates
+        const updateSql = `
+          UPDATE bande_sortie
+          SET sortie_time = ?, retour_time = ?
+          WHERE id_bande_sortie = ?
+        `;
+        const result = await queryPromise(conn, updateSql, [datePrevue, dateRetour, id_bon]);
+        if (result.affectedRows === 0) {
+          throw new Error("Bon de sortie non trouvé");
+        }
+
+        // Insère notification en base (comme dans l'autre endpoint)
+        const notifMsg = `La date du bon de sortie n°${id_bon} a été modifiée.`;
+        await queryPromise(conn, `INSERT INTO notifications (user_id, message) VALUES (?, ?)`, [user_cr, notifMsg]);
+
+        // Récupérer l'email utilisateur modificateur
+        const userRows = await queryPromise(conn,
+          `SELECT email FROM utilisateur WHERE id_utilisateur = ?`, [user_cr]);
+        const userEmail = userRows[0]?.email;
+
+        // Envoi d'e-mails aux utilisateurs autorisés
+        const perRows = await queryPromise(conn, `
+          SELECT u.email FROM permission p
+          INNER JOIN utilisateur u ON p.user_id = u.id_utilisateur
+          INNER JOIN submenus sub ON p.submenu_id = sub.id
+          WHERE sub.id = 50 AND p.can_read = 1
+          GROUP BY p.user_id
+        `);
+
+
+        const message = `
+Bonjour,
+
+Le bon de sortie n° ${id_bon} a été modifié avec succès.
+
+Cordialement,  
+L'équipe Logistique GTM
+`;
+
+        perRows[0]
+          .filter(row => row.email !== userEmail)
+          .forEach(row => {
+            sendEmail({
+              email: row.email,
+              subject: '📌 Modification du bon de sortie',
+              message
+            });
+          });
+
+        conn.commit(commitErr => {
+          conn.release();
+          if (commitErr) {
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+          }
+          return res.json({ message: "Mise à jour effectuée et notifications envoyées." });
+        });
+
+      } catch (error) {
+        conn.rollback(() => {
+          conn.release();
+          console.error("Erreur transactionnelle :", error);
+          return res.status(500).json({ error: error.message });
+        });
+      }
+    });
   });
 };
+
 
 //Validation demande
 exports.getValidationDemande = (req, res) => {
