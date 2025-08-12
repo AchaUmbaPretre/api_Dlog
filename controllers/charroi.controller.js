@@ -6982,6 +6982,8 @@ exports.postSortie = (req, res) => {
           throw new Error("Champs obligatoires manquants.");
         }
 
+        const sortieTime = moment().format('YYYY-MM-DD HH:mm:ss'); 
+
         const insertSQL = `
           INSERT INTO sortie_retour (
             id_bande_sortie,
@@ -7019,15 +7021,15 @@ exports.postSortie = (req, res) => {
         const insertId = insertResult.insertId;
 
         if (id_bande_sortie) {
-          const updateSQL = `UPDATE bande_sortie SET statut = 5 WHERE  id_bande_sortie = ?`;
+          const updateSQL = `UPDATE bande_sortie SET statut = 5 WHERE id_bande_sortie = ?`;
           await queryPromise(connection, updateSQL, [id_bande_sortie]);
         }
 
         //Update sortie_time
         const updateSortieTimeSql = `
-          UPDATE bande_sortie SET sortie_time = NOW() WHERE id_bande_sortie = ?
+          UPDATE bande_sortie SET sortie_time = ? WHERE id_bande_sortie = ?
         `;
-        await queryPromise(connection, updateSortieTimeSql, [id_bande_sortie]);
+        await queryPromise(connection, updateSortieTimeSql, [sortieTime, id_bande_sortie]);
 
         connection.commit((commitErr) => {
           connection.release();
@@ -7188,6 +7190,7 @@ exports.postRetour = (req, res) => {
           throw new Error("Champs obligatoires manquants.");
         }
 
+        const retourTime = moment().format('YYYY-MM-DD HH:mm:ss');
         const insertSQL = `
           INSERT INTO sortie_retour (
             id_bande_sortie,
@@ -7246,9 +7249,9 @@ exports.postRetour = (req, res) => {
 
         //Update Retour_time
         const updateSortieTimeSql = `
-          UPDATE bande_sortie SET retour_time = NOW() WHERE id_bande_sortie = ?
+          UPDATE bande_sortie SET retour_time = ? WHERE id_bande_sortie = ?
         `;
-        await queryPromise(connection, updateSortieTimeSql, [id_bande_sortie]);
+        await queryPromise(connection, updateSortieTimeSql, [retourTime, id_bande_sortie]);
 
         connection.commit((commitErr) => {
           connection.release();
