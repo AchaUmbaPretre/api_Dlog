@@ -5901,6 +5901,8 @@ exports.getBandeSortieUnique = (req, res) => {
       ad.date_retour,
       ad.personne_bord,
       ad.commentaire, 
+      ad.sortie_time,
+      ad.retour_time,
       mfd.nom_motif_demande,
       bs.nom_statut_bs,
       cv.nom_cat,
@@ -5924,10 +5926,10 @@ exports.getBandeSortieUnique = (req, res) => {
       LEFT JOIN utilisateur us ON ad.user_cr = us.id_utilisateur
       LEFT JOIN validation_demande vd 
         ON ad.id_bande_sortie = vd.id_bande_sortie AND vd.validateur_id = ?
-    WHERE vd.id_bande_sortie IS NULL AND ad.est_supprime = 0
-    GROUP BY ad.id_bande_sortie
-    ORDER BY ad.created_at DESC
-  `;
+      WHERE vd.id_bande_sortie IS NULL AND ad.est_supprime = 0
+      GROUP BY ad.id_bande_sortie
+      ORDER BY ad.created_at DESC
+    `;
 
   db.query(q, [userId], (error, data) => {
     if (error) {
