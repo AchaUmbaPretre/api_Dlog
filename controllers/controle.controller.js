@@ -15,7 +15,7 @@ exports.getControleCount = (req, res) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
-}
+};
 
 exports.getControle = (req, res) => {
 
@@ -64,7 +64,7 @@ LEFT JOIN utilisateur ON cr.id_responsable = utilisateur.id_utilisateur
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
-}
+};
 
 exports.postControle = async (req, res) => {
     const { id_departement, id_format, controle_de_base, id_frequence, id_client, responsable } = req.body;
@@ -207,7 +207,6 @@ exports.putControle = async (req, res) => {
     }
 }; */
 
-
 exports.deleteUpdatedControle = (req, res) => {
     const {id} = req.query;
   
@@ -220,7 +219,7 @@ exports.deleteUpdatedControle = (req, res) => {
         
       return res.json(data);
     });
-  }
+  };
 
 exports.deleteControle = (req, res) => {
     const id = req.params.id;
@@ -232,4 +231,4 @@ exports.deleteControle = (req, res) => {
       return res.json(data);
     });
   
-  }
+  };
