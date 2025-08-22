@@ -5,17 +5,15 @@ const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
-
 const connection = db;
 
 
-// 📦 Petite helper function pour convertir mysql en Promises
 function queryPromise(connection, sql, params) {
     return new Promise((resolve, reject) => {
       connection.query(sql, params, (err, results) => {
         if (err) return reject(err);
         resolve([results]);
-      });
+      }); 
     });
   }
 
@@ -29,24 +27,25 @@ const queryAsync = (query, values = []) =>
     });
 });
 
+
 // Créer le transporteur avec les informations SMTP
 const transporter = nodemailer.createTransport({
-  host: 'mail.loginsmart-cd.com', // Serveur sortant
-  port: 465, // Port SMTP pour SSL
+  host: 'mail.loginsmart-cd.com',
+  port: 465,
   secure: true, // Utiliser SSL
   auth: {
-    user: 'contact@loginsmart-cd.com', // Votre adresse email
-    pass: '824562776Acha', // Mot de passe du compte de messagerie
+    user: 'contact@loginsmart-cd.com',
+    pass: '824562776Acha',
   },
 });
 
 // Fonction pour envoyer l'email
 const sendEmail = async (options) => {
   const mailOptions = {
-    from: '"Dlog" <contact@loginsmart-cd.com>', // Nom et adresse de l'expéditeur
-    to: options.email, // Adresse email du destinataire
-    subject: options.subject, // Sujet de l'email
-    text: options.message, // Message en texte brut
+    from: '"Dlog" <contact@loginsmart-cd.com>',
+    to: options.email,
+    subject: options.subject,
+    text: options.message,
     // html: options.htmlMessage, // Message en HTML si nécessaire
   };
 
@@ -109,7 +108,7 @@ exports.deleteMarque = (req, res) => {
     });
   
   }
-
+  
 exports.getModeleAll = (req, res) => {
 
     const q = `SELECT 
@@ -268,7 +267,6 @@ exports.getVehicule = async (req, res) => {
         }
 };
 
-//Vehicule disponible
 exports.getVehiculeDispo = (req, res) => {
 
     const q = `
@@ -612,7 +610,6 @@ exports.postChauffeur = async (req, res) => {
             statut,
             sexe,
             id_type_contrat,
-            id_fonction,
             type_travail,
             id_permis,
             id_ville,
@@ -625,14 +622,14 @@ exports.postChauffeur = async (req, res) => {
         const query = `
             INSERT INTO chauffeurs (
                 matricule, nom, prenom, telephone, adresse, id_etat_civil,
-                statut, profil, sexe, id_type_contrat, id_fonction, type_travail,
+                statut, profil, sexe, id_type_contrat, type_travail,
                 id_permis, id_ville, date_naissance, date_engagement, user_cr, tel_service
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const values = [
             matricule, nom, prenom, telephone, adresse, id_etat_civil,
-            statut, profil, sexe, id_type_contrat, id_fonction, type_travail,
+            statut, profil, sexe, id_type_contrat, type_travail,
             id_permis, id_ville, date_naissance, date_engagement, user_cr, tel_service,
         ];
 
@@ -980,7 +977,7 @@ exports.getTypeReparation = async (req, res) => {
             error: "Une erreur s'est produite lors de la récupération des dispositions.",
         });
     }
-}
+};
 
 exports.postTypeReparation = async (req, res) => {
     try {
@@ -999,7 +996,7 @@ exports.postTypeReparation = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du vehicule." });
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du type." });
     }
 }
 
@@ -1014,7 +1011,7 @@ exports.getStatutVehicule = (req, res) => {
         }
         return res.status(200).json(data);
     });
-};
+}
 
 //Reparation
 exports.getReparation = async (req, res) => {
@@ -1074,78 +1071,6 @@ exports.getReparation = async (req, res) => {
     }
 }
 
-/* exports.getReparationOne = async (req, res) => {
-    const { id_sud_reparation, id_inspection_gen } = req.query;
-
-    try {
-        if (id_inspection_gen) {
-          const qI = `SELECT id_sub_inspection_gen  FROM sub_inspection_gen`
-          const type = await queryAsync(qI, id_inspection_gen)
-          const id = type.id_sub_inspection_gen;
-
-        }
-        const query = `SELECT 
-                            r.id_reparation, 
-                            sr.date_reparation, 
-                            sr.date_sortie, 
-                            sr.id_sud_reparation,
-                            r.date_prevu, 
-                            r.date_entree,
-                            r.cout, 
-                            r.commentaire, 
-                            r.code_rep, 
-                            v.immatriculation, 
-                            m.nom_marque, 
-                            f.nom_fournisseur, 
-                            tss.nom_type_statut,
-                            DATEDIFF(r.date_entree,sr.date_reparation) AS nb_jours_au_garage,
-                            sr.id_type_reparation,
-                            sr.description,
-                            tr.type_rep,
-                            e.nom_evaluation
-                        FROM 
-                            reparations r
-                        INNER JOIN 
-                            vehicules v ON r.id_vehicule = v.id_vehicule
-                        INNER JOIN 
-                            marque m ON v.id_marque = m.id_marque
-                        INNER JOIN 
-                            fournisseur f ON r.id_fournisseur = f.id_fournisseur
-                        LEFT JOIN 
-                        	sud_reparation sr ON r.id_reparation = sr.id_reparation
-                        INNER JOIN 
-                        	type_reparations tr ON sr.id_type_reparation = tr.id_type_reparation
-                        INNER JOIN 
-                            type_statut_suivi tss ON sr.id_statut = tss.id_type_statut_suivi
-                        LEFT JOIN 
-            				evaluation e ON sr.id_evaluation = e.id_evaluation
-                            WHERE r.id_reparation = ? OR r.id_sub_inspection_gen = ?
-                       `;
-    
-        const typeFonction = await queryAsync(query, id_sud_reparation, id);
-
-        const q = `SELECT r.id_reparation, r.date_entree, r.date_prevu, r.cout, r.commentaire, f.nom_fournisseur, v.immatriculation, m.nom_marque FROM reparations r
-                        LEFT JOIN fournisseur f ON r.id_fournisseur = f.id_fournisseur
-                        INNER JOIN vehicules v ON r.id_vehicule = v.id_vehicule
-                        LEFT JOIN marque m ON v.id_marque = m.id_marque
-                        WHERE r.id_reparation = ?
-                    `;
-
-        const type = await queryAsync(q, id_sud_reparation)
-
-        return res.status(200).json({
-            message: 'Liste des réparations récupérées avec succès',
-            data: typeFonction,
-            dataGen: type
-        });
-
-    } catch (error) {
-        console.error('Erreur lors de la récupération des réparations:', error);
-        return res.status(500).json({
-            error: "Une erreur s'est produite lors de la récupération des réparations.",
-        });
-    }
-} */
 exports.getReparationOneV = async (req, res) => {
   const { id_sud_reparation } = req.query;
 
@@ -1253,165 +1178,7 @@ exports.getReparationOne = async (req, res) => {
           error: "Une erreur s'est produite lors de la récupération des réparations.",
         });
       }
-};
-
-/* exports.postReparation = (req, res) => {
-
-    db.getConnection((connErr, connection) => {
-      if (connErr) {
-        console.error("Erreur connexion DB :", connErr);
-        return res.status(500).json({ error: "Connexion à la base de données échouée." });
-      }
-  
-      connection.beginTransaction(async (trxErr) => {
-        if (trxErr) {
-          connection.release();
-          console.error("Erreur transaction :", trxErr);
-          return res.status(500).json({ error: "Impossible de démarrer la transaction." });
-        }
-  
-        try {
-          const date_entree = moment(req.body.date_entree).format('YYYY-MM-DD');
-          const date_prevu = moment(req.body.date_prevu).format('YYYY-MM-DD');
-  
-          const {
-            id_vehicule,
-            cout,
-            id_fournisseur,
-            commentaire,
-            reparations,
-            code_rep,
-            kilometrage,
-            user_cr, 
-            id_sub_inspection_gen
-          } = req.body;
-
-  
-          if (!id_vehicule || !cout || !Array.isArray(reparations)) {
-            throw new Error("Certains champs obligatoires sont manquants ou invalides.");
-          }
-  
-          const insertMainQuery = `
-            INSERT INTO reparations (
-              id_vehicule, date_entree, date_prevu, cout, id_fournisseur,
-              commentaire, code_rep, kilometrage, user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `;
-  
-          const mainValues = [
-            id_vehicule,
-            date_entree,
-            date_prevu,
-            cout,
-            id_fournisseur,
-            commentaire,
-            code_rep,
-            kilometrage,
-            user_cr
-          ];
-  
-          const [mainResult] = await queryPromise(connection, insertMainQuery, mainValues);
-          const insertedRepairId = mainResult.insertId;
-  
-          const insertSubQuery = `
-            INSERT INTO sud_reparation (
-              id_reparation, id_type_reparation, id_sub_inspection_gen, montant, description, id_statut
-            ) VALUES (?, ?, ?, ?, ?, ?)
-          `;
-  
-          let sudReparationIds = [];  // Pour récupérer les ids des entrées dans `sud_reparation`
-  
-          // Gérer les réparations
-          for (const sud of reparations) {
-            const subValues = [
-              insertedRepairId,
-              sud.id_type_reparation,
-              id_sub_inspection_gen ?? null,
-              sud.montant,
-              sud.description,
-              2 // Statut "réparé"
-            ];
-            
-            const [subResult] = await queryPromise(connection, insertSubQuery, subValues);
-            const insertedSudReparationId = subResult.insertId;  // Récupération de l'ID `id_sud_reparation`
-  
-            sudReparationIds.push(insertedSudReparationId);  // Ajouter l'ID `id_sud_reparation` pour log
-            // Si la réparation est liée à une inspection, on met à jour la sous-inspection
-            if (id_sub_inspection_gen) {
-              const updateQuery = `
-                UPDATE sub_inspection_gen 
-                SET date_reparation = ?, statut = ?
-                WHERE id_sub_inspection_gen = ?
-              `;
-              const updateValues = [moment().format('YYYY-MM-DD'), 2, id_sub_inspection_gen];
-              await queryPromise(connection, updateQuery, updateValues);
-  
-              // 🔥 Journalisation dans log_actions pour la mise à jour de la sous-inspection liée à une inspection
-              const logSQL = `
-                INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
-                VALUES (?, ?, ?, ?, ?)
-              `;
-              await queryPromise(connection, logSQL, [
-                'sub_inspection_gen',
-                'Modification',
-                id_sub_inspection_gen,
-                user_cr || null,
-                `Statut sous-inspection mis à jour à 2 (réparée), liée à réparation #${insertedRepairId}`
-              ]);
-            } else {
-              // 🔥 Journalisation dans log_actions pour la création d'une réparation non liée à une inspection
-              const logSQL = `
-                INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
-                VALUES (?, ?, ?, ?, ?)
-              `;
-              await queryPromise(connection, logSQL, [
-                'reparations',
-                'Création',
-                insertedRepairId,
-                user_cr || null,
-                `Réparation créée sans lien avec une inspection, réparation #${insertedRepairId}`
-              ]);
-            }
-  
-            // Journaliser chaque entrée dans sud_reparation avec id_sud_reparation
-            const logSudSQL = `
-              INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
-              VALUES (?, ?, ?, ?, ?)
-            `;
-            await queryPromise(connection, logSudSQL, [
-              'sud_reparation',
-              'Création',
-              insertedSudReparationId,
-              user_cr || null,
-              `Réparation ajoutée à reparation, ID #${insertedSudReparationId}`
-            ]);
-          }
-  
-          // Commit si tout est OK
-          connection.commit((commitErr) => {
-            connection.release();
-            if (commitErr) {
-              console.error("Erreur commit :", commitErr);
-              return res.status(500).json({ error: "Erreur lors de la validation des données." });
-            }
-  
-            return res.status(201).json({
-              message: "Réparation enregistrée avec succès.",
-              data: { id: insertedRepairId, sud_reparation_ids: sudReparationIds }
-            });
-          });
-  
-        } catch (error) {
-          console.error("Erreur transactionnelle :", error);
-          connection.rollback(() => {
-            connection.release();
-            const msg = error.message || "Erreur inattendue lors du traitement.";
-            return res.status(500).json({ error: msg });
-          });
-        }
-      });
-    });
-  }; */
+    };
 
 exports.postReparation = (req, res) => {
     db.getConnection((connErr, connection) => {
@@ -1650,63 +1417,7 @@ exports.postReparation = (req, res) => {
       });
     });
 };
-
-/* exports.deleteReparation = (req, res) => {
-    const {id_sud_reparation, user_id } = req.body;
   
-    if (!id_sud_reparation) {
-      return res.status(400).json({ error: "L'ID de la reparation est requis." });
-    }
-  
-    db.getConnection((connErr, connection) => {
-      if (connErr) {
-        console.error("Erreur de connexion DB :", connErr);
-        return res.status(500).json({ error: "Connexion à la base de données échouée." });
-      }
-  
-      connection.beginTransaction(async (trxErr) => {
-        if (trxErr) {
-          connection.release();
-          return res.status(500).json({ error: "Impossible de démarrer la transaction." });
-        }
-  
-        try {
-  
-          await queryPromise(connection, `
-            UPDATE sud_reparation SET est_supprime = 1 WHERE id_sud_reparation  = ?
-          `, [id_sud_reparation]);
-  
-          await queryPromise(connection, `
-            INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
-            VALUES (?, ?, ?, ?, ?)
-          `, [
-            'sud_reparation_gen',
-            'Suppression',
-            id_sud_reparation ,
-            user_id || null,
-            `Suppression logique de la réparation #${id_sud_reparation}`
-          ]);
-  
-          connection.commit((commitErr) => {
-            connection.release();
-            if (commitErr) {
-              return res.status(500).json({ error: "Erreur lors du commit." });
-            }
-  
-            return res.status(200).json({ message: "Réparation a été supprimée avec succès." });
-          });
-  
-        } catch (err) {
-          console.error("Erreur pendant suppression :", err);
-          connection.rollback(() => {
-            connection.release();
-            return res.status(500).json({ error: err.message || "Erreur inattendue." });
-          });
-        }
-      });
-    });
-}; */   
- 
 exports.deleteReparation = (req, res) => {
   const { id_sud_reparation, user_id } = req.body;
 
@@ -1747,9 +1458,9 @@ exports.deleteReparation = (req, res) => {
         // 🔔 Notification
         const notifMessage = `La sous-réparation #${id_sud_reparation} a été supprimée par l'utilisateur ${user_id}.`;
         await queryPromise(connection, `
-          INSERT INTO notifications (user_id, message, target_type, target_id)
-          VALUES (?, ?, ?, ?)
-        `, [user_id, notifMessage, 'Reparation', id_sud_reparation]);
+          INSERT INTO notifications (user_id, message)
+          VALUES (?, ?)
+        `, [user_id, notifMessage]);
 
         // Commit
         connection.commit((commitErr) => {
@@ -1770,7 +1481,7 @@ exports.deleteReparation = (req, res) => {
       }
     });
   });
-};
+}; 
 
 exports.putReparation = (req, res) => {
   const idSud = req.query.id_sud_reparation;
@@ -2036,114 +1747,6 @@ exports.getCarateristiqueRep = (req, res) => {
 };
 
 //Inspection generale
-/* exports.getInspectionGen = (req, res) => {
-    const { searchValue } = req.query;
-    const { id_vehicule, id_statut_vehicule, id_type_reparation } = req.body;
-
-    let whereClauses = [];
-    let values = [];
-
-    if (searchValue) {
-        whereClauses.push(`
-            (
-                v.immatriculation LIKE ? OR 
-                c.nom LIKE ? OR 
-                m.nom_marque LIKE ?
-            )
-        `);
-        const likeValue = `%${searchValue}%`;
-        values.push(likeValue, likeValue, likeValue);
-    }
-    if (id_vehicule && (Array.isArray(id_vehicule) ? id_vehicule.length : true)) {
-        const ids = Array.isArray(id_vehicule) ? id_vehicule : [id_vehicule];
-        whereClauses.push(`ig.id_vehicule IN (${ids.map(() => '?').join(', ')})`);
-        values.push(...ids);
-    }
-    
-    if (id_statut_vehicule && (Array.isArray(id_statut_vehicule) ? id_statut_vehicule.length : true)) {
-        const ids = Array.isArray(id_statut_vehicule) ? id_statut_vehicule : [id_statut_vehicule];
-        whereClauses.push(`ig.id_statut_vehicule IN (${ids.map(() => '?').join(', ')})`);
-        values.push(...ids);
-    }
-    
-    if (id_type_reparation && (Array.isArray(id_type_reparation) ? id_type_reparation.length : true)) {
-        const ids = Array.isArray(id_type_reparation) ? id_type_reparation : [id_type_reparation];
-        whereClauses.push(`sug.id_type_reparation IN (${ids.map(() => '?').join(', ')})`);
-        values.push(...ids);
-    }
-    
-
-    const whereSQL = whereClauses.length > 0 ? `WHERE sug.est_supprime = 0 ${whereClauses.join(' AND ')}` : '';
-
-    const queryInspections = `
-        SELECT 
-            ig.id_inspection_gen, 
-            ig.id_statut_vehicule,
-            sug.date_reparation, 
-            sug.date_validation, 
-            sug.id_sub_inspection_gen,
-            ig.date_prevu, 
-            ig.kilometrage,
-            sug.commentaire, 
-            sug.avis, 
-            iv.budget_valide,
-            ig.date_inspection, 
-            v.immatriculation, 
-            c.nom AS nom_chauffeur, 
-            m.nom_marque, 
-            sug.montant, 
-            tss.nom_type_statut,
-            tr.type_rep,
-            sv.nom_statut_vehicule
-        FROM inspection_gen ig
-        INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
-        INNER JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
-        INNER JOIN marque m ON v.id_marque = m.id_marque
-        INNER JOIN sub_inspection_gen sug ON ig.id_inspection_gen = sug.id_inspection_gen
-        INNER JOIN type_statut_suivi tss ON sug.statut = tss.id_type_statut_suivi
-        INNER JOIN type_reparations tr ON sug.id_type_reparation = tr.id_type_reparation
-        LEFT JOIN inspection_valide iv ON sug.id_sub_inspection_gen = iv.id_sub_inspection_gen
-        INNER JOIN statut_vehicule sv ON ig.id_statut_vehicule = sv.id_statut_vehicule
-        ${whereSQL}
-        ORDER BY ig.created_at DESC
-    `;
-
-    db.query(queryInspections, values, (error, inspections) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-
-        const queryStats = `
-            SELECT 
-                COUNT(DISTINCT sug.id_sub_inspection_gen) AS nbre_inspection,
-                SUM(sug.montant) AS budget_total,
-                SUM(iv.budget_valide) AS budget_valide,
-                COUNT(DISTINCT ig.id_vehicule) AS nbre_vehicule,
-                COUNT(DISTINCT CASE WHEN ig.id_statut_vehicule = 1 THEN ig.id_vehicule END) AS nbre_vehicule_immobile,
-                COUNT(DISTINCT CASE WHEN ig.id_statut_vehicule = 3 THEN ig.id_vehicule END) AS nbre_reparation
-            FROM sub_inspection_gen sug
-            INNER JOIN inspection_gen ig ON sug.id_inspection_gen = ig.id_inspection_gen
-            INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
-            INNER JOIN chauffeurs c ON ig.id_chauffeur = c.id_chauffeur
-            INNER JOIN marque m ON v.id_marque = m.id_marque
-            LEFT JOIN inspection_valide iv ON sug.id_sub_inspection_gen = iv.id_sub_inspection_gen
-            INNER JOIN type_reparations tr ON sug.id_type_reparation = tr.id_type_reparation
-            ${whereSQL}
-        `;
-
-        db.query(queryStats, values, (err, stats) => {
-            if (err) {
-                return res.status(500).send(err);
-            }
-
-            return res.status(200).json({
-                inspections,
-                stats: stats[0]
-            });
-        });
-    });
-}; */
-
 exports.getInspectionGen = (req, res) => {
     const { searchValue } = req.query;
     const { id_vehicule, id_statut_vehicule, id_type_reparation } = req.body;
@@ -2218,17 +1821,17 @@ exports.getInspectionGen = (req, res) => {
 
     db.query(queryInspections, values, (error, inspections) => {
         if (error) {
-          return res.status(500).send(error);
+            return res.status(500).send(error);
         }
 
         const queryStats = `
             SELECT 
-              COUNT(DISTINCT sug.id_sub_inspection_gen) AS nbre_inspection,
-              SUM(sug.montant) AS budget_total,
-              SUM(iv.budget_valide) AS budget_valide,
-              COUNT(DISTINCT ig.id_vehicule) AS nbre_vehicule,
-              COUNT(DISTINCT CASE WHEN ig.id_statut_vehicule = 1 THEN ig.id_vehicule END) AS nbre_vehicule_immobile,
-              COUNT(DISTINCT CASE WHEN ig.id_statut_vehicule = 3 THEN ig.id_vehicule END) AS nbre_reparation
+                COUNT(DISTINCT sug.id_sub_inspection_gen) AS nbre_inspection,
+                SUM(sug.montant) AS budget_total,
+                SUM(iv.budget_valide) AS budget_valide,
+                COUNT(DISTINCT ig.id_vehicule) AS nbre_vehicule,
+                COUNT(DISTINCT CASE WHEN ig.id_statut_vehicule = 1 THEN ig.id_vehicule END) AS nbre_vehicule_immobile,
+                COUNT(DISTINCT CASE WHEN ig.id_statut_vehicule = 3 THEN ig.id_vehicule END) AS nbre_reparation
             FROM sub_inspection_gen sug
             INNER JOIN inspection_gen ig ON sug.id_inspection_gen = ig.id_inspection_gen
             INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
@@ -2264,297 +1867,12 @@ exports.getInspectionResume = (req, res) => {
                 LEFT JOIN inspection_valide iv ON sub.id_sub_inspection_gen = iv.id_sub_inspection_gen`;
 
     db.query(q, (error, data) => {
-      if (error) {
-        return res.status(500).send(error);
-      }
-      return res.status(200).json(data);
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
     });
 };
-
-/* exports.postInspectionGen = (req, res) => {
-  db.getConnection((connErr, connection) => {
-    if (connErr) {
-      console.error("Erreur de connexion DB :", connErr);
-      return res.status(500).json({ error: "Connexion à la base de données échouée." });
-    }
-
-    connection.beginTransaction(async (trxErr) => {
-      if (trxErr) {
-        connection.release();
-        console.error("Erreur transaction :", trxErr);
-        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
-      }
-
-      try {
-        // Formatage des dates
-        const date_inspection = moment(req.body.date_inspection).format('YYYY-MM-DD');
-        const date_prevu = moment(req.body.date_prevu).format('YYYY-MM-DD');
-
-        const {
-          id_vehicule,
-          id_chauffeur,
-          id_statut_vehicule,
-          kilometrage,
-          user_cr,
-          reparations
-        } = req.body;
-
-        // Vérification des champs obligatoires
-        if (!id_vehicule || !id_statut_vehicule ) {
-          throw new Error("Champs obligatoires manquants.");
-        }
-
-        const insertControleSQL = `
-          INSERT INTO inspection_gen (
-            id_vehicule, id_chauffeur, date_inspection, date_prevu, id_statut_vehicule, kilometrage, user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        `;
-
-        const controleValues = [
-          id_vehicule,
-          id_chauffeur,
-          date_inspection,
-          date_prevu,
-          id_statut_vehicule,
-          kilometrage,
-          user_cr
-        ];
-
-        const [insertControleResult] = await queryPromise(connection, insertControleSQL, controleValues);
-        const insertId = insertControleResult.insertId;
-
-        // Parsing des réparations
-        let parsedReparations = Array.isArray(reparations) ? reparations : JSON.parse(reparations || '[]');
-
-        // Validation format
-        if (!Array.isArray(parsedReparations)) {
-          throw new Error("Le champ `réparations` doit être un tableau.");
-        }
-
-        // Ajout des images
-        parsedReparations = parsedReparations.map((rep, index) => {
-          const fieldName = `img_${index}`;
-          const file = req.files.find(f => f.fieldname === fieldName);
-          return {
-            ...rep,
-            img: file ? `public/uploads/${file.filename}` : null
-          };
-        });
-
-        // Insertion réparations une par une
-        const insertReparationSQL = `
-          INSERT INTO sub_inspection_gen (
-            id_inspection_gen, id_type_reparation, id_cat_inspection, montant, commentaire, avis, img, statut
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-
-        for (const rep of parsedReparations) {
-          const repValues = [
-            insertId,
-            rep.id_type_reparation,
-            rep.id_cat_inspection,
-            rep.montant,
-            rep.commentaire,
-            rep.avis,
-            rep.img,
-            1
-          ];
-
-          await queryPromise(connection, insertReparationSQL, repValues);
-        }
-
-        // Tout s'est bien passé
-        connection.commit((commitErr) => {
-          connection.release();
-          if (commitErr) {
-            console.error("Erreur commit :", commitErr);
-            return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
-          }
-
-          return res.status(201).json({
-            message: "Inspection a été enregistrée avec succès.",
-            data: { id: insertId }
-          });
-        });
-
-      } catch (error) {
-        console.error("Erreur dans la transaction :", error);
-        connection.rollback(() => {
-          connection.release();
-          const msg = error.message || "Erreur inattendue lors du traitement.";
-          return res.status(500).json({ error: msg });
-        });
-      }
-    });
-  });
-}; */
-
-/* exports.postInspectionGen = (req, res) => {
-  db.getConnection((connErr, connection) => {
-    if (connErr) {
-      console.error("Erreur de connexion DB :", connErr);
-      return res.status(500).json({ error: "Connexion à la base de données échouée." });
-    }
-
-    connection.beginTransaction(async (trxErr) => {
-      if (trxErr) {
-        connection.release();
-        console.error("Erreur transaction :", trxErr);
-        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
-      }
-
-      try {
-        const date_inspection = moment(req.body.date_inspection).format('YYYY-MM-DD');
-        const date_prevu = moment(req.body.date_prevu).format('YYYY-MM-DD');
-
-        const {
-          id_vehicule,
-          id_chauffeur,
-          id_statut_vehicule,
-          kilometrage,
-          user_cr,
-          reparations
-        } = req.body;
-
-        if (!id_vehicule || !id_statut_vehicule) {
-          throw new Error("Champs obligatoires manquants.");
-        }
-
-        const insertControleSQL = `
-          INSERT INTO inspection_gen (
-            id_vehicule, id_chauffeur, date_inspection, date_prevu, id_statut_vehicule, kilometrage, user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        `;
-
-        const controleValues = [
-          id_vehicule,
-          id_chauffeur,
-          date_inspection,
-          date_prevu,
-          id_statut_vehicule,
-          kilometrage,
-          user_cr
-        ];
-
-        const [insertControleResult] = await queryPromise(connection, insertControleSQL, controleValues);
-        const insertId = insertControleResult.insertId;
-
-        // Traitement des réparations
-        let parsedReparations = Array.isArray(reparations) ? reparations : JSON.parse(reparations || '[]');
-
-        if (!Array.isArray(parsedReparations)) {
-          throw new Error("Le champ `réparations` doit être un tableau.");
-        }
-
-        parsedReparations = parsedReparations.map((rep, index) => {
-          const fieldName = `img_${index}`;
-          const file = req.files.find(f => f.fieldname === fieldName);
-          return {
-            ...rep,
-            img: file ? `public/uploads/${file.filename}` : null
-          };
-        });
-
-        const insertReparationSQL = `
-          INSERT INTO sub_inspection_gen (
-            id_inspection_gen, id_type_reparation, id_cat_inspection, montant, commentaire, avis, img, statut
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-
-        const logSQL = `
-          INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
-          VALUES (?, ?, ?, ?, ?)
-        `;
-
-        const logPermission = `SELECT u.email FROM permission p 
-                                INNER JOIN utilisateur u ON p.user_id = u.id_utilisateur
-                                WHERE p.menus_id = 14
-                              GROUP BY p.user_id`
-
-
-        for (const rep of parsedReparations) {
-          const repValues = [
-            insertId,
-            rep.id_type_reparation,
-            rep.id_cat_inspection,
-            rep.montant,
-            rep.commentaire,
-            rep.avis,
-            rep.img,
-            1
-          ];
-
-          const [insertRepResult] = await queryPromise(connection, insertReparationSQL, repValues);
-          const subInspectionId = insertRepResult.insertId;
-
-          await queryPromise(connection, logSQL, [
-            'sub_inspection_gen',
-            'Création',
-            subInspectionId,
-            user_cr || null,
-            `Ajout d'une inspection ID ${subInspectionId} liée à l'inspection #${insertId}, type réparation ${rep.id_type_reparation}`
-          ]);
-
-          // Insertion dans historique_vehicule
-          const historiqueSQL = `
-            INSERT INTO historique_vehicule (
-              id_vehicule, id_chauffeur, id_statut_vehicule, statut, id_sub_inspection_gen, action, commentaire, user_cr
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `;
-            const historiqueValues = [
-              id_vehicule,
-              id_chauffeur,
-              id_statut_vehicule,
-              1,
-              subInspectionId,
-              "Nouvelle inspection ajoutée",
-              `Inspection ajoutée avec succès pour le véhicule ${id_vehicule}`,
-              user_cr
-            ];
-            await queryPromise(connection, historiqueSQL, historiqueValues);   
-            
-            const getVehiculeSQL = `
-            SELECT v.id_vehicule, v.immatriculation, m.nom_marque FROM vehicules v 
-              INNER JOIN marque m ON v.id_marque = m.id_marque
-              WHERE v.id_vehicule = ?
-            `;
-            const [getVehiculeResult] = await queryPromise(connection, getVehiculeSQL, id_vehicule);
-            
-          const getType = `SELECT tr.type_rep FROM type_reparations tr WHERE tr.id_type_reparation = ?`;
-          const [getTypeResult] = await queryPromise(connection, getType, rep.id_type_reparation);
-
-          const notifSQL = `
-              INSERT INTO notifications (user_id, message)
-              VALUES (?, ?)
-            `;
-            const notifMsg = `Une nouvelle inspection a été ajoutée pour le véhicule ${getVehiculeResult?.[0].nom_marque}, immatriculé ${getVehiculeResult?.[0].immatriculation}, de type ${getTypeResult?.[0].type_rep}.`;  
-            await queryPromise(connection, notifSQL, [user_cr, notifMsg]);
-        }
-
-        connection.commit((commitErr) => {
-          connection.release();
-          if (commitErr) {
-            console.error("Erreur commit :", commitErr);
-            return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
-          }
-
-          return res.status(201).json({
-            message: "Inspection enregistrée avec succès.",
-            data: { id: insertId }
-          });
-        });
-
-      } catch (error) {
-        console.error("Erreur dans la transaction :", error);
-        connection.rollback(() => {
-          connection.release();
-          const msg = error.message || "Erreur inattendue lors du traitement.";
-          return res.status(500).json({ error: msg });
-        });
-      }
-    });
-  });
-}; */
 
 exports.postInspectionGen = (req, res) => {
   db.getConnection((connErr, connection) => {
@@ -2773,7 +2091,7 @@ exports.postInspectionGen = (req, res) => {
     });
   });
 };
-
+  
 exports.putInspectionImage = (req, res) => {
     const { id_sub_inspection_gen, user_id } = req.body;
   
@@ -2782,7 +2100,7 @@ exports.putInspectionImage = (req, res) => {
     }
   
     const file = req.files[0];
-    const imagePath = file.path.replace(/\\/g, '/'); // corriger les backslashes Windows
+    const imagePath = file.path.replace(/\\/g, '/');
   
     db.getConnection((connErr, connection) => {
       if (connErr) {
@@ -2829,8 +2147,8 @@ exports.putInspectionImage = (req, res) => {
         }
       });
     });
-};
-  
+  };
+
 //Sub Inspection
 exports.getSubInspection = (req, res) => {
     const { idInspection } = req.query;
@@ -2906,7 +2224,7 @@ exports.getSubInspectionOne = (req, res) => {
 
     db.query(query, [id_sub_inspection_gen], (err, results) => {
         if (err) {
-
+        
             console.error("Erreur lors de la récupération des sous-inspections :", err);
             return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
         }
@@ -2915,112 +2233,6 @@ exports.getSubInspectionOne = (req, res) => {
     });
 };
 
-/* exports.putInspectionGen = (req, res) => {
-    const idSub = req.query.id_sub_inspection_gen;
-    const idInspection = req.query.id_inspection_gen;
-  
-    if (!idSub || !idInspection) {
-      return res.status(400).json({ error: "ID de sous-inspection ou d'inspection manquant." });
-    }
-  
-    db.getConnection((connErr, connection) => {
-      if (connErr) {
-        console.error("Erreur connexion DB :", connErr);
-        return res.status(500).json({ error: "Connexion à la base de données échouée." });
-      }
-  
-      connection.beginTransaction(async (trxErr) => {
-        if (trxErr) {
-          connection.release();
-          return res.status(500).json({ error: "Impossible de démarrer la transaction." });
-        }
-  
-        try {
-          // Formatage des données
-            const date_inspection = moment(new Date(req.body.date_inspection)).format('YYYY-MM-DD');
-            const date_prevu = moment(new Date(req.body.date_prevu)).format('YYYY-MM-DD');
-
-  
-          const {
-            id_vehicule,
-            id_chauffeur,
-            id_statut_vehicule,
-            kilometrage,
-            user_cr,
-            reparations
-          } = req.body;
-  
-          // Mise à jour inspection principale
-          await queryPromise(connection, `
-            UPDATE inspection_gen
-            SET id_vehicule = ?, id_chauffeur = ?, date_inspection = ?, date_prevu = ?, id_statut_vehicule = ?, kilometrage = ?, user_cr = ?
-            WHERE id_inspection_gen = ?
-          `, [
-            id_vehicule,
-            id_chauffeur,
-            date_inspection,
-            date_prevu,
-            id_statut_vehicule,
-            kilometrage,
-            user_cr,
-            idInspection
-          ]);
-  
-          // Extraction de la réparation (on suppose qu'il y en a une seule)
-          const rep = Array.isArray(reparations) ? reparations[0] : reparations;
-  
-          const fieldName = `img_0`;
-          const file = req.files?.find(f => f.fieldname === fieldName);
-          const imagePath = file ? `public/uploads/${file.filename}` : rep.img || null;
-  
-          // Mise à jour de la sous-inspection
-          await queryPromise(connection, `
-            UPDATE sub_inspection_gen
-            SET id_type_reparation = ?, id_cat_inspection = ?, montant = ?, commentaire = ?, avis = ?, img = ?, statut = 1
-            WHERE id_sub_inspection_gen = ? AND id_inspection_gen = ?
-          `, [
-            rep.id_type_reparation,
-            rep.id_cat_inspection,
-            rep.montant,
-            rep.commentaire,
-            rep.avis,
-            imagePath,
-            idSub,
-            idInspection
-          ]);
-
-          await queryPromise(connection,
-            `INSERT INTO log_inspection (table_name, action, record_id, user_id, description)
-             VALUES (?, ?, ?, ?, ?)`, [
-              'sub_inspection_gen',
-              'Modification',
-              idSub,
-              user_cr || null,
-              `Ajout d'une inspection ID ${idSub} liée à l'inspection #${idInspection}, type réparation ${rep.id_type_reparation}`
-            ]
-          );
-          
-  
-          connection.commit((err) => {
-            connection.release();
-            if (err) {
-              return res.status(500).json({ error: "Erreur lors du commit." });
-            }
-  
-            return res.status(200).json({ message: "Sous-inspection mise à jour avec succès." });
-          });
-  
-        } catch (err) {
-          console.error("Erreur :", err);
-          connection.rollback(() => {
-            connection.release();
-            return res.status(500).json({ error: err.message || "Erreur interne." });
-          });
-        }
-      });
-    });
-}; */
-  
 exports.putInspectionGen = (req, res) => {
     const idSub = req.query.id_sub_inspection_gen;
     const idInspection = req.query.id_inspection_gen;
@@ -3214,7 +2426,7 @@ exports.deleteInspectionGen = (req, res) => {
         try {
   
           // 🔔 Ajout de la notification
-          const notifMessage = `L'inspection #${id_sub_inspection_gen} a été supprimée par l'utilisateur ${user_id}.`;
+          const notifMessage = `L'inspection N° #${id_sub_inspection_gen} a été supprimée par l'utilisateur ${user_id}.`;
           await queryPromise(connection, `
             INSERT INTO notifications (user_id, message)
             VALUES (?, ?)
@@ -3256,30 +2468,6 @@ exports.deleteInspectionGen = (req, res) => {
 };
 
 //Validation inspection
-exports.getValidationInspectionAll = (req, res) => {
-    const { id_inspection_gen } = req.query;
-
-    if (!id_inspection_gen) {
-        return res.status(400).json({ error: "L'identifiant de l'inspection est requis." });
-    }
-
-    const query = `
-                    SELECT iv.id_sub_inspection_gen,iv.manoeuvre, ig.id_vehicule, iv.budget_valide, iv.id_type_reparation FROM inspection_valide iv
-                        INNER JOIN sub_inspection_gen sub ON iv.id_sub_inspection_gen = sub.id_sub_inspection_gen
-                        INNER JOIN inspection_gen ig ON sub.id_inspection_gen = ig.id_inspection_gen
-                        WHERE ig.id_inspection_gen = ? AND sub.est_supprime = 0
-                    `;
-
-    db.query(query, [id_inspection_gen], (err, results) => {
-        if (err) {
-            console.error("Erreur lors de la récupération des sous-inspections :", err);
-            return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
-        }
-
-        return res.status(200).json(results);
-    });
-};
-
 exports.getValidationInspection = (req, res) => {
     const { id_sub_inspection_gen } = req.query;
 
@@ -3303,62 +2491,6 @@ exports.getValidationInspection = (req, res) => {
         return res.status(200).json(results);
     });
 };
-
-/* exports.postValidationInspection = async (req, res) => {
-    try {
-        const inspections = req.body;
-
-        if (!Array.isArray(inspections) || inspections.length === 0) {
-            return res.status(400).json({ error: 'Aucune donnée reçue.' });
-        }
-
-        for (const inspection of inspections) {
-            const {
-                id_sub_inspection_gen,
-                id_type_reparation,
-                id_cat_inspection,
-                montant,
-                manoeuvre
-            } = inspection;
-
-            const cout = montant;
-
-            const insertQuery = `
-                INSERT INTO inspection_valide 
-                (id_sub_inspection_gen, id_type_reparation, id_cat_inspection, cout, manoeuvre)
-                VALUES (?, ?, ?, ?, ?)
-            `;
-
-            const insertValues = [
-                id_sub_inspection_gen,
-                id_type_reparation,
-                id_cat_inspection,
-                cout,
-                manoeuvre
-            ];
-
-            await queryAsync(insertQuery, insertValues);
-
-            const updateQuery = `
-                UPDATE sub_inspection_gen 
-                SET date_validation = ? 
-                WHERE id_sub_inspection_gen = ?
-            `;
-
-            const updateValues = [moment().format('YYYY-MM-DD'), id_sub_inspection_gen];
-
-            await queryAsync(updateQuery, updateValues);
-        }
-
-        return res.status(201).json({ message: 'Les inspections ont été validées avec succès.' });
-
-    } catch (error) {
-        console.error('Erreur lors de la validation des inspections :', error);
-        return res.status(500).json({
-            error: "Une erreur s'est produite lors de la validation des inspections.",
-        });
-    }
-}; */
 
 exports.postValidationInspection = async (req, res) => {
     try {
@@ -3434,53 +2566,6 @@ exports.postValidationInspection = async (req, res) => {
             error: "Une erreur s'est produite lors de la validation des inspections.",
         });
     }
-};
-
-exports.putValidationInspection = (req, res) => {
-  db.getConnection((connErr, connection) => {
-    if (connErr) {
-      console.error("Erreur connexion DB :", connErr);
-      return res.status(500).json({ error: "Connexion à la base de données échouée." });
-    }
-
-    connection.beginTransaction(async (trxErr) => {
-      if (trxErr) {
-        connection.release();
-        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
-      }
-
-      try {
-        const updates = req.body; // C'est un tableau
-
-        const updateSQL = `
-          UPDATE inspection_valide
-          SET budget_valide = ?, manoeuvre = ?
-          WHERE id_sub_inspection_gen = ?
-        `;
-
-        for (const item of updates) {
-          const { budget_valide, manoeuvre, id_sub_inspection_gen } = item;
-          await queryAsync(updateSQL, [budget_valide, manoeuvre, id_sub_inspection_gen]);
-        }
-
-        connection.commit((commitErr) => {
-          connection.release();
-          if (commitErr) {
-            console.error("Erreur commit :", commitErr);
-            return res.status(500).json({ error: "Erreur lors du commit de la transaction." });
-          }
-
-          return res.status(200).json({ message: "Les validations ont été mises à jour avec succès." });
-        });
-      } catch (err) {
-        console.error("Erreur :", err);
-        connection.rollback(() => {
-          connection.release();
-          return res.status(500).json({ error: err.message || "Erreur interne." });
-        });
-      }
-    });
-  });
 };
 
 //Suivi d'inspection
@@ -3565,7 +2650,7 @@ exports.postSuiviInspection = async (req, res) => {
         ]);
 
         const updateQuery = `
-          UPDATE sub_inspection_gen
+            UPDATE sub_inspection_gen
             SET statut = ?
             WHERE id_sub_inspection_gen = ?
         `;
@@ -3573,11 +2658,11 @@ exports.postSuiviInspection = async (req, res) => {
         await connQuery(updateQuery, [status, id_sub_inspection_gen]);
 
         const getSubQuery = `
-          SELECT sub.id_sub_inspection_gen, i.id_vehicule, i.id_statut_vehicule FROM 
-          sub_inspection_gen sub 
-          INNER JOIN inspection_gen i ON sub.id_inspection_gen = i.id_inspection_gen
-          WHERE sub.id_sub_inspection_gen = ?
-        `;
+        SELECT sub.id_sub_inspection_gen, i.id_vehicule, i.id_statut_vehicule FROM 
+        sub_inspection_gen sub 
+        INNER JOIN inspection_gen i ON sub.id_inspection_gen = i.id_inspection_gen
+        WHERE sub.id_sub_inspection_gen = ?
+      `;
         const [subResult] = await connQuery(getSubQuery, [id_sub_inspection_gen]);
 
         const historiqueSQL = `
@@ -3623,42 +2708,7 @@ exports.postSuiviInspection = async (req, res) => {
     }
 };
 
-//Suivi réparation
-/* exports.getSuiviReparation = (req, res) => {
-    const { id_sud_reparation } = req.query;
-
-    const q = `
-                SELECT 
-                    si.*, 
-                    type_statut_suivi.nom_type_statut,
-                    CASE 
-                        WHEN si.est_termine = 0 THEN 'Non' 
-                        ELSE 'Oui' 
-                    END AS est_termine,
-                    utilisateur.nom, 
-                    -- Récupération de la date du dernier suivi
-                    (SELECT MAX(date_suivi) 
-                    FROM suivi_inspection si 
-                    WHERE si.id_reparation = sud.id_sud_reparation
-                    ) AS date_dernier_suivi
-                FROM 
-                    suivi_inspection si
-                INNER JOIN 
-                    utilisateur ON si.effectue_par = utilisateur.id_utilisateur
-                INNER JOIN 
-                    sud_reparation sud ON si.id_reparation = sud.id_sud_reparation
-                INNER JOIN 
-                    type_statut_suivi ON si.status = type_statut_suivi.id_type_statut_suivi
-                WHERE si.id_reparation = ? AND si.est_supprime = 0
-            `;
-
-    db.query(q, [id_sud_reparation], (error, data) => {
-        if (error) res.status(500).send(error);
-        return res.status(200).json(data);
-    });
-};
- */
-
+//Suivie reparation
 exports.getSuiviReparation = async(req, res) => {
     const { id_reparation, id_inspection_gen } = req.query;
 
@@ -3691,7 +2741,7 @@ exports.getSuiviReparation = async(req, res) => {
                     LEFT JOIN 
                     	utilisateur u ON sr.user_cr = u.id_utilisateur
                     LEFT JOIN 
-            			  evaluation e ON sud.id_evaluation = e.id_evaluation
+            			evaluation e ON sud.id_evaluation = e.id_evaluation
                     WHERE sud.id_reparation = ? OR sud.id_sub_inspection_gen = ?
                 `;
 
@@ -3749,82 +2799,6 @@ exports.getSuiviReparationOne = (req, res) => {
         return res.status(200).json(data);
     });
 };
-
-/* exports.postSuiviReparation = async (req, res) => {
-    let connection;
-
-    try {
-        const {
-            id_sud_reparation,
-            status,
-            commentaire,
-            pourcentage_avancement,
-            effectue_par,
-            est_termine
-        } = req.body;
-
-        if (!id_sud_reparation || !status || !effectue_par) {
-            return res.status(400).json({ error: 'Champs requis manquants.' });
-        }
-
-        connection = await new Promise((resolve, reject) => {
-            db.getConnection((err, conn) => {
-                if (err) return reject(err);
-                resolve(conn);
-            });
-        });
-
-        const beginTransaction = util.promisify(connection.beginTransaction).bind(connection);
-        const commit = util.promisify(connection.commit).bind(connection);
-        const connQuery = util.promisify(connection.query).bind(connection);
-
-        await beginTransaction();
-
-        const insertQuery = `
-            INSERT INTO suivi_inspection (
-                id_sud_reparation, status, commentaire, pourcentage_avancement, effectue_par, est_termine
-            ) VALUES (?, ?, ?, ?, ?, ?)
-        `;
-
-        await connQuery(insertQuery, [
-            id_sud_reparation,
-            status,
-            commentaire,
-            pourcentage_avancement,
-            effectue_par,
-            est_termine ? 1 : 0
-        ]);
-
-        const updateQuery = `
-            UPDATE sud_reparation
-            SET id_statut = ?
-            WHERE id_sud_reparation = ?
-        `;
-
-        await connQuery(updateQuery, [status, id_sud_reparation]);
-
-        await commit();
-        connection.release();
-
-        return res.status(201).json({ message: 'Suivi de reparation ajouté avec succès.' });
-
-    } catch (error) {
-        if (connection) {
-            try {
-                await connection.rollback();
-                connection.release();
-            } catch (rollbackError) {
-                console.error('Erreur pendant le rollback :', rollbackError);
-            }
-        }
-
-        console.error('[postSuiviInspection] Erreur :', error);
-        return res.status(500).json({
-            error: "Une erreur s’est produite lors de l’ajout du suivi.",
-            details: error.message
-        });
-    }
-}; */
 
 exports.postSuiviReparation = async (req, res) => {
       let connection;
@@ -4008,8 +2982,8 @@ exports.postSuiviReparation = async (req, res) => {
           }
           return res.status(500).json({ error: 'Erreur interne du serveur.' });
       }
-};
-
+  };
+  
 exports.putSuiviReparation = async (req, res) => {
     let connection;
 
@@ -4102,12 +3076,12 @@ exports.getDocumentReparation = (req, res) => {
     const {id_sud_reparation} = req.query;
     const q = `
                 SELECT 
-                  dr.nom_document, 
-                  dr.type_document, 
-                  dr.chemin_document, 
-                  dr.created_at
+                    dr.nom_document, 
+                    dr.type_document, 
+                    dr.chemin_document, 
+                    dr.created_at
                 FROM 
-                  document_reparation dr
+                    document_reparation dr
                 WHERE dr.id_sud_reparation = ?
             `;
 
@@ -4134,6 +3108,7 @@ exports.postDocumentReparation = async (req, res) => {
         type_document
     }));
     
+
     try {
         await Promise.all(
             documents.map((doc) => {
@@ -4335,8 +3310,7 @@ exports.getTrackingGen = (req, res) => {
           WHERE (v.immatriculation LIKE ? OR m.nom_marque LIKE ?)
             AND (sr.id_sub_inspection_gen IS NULL OR sr.id_sub_inspection_gen = 0)
       ) AS unioned
-      GROUP BY origine
-      ORDER BY ;
+      GROUP BY origine;
     `;
   
     db.query(
@@ -4359,9 +3333,9 @@ exports.getTrackingGen = (req, res) => {
         );
       }
     );
-};
+  };
   
-//LOG INSPECTION REPARATION
+ //LOG INSPECTION REPARATION
 exports.getLogInspection = (req, res) => {
 
     const q = `
@@ -4555,24 +3529,6 @@ exports.getHistorique = (req, res) => {
   });
 };
 
-exports.getHistoriqueNotification = (req, res) => {
-  const { userId } = req.query;
-
-  const q = `SELECT hv.id_historique, hv.date_action, hv.action, hv.commentaire, u.nom, v.immatriculation, sv.nom_statut_vehicule, m.nom_marque FROM historique_vehicule hv 
-              LEFT JOIN utilisateur u ON hv.user_cr = u.id_utilisateur
-              LEFT JOIN vehicules v ON hv.id_vehicule = v.id_vehicule
-              LEFT JOIN statut_vehicule sv ON hv.id_statut_vehicule = sv.id_statut_vehicule
-              LEFT JOIN marque m ON v.id_marque = m.id_marque
-              WHERE hv.vu = 0 AND hv.user_cr =! ? `;
-
-  db.query(q, [userId], (error, data) => {
-      if (error) {
-          return res.status(500).send(error);
-      }
-      return res.status(200).json(data);
-  });
-};
-
 exports.getReclamation = (req, res) => {
   const { id_reparation, inspectionId } = req.query;
 
@@ -4588,7 +3544,6 @@ exports.getReclamation = (req, res) => {
                 ev.nom_evaluation,
                 subr.description AS desc2,
                 subr.cout,
-                subr.id_sub_reclamation,
                 u.nom
               FROM reclamations rs
             INNER JOIN 
@@ -4604,7 +3559,7 @@ exports.getReclamation = (req, res) => {
             INNER JOIN 
             	utilisateur u ON rs.user_cr = u.id_utilisateur
             WHERE r.id_reparation = ? OR sud.id_sub_inspection_gen = ?
-            ` 
+                ` 
 
   db.query(q, [id_reparation, inspectionId], (err, result) => {
     if(err){
@@ -4791,7 +3746,7 @@ exports.postServiceDemandeur = (req, res) => {
         `
         await queryPromise(connection, insertSql, [nom_service, id_departement])
 
-                connection.commit((commitErr) => {
+        connection.commit((commitErr) => {
           connection.release();
 
           if (commitErr) {
@@ -5250,15 +4205,6 @@ exports.putDemandeVehiculeRetour = (req, res) => {
           return res.status(400).json({ error: 'ID de demande invalide.' });
         }
 
-/*         // Mettre à jour la date de retour
-        const updateDemandeQuery = `
-          UPDATE demande_vehicule
-          SET date_retour = ?
-          WHERE id_demande_vehicule = ?
-        `;
-        const values = [new Date(), id_demande];
-        await queryPromise(connection, updateDemandeQuery, values);
- */
         // Récupérer l'ID du véhicule affecté
         const getVehiculeQuery = `
           SELECT id_vehicule
@@ -5303,7 +4249,6 @@ exports.putDemandeVehiculeRetour = (req, res) => {
   });
 };
 
-
 //Validation demande
 exports.getValidationDemande = (req, res) => {
 
@@ -5342,89 +4287,6 @@ exports.getValidationDemandeOne = (req, res) => {
         return res.status(200).json(data);
     });
 };
-
-/* exports.postValidationDemande = (req, res) => {
-  db.getConnection((connErr, connection) => {
-    if (connErr) {
-      console.error('Erreur de connexion DB :', connErr);
-      return res.status(500).json({ error: "Erreur de connexion à la base de données." });
-    }
-
-    connection.beginTransaction(async (trxErr) => {
-      if (trxErr) {
-        connection.release();
-        console.error('Erreur transaction :', trxErr);
-        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
-      }
-
-      try {
-        const { id_bande_sortie, validateur_id } = req.body;
-
-        if (!id_bande_sortie || !validateur_id) {
-          throw new Error("Les champs 'id_bande_sortie' et 'validateur_id' sont requis.");
-        }
-
-        // Récupérer l'ID de la signature du validateur
-        const signatureSql = `
-          SELECT id_signature 
-          FROM signature 
-          WHERE userId = ?
-          LIMIT 1
-        `;
-
-        const [signatureRow] = await queryPromise(connection, signatureSql, [validateur_id]);
-
-        if (!signatureRow) {
-          throw new Error("Aucune signature trouvée pour ce validateur.");
-        }
-
-        const idSignature = signatureRow[0].id_signature;
-
-        // Insertion de la validation
-        const insertSQL = `
-          INSERT INTO validation_demande (
-            id_bande_sortie,
-            validateur_id,
-            id_signature,
-            date_validation
-          ) VALUES (?, ?, ?, NOW())
-        `;
-
-        const values = [
-          id_bande_sortie,
-          validateur_id,
-          idSignature
-        ];
-
-        await queryPromise(connection, insertSQL, values);
-        
-        const updateBonSortie = `UPDATE bande_sortie SET statut = 2 WHERE id_bande_sortie = ?`;
-        
-
-        connection.commit((commitErr) => {
-          connection.release();
-          if (commitErr) {
-            console.error("Erreur commit :", commitErr);
-            return res.status(500).json({ error: "Erreur lors de l'enregistrement de la validation." });
-          }
-
-          return res.status(201).json({
-            message: "Bon de sortie validé avec succès et signature enregistrée.",
-          });
-        });
-
-      } catch (error) {
-        connection.rollback(() => {
-          connection.release();
-          console.error("Erreur dans la transaction :", error);
-          return res.status(500).json({
-            error: error.message || "Une erreur est survenue lors de la validation."
-          });
-        });
-      }
-    });
-  });
-}; */
 
 exports.postValidationDemande = (req, res) => {
   db.getConnection((connErr, connection) => {
@@ -5881,7 +4743,6 @@ exports.getBandeSortie = (req, res) => {
               AND vd.validateur_id = ?
               
           WHERE ad.est_supprime = 0
-          GROUP BY ad.id_bande_sortie
           ORDER BY ad.created_at DESC
             `;
 
@@ -5897,41 +4758,42 @@ exports.getBandeSortieUnique = (req, res) => {
   const { userId } = req.query;
 
   const q = `
-    SELECT 
-      ad.id_bande_sortie, 
-      ad.date_prevue,
-      ad.date_retour,
-      ad.personne_bord,
-      ad.commentaire, 
-      ad.sortie_time,
-      ad.retour_time,
-      mfd.nom_motif_demande,
-      bs.nom_statut_bs,
-      cv.nom_cat,
-      sd.nom_service,
-      l.nom_destination,
-      c.nom AS nom_chauffeur, 
-      c.prenom AS prenom_chauffeur,
-      v.immatriculation, 
-      m.nom_marque,
-      us.nom AS user_cr
-    FROM bande_sortie ad
-      INNER JOIN chauffeurs c ON ad.id_chauffeur = c.id_chauffeur
-      INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
-      INNER JOIN marque m ON m.id_marque = v.id_marque
-      LEFT JOIN modeles md ON v.id_modele = md.id_modele
-      INNER JOIN statut_bs bs ON ad.statut = bs.id_statut_bs
-      LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
-      LEFT JOIN motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
-      LEFT JOIN service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
-      LEFT JOIN destination l ON ad.id_destination = l.id_destination
-      LEFT JOIN utilisateur us ON ad.user_cr = us.id_utilisateur
-      LEFT JOIN validation_demande vd 
-        ON ad.id_bande_sortie = vd.id_bande_sortie AND vd.validateur_id = ?
-      WHERE vd.id_bande_sortie IS NULL AND ad.est_supprime = 0
-      GROUP BY ad.id_bande_sortie
-      ORDER BY ad.created_at DESC
-    `;
+  SELECT 
+    ad.id_bande_sortie, 
+    DATE_FORMAT(ad.date_prevue, '%Y-%m-%d %H:%i:%s') AS date_prevue,
+    DATE_FORMAT(ad.date_retour, '%Y-%m-%d %H:%i:%s') AS date_retour,
+    ad.personne_bord,
+    ad.commentaire, 
+    DATE_FORMAT(ad.sortie_time, '%Y-%m-%d %H:%i:%s') AS sortie_time,
+    DATE_FORMAT(ad.retour_time, '%Y-%m-%d %H:%i:%s') AS retour_time,
+    mfd.nom_motif_demande,
+    bs.nom_statut_bs,
+    cv.nom_cat,
+    sd.nom_service,
+    l.nom_destination,
+    c.nom AS nom_chauffeur, 
+    c.prenom AS prenom_chauffeur,
+    v.immatriculation, 
+    m.nom_marque,
+    us.nom AS user_cr
+  FROM bande_sortie ad
+    INNER JOIN chauffeurs c ON ad.id_chauffeur = c.id_chauffeur
+    INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
+    INNER JOIN marque m ON m.id_marque = v.id_marque
+    LEFT JOIN modeles md ON v.id_modele = md.id_modele
+    INNER JOIN statut_bs bs ON ad.statut = bs.id_statut_bs
+    LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+    LEFT JOIN motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
+    LEFT JOIN service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
+    LEFT JOIN destination l ON ad.id_destination = l.id_destination
+    LEFT JOIN utilisateur us ON ad.user_cr = us.id_utilisateur
+    LEFT JOIN validation_demande vd 
+      ON ad.id_bande_sortie = vd.id_bande_sortie AND vd.validateur_id = ?
+  WHERE vd.id_bande_sortie IS NULL AND ad.est_supprime = 0
+  GROUP BY ad.id_bande_sortie
+  ORDER BY ad.created_at DESC
+`;
+
 
   db.query(q, [userId], (error, data) => {
     if (error) {
@@ -5988,150 +4850,6 @@ exports.getBandeSortieOne = (req, res) => {
         return res.status(200).json(data);
     });
 };
-
-/* exports.postBandeSortie = (req, res) => {
-  db.getConnection((connErr, connection) => {
-    if (connErr) {
-      console.error('Erreur de connexion à la base de données :', connErr);
-      return res.status(500).json({ error: "Impossible de se connecter à la base de données." });
-    }
-
-    connection.beginTransaction(async (trxErr) => {
-      if (trxErr) {
-        connection.release();
-        console.error('Erreur lors de l’ouverture de la transaction :', trxErr);
-        return res.status(500).json({ error: "Échec de l’initiation de la transaction." });
-      }
-
-      try {
-        const {
-          id_affectation_demande,
-          id_vehicule,
-          id_chauffeur,
-          date_prevue,
-          date_retour,
-          id_type_vehicule,
-          id_motif_demande,
-          id_demandeur,
-          id_client,
-          id_destination,
-          personne_bord,
-          commentaire,
-          id_societe,
-          user_cr
-        } = req.body;
-
-        // Vérification des champs obligatoires
-        if (!id_vehicule || !id_chauffeur || !user_cr || !date_prevue || !id_societe) {
-          throw new Error("Champs requis manquants.");
-        }
-
-        const datePrevue = moment(date_prevue, moment.ISO_8601).format('YYYY-MM-DD HH:mm:ss');
-        const dateRetour = moment(date_retour, moment.ISO_8601).format('YYYY-MM-DD HH:mm:ss');
-
-        // Insertion du bon de sortie
-        const insertBonSql = `
-          INSERT INTO bande_sortie (
-            id_affectation_demande,
-            id_vehicule,
-            id_chauffeur,
-            date_prevue,
-            date_retour,
-            id_type_vehicule,
-            id_motif_demande,
-            id_demandeur,
-            id_client,
-            id_destination,
-            statut,
-            personne_bord,
-            commentaire,
-            id_societe,
-            user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-
-        const updateVehiculeSql = `
-          UPDATE affectation_demande SET statut = 4 WHERE id_affectation_demande = ?
-        `;
-        await queryPromise(connection, updateVehiculeSql, [id_affectation_demande]);
-
-        const bonValues = [
-          id_affectation_demande || null,
-          id_vehicule,
-          id_chauffeur,
-          datePrevue,
-          dateRetour,
-          id_type_vehicule || null,
-          id_motif_demande || null,
-          id_demandeur || null,
-          id_client || null,
-          id_destination || null,
-          4,
-          personne_bord || '',
-          commentaire || '',
-          id_societe,
-          user_cr
-        ];
-
-        const insertResult = await queryPromise(connection, insertBonSql, bonValues);
-        const id_bande_sortie = insertResult[0].insertId;
-        // Récupération de la signature du validateur
-        const signatureSql = `
-          SELECT id_signature 
-          FROM signature 
-          WHERE userId = ?
-          LIMIT 1
-        `;
-        const [signatureRow] = await queryPromise(connection, signatureSql, [user_cr]);
-
-        if (!signatureRow) {
-          throw new Error("Aucune signature disponible pour l'utilisateur.");
-        }
-
-        const id_signature = signatureRow[0].id_signature;
-
-        // Insertion de la validation
-        const insertValidationSql = `
-          INSERT INTO validation_demande (
-            id_bande_sortie,
-            validateur_id,
-            id_signature,
-            date_validation
-          ) VALUES (?, ?, ?, NOW())
-        `;
-
-        await queryPromise(connection, insertValidationSql, [
-          id_bande_sortie,
-          user_cr,
-          id_signature
-        ]);
-
-        // Commit final
-        connection.commit((commitErr) => {
-          connection.release();
-          if (commitErr) {
-            console.error("Erreur commit :", commitErr);
-            return res.status(500).json({ error: "Erreur lors de la validation finale." });
-          }
-
-          return res.status(201).json({
-            message: "Bon de sortie enregistré et validé avec succès.",
-            id_bande_sortie
-          });
-        });
-
-      } catch (error) {
-        connection.rollback(() => {
-          connection.release();
-          console.error("Erreur transactionnelle :", error);
-          return res.status(500).json({
-            error: error.message || "Erreur lors du traitement de la demande."
-          });
-        });
-      }
-    })
-  })
-}; */
 
 exports.postBandeSortie = (req, res) => {
   db.getConnection((connErr, connection) => {
@@ -7315,58 +6033,7 @@ exports.postSortie = (req, res) => {
   })
 };
 
-//RETOUR
-/* exports.getSortieRetour = (req, res) => {
-
-    const q = `
-            SELECT * FROM sortie_retour
-            `;
-
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    });
-};
-
-exports.getSortieRetourOne = (req, res) => {
-    const { id_bande_sortie } = req.query;
-
-    if (!id_bande_sortie) {
-        return res.status(400).json({
-            error: 'Le paramètre "id_bande_sortie" est requis.',
-        });
-    }
-
-    const query = `
-        SELECT sr.*, 
-               u.nom AS agent_nom,
-               c.nom AS chauffeur_nom
-        FROM sortie_retour sr
-        LEFT JOIN utilisateur u ON sr.agent_id = u.id_utilisateur
-        LEFT JOIN chauffeur c ON sr.chauffeur_id = c.id_chauffeur
-        WHERE sr.id_bande_sortie = ?
-        ORDER BY sr.date_heure ASC
-    `;
-
-    db.query(query, [id_bande_sortie], (error, results) => {
-        if (error) {
-            console.error('[getSortieRetourByDemande] DB error:', error);
-            return res.status(500).json({
-                error: "Erreur serveur lors de la récupération des données de sortie/retour.",
-            });
-        }
-
-        if (results.length === 0) {
-            return res.status(404).json({
-                message: `Aucun enregistrement trouvé pour la demande ID ${id_demande}.`
-            });
-        }
-        return res.status(200).json(results);
-    });
-}; */
-
+//Retour
 exports.getRetour = (req, res) => {
 
     const q = `
@@ -7881,12 +6548,7 @@ exports.postVisiteur = (req, res) => {
         return res.status(500).json({ error: "Impossible de démarrer la transaction." });
       }
 
-      try {        
-        let img = null;
-        if (req.file) {
-          img = req.file.path.replace(/\\/g, '/');
-        }
-
+      try {
         const {
             immatriculation,
             type_vehicule,
@@ -7895,7 +6557,6 @@ exports.postVisiteur = (req, res) => {
             id_motif,
             entreprise,
             vehicule_connu,
-            date_sortie,
             user_cr
           } = req.body;
 
@@ -7912,10 +6573,8 @@ exports.postVisiteur = (req, res) => {
             id_motif,
             entreprise,
             vehicule_connu,
-            date_sortie,
-            img,
             user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `
         const values = [
               immatriculation,
@@ -7925,8 +6584,6 @@ exports.postVisiteur = (req, res) => {
               id_motif,
               entreprise,
               vehicule_connu ? 1 : 0,
-              date_sortie,
-              img,
               user_cr
             ];
 
@@ -8255,18 +6912,6 @@ exports.getInfoSortieRetour = (req, res) => {
     });
 };
 
-//Status BS
-exports.getStatusBs = (req, res) => {
-
-    const q = `SELECT * FROM statut_bs`;
-
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    });
-};
 
 //Notification
 exports.savePushToken = async (req, res) => {
