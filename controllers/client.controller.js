@@ -1,5 +1,6 @@
 const { db } = require("./../config/database");
-// 📦 Petite helper function pour convertir mysql en Promises
+
+// ðŸ“¦ Petite helper function pour convertir mysql en Promises
 function queryPromise(connection, sql, params) {
     return new Promise((resolve, reject) => {
       connection.query(sql, params, (err, results) => {
@@ -49,9 +50,8 @@ exports.getClients = (req, res) => {
     SELECT 
         client.id_client, client.nom, client.adresse, client.telephone, client.email, provinces.capital, type_client.nom_type
     FROM client
-        LEFT JOIN provinces ON client.ville = provinces.id
-        LEFT JOIN type_client ON client.id_type_client = type_client.id_type_client
-    WHERE client.est_supprime = 0
+    LEFT JOIN provinces ON client.ville = provinces.id
+    LEFT JOIN type_client ON client.id_type_client = type_client.id_type_client
     `;
 
     db.query(q, (error, data) => {
@@ -63,7 +63,7 @@ exports.getClients = (req, res) => {
 };
 
 exports.getClientPermission = (req, res) => {
-    const { userId } = req.query; // Vérifiez si vous recevez bien userId dans req.query
+    const { userId } = req.query; // VÃ©rifiez si vous recevez bien userId dans req.query
 
     if (!userId) {
         return res.status(400).json({ message: "L'ID utilisateur est requis." });
@@ -84,13 +84,12 @@ exports.getClientPermission = (req, res) => {
 
     db.query(query, [userId], (error, data) => {
         if (error) {
-            console.error("Erreur lors de la récupération des clients :", error);
+            console.error("Erreur lors de la rÃ©cupÃ©ration des clients :", error);
             return res.status(500).json({ message: "Erreur serveur", error });
         }
         return res.status(200).json(data);
     });
 };
-
 
 exports.getClientResume = (req, res) => {
 
@@ -146,7 +145,7 @@ exports.postClient = async (req, res) => {
 
         const count = clientCheckResult[0].count;
         if (count > 0) {
-            return res.status(400).json({ error: 'Le client existe déjà avec ce nom.' });
+            return res.status(400).json({ error: 'Le client existe dÃ©jÃ  avec ce nom.' });
         }
 
         await new Promise((resolve, reject) => {
@@ -159,7 +158,7 @@ exports.postClient = async (req, res) => {
             });
         });
 
-        return res.json('Processus réussi');
+        return res.json('Processus rÃ©ussi');
     } catch (error) {
         console.error(error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du client." });
@@ -192,15 +191,15 @@ exports.putClient = async (req, res) => {
 
         db.query(q, values, (error, result) => {
             if (error) {
-                console.error("Erreur lors de la mise à jour de client :", error);
-                return res.status(500).json({ error: 'Erreur interne lors de la mise à jour de client' });
+                console.error("Erreur lors de la mise Ã  jour de client :", error);
+                return res.status(500).json({ error: 'Erreur interne lors de la mise Ã  jour de client' });
             }
 
             if (result.affectedRows === 0) {
-                return res.status(404).json({ error: 'Client non trouvé' });
+                return res.status(404).json({ error: 'Client non trouvÃ©' });
             }
 
-            return res.json({ message: 'Client mis à jour avec succès' });
+            return res.json({ message: 'Client mis Ã  jour avec succÃ¨s' });
         });
     } catch (err) {
         console.error("Error updating client:", err);
@@ -220,7 +219,7 @@ exports.deleteUpdatedClient = (req, res) => {
         
       return res.json(data);
     });
-}
+  }
 
 exports.deleteClient = (req, res) => {
     const id = req.params.id;
@@ -232,7 +231,9 @@ exports.deleteClient = (req, res) => {
       return res.json(data);
     });
   
-}
+  }
+
+
 
 exports.getProvince = (req, res) => {
 
@@ -296,14 +297,14 @@ exports.postProvince = (req, res) => {
     db.getConnection((connErr, connection) => {
         if(connErr) {
             console.error("Erreur de connexion DB : ", connErr)
-            return res.status(500).json({ error: "Connexion à la base de données échouée." });
+            return res.status(500).json({ error: "Connexion Ã  la base de donnÃ©es Ã©chouÃ©e." });
         }
 
         connection.beginTransaction(async (trxErr) => {
             if(trxErr) {
                 connection.release();
                 console.error("Erreur transaction : ", trxErr)
-                return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+                return res.status(500).json({ error: "Impossible de dÃ©marrer la transaction." });
             }
 
             try {
@@ -337,7 +338,7 @@ exports.postProvince = (req, res) => {
                 }
 
                 return res.status(201).json({
-                    message: "La province a été enregistrée avec succès.",
+                    message: "La province a Ã©tÃ© enregistrÃ©e avec succÃ¨s.",
                     data: { id: insertId }
                 });
                 });
