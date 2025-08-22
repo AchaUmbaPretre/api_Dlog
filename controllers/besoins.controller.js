@@ -37,8 +37,8 @@ exports.getBesoinOne = (req, res) => {
 
     const q = `
                 SELECT besoins.*, articles.nom_article, projet.nom_projet FROM besoins
-                    INNER JOIN articles ON besoins.id_article = articles.id_article
-                    INNER JOIN projet ON besoins.id_projet = projet.id_projet
+                    LEFT JOIN articles ON besoins.id_article = articles.id_article
+                    LEFT JOIN projet ON besoins.id_projet = projet.id_projet
                 WHERE besoins.id_projet = ${id_besoin}
             `;
      
@@ -64,7 +64,7 @@ exports.getBesoinInactif = (req, res) => {
     });
 }
 
-exports.postBesoins = (req, res) => {
+exports.postBesoins = async (req, res) => {
 
     try {
         const q = 'INSERT INTO besoins(`id_article`,`description`,`id_client`, `quantite`, `priorite`, `id_projet`, `id_batiment`, `personne`) VALUES(?,?,?,?,?,?,?,?)';
@@ -106,55 +106,3 @@ exports.deleteBesoins = (req, res) => {
     });
   
   }
-
-  //Besoin client
-
-exports.getBesoinClientOne = (req, res) => {
-    const {id_projet} = req.query;
-
-    const q = `
-                SELECT bc.id_besoin_client, bc.id_besoin,bc.quantite,
-                    articles.nom_article,
-                    projet.nom_projet,
-                    projet.description,
-                    client.nom
-                FROM besoin_client AS bc
-                    INNER JOIN besoins ON bc.id_besoin = besoins.id_besoin
-                    INNER JOIN articles ON besoins.id_article = articles.id_article
-                    INNER JOIN Projet ON besoins.id_projet = projet.id_projet
-                    INNER JOIN client ON bc.id_client = client.id_client
-                WHERE besoins.id_projet = ${id_projet}
-            `;
-     
-    db.query(q, (error, data) => {
-        if (error) res.status(500).send(error);
-        return res.status(200).json(data);
-    });
-}
-
-exports.postBesoinsClient = async (req, res) => {
-
-    try {
-        const q = 'INSERT INTO besoin_client(`id_besoin`,`id_client`,`quantite`, `id_batiment`) VALUES(?,?,?,?)';
-
-        const values = [
-            req.body.id_besoin,
-            req.body.id_client,
-            req.body.quantite,
-            req.body.id_batiment,
-            req.body.ville
-        ];
-
-        db.query(q, values, (error, data)=>{
-            if(error){
-                console.log(error)
-                return res.status(404).json({ error: 'Besoin record not found' });
-            }
-
-            return res.status(201).json({ message: 'Besoins ajouté avec succès'});
-        })
-    } catch (error) {
-        console.error('Erreur lors de l\'ajout du nouveau projet:', error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
-    }
-};

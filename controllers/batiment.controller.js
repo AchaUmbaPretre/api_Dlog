@@ -457,7 +457,6 @@ exports.getStatutMaintenance= (req, res) => {
     });
 };
 
-
 // Stocks des equipements
 exports.getStockEquipement = (req, res) => {
 
@@ -2065,4 +2064,4 @@ exports.deleteCatInspection = (req, res) => {
       if (err) return res.send(err);
       return res.json(data);
     });
-  }
+}
