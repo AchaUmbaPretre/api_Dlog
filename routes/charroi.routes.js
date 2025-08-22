@@ -56,13 +56,18 @@ router.get('/sexe', charroiController.getEtatCivil)
 //Type fonction
 router.get('/type_fonction', charroiController.getTypeFonction)
 
-//Sites
-router.get('/site', charroiController.getSites)
-router.post('/site', charroiController.postSites)
+//Destination
+router.get('/destination', charroiController.getDestination)
+router.post('/destination', charroiController.postDestination)
+
 
 //Affectation
 router.get('/affectation', charroiController.getAffectation)
 router.post('/affectation', charroiController.postAffectation)
+
+//Sites
+router.get('/site', charroiController.getSites)
+router.post('/site', charroiController.postSites)
 
 //Controle technique
 router.get('/controle_technique', charroiController.getControleTechnique)
@@ -75,7 +80,8 @@ router.post('/type_reparation', charroiController.postTypeReparation)
 //Statut véhicule
 router.get('/statut_vehicule', charroiController.getStatutVehicule)
 
-//Réparation
+
+//Type de reparation
 router.get('/reparation', charroiController.getReparation)
 router.get('/reparationOneV', charroiController.getReparationOneV)
 router.get('/reparationOne', charroiController.getReparationOne)
@@ -83,12 +89,15 @@ router.post('/reparation', charroiController.postReparation)
 router.post('/delete_reparation', charroiController.deleteReparation)
 router.put('/reparation', charroiController.putReparation)
 
+
 //Reparation image
 router.get('/reparation_image', charroiController.getReparationImage)
 router.post('/reparation_image', upload.any(), charroiController.postReparationImage)
 
+
 //Carateristique Rep
 router.get('/carateristique_rep', charroiController.getCarateristiqueRep)
+
 
 //Inspection generale
 router.post('/inspection_gens', charroiController.getInspectionGen)
@@ -103,16 +112,19 @@ router.get('/sub_inspection_genOne', charroiController.getSubInspectionOne)
 router.put('/sub_inspection_gen', upload.any(), charroiController.putInspectionGen)
 router.post('/delete_inspection', charroiController.deleteInspectionGen)
 
+
+
 //Validation inspection
-router.get('/inspection_validation_all', charroiController.getValidationInspectionAll)
 router.get('/inspection_validation', charroiController.getValidationInspection)
 router.post('/inspection_validation', charroiController.postValidationInspection)
-router.put('/inspection_validation_put', charroiController.putValidationInspection)
+
 
 //Suivi inspection
 router.get('/suivi_inspections', charroiController.getSuiviInspection)
 router.post('/suivi_inspections', charroiController.postSuiviInspection)
 
+
+//Suivi reparation
 //Suivi réparation
 router.get('/suivi_reparation', charroiController.getSuiviReparation)
 router.get('/suivi_reparationOne', charroiController.getSuiviReparationOne)
@@ -144,7 +156,7 @@ router.get('/document_inspection', charroiController.getDocumentInspection)
 //Historique
 router.get('/historique', charroiController.getHistorique)
 
-//Reclammation
+//Reclamation
 router.get('/reclamation', charroiController.getReclamation)
 router.get('/reclamationOne', charroiController.getReclamationOne)
 router.post('/reclamation', charroiController.postReclamation)
@@ -155,7 +167,12 @@ router.post('/serviceDemadeur', charroiController.postServiceDemandeur)
 router.get('/type_vehicule', charroiController.getTypeVehicule)
 router.get('/motif', charroiController.getMotif)
 
-//Demande
+//Validation demande
+router.get('/validation_demande', charroiController.getValidationDemande)
+router.get('/validation_demandeOne', charroiController.getValidationDemandeOne)
+router.post('/validation_demande', upload.any(), charroiController.postValidationDemande)
+
+//Affectation
 router.get('/demande_vehicule', charroiController.getDemandeVehicule)
 router.get('/demande_vehiculeUserOne', charroiController.getDemandeVehiculeUserOne)
 router.get('/demande_vehiculeOne', charroiController.getDemandeVehiculeOne)
@@ -165,21 +182,13 @@ router.put('/demande_vehiculeVue', charroiController.putDemandeVehiculeVue)
 router.put('/demande_vehiculeAnnuler', charroiController.putDemandeVehiculeAnnuler)
 router.put('/demande_vehicule_retour', charroiController.putDemandeVehiculeRetour)
 
-//Validation demande
-router.get('/validation_demande', charroiController.getValidationDemande)
-router.get('/validation_demandeOne', charroiController.getValidationDemandeOne)
-router.post('/validation_demande', charroiController.postValidationDemande)
-
-//Destination
-router.get('/destination', charroiController.getDestination)
-router.post('/destination', charroiController.postDestination)
 
 //Affectation
 router.get('/affectation_demande', charroiController.getAffectationDemande)
 router.get('/affectation_demandeOne', charroiController.getAffectationDemandeOne)
 router.post('/affectation_demande', charroiController.postAffectationDemande)
 
-//Bon de sortie
+//Bande de sortie
 router.get('/bande_sortie', charroiController.getBandeSortie)
 router.get('/bande_sortie_unique', charroiController.getBandeSortieUnique)
 router.get('/bande_sortieOne', charroiController.getBandeSortieOne)
@@ -188,9 +197,9 @@ router.put('/bande_sortie_est_supprime', charroiController.putSupprimeBandeSorti
 router.put('/bande_sortie_annuler', charroiController.putBandeSortieAnnuler)
 router.put('/bon_update_date', charroiController.putBonSortieDate)
 
+
 //Bon de sortie du personnel
 router.get('/bon_sortie', charroiController.getBonSortiePerso)
-router.get('/bon_sortie_sortie', charroiController.getBonSortiePersoSortie)
 router.get('/bon_sortieOne_perso', charroiController.getBonSortiePersoOne)
 router.post('/bon_sortie_perso', charroiController.postBonSortiePerso)
 
@@ -205,7 +214,7 @@ router.post('/bon_sortie_retour', charroiController.postBonSortiePersoRetour)
 //ENTREE ET SORTIE PERSONNEL
 router.get('/entree_sortie_personnel', charroiController.getEntreeSortiePersonnel )
 
-//Véhicule en Course
+//Véhicule en Course 
 router.get('/vehicule_course', charroiController.getVehiculeCourse)
 router.get('/vehicule_courseOne', charroiController.getVehiculeCourseOne)
 
@@ -217,6 +226,15 @@ router.post('/sortie_vehicule', charroiController.postSortie)
 router.get('/retour_vehicule', charroiController.getRetour)
 router.post('/retour_vehicule', charroiController.postRetour)
 
+//Visiteur
+router.get('/visiteur_vehicule', charroiController.getVisiteur)
+router.get('/visiteur_vehicule_search', charroiController.getVisiteurSearch)
+router.post('/visiteur_vehicule', charroiController.postVisiteur)
+
+//Visiteur Retour
+router.get('/visiteur_retour', charroiController.getVisiteurVehiculeRetour);
+router.put('/visiteur_retour', charroiController.putVisiteurVehiculeRetour);
+
 //Sortie exceptionnelle
 router.get('/sortie_vehicule_exceptionnel', charroiController.getSortieExceptionnelle)
 router.post('/sortie_vehicule_exceptionnel', charroiController.postSortieExceptionnel)
@@ -225,14 +243,6 @@ router.post('/sortie_vehicule_exceptionnel', charroiController.postSortieExcepti
 router.get('/retour_vehicule_exceptionnel', charroiController.getRetourExceptionnelle)
 router.post('/retour_vehicule_exceptionnel', charroiController.postRetourExceptionnel)
 
-//Visiteur
-router.get('/visiteur_vehicule', charroiController.getVisiteur)
-router.get('/visiteur_vehicule_search', charroiController.getVisiteurSearch)
-router.post('/visiteur_vehicule', upload.single('img'), charroiController.postVisiteur);
-
-//Visiteur Retour
-router.get('/visiteur_retour', charroiController.getVisiteurVehiculeRetour);
-router.put('/visiteur_retour', charroiController.putVisiteurVehiculeRetour);
 
 //Liste de sortie et entree
 router.get('/sortie_entree', charroiController.getEntreeSortie)
@@ -241,11 +251,7 @@ router.get('/sortie_entreeOne', charroiController.getEntreeSortieOne)
 //Info sortie & retour
 router.get('/info_sortie_retour', charroiController.getInfoSortieRetour)
 
-//STATUS BS
-router.get('/status_bs', charroiController.getStatusBs)
-
 //Notification push
 router.post('/savePushToken', charroiController.savePushToken);
-
 
 module.exports = router;
