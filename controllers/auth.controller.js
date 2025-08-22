@@ -1,13 +1,14 @@
 const { db } = require('./../config/database');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
-const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
 
 dotenv.config();
 
 exports.registerController = async (req, res) => {
     const { username, email, password, role, telephone } = req.body;
+    console.log(req.body)
   
     try {
       const query = 'SELECT * FROM utilisateur WHERE email = ?';
@@ -75,15 +76,14 @@ exports.loginController = async (req, res) => {
           { expiresIn: '3d' }
         );
   
-        const { mot_de_passe, ...userWithoutPassword } = user;
-
+        const { password: userPassword, ...userWithoutPassword } = user;
+  
         res.status(200).json({
           message: 'Connexion réussie',
           success: true,
           ...userWithoutPassword,
           accessToken,
         });
-
       });
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -98,19 +98,6 @@ exports.logout = (req, res) => {
   
     res.status(200).json({ message: 'Utilisateur déconnecté avec succès' });
   };
-
-/* exports.detailForgot = (req, res) => {
-    const { email } = req.query;
-    const q = `SELECT users.username, users.id, users.email FROM users WHERE email = ?`
-  
-    db.query(q,[email], (error, data) => {
-      if(error) {
-        return res.status(500).json({ error: error.message });
-      }
-      res.status(200).json(data);
-    });
-  }; */
-
 
     // Créer le transporteur avec les informations SMTP
 const transporter = nodemailer.createTransport({
@@ -206,35 +193,3 @@ exports.updateUser = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
   };
-
-/* exports.updateUser = async (req, res) => {
-    const { token } = req.query; // Récupérer le jeton de l'URL
-    const { password } = req.body; // Récupérer le nouveau mot de passe de la requête
-
-    console.log('token : ' + token, 'password : '+ password)
-    if (!token || !password) {
-        return res.status(400).json({ error: "Token and password are required" });
-    }
-
-    try {
-        // Vérifier le jeton JWT
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const id = decoded.id; // Récupérer l'ID utilisateur à partir du jeton
-
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
-        const q = `UPDATE utilisateur SET mot_de_passe = ? WHERE id_utilisateur = ?`;
-        db.query(q, [hashedPassword, id], (error, data) => {
-            if (error) {
-                return res.status(500).json({ error: error.message });
-            }
-            if (data.affectedRows === 0) {
-                return res.status(404).json({ error: "User not found" });
-            }
-            res.status(200).json({ message: "Password updated successfully" });
-        });
-    } catch (error) {
-        res.status(500).json({ error: "Invalid token or token expired." });
-    }
-}; */
