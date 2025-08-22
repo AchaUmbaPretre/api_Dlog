@@ -1,6 +1,6 @@
 const { db } = require("./../config/database");
 
-// 📦 Petite helper function pour convertir mysql en Promises
+// ðŸ“¦ Petite helper function pour convertir mysql en Promises
 function queryPromise(connection, sql, params) {
     return new Promise((resolve, reject) => {
       connection.query(sql, params, (err, results) => {
@@ -8,27 +8,18 @@ function queryPromise(connection, sql, params) {
         resolve([results]);
       });
     });
-}
+  }
 
 exports.getEquipement = (req, res) => {
 
     const q = `
                 SELECT equipments.model, equipments.num_serie, 
-                        equipments.id_equipement, 
-                        equipments.installation_date, 
-                        equipments.maintenance_date, 
-                        equipments.date_prochaine_maintenance, 
-                        bins.nom AS nom_bin, 
-                        batiment.nom_batiment, 
-                        statut_equipement.nom_statut, 
-                        articles.nom_article,
-                        adresse.adresse
-                    FROM equipments 
+                    equipments.id_equipement, equipments.installation_date, 
+                    equipments.maintenance_date, equipments.date_prochaine_maintenance, bins.nom AS location, batiment.nom_batiment, statut_equipement.nom_statut, articles.nom_article FROM equipments 
                     LEFT JOIN batiment ON equipments.id_batiment = batiment.id_batiment
                     LEFT JOIN statut_equipement ON equipments.status = statut_equipement.id_statut_equipement
                     LEFT JOIN articles ON equipments.id_type_equipement = articles.id_article
                     LEFT JOIN bins ON equipments.id_bin = bins.id
-                    LEFT JOIN adresse ON equipments.location = adresse.id_adresse
             `;
 
     db.query(q, (error, data) => {
@@ -43,11 +34,9 @@ exports.getEquipementOneV = (req, res) => {
     const {id} = req.query;
 
     const q = `
-            SELECT * 
-                FROM 
-            equipments 
-                WHERE 
-            equipments.id_equipement= ?
+            SELECT * FROM equipments 
+            WHERE 
+                equipments.id_equipement= ?
             `;
 
     db.query(q,[id],(error, data) => {
@@ -105,11 +94,11 @@ exports.postEquipement = async (req, res) => {
             if(error) {
                 console.log(error)
             }
-            return res.status(201).json({ message: 'Equipement ajouté avec succès' });
+            return res.status(201).json({ message: 'Equipement ajoutÃ© avec succÃ¨s' });
         })
     } catch (error) {
-        console.error('Erreur lors de l\'ajout de la tâche :', error.message);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+        console.error('Erreur lors de l\'ajout de la tÃ¢che :', error.message);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tÃ¢che." });
     }
 };
 
@@ -149,7 +138,7 @@ exports.putEquipement = async (req, res) => {
         console.error("Error updating bins:", err);
         return res.status(500).json({ error: 'Failed to update bins record' });
     }
-}
+};
 
 //Plan
 exports.getBatimentPlans = (req, res) => {
@@ -223,7 +212,7 @@ exports.postBatimentPlans = async (req, res) => {
     const { id_batiment, nom_document, type_document } = req.body;
 
     if (!req.files || req.files.length === 0) {
-        return res.status(400).json({ message: 'Aucun fichier téléchargé' });
+        return res.status(400).json({ message: 'Aucun fichier tÃ©lÃ©chargÃ©' });
     }
 
     const documents = req.files.map(file => ({
@@ -250,7 +239,7 @@ exports.postBatimentPlans = async (req, res) => {
             })
         );
 
-        res.status(200).json({ message: 'Documents ajoutés avec succès' });
+        res.status(200).json({ message: 'Documents ajoutÃ©s avec succÃ¨s' });
     } catch (error) {
         res.status(500).json({ message: 'Erreur interne du serveur', error });
     }
@@ -299,7 +288,7 @@ exports.postBatimentDoc = async (req, res) => {
     const { id_batiment, nom_document, type_document } = req.body;
 
     if (!req.files || req.files.length === 0) {
-        return res.status(400).json({ message: 'Aucun fichier téléchargé' });
+        return res.status(400).json({ message: 'Aucun fichier tÃ©lÃ©chargÃ©' });
     }
 
     const documents = req.files.map(file => ({
@@ -321,7 +310,7 @@ exports.postBatimentDoc = async (req, res) => {
         });
     });
 
-    res.status(200).json({ message: 'Documents ajoutés avec succès' });
+    res.status(200).json({ message: 'Documents ajoutÃ©s avec succÃ¨s' });
 };
 
 exports.putBatimentDoc = async (req, res) => {
@@ -410,19 +399,19 @@ exports.postMaintenance = async (req, res) => {
         const qEquipement = 'UPDATE equipments SET status = ? WHERE id_equipement = ?';
         const q = 'INSERT INTO maintenance_logs(`id_equipement`, `maintenance_date`, `description`, `status`, `id_technicien`) VALUES(?,?,?,?,?)';
 
-        // Exécution de la requête pour insérer dans maintenance_logs
+        // ExÃ©cution de la requÃªte pour insÃ©rer dans maintenance_logs
         const values = [id_equipement, maintenance_date, description, status, id_technicien];
         await db.query(q, values);
 
-        // Mise à jour du statut de l'équipement après insertion
+        // Mise Ã  jour du statut de l'Ã©quipement aprÃ¨s insertion
         await db.query(qEquipement, [status, id_equipement]);
 
-        // Réponse de succès
-        return res.status(201).json({ message: 'Maintenance ajoutée avec succès' });
+        // RÃ©ponse de succÃ¨s
+        return res.status(201).json({ message: 'Maintenance ajoutÃ©e avec succÃ¨s' });
 
     } catch (error) {
         console.error('Erreur lors de l\'ajout de maintenance :', error.message);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tÃ¢che." });
     }
 };
 
@@ -468,7 +457,8 @@ exports.getStatutMaintenance= (req, res) => {
     });
 };
 
-// Stocks des équipements
+
+// Stocks des equipements
 exports.getStockEquipement = (req, res) => {
 
     const q = `
@@ -517,10 +507,10 @@ exports.postStockEquipement = async (req, res) => {
         ];
 
         await db.query(q, values);
-        return res.status(201).json({ message: 'Maintenance ajouté avec succès' });
+        return res.status(201).json({ message: 'Maintenance ajoutÃ© avec succÃ¨s' });
     } catch (error) {
         console.error('Erreur lors de l\'ajout de maintenance :', error.message);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tÃ¢che." });
     }
 };
 
@@ -718,9 +708,9 @@ exports.postEntrepot = (req, res) => {
     
     db.query(sql, [nom, description, id_batiment], (err, result) => {
         if (err) {
-            return res.status(500).send('Erreur lors de la création de l entrepôt');
+            return res.status(500).send('Erreur lors de la crÃ©ation de l entrepÃ´t');
         }
-        res.status(201).send('Entrepôt créé');
+        res.status(201).send('EntrepÃ´t crÃ©Ã©');
     });
 };
 
@@ -1021,9 +1011,9 @@ exports.postMaintenanceBin = (req, res) => {
     
     db.query(q, [id_bin, description], (err, result) => {
         if (err) {
-            return res.status(500).send('Erreur lors de la création de bins');
+            return res.status(500).send('Erreur lors de la crÃ©ation de bins');
         }
-        res.status(201).send('Bins créé');
+        res.status(201).send('Bins crÃ©Ã©');
     });
 };
 
@@ -1085,10 +1075,10 @@ exports.postBureaux = (req, res) => {
         console.error('Erreur lors de l\'insertion:', err);
         return res.status(500).send('Erreur serveur');
       }
-      res.status(200).send('Bureau ajouté avec succès');
+      res.status(200).send('Bureau ajoutÃ© avec succÃ¨s');
     });
-};
-
+  };
+  
 exports.putBureaux = (req, res) => {
     const { id_bureau } = req.query;
     const { nom, longueur, largeur, hauteur, nombre_postes } = req.body;
@@ -1123,7 +1113,7 @@ exports.putBureaux = (req, res) => {
         console.error("Error updating Bureau:", err);
         return res.status(500).json({ error: 'Failed to update bureau record' });
     }
-};
+}
 
 exports.deleteUpdateBureaux = (req, res) => {
     const {id} = req.query;
@@ -1137,8 +1127,8 @@ exports.deleteUpdateBureaux = (req, res) => {
       return res.json(data);
     });
   
-};
-
+  }
+  
 //Niveau batiment
 exports.getNiveauCount = (req, res) => {
     const { id_batiment } = req.query;
@@ -1163,7 +1153,7 @@ exports.getNiveau = (req, res) => {
 
     const q = `
                 SELECT 
-                    nb.*, 
+                    nb.nom_niveau, 
                     b.nom_batiment 
                 FROM 
                     niveau_batiment nb
@@ -1209,30 +1199,11 @@ exports.getNiveauOne = (req, res) => {
     });
 };
 
-/* exports.postNiveau = (req, res) => {
-    const { id_batiment, nom_niveau } = req.body;
-
-    if(!id_batiment){
-        return res.status(400).json({ error: "L'ID de niveau est requis." })
-    }
-  
-    const query = 'INSERT INTO niveau_batiment (id_batiment, nom_niveau) VALUES (?, ?)';
-    const values = [id_batiment, nom_niveau];
-  
-    db.query(query, values, (err, result) => {
-      if (err) {
-        console.error('Erreur lors de l\'insertion:', err);
-        return res.status(500).send('Erreur serveur');
-      }
-      res.status(200).send('Bureau ajouté avec succès');
-    });
-  }; */
-
 exports.postNiveau = (req, res) => {
     const { id_batiment, niveaux } = req.body;
 
     if (!id_batiment) {
-        return res.status(400).json({ error: "L'ID du bâtiment est requis." });
+        return res.status(400).json({ error: "L'ID du bÃ¢timent est requis." });
     }
     if (!niveaux || !Array.isArray(niveaux) || niveaux.length === 0) {
         return res.status(400).json({ error: "La liste des niveaux est requise." });
@@ -1247,7 +1218,7 @@ exports.postNiveau = (req, res) => {
             console.error("Erreur lors de l'insertion :", err);
             return res.status(500).send("Erreur serveur");
         }
-        res.status(200).send("Niveaux ajoutés avec succès");
+        res.status(200).send("Niveaux ajoutÃ©s avec succÃ¨s");
     });
 };
 
@@ -1280,7 +1251,7 @@ exports.putNiveau = (req, res) => {
         console.error("Error updating niveau:", err);
         return res.status(500).json({ error: 'Failed to update bins record' });
     }
-};
+}
 
 exports.deleteUpdateNiveau = (req, res) => {
     const {id} = req.query;
@@ -1294,18 +1265,17 @@ exports.deleteUpdateNiveau = (req, res) => {
       return res.json(data);
     });
   
-};
+  }
 
 //Denomination batiment
 exports.getDenominationCount = (req, res) => {
     const { id_batiment} = req.query;
     const q = `
                 SELECT 
-                    COUNT(id_denomination_bat) AS nbre_denomination, batiment.nom_batiment
+                    COUNT(id_denomination_bat) AS nbre_denomination
                 FROM 
                     denomination_bat
-                INNER JOIN batiment ON denomination_bat.id_batiment = batiment.id_batiment
-                WHERE denomination_bat.est_supprime = 0  AND denomination_bat.id_batiment = ?`;
+                WHERE denomination_bat.est_supprime = 0  AND id_batiment = ?     `;
 
     db.query(q,[id_batiment], (error, data) => {
         if (error) {
@@ -1361,33 +1331,14 @@ exports.getDenominationOne = (req, res) => {
     });
 };
 
-/* exports.postDenomination = (req, res) => {
-    const { id_batiment, nom_denomination_bat } = req.body;
-
-    if(!id_batiment){
-        return res.status(400).json({ error: "L'ID de whse_fact est requis." })
-    }
-
-    const query = 'INSERT INTO denomination_bat (id_batiment, nom_denomination_bat) VALUES (?, ?)';
-    const values = [id_batiment, nom_denomination_bat];
-  
-    db.query(query, values, (err, result) => {
-      if (err) {
-        console.error('Erreur lors de l\'insertion:', err);
-        return res.status(500).send('Erreur serveur');
-      }
-      res.status(200).send('Bureau ajouté avec succès');
-    });
-  }; */
-
 exports.postDenomination = (req, res) => {
     const { id_batiment, denominations } = req.body;
 
     if (!id_batiment) {
-        return res.status(400).json({ error: "L'ID du bâtiment est requis." });
+        return res.status(400).json({ error: "L'ID du bÃ¢timent est requis." });
     }
     if (!denominations || !Array.isArray(denominations) || denominations.length === 0) {
-        return res.status(400).json({ error: "La liste des dénominations est requise." });
+        return res.status(400).json({ error: "La liste des dÃ©nominations est requise." });
     }
 
     const query = 'INSERT INTO denomination_bat (id_batiment, nom_denomination_bat) VALUES ?';
@@ -1398,7 +1349,7 @@ exports.postDenomination = (req, res) => {
             console.error("Erreur lors de l'insertion :", err);
             return res.status(500).send("Erreur serveur");
         }
-        res.status(200).send("Dénominations ajoutées avec succès");
+        res.status(200).send("DÃ©nominations ajoutÃ©es avec succÃ¨s");
     });
 };
 
@@ -1446,6 +1397,7 @@ exports.deleteUpdateDenomination = (req, res) => {
     });
   
   }
+
 //WHSE FACT
 exports.getWHSE_FACT = (req, res) => {
 
@@ -1503,10 +1455,10 @@ exports.postWHSE_FACT = (req, res) => {
         console.error('Erreur lors de l\'insertion:', err);
         return res.status(500).send('Erreur serveur');
       }
-      res.status(200).send('Bureau ajouté avec succès');
+      res.status(200).send('Bureau ajoutÃ© avec succÃ¨s');
     });
   };
-
+  
 //Adresse
 exports.getAdresse = (req, res) => {
     const { search } = req.query;
@@ -1569,28 +1521,6 @@ exports.getAdresse = (req, res) => {
     });
 };
 
-exports.getAdresseBinOne = (req, res) => {
-    const { id_bin} = req.query;
-
-    if (isNaN(parseInt(id_bin))) {
-        return res.status(400).json({ message: "L'identifiant doit être un nombre valide." });
-    }
-
-    const q = `
-                SELECT adresse.*, bins.nom, batiment.nom_batiment FROM adresse
-                    LEFT JOIN bins ON adresse.id_bin = bins.id
-                    LEFT JOIN batiment ON bins.id_batiment = batiment.id_batiment
-                    WHERE adresse.id_bin = ?
-            `;
-
-    db.query(q, [id_bin], (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    });
-};
-
 exports.postAdresse = (req, res) => {
   const { id_bin, adresses } = req.body;
 
@@ -1621,47 +1551,6 @@ exports.postAdresse = (req, res) => {
 };
 
 //Inspection
-/* exports.getInspection = (req, res) => {
-    const { idTache } = req.query;
-
-    const whereClauses = ["inspections.est_supprime = 0"];
-    const values = [];
-
-    if (idTache) {
-        whereClauses.push("inspections.id_tache = ?");
-        values.push(idTache);
-    }
-
-    const whereSQL = `WHERE ${whereClauses.join(" AND ")}`;
-
-    const q = `
-        SELECT 
-            inspections.*, 
-            im.img, 
-            im.commentaire, 
-            ti.nom_type_instruction, 
-            tache.nom_tache, 
-            batiment.nom_batiment, 
-            ct.nom_cat_inspection 
-        FROM inspections
-        INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
-        LEFT JOIN tache ON inspections.id_tache = tache.id_tache
-        LEFT JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
-        LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
-        LEFT JOIN cat_inspection ct ON inspections.id_cat_instruction = ct.id_cat_inspection
-        ${whereSQL}
-        GROUP BY inspections.id_inspection
-        ORDER BY inspections.date_creation DESC
-    `;
-
-    db.query(q, values, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    });
-}; */
-
 exports.getInspection = (req, res) => {
     const { idTache } = req.query;
 
@@ -1713,45 +1602,8 @@ exports.getInspectionOneV = (req, res) => {
     });
 };
 
-/* exports.getInspectionDetailAll = (req, res) => {
-    let { ids } = req.query;
-
-    if (!ids) {
-        return res.status(400).json({ error: "Paramètre 'ids' requis" });
-    }
-
-    if (typeof ids === 'string') {
-        ids = ids.split(',').map(id => parseInt(id)).filter(id => !isNaN(id));
-    }
-
-    if (!Array.isArray(ids) || ids.length === 0) {
-        return res.status(400).json({ error: "Le paramètre 'ids' est invalide" });
-    }
-
-    const placeholders = ids.map(() => '?').join(', ');
-    const q = `
-        SELECT inspections.*, im.img, im.commentaire, ti.nom_type_instruction,
-               tache.nom_tache, batiment.nom_batiment, ct.nom_cat_inspection, type_photo.nom_type_photo
-        FROM inspections
-        INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
-        INNER JOIN type_photo ON im.id_type_photo = type_photo.id_type_photo
-        LEFT JOIN tache ON inspections.id_tache = tache.id_tache
-        LEFT JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
-        LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
-        LEFT JOIN cat_inspection ct ON inspections.id_cat_instruction = ct.id_cat_inspection
-        WHERE inspections.id_inspection IN (${placeholders})
-    `;
-
-    db.query(q, ids, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    });
-}; */
-
 exports.getInspectionDetailAll = (req, res) => {
-    let { ids, page = 1, limit = 10 } = req.query;
+    let { ids, page = 1, limit = 6 } = req.query;
 
     if (!ids) {
         return res.status(400).json({ error: "Paramètre 'ids' requis" });
@@ -1814,10 +1666,10 @@ exports.getInspectionDetailAll = (req, res) => {
 exports.getInspectionOne = (req, res) => {
     const {id_batiment} = req.query;
     const q = `
-                SELECT inspections.*, im.img, im.commentaire, ti.nom_type_instruction, tache.nom_tache, batiment.nom_batiment, ct.nom_cat_inspection FROM inspections
-                    INNER JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
-                    LEFT JOIN tache ON inspections.id_tache = tache.id_tache
-                    LEFT JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
+                 SELECT inspections.*, im.img, ti.nom_type_instruction, type_photo.nom_type_photo, im.commentaire, batiment.nom_batiment, ct.nom_cat_inspection FROM inspections
+                    LEFT JOIN inspection_img im ON inspections.id_inspection = im.id_inspection
+                    LEFT JOIN type_photo ON im.id_type_photo = type_photo.id_type_photo
+                    INNER JOIN type_instruction ti ON inspections.id_type_instruction = ti.id_type_instruction
                     LEFT JOIN batiment ON inspections.id_batiment = batiment.id_batiment
                     LEFT JOIN cat_inspection ct ON inspections.id_cat_instruction = ct.id_cat_inspection
                 WHERE inspections.id_batiment = ?
@@ -1831,83 +1683,18 @@ exports.getInspectionOne = (req, res) => {
     });
 };
 
-/* exports.postInspections = async (req, res) => {
-    const { id_batiment,id_type_photo, commentaire, id_cat_instruction, id_type_instruction, id_tache } = req.body;
-
-    // Vérification si des fichiers ont été envoyés
-    if (!req.files || req.files.length === 0) {
-        return res.status(400).json({ message: 'Aucun fichier téléchargé' });
-    }
-
-    try {
-        // Requête d'insertion dans la table `inspections` (une seule fois)
-        const query = `
-            INSERT INTO inspections (
-                id_tache,
-                id_batiment,
-                id_cat_instruction,
-                id_type_instruction
-            ) VALUES (?, ?, ?, ?)
-        `;
-
-        const queryF = `
-            INSERT INTO inspection_img (id_inspection, id_type_photo, img, commentaire)
-            VALUES (?, ?, ?, ?)
-        `;
-
-        // Valeurs pour l'insertion dans `inspections` (elles sont communes pour tous les fichiers)
-        const values = [id_tache, id_batiment, id_cat_instruction, id_type_instruction];
-
-        // Insertion dans `inspections` (une seule fois pour tous les fichiers)
-        const result = await new Promise((resolve, reject) => {
-            db.query(query, values, (error, result) => {
-                if (error) {
-                    reject(error);  // On rejette l'erreur si elle survient
-                } else {
-                    resolve(result);  // On résout la promesse si l'insertion est un succès
-                }
-            });
-        });
-
-        // Récupérer l'ID de l'inspection nouvellement insérée
-        const insertId = result.insertId;
-
-        // Créer les promesses d'insertion dans `inspection_img` pour chaque fichier
-        const promises = req.files.map(file => {
-            const imgValues = [insertId, id_type_photo, file.path.replace(/\\/g, '/'), commentaire]; // Valeurs pour l'insertion de l'image
-            return new Promise((resolve, reject) => {
-                db.query(queryF, imgValues, (imgError, imgResult) => {
-                    if (imgError) {
-                        reject(imgError); // On rejette l'erreur d'insertion de l'image
-                    } else {
-                        resolve(imgResult); // On résout la promesse si l'insertion est un succès
-                    }
-                });
-            });
-        });
-
-        // Attendre que toutes les promesses d'insertion d'image soient exécutées
-        await Promise.all(promises);
-
-        return res.status(201).json({ message: 'Déclaration ajoutée avec succès' });
-    } catch (error) {
-        console.error("Erreur lors de l'ajout de la déclaration:", error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la déclaration." });
-    }
-}; */
-
 exports.postInspections = async (req, res) => {
     db.getConnection((connErr, connection) => {
         if (connErr) {
             console.error("Erreur de connexion DB :", connErr);
-            return res.status(500).json({ error: "Connexion à la base de données échouée." });
+            return res.status(500).json({ error: "Connexion Ã  la base de donnÃ©es Ã©chouÃ©e." });
         }
 
         connection.beginTransaction(async (trxErr) => {
             if (trxErr) {
                 connection.release();
                 console.error("Erreur transaction :", trxErr);
-                return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+                return res.status(500).json({ error: "Impossible de dÃ©marrer la transaction." });
             }
 
             try {
@@ -1938,11 +1725,11 @@ exports.postInspections = async (req, res) => {
                 const [insertResult] = await queryPromise(connection, insertSQL, values);
                 const insertId = insertResult.insertId;
 
-                // Traitement des sous-données
+                // Traitement des sous-donnÃ©es
                 let parsedSub = Array.isArray(subData) ? subData : JSON.parse(subData || '[]');
 
                 if (!Array.isArray(parsedSub)) {
-                    throw new Error("Le champ `subData` doit être un tableau.");
+                    throw new Error("Le champ `subData` doit Ãªtre un tableau.");
                 }
 
                 parsedSub = parsedSub.map((sub, index) => {
@@ -1972,7 +1759,7 @@ exports.postInspections = async (req, res) => {
                 await connection.commit();
                 connection.release();
 
-                return res.status(200).json({ success: true, message: "Inspection enregistrée avec succès." });
+                return res.status(200).json({ success: true, message: "Inspection enregistrÃ©e avec succÃ¨s." });
 
             } catch (error) {
                 console.error("Erreur dans la transaction :", error);
@@ -1990,14 +1777,14 @@ exports.postInspectionsApre = async (req, res) => {
   db.getConnection((connErr, connection) => {
     if (connErr) {
       console.error("Erreur de connexion DB :", connErr);
-      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+      return res.status(500).json({ error: "Connexion Ã  la base de donnÃ©es Ã©chouÃ©e." });
     }
 
     connection.beginTransaction(async (trxErr) => {
       if (trxErr) {
         connection.release();
         console.error("Erreur transaction :", trxErr);
-        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+        return res.status(500).json({ error: "Impossible de dÃ©marrer la transaction." });
       }
 
       try {
@@ -2020,7 +1807,7 @@ exports.postInspectionsApre = async (req, res) => {
         let parsedSub = Array.isArray(subData) ? subData : JSON.parse(subData || '[]');
 
         if (!Array.isArray(parsedSub)) {
-          throw new Error("Le champ `subData` doit être un tableau.");
+          throw new Error("Le champ `subData` doit Ãªtre un tableau.");
         }
 
         const subQuery = `
@@ -2046,7 +1833,7 @@ exports.postInspectionsApre = async (req, res) => {
         await connection.commit();
         connection.release();
 
-        return res.status(200).json({ success: true, message: "Inspection enregistrée avec succès." });
+        return res.status(200).json({ success: true, message: "Inspection enregistrÃ©e avec succÃ¨s." });
 
       } catch (error) {
         console.error("Erreur dans la transaction :", error);
@@ -2136,15 +1923,15 @@ exports.inspectionsTache = (req, res) => {
 
         db.query(query, values, (error, result) => {
             if (error) {
-                console.error('Erreur lors de la mise à jour :', error);
-                return res.status(500).json({ error: 'Erreur lors de la mise à jour de l\'inspection.' });
+                console.error('Erreur lors de la mise Ã  jour :', error);
+                return res.status(500).json({ error: 'Erreur lors de la mise Ã  jour de l\'inspection.' });
             }
 
             if (result.affectedRows === 0) {
-                return res.status(404).json({ error: 'Aucune inspection trouvée avec l\'ID fourni.' });
+                return res.status(404).json({ error: 'Aucune inspection trouvÃ©e avec l\'ID fourni.' });
             }
 
-            return res.json({ message: 'Inspection mise à jour avec succès.' });
+            return res.json({ message: 'Inspection mise Ã  jour avec succÃ¨s.' });
         });
     } catch (err) {
         console.error('Erreur serveur :', err);
@@ -2194,7 +1981,6 @@ exports.getType_photo = (req, res) => {
     });
 };
 
-//Inspection
 exports.getCatInspection = (req, res) => {
     const q = `
                 SELECT *
@@ -2231,12 +2017,12 @@ exports.postCatInspection = (req, res) => {
     
     db.query(q, [nom_cat_inspection], (err, result) => {
         if (err) {
-            return res.status(500).send('Erreur lors de la création de bins');
+            return res.status(500).send('Erreur lors de la crÃ©ation de bins');
         }
-        res.status(201).send('Bins créé');
+        res.status(201).send('Bins crÃ©Ã©');
     });
 };
-
+  
 exports.putCatInspection = async (req, res) => {
     const { id_cat_inspection  } = req.query;
 
@@ -2279,5 +2065,4 @@ exports.deleteCatInspection = (req, res) => {
       if (err) return res.send(err);
       return res.json(data);
     });
-  
-}
+  }
