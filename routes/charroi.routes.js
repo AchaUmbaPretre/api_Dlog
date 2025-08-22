@@ -205,7 +205,6 @@ router.post('/bon_sortie_retour', charroiController.postBonSortiePersoRetour)
 //ENTREE ET SORTIE PERSONNEL
 router.get('/entree_sortie_personnel', charroiController.getEntreeSortiePersonnel )
 
-
 //Véhicule en Course
 router.get('/vehicule_course', charroiController.getVehiculeCourse)
 router.get('/vehicule_courseOne', charroiController.getVehiculeCourseOne)
@@ -239,7 +238,14 @@ router.put('/visiteur_retour', charroiController.putVisiteurVehiculeRetour);
 router.get('/sortie_entree', charroiController.getEntreeSortie)
 router.get('/sortie_entreeOne', charroiController.getEntreeSortieOne)
 
+//Info sortie & retour
+router.get('/info_sortie_retour', charroiController.getInfoSortieRetour)
+
 //STATUS BS
 router.get('/status_bs', charroiController.getStatusBs)
+
+//Notification push
+router.post('/savePushToken', charroiController.savePushToken);
+
 
 module.exports = router;

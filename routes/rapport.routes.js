@@ -37,4 +37,10 @@ router.get('/cloture', rapportController.getClotureRapport)
 router.post('/cloture', rapportController.postClotureRapport)
 router.post('/cloture_simple', rapportController.postClotureRapportSimple)
 
+//Rapport de bon
+router.get('/rapport_bon_global', rapportController.getRapportBonGlobal)
+router.get('/rapport_performance', rapportController.getRapportPerformanceBon)
+router.get('/rapport_statut_principaux', rapportController.getStatutsPrincipaux)
+router.get('/rapport_indicateurs_log', rapportController.getRapportKpi)
+
 module.exports = router;

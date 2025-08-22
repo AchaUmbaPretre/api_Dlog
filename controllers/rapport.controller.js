@@ -1,4 +1,6 @@
 const { db } = require("./../config/database");
+const util = require("util");
+const query = util.promisify(db.query).bind(db);
 
 exports.getRapport = (req, res) => {
     const { id_client } = req.query;
@@ -574,4 +576,516 @@ exports.postClotureRapportSimple = (req, res) => {
             });
         });
     });
+};
+
+//RAPPORT DE BON DE SORTIE
+/* exports.getRapportBonGlobal = (req, res) => {
+  const { startDate, endDate } = req.query;
+
+  const q1 = `
+    SELECT 
+      (SELECT COUNT(*) FROM bande_sortie WHERE est_supprime = 0) AS total_bons,
+      (SELECT COUNT(DISTINCT id_vehicule) FROM bande_sortie WHERE est_supprime = 0 ) AS total_vehicules,
+      (SELECT COUNT(DISTINCT id_chauffeur) FROM bande_sortie WHERE est_supprime = 0 ) AS total_chauffeurs
+  `;
+
+  const q2 = `
+    SELECT v.id_cat_vehicule,cv.nom_cat, COUNT(*) AS nbre
+    FROM bande_sortie b
+    JOIN vehicules v ON v.id_vehicule = b.id_vehicule
+    JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+    WHERE b.est_supprime = 0
+    GROUP BY v.id_cat_vehicule
+  `;
+
+    const q3 = `
+    SELECT COUNT(*) AS nbre, sd.nom_service
+        FROM bande_sortie bs
+        JOIN service_demandeur sd ON sd.id_service_demandeur = bs.id_demandeur
+        WHERE bs.est_supprime = 0
+        GROUP BY bs.id_demandeur
+  `;
+
+
+  db.query(q1, [startDate, endDate, startDate, endDate, startDate, endDate], (error, globalData) => {
+    if (error) {
+      console.error("Erreur lors de la récupération globale :", error);
+      return res.status(500).json({ error: "Erreur serveur lors de la récupération des données globales." });
+    }
+
+    db.query(q2, [startDate, endDate], (error2, repartitionVehicule) => {
+      if (error2) {
+        console.error("Erreur lors de la récupération de la répartition :", error2);
+        return res.status(500).json({ error: "Erreur serveur lors de la récupération des répartitions." });
+      }
+
+      db.query(q3, [startDate, endDate], (error3,repartitionService) => {
+        if (error3) {
+            console.error("Erreur lors de la récupération de la répartition :", error2);
+            return res.status(500).json({ error: "Erreur serveur lors de la récupération des répartitions." });
+        }
+              return res.status(200).json({
+        global: globalData[0],
+        repartitionVehicule,
+        repartitionService
+      });
+      })
+
+    });
+  });
+}; */
+
+exports.getRapportBonGlobal = (req, res) => {
+  
+  const q1 = `
+    SELECT 
+      (SELECT COUNT(*) 
+       FROM bande_sortie 
+       WHERE est_supprime = 0) AS total_bons,
+
+      (SELECT COUNT(DISTINCT id_vehicule) 
+       FROM bande_sortie 
+       WHERE est_supprime = 0) AS total_vehicules,
+
+      (SELECT COUNT(DISTINCT id_chauffeur) 
+       FROM bande_sortie 
+       WHERE est_supprime = 0) AS total_chauffeurs,
+
+      (SELECT 
+          ROUND(AVG(TIMESTAMPDIFF(MINUTE, sortie_time, retour_time)), 2)
+       FROM bande_sortie
+       WHERE est_supprime = 0 
+         AND sortie_time IS NOT NULL 
+         AND retour_time IS NOT NULL
+      ) AS temps_moyen_minutes,
+
+      (SELECT 
+          ROUND(AVG(TIMESTAMPDIFF(SECOND, sortie_time, retour_time)) / 3600, 2)
+       FROM bande_sortie
+       WHERE est_supprime = 0 
+         AND sortie_time IS NOT NULL 
+         AND retour_time IS NOT NULL
+      ) AS temps_moyen_heures
+  `;
+
+  const q2 = `
+    SELECT 
+        v.id_cat_vehicule, 
+        cv.nom_cat, 
+        cv.abreviation, 
+        COUNT(*) AS nbre
+    FROM bande_sortie b
+    JOIN vehicules v ON v.id_vehicule = b.id_vehicule
+    JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+    WHERE b.est_supprime = 0
+    GROUP BY v.id_cat_vehicule, cv.nom_cat, cv.abreviation
+    ORDER BY nbre DESC;
+
+  `;
+
+  const q3 = `
+    SELECT COUNT(*) AS nbre, sd.nom_service
+    FROM bande_sortie bs
+    JOIN service_demandeur sd ON sd.id_service_demandeur = bs.id_demandeur
+    WHERE bs.est_supprime = 0
+    GROUP BY bs.id_demandeur
+    ORDER BY nbre DESC;
+  `;
+
+  db.query(q1, (error, globalData) => {
+    if (error) {
+      console.error("Erreur lors de la récupération globale :", error);
+      return res.status(500).json({ error: "Erreur serveur lors de la récupération des données globales." });
+    }
+
+    db.query(q2, (error2, repartitionVehicule) => {
+      if (error2) {
+        console.error("Erreur lors de la récupération de la répartition :", error2);
+        return res.status(500).json({ error: "Erreur serveur lors de la récupération des répartitions." });
+      }
+
+      db.query(q3, (error3, repartitionService) => {
+        if (error3) {
+          console.error("Erreur lors de la récupération de la répartition :", error3);
+          return res.status(500).json({ error: "Erreur serveur lors de la récupération des répartitions." });
+        }
+
+        return res.status(200).json({
+          global: globalData[0],
+          repartitionVehicule,
+          repartitionService
+        });
+      });
+    });
+  });
+};
+
+/* exports.getRapportPerformanceBon = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query; // si tu veux filtrer par période
+
+    // 1. Moyenne sorties par véhicule
+    const q1 = `
+      SELECT 
+          v.id_vehicule,
+          v.immatriculation,
+          m.nom_marque,
+          cv.nom_cat,
+          COUNT(bs.id_bande_sortie) AS total_sorties
+      FROM bande_sortie bs
+      JOIN vehicules v ON v.id_vehicule = bs.id_vehicule
+      JOIN marque m ON m.id_marque = v.id_marque
+      JOIN cat_vehicule cv ON cv.id_cat_vehicule = v.id_cat_vehicule
+      WHERE bs.est_supprime = 0
+      ${startDate && endDate ? "AND DATE(bs.sortie_time) BETWEEN ? AND ?" : ""}
+      GROUP BY v.id_vehicule, v.immatriculation, m.nom_marque, cv.nom_cat
+    `;
+
+    // 2. Moyenne sorties par chauffeur
+    const q2 = `
+        SELECT 
+          c.id_chauffeur,
+          c.nom,
+          COUNT(bs.id_bande_sortie) AS total_sorties
+        FROM bande_sortie bs
+        JOIN chauffeurs c ON c.id_chauffeur = bs.id_chauffeur
+        WHERE bs.est_supprime = 0
+            ${startDate && endDate ? "AND DATE(bs.sortie_time) BETWEEN ? AND ?" : ""}
+        GROUP BY c.id_chauffeur, c.nom
+        `;
+
+    // 3. Durée moyenne et totale
+    const q3 = `
+        SELECT 
+            d.nom_destination,            
+            AVG(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)) AS duree_moyenne_minutes,
+            ROUND(AVG(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)) / 60, 2) AS duree_moyenne_heures,
+            
+            SUM(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)) AS duree_totale_minutes,
+            ROUND(SUM(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)) / 60, 2) AS duree_totale_heures,
+            ROUND(SUM(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)) / 1440, 2) AS duree_totale_jours
+
+        FROM bande_sortie bs
+            JOIN destination d ON d.id_destination = bs.id_destination
+            WHERE bs.sortie_time IS NOT NULL
+            AND bs.retour_time IS NOT NULL
+            AND bs.est_supprime = 0
+            ${startDate && endDate ? "AND DATE(sortie_time) BETWEEN ? AND ?" : ""}
+            GROUP BY bs.id_bande_sortie
+            ORDER BY duree_moyenne_minutes DESC;
+        `;
+
+    // 4. Taux de respect délais
+    const q4 = `
+      SELECT 
+          SUM(CASE WHEN retour_time <= date_retour THEN 1 ELSE 0 END) / COUNT(*) * 100 AS taux_retour_delais
+      FROM bande_sortie
+      WHERE retour_time IS NOT NULL
+        AND date_retour IS NOT NULL
+        AND est_supprime = 0
+      ${startDate && endDate ? "AND DATE(sortie_time) BETWEEN ? AND ?" : ""}
+    `;
+
+    const params = startDate && endDate ? [startDate, endDate] : [];
+
+    // Exécuter toutes les requêtes en parallèle
+    const [vehiculeData, chauffeurData, dureeData, tauxData] = await Promise.all([
+      db.query(q1, params),
+      db.query(q2, params),
+      db.query(q3, params),
+      db.query(q4, params)
+    ]);
+
+    res.status(200).json({
+      vehiculeData: vehiculeData[0],
+      chauffeurData: chauffeurData[0],
+      dureeData: dureeData[0],
+      tauxData: tauxData[0],
+    });
+
+  } catch (error) {
+    console.error("Erreur rapport performance :", error);
+    res.status(500).json({ error: "Erreur serveur lors du calcul des performances." });
+  }
+}; */
+exports.getRapportPerformanceBon = async (req, res) => {
+  try {
+    const { service, destination, vehicule, dateRange } = req.query;
+
+    const whereConditions = ['bs.est_supprime = 0'];
+    const params = [];
+
+    // Filtrage par dates
+    if (dateRange && Array.isArray(dateRange) && dateRange.length === 2) {
+      whereConditions.push('DATE(bs.sortie_time) BETWEEN ? AND ?');
+      params.push(new Date(dateRange[0]), new Date(dateRange[1]));
+    }
+
+    // Filtrage par véhicule
+    if (vehicule && vehicule.length > 0) {
+      whereConditions.push(`bs.id_vehicule IN (${vehicule.map(() => '?').join(',')})`);
+      params.push(...vehicule);
+    }
+
+    // Filtrage par destination
+    if (destination && destination.length > 0) {
+      whereConditions.push(`bs.id_destination IN (${destination.map(() => '?').join(',')})`);
+      params.push(...destination);
+    }
+
+    // Filtrage par service demandeur
+    if (service && service.length > 0) {
+      whereConditions.push(`bs.id_demandeur IN (${service.map(() => '?').join(',')})`);
+      params.push(...service);
+    }
+
+    // Préparer clause WHERE
+    const whereClause = whereConditions.length ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    // 1. Moyenne sorties par véhicule
+    const q1 = `
+      SELECT 
+        v.id_vehicule,
+        v.immatriculation,
+        m.nom_marque,
+        cv.nom_cat,
+        COUNT(bs.id_bande_sortie) AS total_sorties
+      FROM bande_sortie bs
+      JOIN vehicules v ON v.id_vehicule = bs.id_vehicule
+      JOIN marque m ON m.id_marque = v.id_marque
+      JOIN cat_vehicule cv ON cv.id_cat_vehicule = v.id_cat_vehicule
+      ${whereClause}
+      GROUP BY v.id_vehicule, v.immatriculation, m.nom_marque, cv.nom_cat
+    `;
+
+    // 2. Moyenne sorties par chauffeur
+    const q2 = `
+      SELECT 
+        c.id_chauffeur,
+        c.nom,
+        COUNT(bs.id_bande_sortie) AS total_sorties
+      FROM bande_sortie bs
+      JOIN chauffeurs c ON c.id_chauffeur = bs.id_chauffeur
+      ${whereClause}
+      GROUP BY c.id_chauffeur, c.nom
+    `;
+
+    // 3. Durée moyenne et totale par destination
+    const q3 = `
+      SELECT 
+        d.nom_destination,            
+        COUNT(bs.id_bande_sortie) AS total_sorties,
+        AVG(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)) AS duree_moyenne_minutes,
+        ROUND(AVG(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)) / 60, 2) AS duree_moyenne_heures,
+        SUM(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)) AS duree_totale_minutes,
+        ROUND(SUM(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)) / 60, 2) AS duree_totale_heures,
+        ROUND(SUM(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)) / 1440, 2) AS duree_totale_jours
+      FROM bande_sortie bs
+      JOIN destination d ON d.id_destination = bs.id_destination
+      ${whereClause} AND bs.sortie_time IS NOT NULL AND bs.retour_time IS NOT NULL
+      GROUP BY bs.id_destination, d.nom_destination
+      ORDER BY duree_moyenne_minutes DESC
+    `;
+
+    // 4. Taux de respect des délais
+    const q4 = `
+      SELECT 
+        IFNULL(SUM(CASE WHEN retour_time <= date_retour THEN 1 ELSE 0 END) / COUNT(*) * 100, 0) AS taux_retour_delais
+      FROM bande_sortie bs
+      ${whereClause} AND bs.retour_time IS NOT NULL AND bs.date_retour IS NOT NULL
+    `;
+
+    // 5. Bons avec statut = 5
+    const q5 = `
+      SELECT bs.id_vehicule
+      FROM bande_sortie bs
+      ${whereClause} AND bs.statut = 5
+    `;
+
+    // Exécution parallèle avec Promises
+    const [vehiculeData, chauffeurData, dureeData, tauxData, sortieTotal] = await Promise.all([
+      new Promise((resolve, reject) => db.query(q1, params, (err, res) => err ? reject(err) : resolve(res))),
+      new Promise((resolve, reject) => db.query(q2, params, (err, res) => err ? reject(err) : resolve(res))),
+      new Promise((resolve, reject) => db.query(q3, params, (err, res) => err ? reject(err) : resolve(res))),
+      new Promise((resolve, reject) => db.query(q4, params, (err, res) => err ? reject(err) : resolve(res))),
+      new Promise((resolve, reject) => db.query(q5, params, (err, res) => err ? reject(err) : resolve(res))),
+    ]);
+
+    res.status(200).json({
+      vehiculeData,
+      chauffeurData,
+      dureeData,
+      sortieTotal,
+      tauxData: tauxData[0] || { taux_retour_delais: 0 },
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Erreur serveur lors du calcul des performances" });
+  }
+};
+
+exports.getStatutsPrincipaux = (req, res) => {
+  const { startDate, endDate } = req.query;
+  const params = [];
+
+  let dateFilter = '';
+  if (startDate && endDate) {
+    dateFilter = 'AND DATE(sortie_time) BETWEEN ? AND ?';
+    params.push(startDate, endDate);
+  }
+
+  const q = `
+    SELECT
+      SUM(CASE WHEN statut = 4 THEN 1 ELSE 0 END) AS bons_valides,
+      SUM(CASE WHEN statut IN (5,6) THEN 1 ELSE 0 END) AS departs_effectues,
+      SUM(CASE WHEN statut IN (7,8) THEN 1 ELSE 0 END) AS retours_confirmes,
+      SUM(CASE WHEN statut IN (1,4) THEN 1 ELSE 0 END) AS courses_non_parties,
+      SUM(CASE WHEN statut IN (5,6) THEN 1 ELSE 0 END) AS courses_non_revenues,
+      COUNT(*) AS total_bons
+    FROM bande_sortie
+    WHERE est_supprime = 0
+    ${dateFilter};
+  `;
+
+  db.query(q, params, (error, data) => {
+    if (error) {
+      console.error("Erreur lors de la récupération des statuts principaux :", error);
+      return res.status(500).json({ error: "Erreur serveur lors de la récupération des statuts principaux." });
+    }
+
+    const row = data[0];
+
+    const result = {
+      bons_valides: { nbre: row.bons_valides, pourcentage: ((row.bons_valides / row.total_bons) * 100).toFixed(2) },
+      departs_effectues: { nbre: row.departs_effectues, pourcentage: ((row.departs_effectues / row.total_bons) * 100).toFixed(2) },
+      retours_confirmes: { nbre: row.retours_confirmes, pourcentage: ((row.retours_confirmes / row.total_bons) * 100).toFixed(2) },
+      courses_non_parties: { nbre: row.courses_non_parties, pourcentage: ((row.courses_non_parties / row.total_bons) * 100).toFixed(2) },
+      courses_non_revenues: { nbre: row.courses_non_revenues, pourcentage: ((row.courses_non_revenues / row.total_bons) * 100).toFixed(2) },
+    };
+
+    return res.status(200).json(result);
+  });
+};
+
+exports.getRapportKpi = async (req, res) => {
+  try {
+    const { service, destination, vehicule, dateRange } = req.query;
+
+    const whereConditions = ['bs.est_supprime = 0'];
+    const params = [];
+
+    // Filtrage par dates
+    if (dateRange && Array.isArray(dateRange) && dateRange.length === 2) {
+      whereConditions.push('DATE(bs.sortie_time) BETWEEN ? AND ?');
+      params.push(new Date(dateRange[0]), new Date(dateRange[1]));
+    }
+
+    // Filtrage par véhicule
+    if (vehicule && vehicule.length > 0) {
+      whereConditions.push(`bs.id_vehicule IN (${vehicule.map(() => '?').join(',')})`);
+      params.push(...vehicule);
+    }
+
+    // Filtrage par destination
+    if (destination && destination.length > 0) {
+      whereConditions.push(`bs.id_destination IN (${destination.map(() => '?').join(',')})`);
+      params.push(...destination);
+    }
+
+    // Filtrage par service demandeur
+    if (service && service.length > 0) {
+      whereConditions.push(`bs.id_demandeur IN (${service.map(() => '?').join(',')})`);
+      params.push(...service);
+    }
+
+    // Préparer la clause WHERE
+    const whereClause = whereConditions.length ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    // 1. Destinations les plus fréquentes (top 5) et le temps moyen
+    const topDestQuery = `
+      SELECT 
+        d.nom_destination, 
+        COUNT(*) AS nb_courses,
+        ROUND(AVG(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)), 2) AS duree_moyenne_minutes,
+        ROUND(AVG(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)) / 60, 2) AS duree_moyenne_heures
+      FROM bande_sortie bs
+      JOIN destination d ON d.id_destination = bs.id_destination
+      ${whereClause}
+      GROUP BY d.nom_destination
+      ORDER BY nb_courses DESC
+      LIMIT 5;
+    `;
+
+    // 2. Temps moyen par destination
+    const tempsMoyenQuery = `
+      SELECT d.nom_destination, 
+             ROUND(AVG(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)),2) AS temps_moyen_minutes
+      FROM bande_sortie bs
+      JOIN destination d ON d.id_destination = bs.id_destination
+      ${whereClause} AND bs.retour_time IS NOT NULL
+      GROUP BY d.nom_destination
+    `;
+
+    // 3. Volume de courses par service
+    const volumeServiceQuery = `
+      SELECT s.nom_service, 
+             COUNT(*) AS nb_courses,
+             ROUND(AVG(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)),2) AS temps_moyen_minutes
+      FROM bande_sortie bs
+      JOIN service_demandeur s ON s.id_service_demandeur = bs.id_demandeur
+      ${whereClause}
+      GROUP BY s.nom_service
+    `;
+
+    // 4. Nombre d'OT associés
+    const nbOtQuery = `
+      SELECT COUNT(DISTINCT bs.id_bande_sortie) AS nb_ot
+      FROM bande_sortie bs
+      ${whereClause}
+    `;
+
+    // 5. Taux d’utilisation du parc véhicules
+    let tauxVehiculesParams = [];
+    let tauxVehiculesWhere = '';
+    if (dateRange && dateRange.length === 2) {
+      tauxVehiculesWhere = 'WHERE DATE(bs.sortie_time) BETWEEN ? AND ?';
+      tauxVehiculesParams.push(new Date(dateRange[0]), new Date(dateRange[1]));
+    }
+
+    const tauxVehiculesQuery = `
+      SELECT 
+        (SELECT COUNT(DISTINCT id_vehicule) FROM bande_sortie bs ${tauxVehiculesWhere}) /
+        (SELECT COUNT(*) FROM vehicules WHERE IsDispo = 1) * 100 AS taux_utilisation
+    `;
+
+    // Exécution parallèle avec promisified query
+    const [
+      topDestinations,
+      tempsMoyen,
+      volumeService,
+      nbOtResult,
+      tauxVehiculesResult
+    ] = await Promise.all([
+      query(topDestQuery, params),
+      query(tempsMoyenQuery, params),
+      query(volumeServiceQuery, params),
+      query(nbOtQuery, params),
+      query(tauxVehiculesQuery, tauxVehiculesParams)
+    ]);
+
+    const result = {
+      top_destinations: topDestinations || [],
+      temps_moyen_par_destination: tempsMoyen || [],
+      volume_courses_par_service: volumeService || [],
+      nb_ot: nbOtResult[0]?.nb_ot || 0,
+      taux_utilisation_parc: parseFloat(tauxVehiculesResult[0]?.taux_utilisation?.toFixed(2) || 0)
+    };
+
+    res.status(200).json(result);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Erreur serveur lors du calcul des KPI." });
+  }
 };

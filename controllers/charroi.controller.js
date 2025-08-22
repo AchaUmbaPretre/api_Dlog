@@ -5,6 +5,7 @@ const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+
 const connection = db;
 
 
@@ -5987,7 +5988,7 @@ exports.getBandeSortieOne = (req, res) => {
     });
 };
 
-exports.postBandeSortie = (req, res) => {
+/* exports.postBandeSortie = (req, res) => {
   db.getConnection((connErr, connection) => {
     if (connErr) {
       console.error('Erreur de connexion à la base de données :', connErr);
@@ -6129,6 +6130,148 @@ exports.postBandeSortie = (req, res) => {
       }
     })
   })
+}; */
+
+exports.postBandeSortie = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error('Erreur de connexion à la base de données :', connErr);
+      return res.status(500).json({ error: "Impossible de se connecter à la base de données." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error('Erreur lors de l’ouverture de la transaction :', trxErr);
+        return res.status(500).json({ error: "Échec de l’initiation de la transaction." });
+      }
+
+      try {
+        const {
+          id_affectation_demande,
+          id_vehicule,
+          id_chauffeur,
+          date_prevue,
+          date_retour,
+          id_type_vehicule,
+          id_motif_demande,
+          id_demandeur,
+          id_client,
+          id_destination,
+          personne_bord,
+          commentaire,
+          id_societe,
+          user_cr
+        } = req.body;
+
+        if (!id_vehicule || !id_chauffeur || !user_cr || !date_prevue || !id_societe) {
+          throw new Error("Champs requis manquants.");
+        }
+
+        const datePrevue = moment(date_prevue, moment.ISO_8601).format('YYYY-MM-DD HH:mm:ss');
+        const dateRetour = moment(date_retour, moment.ISO_8601).format('YYYY-MM-DD HH:mm:ss');
+
+        // Met à jour l'affectation
+        const updateVehiculeSql = `UPDATE affectation_demande SET statut = 4 WHERE id_affectation_demande = ?`;
+        await queryPromise(connection, updateVehiculeSql, [id_affectation_demande]);
+
+        // Insertion du bon de sortie
+        const insertBonSql = `
+          INSERT INTO bande_sortie (
+            id_affectation_demande, id_vehicule, id_chauffeur, date_prevue, date_retour,
+            id_type_vehicule, id_motif_demande, id_demandeur, id_client, id_destination,
+            statut, personne_bord, commentaire, id_societe, user_cr
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        const bonValues = [
+          id_affectation_demande || null,
+          id_vehicule,
+          id_chauffeur,
+          datePrevue,
+          dateRetour,
+          id_type_vehicule || null,
+          id_motif_demande || null,
+          id_demandeur || null,
+          id_client || null,
+          id_destination || null,
+          4,
+          personne_bord || '',
+          commentaire || '',
+          id_societe,
+          user_cr
+        ];
+        const [insertResult] = await queryPromise(connection, insertBonSql, bonValues);
+        const id_bande_sortie = insertResult.insertId;
+
+        // Récupération de la signature du validateur
+        const signatureSql = `SELECT id_signature FROM signature WHERE userId = ? LIMIT 1`;
+        const [signatureRow] = await queryPromise(connection, signatureSql, [user_cr]);
+
+        if (!signatureRow.length) {
+          throw new Error("Aucune signature disponible pour l'utilisateur.");
+        }
+
+        const id_signature = signatureRow[0].id_signature;
+
+        // Insertion de la validation
+        const insertValidationSql = `
+          INSERT INTO validation_demande (id_bande_sortie, validateur_id, id_signature, date_validation)
+          VALUES (?, ?, ?, NOW())
+        `;
+        await queryPromise(connection, insertValidationSql, [id_bande_sortie, user_cr, id_signature]);
+
+        // Commit de la transaction
+        connection.commit(async (commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors de la validation finale." });
+          }
+
+          // Envoi des notifications push aux rôles Admin, RH, RS
+          try {
+            const [validateurs] = await queryPromise(
+              db,
+              "SELECT expo_push_token FROM utilisateur WHERE role IN ('Admin', 'RH', 'RS') AND expo_push_token IS NOT NULL"
+            );
+
+            await Promise.all(validateurs.map(v =>
+              fetch('https://exp.host/--/api/v2/push/send', {
+                method: 'POST',
+                headers: { 
+                  Accept: 'application/json', 
+                  'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({
+                  to: v.expo_push_token,
+                  sound: 'default',
+                  title: 'Nouveau bon de sortie',
+                  body: `Bon de sortie #${id_bande_sortie} disponible`,
+                  data: { id_bande_sortie }
+                }),
+              })
+            ));
+          } catch (notifErr) {
+            console.error("Erreur lors de l'envoi de la notification :", notifErr);
+          }
+
+          return res.status(201).json({
+            message: "Bon de sortie enregistré et validé avec succès.",
+            id_bande_sortie
+          });
+        });
+
+      } catch (error) {
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur transactionnelle :", error);
+          return res.status(500).json({
+            error: error.message || "Erreur lors du traitement de la demande."
+          });
+        });
+      }
+    });
+  });
 };
 
 exports.putSupprimeBandeSortie = (req, res) => {
@@ -8067,6 +8210,50 @@ exports.getEntreeSortieOne = (req, res) => {
     });
 };
 
+//Info sortie & retour
+exports.getInfoSortieRetour = (req, res) => {
+
+    const q = `
+            SELECT 
+              sr.id_sortie_retour, 
+              sr.id_bande_sortie, 
+              sr.type, 
+              sr.mouvement_exceptionnel,
+              sr.created_at, 
+              u.nom, 
+              v.immatriculation,
+              m.nom_marque, 
+              cv.nom_cat,
+              c.nom AS nom_chauffeur,
+              d.nom_destination,
+              sd.nom_service,
+              cl.nom AS nom_client
+          FROM sortie_retour sr
+          LEFT JOIN vehicules v ON sr.id_vehicule = v.id_vehicule
+          LEFT JOIN marque m ON v.id_marque = m.id_marque
+          LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+          LEFT JOIN chauffeurs c ON sr.id_chauffeur = c.id_chauffeur
+          LEFT JOIN destination d ON sr.id_destination = d.id_destination
+          LEFT JOIN service_demandeur sd ON sr.id_demandeur = sd.id_service_demandeur
+          LEFT JOIN client cl ON sr.id_client = cl.id_client
+          INNER JOIN utilisateur u ON sr.id_agent = u.id_utilisateur
+          INNER JOIN (
+              -- Sous-requête pour récupérer la dernière opération de chaque véhicule
+              SELECT id_vehicule, MAX(created_at) AS last_operation
+              FROM sortie_retour
+              GROUP BY id_vehicule
+          ) last_sr ON sr.id_vehicule = last_sr.id_vehicule AND sr.created_at = last_sr.last_operation
+          ORDER BY sr.created_at DESC;
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 //Status BS
 exports.getStatusBs = (req, res) => {
 
@@ -8078,4 +8265,34 @@ exports.getStatusBs = (req, res) => {
         }
         return res.status(200).json(data);
     });
+};
+
+//Notification
+exports.savePushToken = async (req, res) => {
+  const { userId, expo_push_token } = req.body;
+
+  if (!userId || !expo_push_token) {
+    return res.status(400).json({ error: 'userId et expo_push_token sont requis.' });
+  }
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+
+    const sql = `
+      UPDATE utilisateur
+      SET expo_push_token = ?
+      WHERE id_utilisateur = ?
+    `;
+
+    await queryPromise(connection, sql, [expo_push_token, userId]);
+
+    connection.release();
+
+    return res.status(200).json({ message: 'Push token enregistré avec succès.' });
+  } catch (err) {
+    if (connection) connection.release();
+    console.error('Erreur enregistrement push token:', err);
+    return res.status(500).json({ error: 'Impossible d’enregistrer le push token.' });
+  }
 };

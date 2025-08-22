@@ -1811,7 +1811,6 @@ exports.getInspectionDetailAll = (req, res) => {
     });
 };
 
-
 exports.getInspectionOne = (req, res) => {
     const {id_batiment} = req.query;
     const q = `
@@ -2110,7 +2109,6 @@ exports.putInspections = (req, res) => {
         });
     });
 };
-
 
 exports.inspectionsTache = (req, res) => {
     const { id_inspection } = req.query;

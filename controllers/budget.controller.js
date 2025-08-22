@@ -126,8 +126,7 @@ exports.deleteUpdateBudget = (req, res) => {
         
       return res.json(data);
     });
-  }
-
+  };
 
 exports.deleteBudget = (req, res) => {
     const {id} = req.params;
