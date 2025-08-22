@@ -1,5 +1,3 @@
-const xlsx = require('xlsx');
-const fs = require('fs');
 const { db } = require("./../config/database");
 const nodemailer = require('nodemailer');
 
@@ -42,7 +40,6 @@ const sendEmail = async (options) => {
   }
 };
 
-// Exemple d'implémentation dans un contrôleur ou un service
 exports.getTacheChart = (req, res) => {
     const { filter, dateRange } = req.query;
 
@@ -95,6 +92,7 @@ exports.getTacheChart = (req, res) => {
 exports.getTacheFilter = (req, res) => {
     const { statut, dateDebut, dateFin } = req.query;
 
+    // Définition de la requête SQL
     let q = `
         SELECT 
             tache.id_tache, 
@@ -132,9 +130,9 @@ exports.getTacheFilter = (req, res) => {
         LEFT JOIN tags tg ON tt.id_tag = tg.id_tag
         WHERE 
             tache.est_supprime = 0
-            AND (typeC.nom_type_statut = ? OR ? IS NULL)
-            AND (tache.date_debut >= ? OR ? IS NULL)
-            AND (tache.date_fin <= ? OR ? IS NULL)
+            AND (typeC.nom_type_statut = ? OR ? IS NULL)  -- Filtre par statut
+            AND (tache.date_debut >= ? OR ? IS NULL)  -- Filtre par date de début
+            AND (tache.date_fin <= ? OR ? IS NULL)  -- Filtre par date de fin
     `;
 
     const params = [
@@ -146,6 +144,7 @@ exports.getTacheFilter = (req, res) => {
         dateFin || null  
     ];
 
+    // Exécution de la requête
     db.query(q, params, (error, data) => {
         if (error) {
             console.error('Erreur lors de la récupération des tâches:', error);
@@ -154,22 +153,6 @@ exports.getTacheFilter = (req, res) => {
         return res.status(200).json(data);
     });
 }
-            
-/* exports.getTacheCount = (req, res) => {
-    const { userId } = req.query;
-    
-    let q = `
-        SELECT 
-            COUNT(id_tache) AS nbre_tache
-        FROM tache
-            WHERE est_supprime = 0 AND tache.user_cr = ?
-        `;
-     
-    db.query(q, [userId], (error, data) => {
-        if (error) res.status(500).send(error);
-        return res.status(200).json(data);
-    });
-} */
 
 exports.getTacheCount = (req, res) => {
         const { userId } = req.query;
@@ -229,152 +212,21 @@ exports.getTacheCount = (req, res) => {
                 return res.status(200).json(data);
             });
         });
-};
+    };
 
-/* exports.getTache = (req, res) => {
-        const { id_user, role } = req.query;
-        const { departement, client, statut, priorite, dateRange, owners } = req.body;
-    
-        let query = `
-            SELECT 
-                tache.id_tache, 
-                tache.description, 
-                tache.date_debut, 
-                tache.date_fin,
-                tache.nom_tache, 
-                tache.priorite,
-                tache.id_tache_parente,
-                typeC.nom_type_statut AS statut, 
-                client.nom AS nom_client, 
-                frequence.nom AS frequence, 
-                utilisateur.nom AS owner, 
-                provinces.name AS ville, 
-                departement.nom_departement AS departement,
-                cb.controle_de_base,
-                cb.id_controle,
-                DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour,
-                ct.nom_cat_tache,
-                cm.nom_corps_metier,
-                tg.nom_tag,
-                pt.can_view,
-                pt.can_edit,
-                pt.can_comment,
-                pt.id_user
-            FROM 
-                tache
-            LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
-            LEFT JOIN client ON tache.id_client = client.id_client
-            INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
-            LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
-            LEFT JOIN provinces ON tache.id_ville = provinces.id
-            LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
-            LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
-            LEFT JOIN departement ON tache.id_departement = departement.id_departement
-            LEFT JOIN categorietache AS ct ON tache.id_cat_tache = ct.id_cat_tache
-            LEFT JOIN corpsmetier AS cm ON tache.id_corps_metier = cm.id_corps_metier
-            LEFT JOIN tache_tags tt ON tache.id_tache = tt.id_tache
-            LEFT JOIN tags tg ON tt.id_tag = tg.id_tag
-            LEFT JOIN permissions_tache pt ON tache.id_tache = pt.id_tache
-            WHERE 
-                tache.est_supprime = 0
-        `;
-    
-        // Filtrage pour les rôles autres que Admin
-        if (role !== 'Admin') {
-            // Manager - filtrer par départements et villes accessibles
-            if (role === 'Manager' && id_user) {
-                query += `
-                    AND tache.id_departement IN (
-                        SELECT ud.id_departement
-                        FROM user_departements ud
-                        JOIN user_villes uv ON uv.id_ville = ud.id_ville
-                        WHERE uv.id_user = ${db.escape(id_user)}  -- Utilisateur
-                        AND ud.can_view = 1  -- L'utilisateur doit avoir accès à ces départements
-                        AND ud.id_ville IN (  -- Vérifie que la ville de l'utilisateur est dans les villes où il a accès
-                            SELECT id_ville 
-                            FROM user_villes 
-                            WHERE id_user = ${db.escape(id_user)}
-                        )
-                    )
-                `;
-            }
-    
-            // Owner - filtrer par taches de l'utilisateur ou ses tâches créées
-            if (role === 'Owner' && id_user) {
-                query += `AND (pt.id_user = ${db.escape(id_user)} AND pt.can_view = 1 OR tache.user_cr = ${db.escape(id_user)})`;
-            }
-    
-            // Filtrage par départements, clients, statut, priorité, etc.
-            if (departement && departement.length > 0) {
-                query += ` AND tache.id_departement IN (${departement.map(d => db.escape(d)).join(',')})`;
-            }
-            if (client && client.length > 0) {
-                query += ` AND tache.id_client IN (${client.map(c => db.escape(c)).join(',')})`;
-            }
-            if (statut && statut.length > 0) {
-                query += ` AND tache.statut IN (${statut.map(s => db.escape(s)).join(',')})`;
-            }
-            if (priorite && priorite.length > 0) {
-                query += ` AND tache.priorite IN (${priorite.map(p => db.escape(p)).join(',')})`;
-            }
-            if (dateRange && dateRange.length === 2) {
-                query += ` AND tache.date_debut >= ${db.escape(dateRange[0])} AND tache.date_fin <= ${db.escape(dateRange[1])}`;
-            }
-            if (owners && owners.length > 0) {
-                query += ` AND tache.responsable_principal IN (${owners.map(o => db.escape(o)).join(',')})`;
-            }
+exports.getTacheDoc = (req, res) => {
+    const q = `
+                SELECT tache_documents.*, tache.nom_tache, tache.id_tache, tache.nom_tache FROM tache_documents
+            INNER JOIN tache ON tache_documents.id_tache = tache.id_tache
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
         }
-    
-        // Trier les résultats par date de création
-        query += ` ORDER BY tache.date_creation DESC`;
-    
-        // Requêtes supplémentaires pour les statistiques et le total
-        const statsQuery = `
-            SELECT 
-                typeC.nom_type_statut AS statut,
-                COUNT(*) AS nombre_taches
-            FROM 
-                tache
-            LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
-            WHERE 
-                tache.est_supprime = 0
-            ${role !== 'Admin' && departement ? ` AND tache.id_departement IN (${departement.map(d => db.escape(d)).join(',')})` : ''}
-            GROUP BY typeC.nom_type_statut
-        `;
-    
-        const totalQuery = `
-            SELECT 
-                COUNT(*) AS total_taches
-            FROM 
-                tache
-            WHERE 
-                tache.est_supprime = 0
-            ${role !== 'Admin' && departement ? ` AND tache.id_departement IN (${departement.map(d => db.escape(d)).join(',')})` : ''}
-        `;
-    
-        // Exécution des requêtes
-        db.query(query, (error, data) => {
-            if (error) {
-                return res.status(500).send(error);
-            }
-            db.query(statsQuery, (statsError, statsData) => {
-                if (statsError) {
-                    return res.status(500).send(statsError);
-                }
-                db.query(totalQuery, (totalError, totalData) => {
-                    if (totalError) {
-                        return res.status(500).send(totalError);
-                    }
-                    return res.status(200).json({
-                        total_taches: totalData[0]?.total_taches || 0,
-                        taches: data,
-                        statistiques: statsData
-                    });
-                });
-            });
-        });
-    }; */
-
+        return res.status(200).json(data);
+    });
+};
 
 exports.getTache = (req, res) => {
     const { id_user, role } = req.query;
@@ -506,201 +358,10 @@ exports.getTache = (req, res) => {
     });
 };
 
-/* function buildWhereClause({ role, id_user, departement, client, statut, priorite, dateRange, owners, projet }) {
-    const where = ['tache.est_supprime = 0'];
-
-    if (role !== 'Admin' && role === 'Manager' && id_user) {
-        where.push(`
-            tache.id_departement = (SELECT id_departement FROM utilisateur WHERE id_utilisateur = ${db.escape(id_user)})
-            AND tache.id_ville = (SELECT id_ville FROM utilisateur WHERE id_utilisateur = ${db.escape(id_user)})
-            AND pt.id_user = ${db.escape(id_user)} AND pt.can_view = 1
-        `);
-    } else if (role === 'Owner' && id_user) {
-        where.push(`(pt.id_user = ${db.escape(id_user)} AND pt.can_view = 1 OR tache.user_cr = ${db.escape(id_user)})`);
-    }
-
-    const filters = [
-        { field: 'tache.id_departement', values: departement },
-        { field: 'tache.id_client', values: client },
-        { field: 'tache.statut', values: statut },
-        { field: 'tache.priorite', values: priorite },
-        { field: 'tache.responsable_principal', values: owners },
-        { field: 'tache.id_projet', values: projet }
-    ];
-
-    filters.forEach(({ field, values }) => {
-        if (Array.isArray(values) && values.length > 0) {
-            const escaped = values.map(v => db.escape(v)).join(',');
-            where.push(`${field} IN (${escaped})`);
-        }
-    });
-
-    if (Array.isArray(dateRange) && dateRange.length === 2) {
-        const [start, end] = dateRange;
-        where.push(`tache.date_debut >= ${db.escape(start)} AND tache.date_fin <= ${db.escape(end)}`);
-    }
-
-    return where.join(' AND ');
-};
-
-exports.getTache = (req, res) => {
-    const { id_user, role } = req.query;
-    const {
-        departement = [], client = [], statut = [], priorite = [],
-        dateRange = [], owners = [], projet = []
-    } = req.body;
-
-    const whereClause = buildWhereClause({ role, id_user, departement, client, statut, priorite, dateRange, owners, projet });
-
-    const query = `
-        SELECT 
-            tache.id_tache, tache.description, tache.date_debut, tache.date_fin,
-            tache.nom_tache, tache.priorite, tache.id_tache_parente,
-            typeC.nom_type_statut AS statut, client.nom AS nom_client, 
-            frequence.nom AS frequence, utilisateur.nom AS owner, 
-            provinces.name AS ville, departement.nom_departement AS departement,
-            cb.controle_de_base, cb.id_controle,
-            DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour,
-            ct.nom_cat_tache, cm.nom_corps_metier, tg.nom_tag,
-            pt.can_view, pt.can_edit, pt.can_comment, pt.id_user
-        FROM tache
-        LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
-        LEFT JOIN client ON tache.id_client = client.id_client
-        INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
-        LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
-        LEFT JOIN provinces ON tache.id_ville = provinces.id
-        LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
-        LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
-        LEFT JOIN departement ON tache.id_departement = departement.id_departement
-        LEFT JOIN categorietache AS ct ON tache.id_cat_tache = ct.id_cat_tache
-        LEFT JOIN corpsmetier AS cm ON tache.id_corps_metier = cm.id_corps_metier
-        LEFT JOIN tache_tags tt ON tache.id_tache = tt.id_tache
-        LEFT JOIN tags tg ON tt.id_tag = tg.id_tag
-        LEFT JOIN permissions_tache pt ON tache.id_tache = pt.id_tache
-        WHERE ${whereClause}
-        ORDER BY tache.date_creation DESC
-    `;
-
-    const statsQuery = `
-        SELECT typeC.nom_type_statut AS statut, COUNT(*) AS nombre_taches
-        FROM tache
-        LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
-        WHERE ${whereClause}
-        GROUP BY typeC.nom_type_statut
-    `;
-
-    const totalQuery = `
-        SELECT COUNT(*) AS total_taches
-        FROM tache
-        WHERE ${whereClause}
-    `;
-
-    db.query(query, (error, data) => {
-        if (error) return res.status(500).send(error);
-
-        db.query(statsQuery, (statsError, statsData) => {
-            if (statsError) return res.status(500).send(statsError);
-
-            db.query(totalQuery, (totalError, totalData) => {
-                if (totalError) return res.status(500).send(totalError);
-
-                res.status(200).json({
-                    total_taches: totalData[0]?.total_taches || 0,
-                    taches: data,
-                    statistiques: statsData
-                });
-            });
-        });
-    });
-}; */
-
-exports.getTacheCorbeille = (req, res) => {
-
-    const q = `SELECT 
-                tache.id_tache, 
-                tache.description, 
-                tache.date_debut, 
-                tache.date_fin,
-                tache.nom_tache, 
-                tache.priorite,
-                tache.id_tache_parente,
-                typeC.nom_type_statut AS statut, 
-                client.nom AS nom_client, 
-                frequence.nom AS frequence, 
-                utilisateur.nom AS owner, 
-                provinces.name AS ville, 
-                departement.nom_departement AS departement,
-                cb.controle_de_base,
-                cb.id_controle,
-                DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour,
-                ct.nom_cat_tache,
-                cm.nom_corps_metier,
-                tg.nom_tag,
-                pt.can_view,
-                pt.can_edit,
-                pt.can_comment,
-                pt.id_user
-            FROM 
-                tache
-            LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
-            LEFT JOIN client ON tache.id_client = client.id_client
-            INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
-            LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
-            LEFT JOIN provinces ON tache.id_ville = provinces.id
-            LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
-            LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
-            LEFT JOIN departement ON tache.id_departement = departement.id_departement
-            LEFT JOIN categorietache AS ct ON tache.id_cat_tache = ct.id_cat_tache
-            LEFT JOIN corpsmetier AS cm ON tache.id_corps_metier = cm.id_corps_metier
-            LEFT JOIN tache_tags tt ON tache.id_tache = tt.id_tache
-            LEFT JOIN tags tg ON tt.id_tag = tg.id_tag
-            LEFT JOIN permissions_tache pt ON tache.id_tache = pt.id_tache
-            WHERE 
-                tache.est_supprime = 1
-                GROUP BY tache.id_tache
-                ORDER BY tache.date_creation DESC`
-
-    db.query(q, (error, results) => {
-        if(error) {
-            console.error('Erreur lors de la récupération des corbeilles:', err);
-            return res.status(500).json({ error: 'Erreur lors de la récupération des corbeilles' });
-        }
-        res.json(results);
-    })
-};
-
-exports.putTacheCorbeille = (req, res) => {
-    const { id_tache } = req.query;
-
-    if (!id_tache || isNaN(id_tache)) {
-        return res.status(400).json({ error: 'ID de tache non valide fourni' });
-    }
-
-    const q = `
-        UPDATE tache 
-        SET est_supprime = 0
-        WHERE id_tache = ?
-    `;
-
-    db.query(q, [id_tache], (error, result) => {
-        if (error) {
-            console.error("Database error:", error);
-            return res.status(500).json({ error: 'Internal server error' });
-        }
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'Tache non trouvée ou déjà supprimée' });
-        }
-
-        return res.status(200).json({ message: 'Tache a été modifiée avec succès' });
-    });
-};
-
 exports.getTachePermiAll = (req, res) => {
     const { departement, client, statut, priorite, dateRange, owners } = req.body;
 
-    let query = `
-    SELECT 
+    let query = `SELECT 
         tache.id_tache, 
         tache.description, 
         tache.date_debut, 
@@ -870,7 +531,6 @@ exports.getAllTache = (req, res) => {
                 ts1.nom_type_statut AS sous_tache_statut,
                 t2.date_debut AS sous_tache_dateDebut,
                 t2.date_fin AS sous_tache_dateFin,
-                suivi_tache.id_suivi,
                 suivi_tache.commentaire AS suivi_commentaire,
                 suivi_tache.pourcentage_avancement AS suivi_pourcentage_avancement
             FROM 
@@ -896,20 +556,6 @@ exports.getAllTache = (req, res) => {
         `;
 
     db.query(q, [tacheIds], (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    });
-};
-
-exports.getTacheDoc = (req, res) => {
-    const q = `
-                SELECT tache_documents.*, tache.nom_tache, tache.id_tache, tache.nom_tache FROM tache_documents
-            INNER JOIN tache ON tache_documents.id_tache = tache.id_tache
-            `;
-
-    db.query(q, (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }
@@ -948,7 +594,7 @@ exports.getTacheOneV = (req, res) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
-};
+}
 
 exports.getTacheVille = (req, res) => {
     const { id_ville } = req.query;
@@ -1003,6 +649,7 @@ exports.getTacheVille = (req, res) => {
 exports.getTacheDepartement = (req, res) => {
     const { id_departement } = req.query;
 
+    // Vérification de l'entrée
     if (!id_departement) {
         return res.status(400).json({ error: "L'identifiant de departement est requis." });
     }
@@ -1048,45 +695,6 @@ exports.getTacheDepartement = (req, res) => {
         return res.status(200).json(results);
     });
 };
-
-/* exports.getTacheOne = (req, res) => {
-    const {id_tache} = req.query;
-
-    const q = `
-            SELECT 
-                tache.id_tache, 
-                tache.description, 
-                tache.date_debut, 
-                tache.date_fin,
-                tache.nom_tache, 
-                typeC.nom_type_statut AS statut, 
-                client.nom AS nom_client, 
-                frequence.nom AS frequence, 
-                utilisateur.nom AS owner, 
-                provinces.name AS ville, 
-                departement.nom_departement AS departement,
-                cb.controle_de_base,
-                cb.id_controle,
-                DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour
-            FROM 
-                tache
-            LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
-            LEFT JOIN client ON tache.id_client = client.id_client
-            INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
-            LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
-            LEFT JOIN provinces ON tache.id_ville = provinces.id
-            LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
-            LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
-            LEFT JOIN departement ON tache.id_departement = departement.id_departement  -- Utilisation de tache.id_departement
-                WHERE 
-            tache.id_tache = ?
-            GROUP BY tache.id_tache
-        `;                        
-    db.query(q,[id_tache], (error, data) => {
-        if (error) res.status(500).send(error);
-        return res.status(200).json(data);
-    });
-} */
 
 exports.getTacheOne = (req, res) => {
     const { id_tache } = req.query;
@@ -1176,7 +784,7 @@ exports.getTacheOne = (req, res) => {
             });
         });
 };
-    
+
 exports.getTacheControleOne = (req, res) => {
     const {id_controle} = req.query;
 
@@ -1221,9 +829,8 @@ GROUP BY
 /* exports.postTache = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`, `id_tache_parente`, `id_departement`, `id_client`, `id_frequence`, `id_control`, `id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`, `id_batiment`, `id_ville`, `id_cat_tache`, `id_corps_metier`, `doc`, `user_cr`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
-        const qCat = 'INSERT INTO categorie_tache(`id_tache`, `id_cat`, `cout`) VALUES (?, ?, ?)';
-        
+        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_tache_parente`, `id_departement`,`id_client`, `id_frequence`,`id_control`,`id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`,`id_batiment`, `id_ville`, `doc`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
+
         const values = [
             req.body.nom_tache,
             req.body.description,
@@ -1242,153 +849,27 @@ GROUP BY
             req.body.id_demandeur,
             req.body.id_batiment,
             req.body.id_ville,
-            req.body.id_cat_tache,
-            req.body.id_corps_metier,
-            req.body.doc,
-            req.body.user_cr
+            req.body.doc
         ];
 
-        db.query(q, values, (error, data) => {
-            if (error) {
-                console.log(error);
-                return res.status(500).json({ error: "Erreur lors de l'insertion de la tâche." });
-            } else {
-                const insertId = data.insertId;
-
-                // Vérifiez que categories est un tableau et a des éléments
-                if (Array.isArray(req.body.categories) && req.body.categories.length > 0) {
-                    const categoryQueries = req.body.categories.map(datas => {
-                        return new Promise((resolve, reject) => {
-                            const catValues = [insertId, datas.id_cat, datas.cout];
-                            db.query(qCat, catValues, (errorCat) => {
-                                if (errorCat) {
-                                    console.log(errorCat);
-                                    reject(errorCat);
-                                } else {
-                                    resolve();
-                                }
-                            });
-                        });
-                    });
-
-                    // Attendre que toutes les requêtes d'insertion des catégories soient complétées
-                    Promise.all(categoryQueries)
-                        .then(() => {
-                            return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
-                        })
-                        .catch(() => {
-                            return res.status(500).json({ error: "Erreur lors de l'insertion des catégories." });
-                        });
-                } else {
-                    return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
-                }
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
             }
-        });
+            else{
+                return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
+            }
+        })
     } catch (error) {
         console.error('Erreur lors de l\'ajout de la tâche :', error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 }; */
 
-/* 
-exports.postTache = async (req, res) => {
-    try {
-        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`, `id_tache_parente`, `id_departement`, `id_client`, `id_frequence`, `id_control`, `id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`, `id_batiment`, `id_ville`, `id_cat_tache`, `id_corps_metier`, `doc`, `user_cr`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
-
-        const qCat = 'INSERT INTO categorie_tache(`id_tache`, `id_cat`, `cout`) VALUES (?, ?, ?)';
-
-        const values = [
-            req.body.nom_tache,
-            req.body.description,
-            req.body.statut || 1,
-            req.body.date_debut,
-            req.body.date_fin,
-            req.body.priorite,
-            req.body.id_tache_parente,
-            req.body.id_departement,
-            req.body.id_client,
-            req.body.id_frequence,
-            req.body.id_control,
-            req.body.id_projet,
-            req.body.id_point_supervision,
-            req.body.responsable_principal,
-            req.body.id_demandeur,
-            req.body.id_batiment,
-            req.body.id_ville,
-            req.body.id_cat_tache,
-            req.body.id_corps_metier,
-            req.body.doc,
-            req.body.user_cr
-        ];
-
-        db.query(q, values, (error, data) => {
-            if (error) {
-                console.log(error);
-                return res.status(500).json({ error: "Erreur lors de l'insertion de la tâche." });
-            } else {
-                const insertId = data.insertId;
-
-                // Insérer dans audit_logs
-                const logQuery = `
-                    INSERT INTO audit_logs (action, user_id, id_tache, timestamp)
-                    VALUES (?, ?, ?, NOW())
-                `;
-                const logValues = [
-                    'Créer tache',
-                    req.body.user_cr,
-                    insertId
-                ];
-
-                db.query(logQuery, logValues, (logError) => {
-                    if (logError) {
-                        console.log("Erreur lors de l'ajout du log d'audit:", logError);
-                    }
-                });
-
-                // Vérifiez que categories est un tableau et a des éléments
-                if (Array.isArray(req.body.categories) && req.body.categories.length > 0) {
-                    const categoryQueries = req.body.categories.map(datas => {
-                        return new Promise((resolve, reject) => {
-                            const catValues = [insertId, datas.id_cat, datas.cout];
-                            db.query(qCat, catValues, (errorCat) => {
-                                if (errorCat) {
-                                    console.log(errorCat);
-                                    reject(errorCat);
-                                } else {
-                                    resolve();
-                                }
-                            });
-                        });
-                    });
-
-                    // Attendre que toutes les requêtes d'insertion des catégories soient complétées
-                    Promise.all(categoryQueries)
-                        .then(() => {
-                            return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
-                        })
-                        .catch(() => {
-                            return res.status(500).json({ error: "Erreur lors de l'insertion des catégories." });
-                        });
-                } else {
-                    return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
-                }
-            }
-        });
-    } catch (error) {
-        console.error('Erreur lors de l\'ajout de la tâche :', error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
-    }
-};
- */
-
-
-/* exports.postTache = async (req, res) => {
-    const tags = req.body.tags;
+/*exports.postTache = async (req, res) => {
 
     try {
-        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`, `id_tache_parente`, `id_departement`, `id_client`, `id_frequence`, `id_control`, `id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`, `id_batiment`, `id_ville`, `id_cat_tache`, `id_corps_metier`, `doc`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
-        const qTag = 'INSERT INTO tags(`nom_tag`) VALUES(?)';
-        const qTagTache = 'INSERT INTO tache_tags(`id_tache`, `id_tag`) VALUES(?, ?)';
+        const q = 'INSERT INTO tache(`nom_tache`, `description`, `statut`, `date_debut`, `date_fin`, `priorite`,`id_tache_parente`, `id_departement`,`id_client`, `id_frequence`,`id_control`,`id_projet`, `id_point_supervision`, `responsable_principal`, `id_demandeur`,`id_batiment`, `id_ville`,`id_cat_tache`,`id_corps_metier`, `doc`) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
 
         const values = [
             req.body.nom_tache,
@@ -1413,193 +894,19 @@ exports.postTache = async (req, res) => {
             req.body.doc
         ];
 
-        // Insertion de la tâche
-        db.query(q, values, (error, data) => {
-            if (error) {
-                console.log(error);
-                return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+        db.query(q, values, (error, data)=>{
+            if(error){
+                console.log(error)
             }
-
-            const idTache = data.insertId;
-
-            // Si des tags sont fournis, insérer chaque tag et associer avec la tâche
-            if (Array.isArray(tags) && tags.length > 0) {
-                const tagInsertions = tags.map(tag => {
-                    return new Promise((resolve, reject) => {
-                        db.query(qTag, [tag], (err, tagData) => {
-                            if (err) {
-                                console.log(err);
-                                reject(err);
-                            } else {
-                                const idTag = tagData.insertId;
-                                // Associer le tag à la tâche
-                                db.query(qTagTache, [idTache, idTag], (errTagTache) => {
-                                    if (errTagTache) {
-                                        console.log(errTagTache);
-                                        reject(errTagTache);
-                                    } else {
-                                        resolve();
-                                    }
-                                });
-                            }
-                        });
-                    });
-                });
-
-                // Attendre que toutes les insertions de tags soient terminées
-                Promise.all(tagInsertions)
-                    .then(() => {
-                        return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
-                    })
-                    .catch(err => {
-                        console.log(err);
-                        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout des tags." });
-                    });
-            } else {
-                // Pas de tags, juste retourner la réponse
+            else{
                 return res.status(201).json({ message: 'Tâche ajoutée avec succès', data: { nom_tache: req.body.nom_tache } });
             }
-        });
+        })
     } catch (error) {
         console.error('Erreur lors de l\'ajout de la tâche :', error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
-}; */
-
-/* exports.postTache = async (req, res) => {
-    try {
-        const {
-            nom_tache, description, statut = 1, date_debut, date_fin, priorite,
-            id_tache_parente, id_departement, id_client, id_frequence, id_control,
-            id_projet, id_point_supervision, responsable_principal, id_demandeur,
-            id_batiment, id_ville, id_cat_tache, id_corps_metier, doc, user_cr, categories
-        } = req.body;
-
-        if (!nom_tache || !user_cr) {
-            return res.status(400).json({ error: "Les champs 'nom_tache' et 'user_cr' sont obligatoires." });
-        }
-
-        // Requête pour insérer une tâche
-        const insertTaskQuery = `
-            INSERT INTO tache (
-                nom_tache, description, statut, date_debut, date_fin, priorite, 
-                id_tache_parente, id_departement, id_client, id_frequence, 
-                id_control, id_projet, id_point_supervision, responsable_principal, 
-                id_demandeur, id_batiment, id_ville, id_cat_tache, 
-                id_corps_metier, doc, user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-
-        const taskValues = [
-            nom_tache, description, statut, date_debut, date_fin, priorite,
-            id_tache_parente, id_departement, id_client, id_frequence,
-            id_control, id_projet, id_point_supervision, responsable_principal,
-            id_demandeur, id_batiment, id_ville, id_cat_tache,
-            id_corps_metier, doc, user_cr
-        ];
-
-        // Exécuter l'insertion de la tâche
-        db.query(insertTaskQuery, taskValues, (taskError, taskResult) => {
-            if (taskError) {
-                console.error("Erreur lors de l'insertion de la tâche :", taskError);
-                return res.status(500).json({ error: "Erreur lors de l'insertion de la tâche." });
-            }
-
-            const taskId = taskResult.insertId;
-
-            // Insérer dans les logs d'audit
-            const auditLogQuery = `
-                INSERT INTO audit_logs (action, user_id, id_tache, timestamp)
-                VALUES ('Création', ?, ?, NOW())
-            `;
-            db.query(auditLogQuery, [user_cr, taskId], (auditError) => {
-                if (auditError) {
-                    console.error("Erreur lors de l'ajout des logs d'audit :", auditError);
-                }
-            });
-
-            // Ajouter les permissions pour le créateur
-            const permissionsQuery = `
-                INSERT INTO permissions_tache (id_tache, id_user, can_view, can_edit, can_comment)
-                VALUES (?, ?, 1, 1, 1)
-            `;
-            db.query(permissionsQuery, [taskId, user_cr], (permError) => {
-                if (permError) {
-                    console.error("Erreur lors de l'ajout des permissions :", permError);
-                }
-            });
-
-            // Envoi de la notification au créateur
-            const notificationMessage = `Une nouvelle tâche vient d'être créée avec le titre de : ${nom_tache}`;
-            const notificationsQuery = `
-                INSERT INTO notifications (user_id, message, timestamp)
-                VALUES (?, ?, NOW())
-            `;
-            db.query(notificationsQuery, [user_cr, notificationMessage], (notifError, notifData) => {
-                if (notifError) {
-                    console.error("Erreur lors de l'envoi de la notification :", notifError);
-                }
-                const insertNotif = notifData.insertId
-                // Notification en temps réel via Socket.IO
-                const socketId = onlineUsers.get(user_cr);
-                if (socketId) {
-                    const io = getSocketIO();
-                    io.to(socketId).emit('notification', {
-                        message: notificationMessage,
-                        taskId,
-                        id_notif : insertNotif
-                    });
-                    console.log(`Notification envoyée en temps réel à l'utilisateur ${user_cr}`);
-                }
-                // Notifier l'administrateur
-                    notifyAdmin({ nom_tache, id_tache:taskId,id_notif : insertNotif  });
-
-
-            });
-
-            // Gérer les catégories si elles existent
-            if (Array.isArray(categories) && categories.length > 0) {
-                const categoryQueries = categories.map(({ id_cat, cout }) => {
-                    return new Promise((resolve, reject) => {
-                        const categoryQuery = `
-                            INSERT INTO categorie_tache (id_tache, id_cat, cout)
-                            VALUES (?, ?, ?)
-                        `;
-                        db.query(categoryQuery, [taskId, id_cat, cout], (catError) => {
-                            if (catError) {
-                                console.error("Erreur lors de l'insertion des catégories :", catError);
-                                reject(catError);
-                            } else {
-                                resolve();
-                            }
-                        });
-                    });
-                });
-
-                // Attendre que toutes les catégories soient insérées
-                Promise.all(categoryQueries)
-                    .then(() => {
-                        return res.status(201).json({
-                            message: 'Tâche ajoutée avec succès.',
-                            data: { nom_tache }
-                        });
-                    })
-                    .catch((catError) => {
-                        console.error("Erreur lors de l'insertion des catégories :", catError);
-                        return res.status(500).json({ error: "Erreur lors de l'insertion des catégories." });
-                    });
-            } else {
-                return res.status(201).json({
-                    message: 'Tâche ajoutée avec succès.',
-                    data: { nom_tache }
-                });
-            }
-        });
-    } catch (error) {
-        console.error("Erreur inattendue lors de l'ajout de la tâche :", error);
-        return res.status(500).json({ error: "Une erreur inattendue s'est produite." });
-    }
-}; */
+};*/
 
 exports.postTache = async (req, res) => {
   const pool = db;
@@ -1782,6 +1089,88 @@ Merci de consulter la plateforme pour plus de détails.
   }
 };
 
+exports.getTacheCorbeille = (req, res) => {
+
+    const q = `SELECT 
+                tache.id_tache, 
+                tache.description, 
+                tache.date_debut, 
+                tache.date_fin,
+                tache.nom_tache, 
+                tache.priorite,
+                tache.id_tache_parente,
+                typeC.nom_type_statut AS statut, 
+                client.nom AS nom_client, 
+                frequence.nom AS frequence, 
+                utilisateur.nom AS owner, 
+                provinces.name AS ville, 
+                departement.nom_departement AS departement,
+                cb.controle_de_base,
+                cb.id_controle,
+                DATEDIFF(tache.date_fin, tache.date_debut) AS nbre_jour,
+                ct.nom_cat_tache,
+                cm.nom_corps_metier,
+                tg.nom_tag,
+                pt.can_view,
+                pt.can_edit,
+                pt.can_comment,
+                pt.id_user
+            FROM 
+                tache
+            LEFT JOIN type_statut_suivi AS typeC ON tache.statut = typeC.id_type_statut_suivi
+            LEFT JOIN client ON tache.id_client = client.id_client
+            INNER JOIN frequence ON tache.id_frequence = frequence.id_frequence
+            LEFT JOIN utilisateur ON tache.responsable_principal = utilisateur.id_utilisateur
+            LEFT JOIN provinces ON tache.id_ville = provinces.id
+            LEFT JOIN controle_client AS cc ON client.id_client = cc.id_client
+            LEFT JOIN controle_de_base AS cb ON cc.id_controle = cb.id_controle
+            LEFT JOIN departement ON tache.id_departement = departement.id_departement
+            LEFT JOIN categorietache AS ct ON tache.id_cat_tache = ct.id_cat_tache
+            LEFT JOIN corpsmetier AS cm ON tache.id_corps_metier = cm.id_corps_metier
+            LEFT JOIN tache_tags tt ON tache.id_tache = tt.id_tache
+            LEFT JOIN tags tg ON tt.id_tag = tg.id_tag
+            LEFT JOIN permissions_tache pt ON tache.id_tache = pt.id_tache
+            WHERE 
+                tache.est_supprime = 1
+                GROUP BY tache.id_tache
+                ORDER BY tache.date_creation DESC`
+
+    db.query(q, (error, results) => {
+        if(error) {
+            console.error('Erreur lors de la récupération des corbeilles:', err);
+            return res.status(500).json({ error: 'Erreur lors de la récupération des corbeilles' });
+        }
+        res.json(results);
+    })
+}
+
+exports.putTacheCorbeille = (req, res) => {
+    const { id_tache } = req.query;
+
+    if (!id_tache || isNaN(id_tache)) {
+        return res.status(400).json({ error: 'ID de tache non valide fourni' });
+    }
+
+    const q = `
+        UPDATE tache 
+        SET est_supprime = 0
+        WHERE id_tache = ?
+    `;
+
+    db.query(q, [id_tache], (error, result) => {
+        if (error) {
+            console.error("Database error:", error);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Tache non trouvée ou déjà supprimée' });
+        }
+
+        return res.status(200).json({ message: 'Tache a été modifiée avec succès' });
+    });
+};
+
 exports.postTacheExcel = async (req, res) => {
     try {
 
@@ -1837,113 +1226,6 @@ exports.postTacheExcel = async (req, res) => {
     }
 };
 
-/* exports.putTache = async (req, res) => {
-        const { id_tache} = req.query;
-    
-        if (!id_tache || isNaN(id_tache)) {
-            return res.status(400).json({ error: 'Invalid tache ID provided' });
-        }
-    
-        try {
-            const q = `
-                UPDATE tache 
-                SET 
-                    nom_tache = ?,
-                    description = ?,
-                    statut = ?,
-                    date_debut = ?,
-                    date_fin = ?,
-                    priorite = ?,
-                    id_departement = ?,
-                    id_client = ?,
-                    id_frequence = ?,
-                    responsable_principal = ?,
-                    id_demandeur = ?,
-                    id_batiment = ?,
-                    id_ville = ?,
-                    id_cat_tache = ?,
-                    id_corps_metier = ?
-                WHERE id_tache = ?
-            `;
-    
-            const values = [
-                req.body.nom_tache,
-                req.body.description,
-                req.body.statut || 1,
-                req.body.date_debut,
-                req.body.date_fin,
-                req.body.priorite,
-                req.body.id_departement,
-                req.body.id_client,
-                req.body.id_frequence,
-                req.body.responsable_principal,
-                req.body.id_demandeur,
-                req.body.id_batiment,
-                req.body.id_ville,
-                req.body.id_cat_tache,
-                req.body.id_corps_metier,
-                id_tache
-            ];
-    
-            db.query(q, values, (error, data) => {
-                if (error) {
-                    console.log(error);
-                    return res.status(404).json({ error: 'Tache record not found' });
-                }
-    
-                // Log l'action dans la table `audit_logs`
-                const logQuery = `
-                    INSERT INTO audit_logs (action, user_id, id_tache, timestamp)
-                    VALUES (?, ?, ?, NOW())
-                `;
-    
-                const logValues = [
-                    'Modification',
-                    req.body.user_cr,
-                    id_tache
-                ];
-    
-                db.query(logQuery, logValues, (logError) => {
-                    if (logError) {
-                        console.error("Error logging action:", logError);
-                    }
-                    const permissionSQL = `SELECT u.email, t.nom_tache FROM permissions_tache pt
-                                                INNER JOIN utilisateur u ON pt.id_user = u.id_utilisateur
-                                                INNER JOIN tache t ON t.id_tache = pt.id_tache
-                                                WHERE pt.id_tache = ?
-                                                GROUP BY u.id_utilisateur`
-                    db.query(permissionSQL, [id_tache], (pError, dataP) => {
-                        if(pError) {
-                            console.error("Erreur lors de recupération des permissions taches :", pError);
-                        }
-
-                        const nomTache = data[0]?.nom_tache;
-
-                        const message = `
-📌 Mise à jour de la tache ${nomTache}
-
-Merci de consulter la plateforme pour plus de détails.
-`;
-
-                    for (const d of dataP) {
-                        sendEmail({
-                        email: d.email,
-                        subject: '📌 Mise à jour de la tâche',
-                        message
-                        });
-                    }
-                    return res.json({ message: 'Tache a été modifiée avec succes' });
-
-                    })
-
-                });    
-            });
-        } catch (err) {
-            console.error("Error updating tache:", err);
-            return res.status(500).json({ error: 'Failed to update Tache record' });
-        }
-    }; */
- 
 exports.putTache = async (req, res) => {
   const { id_tache } = req.query;
 
@@ -2123,20 +1405,6 @@ exports.putTachePriorite = async (req, res) => {
     }
 };
 
-/* exports.deleteUpdateTache = (req, res) => {
-    const {id} = req.query;
-  
-    const q = "UPDATE tache SET est_supprime = 1 WHERE id_tache = ?";
-  
-    db.query(q, [id], (err, data) => {
-      if (err) {
-        console.log(err)
-      }
-      return res.json(data);
-    });
-  
-  } */
-
 exports.deleteUpdateTache = (req, res) => {
         const {id} = req.query;
         const userId = req.body.user_id;
@@ -2167,8 +1435,8 @@ exports.deleteUpdateTache = (req, res) => {
     
             return res.json({ message: "Tâche supprimée avec succès", data });
         });
-    };
-    
+    }
+
 exports.deleteTache = (req, res) => {
     const id = req.params.id;
   
@@ -2180,6 +1448,7 @@ exports.deleteTache = (req, res) => {
     });
   
   }
+
 
   //Tacha personne
 exports.getTachePersonne = (req, res) => {
@@ -2319,18 +1588,6 @@ Merci de consulter la plateforme pour plus de détails.
   }
 };
 
-exports.deleteTachePersonne = (req, res) => {
-    const id = req.params.id;
-  
-    const q = "DELETE FROM tache_personne WHERE id_tache_personne = ?";
-  
-    db.query(q, [id], (err, data) => {
-      if (err) return res.send(err);
-      return res.json(data);
-    });
-  
-  }
-  
 exports.putTacheDoc = async (req, res) => {
     const { id_tache_document } = req.query;
 
@@ -2376,149 +1633,18 @@ exports.putTacheDoc = async (req, res) => {
     }
 };
 
-//Tag
-exports.getTag = async (req, res) => {
-
-    const query = 'SELECT * FROM tags';
-  db.query(query, (err, results) => {
-    if (err) {
-      return res.status(500).send(err);
-    }
-    res.json(results);
-  })
-}
-
-exports.getTagOne = async (req, res) => {
-    const tagName = req.body;
-
-    const query =  `
-                    SELECT t.* 
-                        FROM tache t
-                    JOIN tache_tags tt ON t.id_tache = tt.id_tache
-                    JOIN tags tg ON tt.id_tag = tg.id_tag
-                        WHERE tg.nom_tag = ?
-                    `;
-
-  db.query(query,[tagName],(err, results) => {
-    if (err) {
-      return res.status(500).send(err);
-    }
-    res.json(results);
-  })
-}
-
-/* exports.postTag = async (req, res) => {
-    const id_tache = req.params.id;
-    const tags = req.body.tags;
-
-    if (!Array.isArray(tags) || tags.length === 0) {
-        return res.status(400).send('Aucun tag fourni');
-    }
-
-    const query = 'INSERT INTO tache_tags (id_tache, id_tag) VALUES ?';
-    const values = tags.map(tagId => [id_tache, tagId]);
-
-    try {
-        await new Promise((resolve, reject) => {
-            db.query(query, [values], (err) => {
-                if (err) {
-                    return reject(err);
-                }
-                resolve();
-            });
-        });
-        res.status(200).send('Tags associés avec succès');
-    } catch (err) {
-        console.error('Erreur lors de l\'insertion des tags :', err);
-        res.status(500).send('Erreur lors de l\'association des tags');
-    }
-} */
-
-exports.postTag = async (req, res) => {
-        const { id_tache } = req.query;
-        const tags = req.body.nom_tag;
-    
-        const qTag = 'INSERT INTO tags(`nom_tag`) VALUES(?)';
-        const query = 'INSERT INTO tache_tags (id_tache, id_tag) VALUES (?, ?)';
-    
-    try {
-        const id_tag = await new Promise((resolve, reject) => {
-            db.query(qTag, [tags], (err, data) => {
-                if (err) {
-                    return reject(err);
-                }
-                resolve(data.insertId);
-                });
-            });
-    
-            await new Promise((resolve, reject) => {
-                db.query(query, [id_tache, id_tag], (err, data) => {
-                    if (err) {
-                        return reject(err);
-                    }
-                    resolve(data);
-                });
-            });
-    
-            res.status(200).send('Tags associés avec succès');
-        } catch (err) {
-            console.error('Erreur lors de l\'insertion des tags :', err);
-            res.status(500).send('Erreur lors de l\'association des tags');
-        }
-    };
-    
-/* exports.getSearch = async (req, res) => {
-        const searchTerm = req.query.term;
-    
-        try {
-            console.log(`Recherche avec le terme: ${searchTerm}`);
-    
-            // Exécution des deux requêtes en parallèle avec Promise.all
-            const [projects, tasks] = await Promise.all([
-                db.query(`
-                    SELECT * FROM projet
-                    WHERE id_projet IN (
-                        SELECT id_projet FROM projet_tag
-                        WHERE id_tag IN (
-                            SELECT id_tag FROM tags WHERE nom_tag LIKE ?
-                        )
-                    )
-                `, [`%${searchTerm}%`]),
-    
-                db.query(`
-                    SELECT * FROM tache
-                    WHERE id_tache IN (
-                        SELECT id_tache FROM tache_tags
-                        WHERE id_tag IN (
-                            SELECT id_tag FROM tags WHERE nom_tag LIKE ?
-                        )
-                    )
-                `, [`%${searchTerm}%`])
-            ]);
-    
-            // Log des résultats des requêtes
-            console.log('Résultats des projets:', projects);
-            console.log('Résultats des tâches:', tasks);
-    
-            // Vérifier si nous avons des données dans l'élément [0] attendu
-            const projectResults = projects[0] || []; // S'assurer que ce n'est pas undefined
-            const taskResults = tasks[0] || []; // S'assurer que ce n'est pas undefined
-    
-            // Log des résultats formatés
-            console.log('Projets filtrés:', projectResults);
-            console.log('Tâches filtrées:', taskResults);
-    
-            // Envoyer les résultats comme réponse
-            res.json({
-                projects: projectResults,
-                tasks: taskResults,
-            });
-        } catch (error) {
-            console.error('Erreur lors de la recherche:', error);
-            res.status(500).json({ error: 'Erreur de serveur' });
-        }
-    }; */
-    
+exports.deleteTachePersonne = (req, res) => {
+    const id = req.params.id;
+  
+    const q = "DELETE FROM tache_personne WHERE id_tache_personne = ?";
+  
+    db.query(q, [id], (err, data) => {
+      if (err) return res.send(err);
+      return res.json(data);
+    });
+  
+  }
+  
 exports.getSearch = async (req, res) => {
         const searchText = req.query.term;
       
@@ -2565,6 +1691,7 @@ exports.getSearch = async (req, res) => {
         });
       }
       
+      
 //Tache projet
 exports.postTacheProjet = (req, res) => {
     const besoins = req.body.besoins || [];
@@ -2576,7 +1703,7 @@ exports.postTacheProjet = (req, res) => {
     const qBudget = 'INSERT INTO budgets (`montant`, `id_projet`) VALUES (?, ?)';
     const qProjet_client = 'INSERT INTO projet_client(`id_projet`,`id_client`) VALUES(?,?)';
     const qProjet_batiment = 'INSERT INTO projet_batiment(`id_projet`,`id_batiment`) VALUES(?,?)';
-    const qUpdateTache = 'UPDATE tache SET id_projet = ? WHERE id_tache = ?'; // Met à jour la tâche avec l'ID du projet
+    const qUpdateTache = 'UPDATE tache SET id_projet = ? WHERE id_tache = ?';
 
     const valuesProjet = [
         req.body.nom_projet,
@@ -2715,6 +1842,7 @@ exports.putProjetAssocie = async (req, res) => {
     }
 };
 
+
 //Audit Logs Tache
 exports.getAuditLogsTache = (req, res) => {
 
@@ -2733,58 +1861,8 @@ exports.getAuditLogsTache = (req, res) => {
     });
 };
 
+
 //Notifications
-/* exports.getNotificationTache = (req, res) => {
-    const { user_id } = req.query;
-
-    const checkRoleQuery = `SELECT role FROM utilisateur WHERE id_utilisateur = ?`;
-
-    db.query(checkRoleQuery, [user_id], (error, result) => {
-        if (error) {
-            return res.status(500).json({ error: 'Erreur serveur lors de la vérification du rôle.' });
-        }
-
-        if (!result.length) {
-            return res.status(403).json({ error: 'Utilisateur non trouvé.' });
-        }
-
-        const role = result[0].role;
-
-        let notificationQuery;
-        let queryParams;
-
-        if (role === 'Admin') {
-            // Admin : toutes les notifications sauf celles qu’il a créées
-            notificationQuery = `
-                SELECT notifications.*, u.nom, u.prenom 
-                FROM notifications
-                INNER JOIN utilisateur u ON notifications.user_id = u.id_utilisateur
-                WHERE is_read = 0 AND notifications.user_id != ?
-                ORDER BY notifications.timestamp DESC
-            `;
-            queryParams = [user_id];
-        } else {
-            // Utilisateur normal : seulement ses propres notifications
-            notificationQuery = `
-                SELECT notifications.*, u.nom, u.prenom 
-                FROM notifications
-                INNER JOIN utilisateur u ON notifications.user_id = u.id_utilisateur
-                WHERE is_read = 0 AND notifications.user_id != ?
-                ORDER BY notifications.timestamp DESC
-            `;
-            queryParams = [user_id];
-        }
-
-        db.query(notificationQuery, queryParams, (error, data) => {
-            if (error) {
-                return res.status(500).json({ error: 'Erreur serveur lors de la récupération des notifications.' });
-            }
-
-            return res.status(200).json(data);
-        });
-    });
-}; */
-
 exports.getNotificationTache = (req, res) => {
     const { user_id } = req.query;
 
@@ -2837,43 +1915,6 @@ exports.getNotificationTache = (req, res) => {
         });
     });
 };
-/* exports.getNotificationTacheOne = (req, res) => {
-    const { id_notification } = req.query;
-
-    // Vérification de la présence du paramètre requis
-    if (!id_notification) {
-        return res.status(400).json({
-            error: "Le paramètre 'id_notification' est requis.",
-        });
-    }
-
-    // Requête SQL pour récupérer les données
-    const query = `
-        SELECT notifications.*, u.nom, u.prenom 
-        FROM notifications
-        INNER JOIN utilisateur u ON notifications.user_id = u.id_utilisateur
-        WHERE notifications.id_notifications = ?
-    `;
-
-    db.query(query, [id_notification], (error, results) => {
-        if (error) {
-            console.error("Erreur lors de l'exécution de la requête:", error);
-            return res.status(500).json({
-                error: "Une erreur est survenue lors de la récupération de la notification.",
-            });
-        }
-
-        // Vérification si une notification est trouvée
-        if (results.length === 0) {
-            return res.status(404).json({
-                message: "Aucune notification trouvée avec cet ID.",
-            });
-        }
-
-        // Réponse avec les données de la notification
-        return res.status(200).json(results[0]);
-    });
-}; */
 
 exports.getNotificationTacheOne = (req, res) => {
     const { id_notification } = req.query;

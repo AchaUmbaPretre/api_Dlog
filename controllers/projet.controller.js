@@ -1,4 +1,5 @@
 const { db } = require("./../config/database");
+const cheerio = require('cheerio');
 
 exports.getProjetCount = (req, res) => {
     
@@ -162,7 +163,6 @@ exports.getProjetTache = (req, res) => {
     });
 };
 
-
 exports.getProjetOneF = (req, res) => {
     const {id_projet} = req.query;
 
@@ -258,8 +258,8 @@ exports.getProjetOne = (req, res) => {
 };
 
 exports.postProjet = async (req, res) => {
+
     try {
-        
         const q = 'INSERT INTO projet(`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`, `client`) VALUES(?,?,?,?,?,?,?,?)';
 
         const values = [
@@ -285,7 +285,6 @@ exports.postProjetBesoin = (req, res) => {
     const besoins = req.body.besoins || [];
     const clients = req.body.client || [];
     const batiments = req.body.id_batiment || [];
-
 
     const qProjet = 'INSERT INTO projet (`nom_projet`, `description`, `chef_projet`, `date_debut`, `date_fin`, `statut`, `budget`) VALUES (?, ?, ?, ?, ?, ?, ?)';
     const qBesoin = 'INSERT INTO besoins (`id_article`, `description`, `quantite`, `id_projet`) VALUES (?, ?, ?, ?)';
@@ -470,7 +469,7 @@ exports.deleteProjet = (req, res) => {
     });
   
   }
-
+  
 //Doc
 exports.getProjetDoc = (req, res) => {
     const q = `
@@ -493,10 +492,7 @@ exports.getProjetDoc = (req, res) => {
 exports.getProjetDocOne = (req, res) => {
     const {	id_document } = req.query;
 
-    const q = `SELECT * 
-                    FROM 
-                document_projet 
-                WHERE id_document = ?`;
+    const q = `SELECT * FROM document_projet WHERE id_document = ?`;
 
     db.query(q,[id_document], (error, data) => {
         if (error) {

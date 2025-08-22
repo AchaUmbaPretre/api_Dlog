@@ -142,36 +142,6 @@ exports.getSuiviTacheUn = (req, res) => {
     });
 }
 
-/* exports.getSuiviTacheOne = (req, res) => {
-    const {id_user, role} = req.query;
-
-    const q = `
-        SELECT 
-            suivi_tache.*, 
-            type_statut_suivi.nom_type_statut,
-            CASE 
-        WHEN suivi_tache.est_termine = 0 THEN 'Non' 
-        ELSE 'Oui' 
-            END AS est_termine,
-            utilisateur.nom, 
-            tache.nom_tache
-        FROM 
-            suivi_tache
-        INNER JOIN 
-            utilisateur ON suivi_tache.effectue_par = utilisateur.id_utilisateur
-        INNER JOIN 
-            tache ON suivi_tache.id_tache = tache.id_tache
-        INNER JOIN 
-            type_statut_suivi ON suivi_tache.status = type_statut_suivi.id_type_statut_suivi
-            WHERE suivi_tache.est_supprime = 0
-        `;
-     
-    db.query(q, (error, data) => {
-        if (error) res.status(500).send(error);
-        return res.status(200).json(data);
-    });
-} */
-    
 exports.getSuiviTacheOne = (req, res) => {
     const { id_user, role } = req.query;
     
@@ -213,36 +183,6 @@ exports.getSuiviTacheOne = (req, res) => {
         });
 };
 
-/* exports.getSuiviTacheOneV = (req, res) => {
-    const {id_tache} = req.query;
-
-    const q = `
-                SELECT 
-            suivi_tache.*, 
-            type_statut_suivi.nom_type_statut,
-            CASE 
-        WHEN suivi_tache.est_termine = 0 THEN 'Non' 
-        ELSE 'Oui' 
-            END AS est_termine,
-            utilisateur.nom, 
-            tache.nom_tache
-        FROM 
-            suivi_tache
-        INNER JOIN 
-            utilisateur ON suivi_tache.effectue_par = utilisateur.id_utilisateur
-        INNER JOIN 
-            tache ON suivi_tache.id_tache = tache.id_tache
-        INNER JOIN 
-            type_statut_suivi ON suivi_tache.status = type_statut_suivi.id_type_statut_suivi
-            WHERE suivi_tache.id_tache = ?
-        `;
-     
-    db.query(q,[id_tache], (error, data) => {
-        if (error) res.status(500).send(error);
-        return res.status(200).json(data);
-    });
-} */
-
 exports.getSuiviTacheOneV = (req, res) => {
         const { id_tache } = req.query;
     
@@ -269,7 +209,7 @@ exports.getSuiviTacheOneV = (req, res) => {
                 tache ON suivi_tache.id_tache = tache.id_tache
             INNER JOIN 
                 type_statut_suivi ON suivi_tache.status = type_statut_suivi.id_type_statut_suivi
-            WHERE suivi_tache.id_tache = ? AND suivi_tache.est_supprime = 0
+            WHERE suivi_tache.id_tache = ?
         `;
     
         db.query(q, [id_tache], (error, data) => {
@@ -277,7 +217,7 @@ exports.getSuiviTacheOneV = (req, res) => {
             return res.status(200).json(data);
         });
     };
-
+    
 exports.postSuivi = async (req, res) => {
 
     try {
@@ -298,97 +238,6 @@ exports.postSuivi = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
-
-/* exports.postSuiviTache = async (req, res) => {
-    const { id_tache, status, commentaire, pourcentage_avancement, effectue_par, est_termine, user_cr} = req.body;
-    try {
-        const qTache = 'UPDATE tache SET statut = ? WHERE id_tache = ?';
-        const q = 'INSERT INTO suivi_tache(`id_tache`, `status`, `commentaire`, `pourcentage_avancement`, `effectue_par`, `est_termine`) VALUES(?,?,?,?,?,?)';
-        const qStatut = `SELECT ts.nom_type_statut FROM type_statut_suivi ts WHERE ts.id_type_statut_suivi = ?`
-
-        const values = [
-            id_tache,
-            status,
-            commentaire,
-            pourcentage_avancement,
-            effectue_par,
-            est_termine ? 1 : 0
-        ];
-
-        const insertSuiviTache = new Promise((resolve, reject) => {
-            db.query(q, values, (error, data) => {
-                if (error) {
-                    return reject(error);
-                }
-                resolve(data);
-            });
-        });
-
-        const updateTacheStatut = new Promise((resolve, reject) => {
-            db.query(qTache, [req.body.status, req.body.id_tache], (error, data) => {
-                if (error) {
-                    return reject(error); // En cas d'erreur, on rejette
-                }
-                resolve(data);
-            });
-        });
-
-        // Exécution des promesses
-        await insertSuiviTache;
-        await updateTacheStatut;
-
-            // Récupérer les utilisateurs liés à la tâche via permissions
-        const permissionSQL = `
-        SELECT u.email, t.nom_tache 
-        FROM permissions_tache pt
-        INNER JOIN utilisateur u ON pt.id_user = u.id_utilisateur
-        INNER JOIN tache t ON t.id_tache = pt.id_tache
-        WHERE pt.id_tache = ?
-        GROUP BY u.id_utilisateur
-        `;
-        const dataP = await queryPromise(db, permissionSQL, [id_tache]);
-    
-            const userSQL = `SELECT nom FROM utilisateur WHERE id_utilisateur = ?`;
-            const userData = await queryPromise(db, userSQL, [user_cr]);
-            const nomCreateur = userData[0]?.nom || 'Inconnu';
-
-            const horodatage = new Date().toLocaleString('fr-FR');
-
-            const message = `
-📌 Titre de tâche : ${nom_tache}
-
-Statut précédent :
-
-Nouveau statut : 
-
-👤 Modifiée par : ${nomCreateur}
-
-🕒 Date & Heure : ${horodatage}
-
-commentaire : ${commentaire}
-
-Merci de consulter la plateforme pour plus de détails.
-`;
-
-    for (const d of dataP) {
-      try {
-        await sendEmail({
-          email: d.email,
-          subject: '📌 Le statut de la tache vient de changer',
-          message
-        });
-      } catch (emailErr) {
-        console.error(`Erreur lors de l'envoi de l'email à ${d.email} :`, emailErr.message);
-      }
-    }
-        // Si tout se passe bien
-        return res.status(201).json({ message: 'Suivi de tâche ajouté avec succès' });
-
-    } catch (error) {
-        console.error('Erreur lors de l\'ajout de la tâche :', error.message);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
-    }
-}; */
 
 exports.postSuiviTache = async (req, res) => {
   const {
@@ -498,7 +347,7 @@ exports.postSuiviTache = async (req, res) => {
 Merci de consulter la plateforme pour plus de détails.
 `;
 
-    // Envoi d'email à tous les participants
+    // Envoi d'email à tous les participants sauf l'expéditeur
     const emailPromises = dataP
       .filter(({ email }) => email && email !== userEmail)
       .map(({ email }) =>
@@ -546,7 +395,7 @@ exports.deleteSuivi = (req, res) => {
     });
   
   }
-
+  
 exports.getDocGeneral = (req, res) => {
     const q = `
                 SELECT documents.* FROM documents
@@ -586,7 +435,7 @@ exports.postDocGeneral = async (req, res) => {
             db.query(query, [doc.nom_document, doc.type_document, doc.chemin_document], (err, result) => {
                 if (err) {
                     console.error('Erreur lors de l\'insertion du document:', err);
-                    throw err;
+                    throw err; // Lancer une erreur pour capturer cette erreur dans le catch
                 }
             });
         });
