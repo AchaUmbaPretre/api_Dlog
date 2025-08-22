@@ -5881,6 +5881,7 @@ exports.getBandeSortie = (req, res) => {
               AND vd.validateur_id = ?
               
           WHERE ad.est_supprime = 0
+          GROUP BY ad.id_bande_sortie
           ORDER BY ad.created_at DESC
             `;
 
