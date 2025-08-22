@@ -326,7 +326,6 @@ exports.deleteUpdatedBatiment = (req, res) => {
     });
   }
 
-
 //Categorie
 exports.getCategorie = (req, res) => {
 
@@ -389,7 +388,6 @@ exports.postActivite = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
     }
 };
-
 
 exports.getCorpsMetier = (req, res) => {
 
