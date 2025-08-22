@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const nodemailer = require('nodemailer');
 
+
 dotenv.config();
 
 // Créer le transporteur avec les informations SMTP
@@ -34,75 +35,91 @@ const sendEmail = async (options) => {
   }
 };
 
-/* exports.menusAllOne = (req, res) => {
-    const { userId } = req.query;
+/*exports.menusAllOne = (req, res) => {
+  const { userId } = req.query;
 
-    const query = `
-        SELECT 
-            menus.id AS menu_id, 
-            menus.title AS menu_title, 
-            menus.url AS menu_url, 
-            menus.icon AS menu_icon, 
-            submenus.id AS submenu_id, 
-            submenus.title AS submenu_title, 
-            submenus.url AS submenu_url, 
-            submenus.icon AS submenu_icon,
-            permission.can_read,
-            permission.can_edit,
-            permission.can_delete
-        FROM menus 
-            LEFT JOIN submenus ON menus.id = submenus.menu_id
-            LEFT JOIN permission ON menus.id = permission.menus_id AND permission.user_id = ${userId}
-            WHERE permission.can_read = 1
-            GROUP BY menus.id, submenus.id, permission.can_read, permission.can_edit, permission.can_delete
-            ORDER BY menus.id, submenus.id
-    `;
+  const query = `
+      SELECT 
+          menus.id AS menu_id, 
+          menus.title AS menu_title, 
+          menus.url AS menu_url, 
+          menus.icon AS menu_icon, 
+          submenus.id AS submenu_id, 
+          submenus.title AS submenu_title, 
+          submenus.url AS submenu_url, 
+          submenus.icon AS submenu_icon,
+          permission.can_read AS menu_can_read,
+          submenu_permission.can_read AS submenu_can_read,
+          permission.can_edit,
+          permission.can_comment,
+          permission.can_delete
+      FROM menus 
+          LEFT JOIN submenus ON menus.id = submenus.menu_id
+          LEFT JOIN permission ON menus.id = permission.menus_id AND permission.user_id = ${userId}
+          LEFT JOIN permission AS submenu_permission ON submenus.id = submenu_permission.submenu_id AND submenu_permission.user_id = ${userId}
+          WHERE permission.can_read = 1
+          GROUP BY menus.id, submenus.id, permission.can_read, submenu_permission.can_read, permission.can_edit, permission.can_delete
+          ORDER BY menus.id, submenus.id
+  `;
 
-    db.query(query, (err, results) => {
-        if (err) {
-            console.error('Erreur lors de la récupération des menus:', err);
-            return res.status(500).json({ error: 'Erreur lors de la récupération des menus' });
-        }
+  db.query(query, (err, results) => {
+      if (err) {
+          console.error('Erreur lors de la récupération des menus:', err);
+          return res.status(500).json({ error: 'Erreur lors de la récupération des menus' });
+      }
 
-        // Traiter les résultats pour structurer les données comme attendu dans le frontend
-        const menus = [];
-        let currentMenu = null;
+      // Traiter les résultats pour structurer les données comme attendu dans le frontend
+      const menus = [];
+      let currentMenu = null;
 
-        results.forEach(row => {
-            if (!currentMenu || currentMenu.menu_id !== row.menu_id) {
-                // Nouveau menu rencontré, créer un nouvel objet menu
-                currentMenu = {
-                    menu_id: row.menu_id,
-                    menu_title: row.menu_title,
-                    menu_url: row.menu_url,
-                    menu_icon: row.menu_icon,
-                    subMenus: [],
-                    can_read: row.can_read,
-                    can_edit: row.can_edit,
-                    can_delete: row.can_delete
-                };
-                menus.push(currentMenu);
-            }
+      results.forEach(row => {
+          // Si c'est un nouveau menu
+          if (!currentMenu || currentMenu.menu_id !== row.menu_id) {
+              currentMenu = {
+                  menu_id: row.menu_id,
+                  menu_title: row.menu_title,
+                  menu_url: row.menu_url,
+                  menu_icon: row.menu_icon,
+                  subMenus: [],
+                  can_read: row.menu_can_read,
+                  can_edit: row.can_edit,
+                  can_comment: row.can_comment,
+                  can_delete: row.can_delete
+              };
+              menus.push(currentMenu);
+          }
 
-            // Ajouter le sous-menu au menu courant
-            currentMenu.subMenus.push({
-                submenu_id: row.submenu_id,
-                submenu_title: row.submenu_title,
-                submenu_url: row.submenu_url,
-                submenu_icon: row.submenu_icon,
-                can_read: row.can_read,
-                can_edit: row.can_edit,
-                can_delete: row.can_delete
-            });
-        });
+          // Ajouter un sous-menu seulement si l'utilisateur a l'accès pour le voir
+          if (row.submenu_id) {
+              // Vérification de l'accès à ce sous-menu
+              if (row.submenu_can_read === 1) {
+                  // Vérification que le sous-menu n'a pas déjà été ajouté
+                  const submenuExists = currentMenu.subMenus.some(submenu => submenu.submenu_id === row.submenu_id);
+                  if (!submenuExists) {
+                      currentMenu.subMenus.push({
+                          submenu_id: row.submenu_id,
+                          submenu_title: row.submenu_title,
+                          submenu_url: row.submenu_url,
+                          submenu_icon: row.submenu_icon,
+                          can_read: row.submenu_can_read,
+                          can_edit: row.can_edit,
+                          can_comment: row.can_comment,
+                          can_delete: row.can_delete
+                      });
+                  }
+              }
+          }
+      });
 
-        res.json(menus);
-    });
-}; */
+      // Retourner les menus avec seulement les sous-menus autorisés
+      res.json(menus);
+  });
+};*/
 
 exports.menusAllOne = (req, res) => {
   const { userId } = req.query;
 
+  // Vérifier le rôle de l'utilisateur
   const roleQuery = `SELECT role FROM utilisateur WHERE id_utilisateur = ?`;
 
   db.query(roleQuery, [userId], (roleErr, roleResults) => {
@@ -135,6 +152,7 @@ exports.menusAllOne = (req, res) => {
         ORDER BY menus.index ASC
       `;
     } else {
+      // Pour les autres utilisateurs, filtrer en fonction des permissions
       query = `
         SELECT 
             menus.id AS menu_id, 
@@ -286,64 +304,6 @@ exports.permissions = (req, res) => {
   );
 };
 
-
-/* exports.putPermission = (req, res) => {
-    const userId = req.params.userId;
-    const optionId = req.params.optionId;
-    const submenuId = req.query.submenuId;
-    const { can_read, can_edit, can_delete } = req.body;
-
-    let query;
-    let queryParams;
-  
-    if (submenuId) {
-      // If submenuId is provided, update permissions for the submenu
-      query = `
-        UPDATE permission 
-        SET can_read = ?, can_edit = ?, can_delete = ? 
-        WHERE user_id = ? AND menus_id = ? AND submenu_id = ?
-      `;
-      queryParams = [can_read, can_edit, can_delete, userId, optionId, submenuId];
-    } else {
-      // If no submenuId, update permissions for the main menu
-      query = `
-        UPDATE permission 
-        SET can_read = ?, can_edit = ?, can_delete = ? 
-        WHERE user_id = ? AND menus_id = ? AND submenu_id IS NULL
-      `;
-      queryParams = [can_read, can_edit, can_delete, userId, optionId];
-    }
-  
-    db.query(query, queryParams, (err, results) => {
-      if (err) {
-        console.error('Erreur lors de la mise à jour des permissions:', err);
-        return res.status(500).json({ error: 'Erreur lors de la mise à jour des permissions' });
-      }
-  
-      if (results.affectedRows === 0) {
-        // Si aucune ligne n'a été mise à jour, ajoutez une nouvelle ligne
-        const insertQuery = `
-          INSERT INTO permission (user_id, menus_id, submenu_id, can_read, can_edit, can_delete) 
-          VALUES (?, ?, ?, ?, ?, ?)
-        `;
-        const insertParams = submenuId
-          ? [userId, optionId, submenuId, can_read, can_edit, can_delete]
-          : [userId, optionId, null, can_read, can_edit, can_delete]; // Null for submenu_id if it's not provided
-  
-        db.query(insertQuery, insertParams, (insertErr, insertResults) => {
-          if (insertErr) {
-            console.error('Erreur lors de l\'insertion des permissions:', insertErr);
-            return res.status(500).json({ error: 'Erreur lors de l\'insertion des permissions' });
-          }
-          res.json({ message: 'Permissions updated successfully!' });
-        });
-      } else {
-        res.json({ message: 'Permissions updated successfully!' });
-      }
-    });
-  }; */
-  
-
 exports.putPermission = (req, res) => {
     const userId = req.params.userId;
     const optionId = req.params.optionId;
@@ -399,11 +359,11 @@ exports.putPermission = (req, res) => {
       }
     });
   };
-  
+
 //Permission Tache
 exports.getPermissionTache = (req, res) => {
   const { id_tache } = req.query;
-  const q = `SELECT id_user, can_view, can_edit, can_comment, can_delete FROM permissions_tache WHERE id_tache = ?`
+  const q = `SELECT id_user, can_view, can_edit, can_comment FROM permissions_tache WHERE id_tache = ?`
 
   db.query(q, [id_tache], (error, data) => {
     if (error) {
@@ -411,65 +371,7 @@ exports.getPermissionTache = (req, res) => {
     }
     return res.status(200).json(data);
 });
-}
-
-/* exports.postPermissionTache = (req, res) => {
-  const { id_tache, id_user, can_view, can_edit, can_comment } = req.body;
-
-  if (!id_tache || !id_user) {
-    return res.status(400).send({ error: "Les champs 'id_tache' et 'id_user' sont requis." });
-  }
-
-  try {
-    // Vérifiez si une ligne existe déjà pour id_tache et id_user
-    const qSelect = `SELECT * FROM permissions_tache WHERE id_tache = ? AND id_user = ?`;
-    const valuesSelect = [id_tache, id_user];
-
-    db.query(qSelect, valuesSelect, (error, data) => {
-      if (error) {
-        console.error("Erreur lors de la récupération des permissions:", error);
-        return res.status(500).send({ error: "Erreur interne du serveur." });
-      }
-
-      if (data.length > 0) {
-        const qUpdate = `
-          UPDATE permissions_tache 
-          SET can_view = ?, can_edit = ?, can_comment = ? 
-          WHERE id_tache = ? AND id_user = ?
-        `;
-        const valuesUpdate = [can_view, can_edit, can_comment, id_tache, id_user];
-
-        db.query(qUpdate, valuesUpdate, (errorUpdate) => {
-          if (errorUpdate) {
-            console.error("Erreur lors de la mise à jour des permissions:", errorUpdate);
-            return res.status(500).send({ error: "Erreur lors de la mise à jour des permissions." });
-          }
-
-          res.status(200).send({ message: "Permission mise à jour avec succès." });
-        });
-      } else {
-        // Insérez une nouvelle ligne
-        const qInsert = `
-          INSERT INTO permissions_tache (id_tache, id_user, can_view, can_edit, can_comment) 
-          VALUES (?, ?, ?, ?, ?)
-        `;
-        const valuesInsert = [id_tache, id_user, can_view, can_edit, can_comment];
-
-        db.query(qInsert, valuesInsert, (errorInsert) => {
-          if (errorInsert) {
-            console.error("Erreur lors de l'insertion des permissions:", errorInsert);
-            return res.status(500).send({ error: "Erreur lors de l'insertion des permissions." });
-          }
-
-          res.status(201).send({ message: "Permission ajoutée avec succès." });
-        });
-      }
-    });
-  } catch (error) {
-    console.error("Erreur inattendue:", error);
-    res.status(500).send({ error: "Erreur interne du serveur." });
-  }
-}; */
+};
 
 exports.postPermissionTache = (req, res) => {
   const { id_tache, id_user, user_cr, id_ville, id_departement, can_view, can_edit, can_comment, can_delete } = req.body;
@@ -603,19 +505,6 @@ exports.getPermissionVilleOne = (req, res) => {
   });
 };
 
-exports.getPermissionDepartementOne = (req, res) => {
-  const { id_user } = req.query;
-
-  const q = `SELECT * FROM permissions_tache WHERE id_user = ?`;
-
-  db.query(q, [id_user], (error, data) => {
-      if (error) {
-          return res.status(500).send(error);
-      }
-      return res.status(200).json(data);
-  });
-};
-
 exports.postPermissionVille = (req, res) => {
   const { id_user, id_ville, can_view } = req.body;
 
@@ -669,18 +558,18 @@ exports.postPermissionVille = (req, res) => {
 };
 
 //Permission de departement
-/* exports.getPermissionDepartementOne = (req, res) => {
-  const { id_departement } = req.query;
+exports.getPermissionDepartementOne = (req, res) => {
+  const { id_user } = req.query;
 
-  const q = `SELECT * FROM permissions_tache WHERE id_departement  = ?`;
+  const q = `SELECT * FROM permissions_tache WHERE id_user = ?`;
 
-  db.query(q, [id_departement], (error, data) => {
+  db.query(q, [id_user], (error, data) => {
       if (error) {
           return res.status(500).send(error);
       }
       return res.status(200).json(data);
   });
-}; */
+};
 
 exports.postPermissionDepartement = (req, res) => {
   const { id_user, id_departement, id_ville, can_view } = req.body;
@@ -834,13 +723,12 @@ exports.getPermissionDeclarationClientOne = (req, res) => {
       if (error) {
           return res.status(500).send(error);
       }
-
       return res.status(200).json(data);
   });
 };
 
 exports.postPermissionDeclarationClient = (req, res) => {
-  const { id_user, id_declaration, id_client, can_view, can_edit, can_comment } = req.body;
+  const { id_user, id_client, can_view } = req.body;
 
   try {
     // Vérifier si l'utilisateur a déjà cette permission pour la ville
@@ -857,9 +745,7 @@ exports.postPermissionDeclarationClient = (req, res) => {
       if (data.length > 0) {
         const qUpdate = `
           UPDATE user_client 
-          SET can_view = ?,
-          can_edit = ?,
-          can_comment = ?
+          SET can_view = ? 
           WHERE id_user = ? AND id_client = ?
         `;
         const valuesUpdate = [can_view, id_user, id_client]; // Mise à jour de la permission spécifique
@@ -874,8 +760,8 @@ exports.postPermissionDeclarationClient = (req, res) => {
         });
       } else {
         // Si l'utilisateur n'a pas cette permission, insérer une nouvelle entrée
-        const qInsert = `INSERT INTO user_client (id_user, id_declaration,  id_client, can_view, can_edit, can_comment) VALUES (?, ?, ?, ?, ?)`;
-        const valuesInsert = [id_user, id_client, can_view, can_edit, can_comment];
+        const qInsert = `INSERT INTO user_client (id_user, id_client, can_view) VALUES (?, ?, ?)`;
+        const valuesInsert = [id_user, id_client, can_view];
 
         db.query(qInsert, valuesInsert, (errorI, dataI) => {
           if (errorI) {
@@ -965,6 +851,7 @@ exports.postPermissionDeclaration = (req, res) => {
     res.status(500).send({ error: "Erreur interne du serveur." });
   }
 };
+
 
 //Permission projet
 exports.getPermissionProjet = (req, res) => {
