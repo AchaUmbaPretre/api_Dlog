@@ -32,10 +32,11 @@ exports.getFrequence = (req, res) => {
 
 exports.getFrequenceOne = (req, res) => {
     const {id_frequence} = req.query;
+
     const q = `
         SELECT *
             FROM frequence
-        WHERE id_frequence = ${id_frequence}
+        WHERE id_frequence =${id_frequence}
         `;
      
     db.query(q, (error, data) => {
@@ -76,7 +77,8 @@ exports.deleteFrequence = (req, res) => {
     });
   
   }
-
+  
+  
 exports.putFrequence = (req, res) => {
     const {id_frequence} = req.query;
     if (!id_frequence || isNaN(id_frequence)) {

@@ -15,7 +15,7 @@ exports.getControleCount = (req, res) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
-};
+}
 
 exports.getControle = (req, res) => {
 
@@ -64,7 +64,7 @@ LEFT JOIN utilisateur ON cr.id_responsable = utilisateur.id_utilisateur
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
-};
+}
 
 exports.postControle = async (req, res) => {
     const { id_departement, id_format, controle_de_base, id_frequence, id_client, responsable } = req.body;
@@ -94,7 +94,7 @@ exports.postControle = async (req, res) => {
     try {
         // Insérer le contrôle de base
         const result = await query(controleQuery, [id_departement, id_format, controle_de_base, id_frequence]);
-        const controleId = result.insertId;
+        const controleId = result.insertId; // Récupérer l'ID du contrôle ajouté
 
         // Insérer les clients associés au contrôle
         await Promise.all(id_client.map((clientId) => {
@@ -111,7 +111,7 @@ exports.postControle = async (req, res) => {
         console.error('Erreur lors de l\'ajout du contrôle :', error);
         res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du contrôle." });
     }
-}; 
+};
 
 exports.putControle = async (req, res) => {
     const { id_controle } = req.query;
@@ -168,44 +168,6 @@ exports.putControle = async (req, res) => {
     }
 };
 
-/* exports.putControle = async (req, res) => {
-    const {id_controle} = req.query;
-    const { id_departement, id_format, controle_de_base, id_frequence, responsable } = req.body;
-
-    if (!id_controle || isNaN(id_controle)) {
-        return res.status(400).json({ error: 'ID de contrôle invalide fourni' });
-    }
-
-    if (!id_departement || !id_format || !controle_de_base || !id_frequence || !responsable) {
-        return res.status(400).json({ error: 'Tous les champs requis doivent être fournis.' });
-    }
-
-    const query = `
-        UPDATE controle_de_base 
-        SET 
-            id_departement = ?,
-            id_format = ?,
-            controle_de_base = ?,
-            id_frequence = ?
-        WHERE id_controle = ?
-    `;
-
-    const values = [id_departement, id_format, controle_de_base, id_frequence, id_controle];
-
-    try {
-        db.query(query, values, (error, data)=>{
-
-            if(error){
-                console.log(error)
-                return res.status(404).json({ error: 'Controle record not found' });
-            }
-            return res.json({ message: 'Enregistrement de contrôle mis à jour avec succès' });
-        })
-    } catch (error) {
-        console.error("Erreur lors de la mise à jour du contrôle :", error);
-        return res.status(500).json({ error: 'Échec de la mise à jour de l\'enregistrement de contrôle' });
-    }
-}; */
 
 exports.deleteUpdatedControle = (req, res) => {
     const {id} = req.query;
@@ -219,7 +181,7 @@ exports.deleteUpdatedControle = (req, res) => {
         
       return res.json(data);
     });
-  };
+  }
 
 exports.deleteControle = (req, res) => {
     const id = req.params.id;
@@ -231,4 +193,4 @@ exports.deleteControle = (req, res) => {
       return res.json(data);
     });
   
-  };
+  }

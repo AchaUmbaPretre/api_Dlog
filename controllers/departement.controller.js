@@ -210,5 +210,4 @@ exports.deleteDepartement = (req, res) => {
       if (err) return res.send(err);
       return res.json(data);
     });
-  
   }
