@@ -580,25 +580,27 @@ exports.postClotureRapportSimple = (req, res) => {
 
 //RAPPORT DE BON DE SORTIE
 exports.getRapportBonGlobal = (req, res) => {
-  
   const q1 = `
     SELECT 
       (SELECT COUNT(*) 
        FROM bande_sortie 
-       WHERE est_supprime = 0) AS total_bons,
+       WHERE est_supprime = 0
+       ) AS total_bons,
 
       (SELECT COUNT(DISTINCT id_vehicule) 
-       FROM bande_sortie 
-       WHERE est_supprime = 0) AS total_vehicules,
+       FROM bande_sortie
+       WHERE est_supprime = 0 AND statut != 9
+         AND sortie_time IS NOT NULL) AS total_vehicules,
 
       (SELECT COUNT(DISTINCT id_chauffeur) 
        FROM bande_sortie 
-       WHERE est_supprime = 0) AS total_chauffeurs,
+       WHERE est_supprime = 0 AND statut != 9
+         AND sortie_time IS NOT NULL) AS total_chauffeurs,
 
       (SELECT 
           ROUND(AVG(TIMESTAMPDIFF(MINUTE, sortie_time, retour_time)), 2)
        FROM bande_sortie
-       WHERE est_supprime = 0 
+       WHERE est_supprime = 0 AND statut != 9
          AND sortie_time IS NOT NULL 
          AND retour_time IS NOT NULL
       ) AS temps_moyen_minutes,
@@ -606,7 +608,7 @@ exports.getRapportBonGlobal = (req, res) => {
       (SELECT 
           ROUND(AVG(TIMESTAMPDIFF(SECOND, sortie_time, retour_time)) / 3600, 2)
        FROM bande_sortie
-       WHERE est_supprime = 0 
+       WHERE est_supprime = 0 AND statut != 9
          AND sortie_time IS NOT NULL 
          AND retour_time IS NOT NULL
       ) AS temps_moyen_heures
@@ -614,54 +616,65 @@ exports.getRapportBonGlobal = (req, res) => {
 
   const q2 = `
     SELECT 
-        v.id_cat_vehicule, 
-        cv.nom_cat, 
-        cv.abreviation, 
-        COUNT(*) AS nbre
+      v.id_cat_vehicule, 
+      cv.nom_cat, 
+      cv.abreviation, 
+      COUNT(*) AS nbre
     FROM bande_sortie b
     JOIN vehicules v ON v.id_vehicule = b.id_vehicule
     JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
-    WHERE b.est_supprime = 0
+    WHERE b.est_supprime = 0 
+      AND b.statut != 9
+      AND sortie_time IS NOT NULL
     GROUP BY v.id_cat_vehicule, cv.nom_cat, cv.abreviation
-    ORDER BY nbre DESC;
-
+    ORDER BY nbre DESC
   `;
 
   const q3 = `
-    SELECT COUNT(*) AS nbre, sd.nom_service
+    SELECT 
+      COUNT(*) AS nbre, 
+      sd.nom_service
     FROM bande_sortie bs
-    JOIN service_demandeur sd ON sd.id_service_demandeur = bs.id_demandeur
-    WHERE bs.est_supprime = 0
-    GROUP BY bs.id_demandeur
-    ORDER BY nbre DESC;
+    JOIN service_demandeur sd 
+      ON sd.id_service_demandeur = bs.id_demandeur
+    WHERE bs.est_supprime = 0 
+      AND bs.statut != 9
+      AND sortie_time IS NOT NULL
+    GROUP BY bs.id_demandeur, sd.nom_service
+    ORDER BY nbre DESC
   `;
 
-  db.query(q1, (error, globalData) => {
-    if (error) {
-      console.error("Erreur lors de la récupération globale :", error);
-      return res.status(500).json({ error: "Erreur serveur lors de la récupération des données globales." });
-    }
-
-    db.query(q2, (error2, repartitionVehicule) => {
-      if (error2) {
-        console.error("Erreur lors de la récupération de la répartition :", error2);
-        return res.status(500).json({ error: "Erreur serveur lors de la récupération des répartitions." });
+  try {
+    db.query(q1, (error, globalData) => {
+      if (error) {
+        console.error("❌ Erreur récupération globale :", error);
+        return res.status(500).json({ error: "Erreur serveur lors de la récupération des données globales." });
       }
 
-      db.query(q3, (error3, repartitionService) => {
-        if (error3) {
-          console.error("Erreur lors de la récupération de la répartition :", error3);
-          return res.status(500).json({ error: "Erreur serveur lors de la récupération des répartitions." });
+      db.query(q2, (error2, repartitionVehicule) => {
+        if (error2) {
+          console.error("❌ Erreur récupération répartition véhicules :", error2);
+          return res.status(500).json({ error: "Erreur serveur lors de la récupération des répartitions véhicules." });
         }
 
-        return res.status(200).json({
-          global: globalData[0],
-          repartitionVehicule,
-          repartitionService
+        db.query(q3, (error3, repartitionService) => {
+          if (error3) {
+            console.error("❌ Erreur récupération répartition services :", error3);
+            return res.status(500).json({ error: "Erreur serveur lors de la récupération des répartitions services." });
+          }
+
+          return res.status(200).json({
+            global: globalData?.[0] || {},
+            repartitionVehicule,
+            repartitionService
+          });
         });
       });
     });
-  });
+  } catch (err) {
+    console.error("🔥 Erreur inattendue :", err);
+    return res.status(500).json({ error: "Erreur serveur interne." });
+  }
 };
 
 exports.getRapportPerformanceBon = async (req, res) => {
@@ -944,4 +957,87 @@ exports.getRapportKpi = async (req, res) => {
     console.error(error);
     res.status(500).json({ error: "Erreur serveur lors du calcul des KPI." });
   }
-}
+};
+
+//Rapport mouvement véhicule
+exports.getMouvementVehicule = async (req, res) => {
+  try {
+    const { service, destination, vehicule, dateRange } = req.query;
+
+    const filters = [];
+    const params = [];
+
+    // --- Filtrage période ---
+    if (dateRange && Array.isArray(dateRange) && dateRange.length === 2) {
+      filters.push("DATE(created_at) BETWEEN ? AND ?");
+      params.push(dateRange[0], dateRange[1]);
+    }
+
+    // --- Filtrage véhicule ---
+    if (vehicule && vehicule.length) {
+      const placeholders = vehicule.map(() => "?").join(",");
+      filters.push(`id_vehicule IN (${placeholders})`);
+      params.push(...vehicule);
+    }
+
+    // --- Filtrage destination ---
+    if (destination && destination.length) {
+      const placeholders = destination.map(() => "?").join(",");
+      filters.push(`id_localisation IN (${placeholders})`);
+      params.push(...destination);
+    }
+
+    // --- Filtrage service / demandeur ---
+    if (service && service.length) {
+      const placeholders = service.map(() => "?").join(",");
+      filters.push(`id_demandeur IN (${placeholders})`);
+      params.push(...service);
+    }
+
+    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+
+    // --- Requête principale avec KPIs et ratios X/Y ---
+    const query = `
+      SELECT
+        COUNT(*) AS total_bons,
+        COUNT(CASE WHEN statut = 4 THEN 1 END) AS bons_valides,
+        COUNT(CASE WHEN sortie_time IS NOT NULL THEN 1 END) AS departs_effectues,
+        COUNT(CASE WHEN retour_time IS NOT NULL THEN 1 END) AS retours_confirmes,
+        COUNT(CASE WHEN sortie_time > date_prevue THEN 1 END) AS departs_hors_timing,
+        COUNT(CASE WHEN retour_time > date_retour THEN 1 END) AS retours_hors_timing,
+        COUNT(CASE WHEN statut = 9 THEN 1 END) AS courses_annulees,
+        COUNT(CASE WHEN sortie_time IS NOT NULL AND retour_time IS NULL THEN 1 END) AS vehicules_hors_site
+      FROM bande_sortie
+      ${whereClause};
+    `;
+
+    db.query(query, params, (err, results) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+      }
+
+      const r = results[0];
+
+      // --- Construction finale des ratios pour le dashboard ---
+      const response = {
+        bons_valides: `${r.bons_valides} / ${r.total_bons}`,
+        departs_effectues: `${r.departs_effectues} / ${r.total_bons}`,
+        retours_confirmes: `${r.retours_confirmes} / ${r.total_bons}`,
+        departs_hors_timing: r.departs_effectues
+          ? `${r.departs_hors_timing} / ${r.departs_effectues}`
+          : `0 / 0`,
+        retours_hors_timing: r.retours_confirmes
+          ? `${r.retours_hors_timing} / ${r.retours_confirmes}`
+          : `0 / 0`,
+        courses_annulees: `${r.courses_annulees} / ${r.total_bons}`,
+        vehicules_hors_site: r.vehicules_hors_site
+      };
+
+      res.json(response);
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+  }
+};

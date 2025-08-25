@@ -538,7 +538,7 @@ exports.putCatTache = async (req, res) => {
         console.error("Error updating corps:", err);
         return res.status(500).json({ error: 'Failed to update Tache record' });
     }
-}
+};
 
 exports.typeStockageBins = (req, res) => {
 

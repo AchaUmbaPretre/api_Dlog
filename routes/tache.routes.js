@@ -54,9 +54,9 @@ router.post('/tache_doc_excel', upload.array('chemin_document', 10), tacheContro
 router.delete('/tache_personne', tacheController.deleteTachePersonne)
 router.put('/tache_doc', upload.single('chemin_document'),tacheController.putTacheDoc);
 
-//Tag
+/* //Tag
 router.post('/post_tag', tacheController.postTag)
-
+ */
 //Search
 router.get('/get_search', tacheController.getSearch)
 

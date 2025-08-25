@@ -27,8 +27,8 @@ router.get('/one_offre', offreController.getOffreArticleOne)
 router.get('/offre_article', offreController.getOffreArticle)
 router.post('/article', offreController.postOffresArticle)
 router.post('/articles', offreController.postArticle)
-router.post('/article_excel', upload.array('chemin_document', 10), offreController.postArticleExcel);
-router.post('/doc', upload.single('chemin_document'), offreController.postOffresDoc);
+/* router.post('/article_excel', upload.array('chemin_document', 10), offreController.postArticleExcel);
+ */router.post('/doc', upload.single('chemin_document'), offreController.postOffresDoc);
 router.post('/', offreController.postOffres)
 router.put('/est_supprime', offreController.deleteUpdatedOffres)
 router.put('/est_supprime_article', offreController.deleteUpdatedArticle)
