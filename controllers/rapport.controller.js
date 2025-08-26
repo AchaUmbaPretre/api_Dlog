@@ -1,6 +1,8 @@
 const { db } = require("./../config/database");
 const util = require("util");
 const query = util.promisify(db.query).bind(db);
+const moment = require("moment");
+
 
 exports.getRapport = (req, res) => {
     const { id_client } = req.query;
@@ -962,82 +964,111 @@ exports.getRapportKpi = async (req, res) => {
 //Rapport mouvement véhicule
 exports.getMouvementVehicule = async (req, res) => {
   try {
-    const { service, destination, vehicule, dateRange } = req.query;
+    const { service, destination, vehicule, dateRange, dateFilter = 'today', userId } = req.query;
+
+    if (!userId) return res.status(400).json({ error: "userId est requis" });
 
     const filters = [];
     const params = [];
 
-    // --- Filtrage période ---
-    if (dateRange && Array.isArray(dateRange) && dateRange.length === 2) {
-      filters.push("DATE(created_at) BETWEEN ? AND ?");
-      params.push(dateRange[0], dateRange[1]);
+    // --- Gestion période ---
+    let startDate, endDate;
+    if (dateRange?.length === 2) {
+      [startDate, endDate] = dateRange;
+    } else {
+      switch (dateFilter) {
+        case 'today':
+          startDate = endDate = moment().format('YYYY-MM-DD'); break;
+        case 'yesterday':
+          startDate = endDate = moment().subtract(1, 'days').format('YYYY-MM-DD'); break;
+        case 'last7days':
+          startDate = moment().subtract(6, 'days').format('YYYY-MM-DD');
+          endDate = moment().format('YYYY-MM-DD'); break;
+        case 'last30days':
+          startDate = moment().subtract(29, 'days').format('YYYY-MM-DD');
+          endDate = moment().format('YYYY-MM-DD'); break;
+        case 'last1year':
+          startDate = moment().subtract(1, 'year').format('YYYY-MM-DD');
+          endDate = moment().format('YYYY-MM-DD'); break;
+        case 'year':
+          startDate = moment().startOf('year').format('YYYY-MM-DD');
+          endDate = moment().endOf('year').format('YYYY-MM-DD'); break;
+      }
     }
 
-    // --- Filtrage véhicule ---
-    if (vehicule && vehicule.length) {
-      const placeholders = vehicule.map(() => "?").join(",");
-      filters.push(`id_vehicule IN (${placeholders})`);
+    if (startDate && endDate) {
+      filters.push('DATE(b.created_at) BETWEEN ? AND ?');
+      params.push(startDate, endDate);
+    }
+
+    // --- Filtrage véhicules ---
+    if (vehicule?.length) {
+      filters.push(`b.id_vehicule IN (${vehicule.map(() => '?').join(',')})`);
       params.push(...vehicule);
     }
 
-    // --- Filtrage destination ---
-    if (destination && destination.length) {
-      const placeholders = destination.map(() => "?").join(",");
-      filters.push(`id_localisation IN (${placeholders})`);
+    // --- Filtrage destinations ---
+    if (destination?.length) {
+      filters.push(`b.id_localisation IN (${destination.map(() => '?').join(',')})`);
       params.push(...destination);
     }
 
-    // --- Filtrage service / demandeur ---
-    if (service && service.length) {
-      const placeholders = service.map(() => "?").join(",");
-      filters.push(`id_demandeur IN (${placeholders})`);
+    // --- Filtrage services / demandeurs ---
+    if (service?.length) {
+      filters.push(`b.id_demandeur IN (${service.map(() => '?').join(',')})`);
       params.push(...service);
     }
 
-    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+    const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
 
-    // --- Requête principale avec KPIs et ratios X/Y ---
+    // --- Requête principale ---
     const query = `
       SELECT
         COUNT(*) AS total_bons,
-        COUNT(CASE WHEN statut = 4 THEN 1 END) AS bons_valides,
-        COUNT(CASE WHEN sortie_time IS NOT NULL THEN 1 END) AS departs_effectues,
-        COUNT(CASE WHEN retour_time IS NOT NULL THEN 1 END) AS retours_confirmes,
-        COUNT(CASE WHEN sortie_time > date_prevue THEN 1 END) AS departs_hors_timing,
-        COUNT(CASE WHEN retour_time > date_retour THEN 1 END) AS retours_hors_timing,
-        COUNT(CASE WHEN statut = 9 THEN 1 END) AS courses_annulees,
-        COUNT(CASE WHEN sortie_time IS NOT NULL AND retour_time IS NULL THEN 1 END) AS vehicules_hors_site
-      FROM bande_sortie
+        COUNT(CASE WHEN b.statut = 4 THEN 1 END) AS bons_valides,
+        COUNT(CASE WHEN vd.id_validation_demande IS NULL THEN 1 END) AS bons_en_attente,
+        COUNT(CASE WHEN b.sortie_time IS NOT NULL THEN 1 END) AS departs_effectues,
+        COUNT(CASE WHEN b.retour_time IS NOT NULL THEN 1 END) AS retours_confirmes,
+        COUNT(CASE WHEN b.sortie_time > b.date_prevue THEN 1 END) AS departs_hors_timing,
+        COUNT(CASE WHEN b.retour_time > b.date_retour THEN 1 END) AS retours_hors_timing,
+        COUNT(CASE WHEN b.statut = 9 THEN 1 END) AS courses_annulees,
+        COUNT(CASE WHEN b.sortie_time IS NOT NULL 
+                   AND b.retour_time IS NULL 
+                   AND b.statut != 9 
+                   AND v.est_supprime = 0 THEN 1 END) AS vehicules_hors_site,
+        (SELECT COUNT(*) FROM vehicules v2 WHERE v2.est_supprime = 0 AND v2.IsDispo = 1) AS vehicules_disponibles
+      FROM bande_sortie b
+      LEFT JOIN vehicules v ON v.id_vehicule = b.id_vehicule
+      LEFT JOIN validation_demande vd ON vd.id_bande_sortie = b.id_bande_sortie AND vd.validateur_id = ?
       ${whereClause};
     `;
 
-    db.query(query, params, (err, results) => {
+    // On met userId en premier paramètre pour le LEFT JOIN
+    const queryParams = [userId, ...params];
+
+    db.query(query, queryParams, (err, results) => {
       if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+        console.error('Erreur SQL:', err);
+        return res.status(500).json({ error: 'Erreur serveur lors de la récupération des données.' });
       }
 
       const r = results[0];
 
-      // --- Construction finale des ratios pour le dashboard ---
-      const response = {
+      res.json({
         bons_valides: `${r.bons_valides} / ${r.total_bons}`,
+        bons_en_attente: r.bons_en_attente,
         departs_effectues: `${r.departs_effectues} / ${r.total_bons}`,
         retours_confirmes: `${r.retours_confirmes} / ${r.total_bons}`,
-        departs_hors_timing: r.departs_effectues
-          ? `${r.departs_hors_timing} / ${r.departs_effectues}`
-          : `0 / 0`,
-        retours_hors_timing: r.retours_confirmes
-          ? `${r.retours_hors_timing} / ${r.retours_confirmes}`
-          : `0 / 0`,
+        departs_hors_timing: r.departs_effectues ? `${r.departs_hors_timing} / ${r.departs_effectues}` : '0 / 0',
+        retours_hors_timing: r.retours_confirmes ? `${r.retours_hors_timing} / ${r.retours_confirmes}` : '0 / 0',
         courses_annulees: `${r.courses_annulees} / ${r.total_bons}`,
-        vehicules_hors_site: r.vehicules_hors_site
-      };
-
-      res.json(response);
+        vehicules_hors_site: r.vehicules_hors_site,
+        vehicules_disponibles: r.vehicules_disponibles,
+      });
     });
+
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+    console.error('Erreur serveur:', error);
+    res.status(500).json({ error: 'Erreur serveur lors de la récupération des données.' });
   }
 };
