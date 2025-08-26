@@ -1071,3 +1071,59 @@ exports.getMouvementVehicule = async (req, res) => {
     res.status(500).json({ error: 'Erreur serveur lors de la récupération des données.' });
   }
 };
+
+//RAPPORT INSPECTION & REPARATION
+exports.getRapportInspectionReparation = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        -- Nombre total de réparations
+        (SELECT COUNT(*) FROM reparations WHERE est_supprime = 0) AS total_reparations,
+        
+        -- Nombre total de sous-réparations (inspections détaillées)
+        (SELECT COUNT(*) FROM sud_reparation WHERE est_supprime = 0) AS total_sous_reparations,
+        
+        -- Nombre de véhicules inspectés
+        (SELECT COUNT(DISTINCT id_vehicule) FROM reparations WHERE est_supprime = 0) AS vehicules_inspectes,
+        
+        -- Taux de couverture du parc (si vous avez une table vehicules)
+        ROUND(
+          (SELECT COUNT(DISTINCT id_vehicule) FROM reparations WHERE est_supprime = 0) 
+          / (SELECT COUNT(*) FROM vehicules) * 100, 2
+        ) AS taux_couverture_parc
+    `;
+
+    db.query(query, async (err, results) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Erreur lors de la récupération du rapport" });
+      }
+
+      // Deux autres requêtes pour les répartitions
+      const repartitionTypePanneQuery = `
+        SELECT sub.id_type_reparation,  COUNT(*) as total, tr.type_rep
+        FROM sud_reparation sub
+        JOIN type_reparations tr ON tr.id_type_reparation = sub.id_type_reparation
+        WHERE est_supprime = 0
+        GROUP BY id_type_reparation
+      `;
+
+      db.query(repartitionTypePanneQuery, (err2, panneResults) => {
+        if (err2) {
+          console.error(err2);
+          return res.status(500).json({ error: "Erreur lors de la répartition par type de panne" });
+          
+        }
+
+          res.json({
+            ...results[0],
+            repartition_type_panne: panneResults,
+          });
+
+      });
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+};

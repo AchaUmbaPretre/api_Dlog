@@ -46,4 +46,8 @@ router.get('/rapport_indicateurs_log', rapportController.getRapportKpi)
 //Mouvement véhicule
 router.get('/mouvement_vehicule', rapportController.getMouvementVehicule)
 
+//Rapport inspection & réparation
+router.get('/inspection_rapport_rep', rapportController.getRapportInspectionReparation)
+
+
 module.exports = router;
