@@ -1043,7 +1043,6 @@ exports.getMouvementVehicule = async (req, res) => {
       ${whereClause};
     `;
 
-    // On met userId en premier paramètre pour le LEFT JOIN
     const queryParams = [userId, ...params];
 
     db.query(query, queryParams, (err, results) => {
