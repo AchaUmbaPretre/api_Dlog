@@ -681,7 +681,7 @@ exports.getRapportBonGlobal = (req, res) => {
 
 exports.getRapportPerformanceBon = async (req, res) => {
   try {
-    const { service, destination, vehicule, dateRange } = req.query;
+    const { service, destination, type, vehicule, dateRange } = req.query;
 
     const whereConditions = ['bs.est_supprime = 0'];
     const params = [];
@@ -696,6 +696,12 @@ exports.getRapportPerformanceBon = async (req, res) => {
     if (vehicule && vehicule.length > 0) {
       whereConditions.push(`bs.id_vehicule IN (${vehicule.map(() => '?').join(',')})`);
       params.push(...vehicule);
+    }
+
+    // Filtrage par type
+    if (type && type.length > 0) {
+      whereConditions.push(`cv.id_cat_vehicule IN (${type.map(() => '?').join(',')})`);
+      params.push(...type);
     }
 
     // Filtrage par destination
@@ -737,6 +743,9 @@ exports.getRapportPerformanceBon = async (req, res) => {
         COUNT(bs.id_bande_sortie) AS total_sorties
       FROM bande_sortie bs
       JOIN chauffeurs c ON c.id_chauffeur = bs.id_chauffeur
+      JOIN vehicules v ON v.id_vehicule = bs.id_vehicule
+      JOIN marque m ON m.id_marque = v.id_marque
+      JOIN cat_vehicule cv ON cv.id_cat_vehicule = v.id_cat_vehicule
       ${whereClause}
       GROUP BY c.id_chauffeur, c.nom
     `;
@@ -753,6 +762,9 @@ exports.getRapportPerformanceBon = async (req, res) => {
         ROUND(SUM(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)) / 1440, 2) AS duree_totale_jours
       FROM bande_sortie bs
       JOIN destination d ON d.id_destination = bs.id_destination
+      JOIN vehicules v ON v.id_vehicule = bs.id_vehicule
+      JOIN marque m ON m.id_marque = v.id_marque
+      JOIN cat_vehicule cv ON cv.id_cat_vehicule = v.id_cat_vehicule
       ${whereClause} AND bs.sortie_time IS NOT NULL AND bs.retour_time IS NOT NULL
       GROUP BY bs.id_destination, d.nom_destination
       ORDER BY duree_moyenne_minutes DESC
@@ -763,6 +775,9 @@ exports.getRapportPerformanceBon = async (req, res) => {
       SELECT 
         IFNULL(SUM(CASE WHEN retour_time <= date_retour THEN 1 ELSE 0 END) / COUNT(*) * 100, 0) AS taux_retour_delais
       FROM bande_sortie bs
+      JOIN vehicules v ON v.id_vehicule = bs.id_vehicule
+      JOIN marque m ON m.id_marque = v.id_marque
+      JOIN cat_vehicule cv ON cv.id_cat_vehicule = v.id_cat_vehicule
       ${whereClause} AND bs.retour_time IS NOT NULL AND bs.date_retour IS NOT NULL
     `;
 
@@ -770,6 +785,9 @@ exports.getRapportPerformanceBon = async (req, res) => {
     const q5 = `
       SELECT bs.id_vehicule
       FROM bande_sortie bs
+      JOIN vehicules v ON v.id_vehicule = bs.id_vehicule
+      JOIN marque m ON m.id_marque = v.id_marque
+      JOIN cat_vehicule cv ON cv.id_cat_vehicule = v.id_cat_vehicule
       ${whereClause} AND bs.statut = 5
     `;
 
@@ -841,7 +859,7 @@ exports.getStatutsPrincipaux = (req, res) => {
 
 exports.getRapportKpi = async (req, res) => {
   try {
-    const { service, destination, vehicule, dateRange } = req.query;
+    const { service, destination, type, vehicule, dateRange } = req.query;
 
     const whereConditions = ['bs.est_supprime = 0'];
     const params = [];
@@ -849,7 +867,13 @@ exports.getRapportKpi = async (req, res) => {
     // Filtrage par dates
     if (dateRange && Array.isArray(dateRange) && dateRange.length === 2) {
       whereConditions.push('DATE(bs.sortie_time) BETWEEN ? AND ?');
-      params.push(new Date(dateRange[0]), new Date(dateRange[1]));
+      params.push(dateRange[0], dateRange[1]);
+    }
+
+    // Filtrage par type
+    if (type && type.length > 0) {
+      whereConditions.push(`cv.id_cat_vehicule IN (${type.map(() => '?').join(',')})`);
+      params.push(...type);
     }
 
     // Filtrage par véhicule
@@ -870,7 +894,6 @@ exports.getRapportKpi = async (req, res) => {
       params.push(...service);
     }
 
-    // Préparer la clause WHERE
     const whereClause = whereConditions.length ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     // 1. Destinations les plus fréquentes (top 5) et le temps moyen
@@ -882,6 +905,9 @@ exports.getRapportKpi = async (req, res) => {
         ROUND(AVG(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)) / 60, 2) AS duree_moyenne_heures
       FROM bande_sortie bs
       JOIN destination d ON d.id_destination = bs.id_destination
+      JOIN vehicules v ON v.id_vehicule = bs.id_vehicule
+      JOIN marque m ON m.id_marque = v.id_marque
+      JOIN cat_vehicule cv ON cv.id_cat_vehicule = v.id_cat_vehicule
       ${whereClause}
       GROUP BY d.nom_destination
       ORDER BY nb_courses DESC
@@ -894,6 +920,9 @@ exports.getRapportKpi = async (req, res) => {
              ROUND(AVG(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)),2) AS temps_moyen_minutes
       FROM bande_sortie bs
       JOIN destination d ON d.id_destination = bs.id_destination
+      JOIN vehicules v ON v.id_vehicule = bs.id_vehicule
+      JOIN marque m ON m.id_marque = v.id_marque
+      JOIN cat_vehicule cv ON cv.id_cat_vehicule = v.id_cat_vehicule
       ${whereClause} AND bs.retour_time IS NOT NULL
       GROUP BY d.nom_destination
     `;
@@ -905,32 +934,65 @@ exports.getRapportKpi = async (req, res) => {
              ROUND(AVG(TIMESTAMPDIFF(MINUTE, bs.sortie_time, bs.retour_time)),2) AS temps_moyen_minutes
       FROM bande_sortie bs
       JOIN service_demandeur s ON s.id_service_demandeur = bs.id_demandeur
+      JOIN vehicules v ON v.id_vehicule = bs.id_vehicule
+      JOIN marque m ON m.id_marque = v.id_marque
+      JOIN cat_vehicule cv ON cv.id_cat_vehicule = v.id_cat_vehicule
       ${whereClause}
       GROUP BY s.nom_service
+      ORDER BY nb_courses DESC
     `;
 
     // 4. Nombre d'OT associés
     const nbOtQuery = `
       SELECT COUNT(DISTINCT bs.id_bande_sortie) AS nb_ot
       FROM bande_sortie bs
+      JOIN vehicules v ON v.id_vehicule = bs.id_vehicule
+      JOIN marque m ON m.id_marque = v.id_marque
+      JOIN cat_vehicule cv ON cv.id_cat_vehicule = v.id_cat_vehicule
       ${whereClause}
     `;
 
-    // 5. Taux d’utilisation du parc véhicules
-    let tauxVehiculesParams = [];
-    let tauxVehiculesWhere = '';
+    // 5. Taux d’utilisation du parc véhicules avec filtres
+    const tauxVehiculesWhereConditions = ['bs.est_supprime = 0'];
+    const tauxVehiculesParams = [];
+
     if (dateRange && dateRange.length === 2) {
-      tauxVehiculesWhere = 'WHERE DATE(bs.sortie_time) BETWEEN ? AND ?';
-      tauxVehiculesParams.push(new Date(dateRange[0]), new Date(dateRange[1]));
+      tauxVehiculesWhereConditions.push('DATE(bs.sortie_time) BETWEEN ? AND ?');
+      tauxVehiculesParams.push(dateRange[0], dateRange[1]);
     }
+    if (type && type.length > 0) {
+      tauxVehiculesWhereConditions.push(`cv.id_cat_vehicule IN (${type.map(() => '?').join(',')})`);
+      tauxVehiculesParams.push(...type);
+    }
+    if (vehicule && vehicule.length > 0) {
+      tauxVehiculesWhereConditions.push(`bs.id_vehicule IN (${vehicule.map(() => '?').join(',')})`);
+      tauxVehiculesParams.push(...vehicule);
+    }
+    if (destination && destination.length > 0) {
+      tauxVehiculesWhereConditions.push(`bs.id_destination IN (${destination.map(() => '?').join(',')})`);
+      tauxVehiculesParams.push(...destination);
+    }
+    if (service && service.length > 0) {
+      tauxVehiculesWhereConditions.push(`bs.id_demandeur IN (${service.map(() => '?').join(',')})`);
+      tauxVehiculesParams.push(...service);
+    }
+
+    const tauxVehiculesWhereClause = tauxVehiculesWhereConditions.length
+      ? `WHERE ${tauxVehiculesWhereConditions.join(' AND ')}`
+      : '';
 
     const tauxVehiculesQuery = `
       SELECT 
-        (SELECT COUNT(DISTINCT id_vehicule) FROM bande_sortie bs ${tauxVehiculesWhere}) /
+        (SELECT COUNT(DISTINCT bs.id_vehicule)
+         FROM bande_sortie bs
+         JOIN vehicules v ON v.id_vehicule = bs.id_vehicule
+         JOIN marque m ON m.id_marque = v.id_marque
+         JOIN cat_vehicule cv ON cv.id_cat_vehicule = v.id_cat_vehicule
+         ${tauxVehiculesWhereClause}) /
         (SELECT COUNT(*) FROM vehicules WHERE IsDispo = 1) * 100 AS taux_utilisation
     `;
 
-    // Exécution parallèle avec promisified query
+    // Exécution parallèle
     const [
       topDestinations,
       tempsMoyen,
@@ -945,15 +1007,13 @@ exports.getRapportKpi = async (req, res) => {
       query(tauxVehiculesQuery, tauxVehiculesParams)
     ]);
 
-    const result = {
+    res.status(200).json({
       top_destinations: topDestinations || [],
       temps_moyen_par_destination: tempsMoyen || [],
       volume_courses_par_service: volumeService || [],
       nb_ot: nbOtResult[0]?.nb_ot || 0,
       taux_utilisation_parc: parseFloat(tauxVehiculesResult[0]?.taux_utilisation?.toFixed(2) || 0)
-    };
-
-    res.status(200).json(result);
+    });
 
   } catch (error) {
     console.error(error);
@@ -964,18 +1024,22 @@ exports.getRapportKpi = async (req, res) => {
 //Rapport mouvement véhicule
 exports.getMouvementVehicule = async (req, res) => {
   try {
-    const { service, destination, vehicule, dateRange, dateFilter = 'today', userId } = req.query;
+    const { service, destination, vehicule, type, dateRange, dateFilter = 'today', userId } = req.query;
 
     if (!userId) return res.status(400).json({ error: "userId est requis" });
 
     const filters = [];
     const params = [];
 
+
     // --- Gestion période ---
     let startDate, endDate;
     if (dateRange?.length === 2) {
-      [startDate, endDate] = dateRange;
-    } else {
+      startDate = moment(new Date(dateRange[0])).format('YYYY-MM-DD');
+      endDate   = moment(new Date(dateRange[1])).format('YYYY-MM-DD');
+
+    }
+    else {
       switch (dateFilter) {
         case 'today':
           startDate = endDate = moment().format('YYYY-MM-DD'); break;
@@ -1005,6 +1069,11 @@ exports.getMouvementVehicule = async (req, res) => {
     if (vehicule?.length) {
       filters.push(`b.id_vehicule IN (${vehicule.map(() => '?').join(',')})`);
       params.push(...vehicule);
+    }
+
+    if (type?.length) {
+      filters.push(`cv.id_cat_vehicule IN (${type.map(() => '?').join(',')})`);
+      params.push(...type)
     }
 
     // --- Filtrage destinations ---
@@ -1039,6 +1108,8 @@ exports.getMouvementVehicule = async (req, res) => {
         (SELECT COUNT(*) FROM vehicules v2 WHERE v2.est_supprime = 0 AND v2.IsDispo = 1) AS vehicules_disponibles
       FROM bande_sortie b
       LEFT JOIN vehicules v ON v.id_vehicule = b.id_vehicule
+      LEFT JOIN marque m ON m.id_marque = v.id_marque
+      LEFT JOIN cat_vehicule cv ON cv.id_cat_vehicule = v.id_cat_vehicule
       LEFT JOIN validation_demande vd ON vd.id_bande_sortie = b.id_bande_sortie AND vd.validateur_id = ?
       ${whereClause};
     `;
