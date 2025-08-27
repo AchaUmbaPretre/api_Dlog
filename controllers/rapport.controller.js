@@ -1076,19 +1076,19 @@ exports.getMouvementVehicule = async (req, res) => {
 exports.getRapportInspectionReparation = async (req, res) => {
   try {
     const query = `
-      SELECT 
-        -- Nombre total de réparations
-        (SELECT COUNT(*) FROM reparations WHERE est_supprime = 0) AS total_reparations,
+              SELECT 
+        -- Nombre total de sub reparation
+        (SELECT COUNT(*) FROM sud_reparation WHERE est_supprime = 0) AS total_rep,
         
-        -- Nombre total de sous-réparations (inspections détaillées)
-        (SELECT COUNT(*) FROM sud_reparation WHERE est_supprime = 0) AS total_sous_reparations,
+        -- Nombre total de sous-inspectio (inspections détaillées)
+        (SELECT COUNT(*) FROM sub_inspection_gen WHERE est_supprime = 0) AS total_sous_insp,
         
         -- Nombre de véhicules inspectés
-        (SELECT COUNT(DISTINCT id_vehicule) FROM reparations WHERE est_supprime = 0) AS vehicules_inspectes,
+        (SELECT COUNT(DISTINCT id_vehicule) FROM inspection_gen WHERE est_supprime = 0) AS vehicules_inspectes,
         
         -- Taux de couverture du parc (si vous avez une table vehicules)
         ROUND(
-          (SELECT COUNT(DISTINCT id_vehicule) FROM reparations WHERE est_supprime = 0) 
+          (SELECT COUNT(DISTINCT id_vehicule) FROM inspection_gen WHERE est_supprime = 0) 
           / (SELECT COUNT(*) FROM vehicules) * 100, 2
         ) AS taux_couverture_parc
     `;
@@ -1101,25 +1101,24 @@ exports.getRapportInspectionReparation = async (req, res) => {
 
       // Deux autres requêtes pour les répartitions
       const repartitionTypePanneQuery = `
-        SELECT sub.id_type_reparation,  COUNT(*) as total, tr.type_rep
-        FROM sud_reparation sub
+        SELECT sub.id_type_reparation, COUNT(*) as total, tr.type_rep
+        FROM sub_inspection_gen sub
         JOIN type_reparations tr ON tr.id_type_reparation = sub.id_type_reparation
         WHERE est_supprime = 0
         GROUP BY id_type_reparation
+        ORDER BY total DESC
       `;
 
       db.query(repartitionTypePanneQuery, (err2, panneResults) => {
         if (err2) {
           console.error(err2);
           return res.status(500).json({ error: "Erreur lors de la répartition par type de panne" });
-          
         }
 
           res.json({
             ...results[0],
             repartition_type_panne: panneResults,
           });
-
       });
     });
   } catch (err) {
