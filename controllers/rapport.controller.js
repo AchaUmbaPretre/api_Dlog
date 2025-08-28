@@ -1197,3 +1197,109 @@ exports.getRapportInspectionReparation = async (req, res) => {
     res.status(500).json({ error: "Erreur serveur" });
   }
 };
+
+//Coûts de maintenance (capex/opex)
+exports.getRapportInspectionCout = async (req, res) => {
+  try {
+    // Coût total des réparations
+    const coutTotalQuery = `
+      SELECT SUM(iv.cout) AS cout_total_usd
+      FROM inspection_valide iv
+      JOIN sub_inspection_gen sg 
+        ON sg.id_sub_inspection_gen = iv.id_sub_inspection_gen
+      WHERE sg.est_supprime = 0;
+    `;
+
+    // Coût par type de véhicule
+    const coutParTypeVehiculeQuery = `
+        SELECT 
+          v.id_cat_vehicule,
+          cv.nom_cat,
+          SUM(iv.cout) AS cout_total
+      FROM inspection_valide iv
+      JOIN sub_inspection_gen sg ON sg.id_sub_inspection_gen = iv.id_sub_inspection_gen
+      JOIN inspection_gen ig ON sg.id_inspection_gen = ig.id_inspection_gen
+      JOIN vehicules v ON v.id_vehicule = ig.id_vehicule
+      JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+      WHERE sg.est_supprime = 0
+      GROUP BY v.id_cat_vehicule
+      ORDER BY cout_total DESC;
+            `;
+
+    // Coût par type de panne
+    const coutParTypePanneQuery = `
+      SELECT sg.id_type_reparation, tr.type_rep,
+        SUM(iv.cout) AS cout_total
+      FROM inspection_valide iv
+      JOIN sub_inspection_gen sg ON sg.id_sub_inspection_gen = iv.id_sub_inspection_gen
+      JOIN type_reparations tr ON sg.id_type_reparation = tr.id_type_reparation
+      WHERE sg.est_supprime = 0
+      GROUP BY sg.id_type_reparation
+      ORDER BY cout_total DESC;
+    `;
+
+    //Top 10 véhicules par coût cumulé
+    const topVehiculesQuery = `
+      SELECT v.id_vehicule, v.immatriculation,
+             SUM(iv.cout) AS cout_cumule
+      FROM inspection_valide iv
+      JOIN sub_inspection_gen sg ON sg.id_sub_inspection_gen = iv.id_sub_inspection_gen
+      JOIN inspection_gen ig ON sg.id_inspection_gen = ig.id_inspection_gen
+      JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
+      WHERE sg.est_supprime = 0
+      GROUP BY v.id_vehicule
+      ORDER BY cout_cumule DESC
+      LIMIT 10;
+    `;
+
+    //Coût moyen par intervention
+    const coutMoyenQuery = `
+      SELECT ROUND(SUM(iv.cout) / COUNT(iv.id_inspection_valide), 2) AS cout_moyen_par_intervention
+      FROM inspection_valide iv
+      JOIN sub_inspection_gen sg ON sg.id_sub_inspection_gen = iv.id_sub_inspection_gen
+      WHERE sg.est_supprime = 0;
+    `;
+
+    // Répartition pièces vs main-d’œuvre
+    const repartitionQuery = `
+     SELECT 
+        ROUND(SUM(sg.id_cat_inspection) / SUM(sg.id_cat_inspection + iv.manoeuvre) * 100, 2) AS pct_pieces,
+        ROUND(SUM(iv.manoeuvre) / SUM(sg.id_cat_inspection + iv.manoeuvre) * 100, 2) AS pct_manoeuvre
+      FROM inspection_valide iv
+      JOIN sub_inspection_gen sg ON sg.id_sub_inspection_gen = iv.id_sub_inspection_gen
+      WHERE sg.est_supprime = 0;
+    `;
+
+    // Exécution parallèle des requêtes
+    const [
+      coutTotalResult,
+      coutParTypeVehicule,
+      coutParTypePanne,
+      topVehicules,
+      coutMoyenResult,
+      repartitionResult
+    ] = await Promise.all([
+      query(coutTotalQuery),
+      query(coutParTypeVehiculeQuery),
+      query(coutParTypePanneQuery),
+      query(topVehiculesQuery),
+      query(coutMoyenQuery),
+      query(repartitionQuery)
+    ]);
+
+    const result = {
+      cout_total_usd: parseFloat(coutTotalResult[0]?.cout_total_usd || 0),
+      cout_par_type_vehicule: coutParTypeVehicule || [],
+      cout_par_type_panne: coutParTypePanne || [],
+      top_10_vehicules_cout: topVehicules || [],
+      cout_moyen_par_intervention: parseFloat(coutMoyenResult[0]?.cout_moyen_par_intervention || 0),
+      repartition_pieces_manoeuvre: repartitionResult[0] || { pct_pieces: 0, pct_manoeuvre: 0 }
+    };
+
+    res.status(200).json(result);
+
+  } catch (error) {
+    console.error('Erreur serveur:', error);
+    res.status(500).json({ error: 'Erreur serveur lors de la récupération des données.' });
+  }
+};

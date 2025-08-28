@@ -49,5 +49,7 @@ router.get('/mouvement_vehicule', rapportController.getMouvementVehicule)
 //Rapport inspection & réparation
 router.get('/inspection_rapport_rep', rapportController.getRapportInspectionReparation)
 
+//Rapport cout de maintanance
+router.get('/inspection_rapport_cout', rapportController.getRapportInspectionCout)
 
 module.exports = router;
