@@ -1229,7 +1229,8 @@ exports.getRapportInspectionCout = async (req, res) => {
     // Coût par type de panne
     const coutParTypePanneQuery = `
       SELECT sg.id_type_reparation, tr.type_rep,
-        SUM(iv.cout) AS cout_total
+        SUM(iv.cout) AS cout_total,
+        COUNT(*) AS nb_interventions
       FROM inspection_valide iv
       JOIN sub_inspection_gen sg ON sg.id_sub_inspection_gen = iv.id_sub_inspection_gen
       JOIN type_reparations tr ON sg.id_type_reparation = tr.id_type_reparation
@@ -1240,12 +1241,14 @@ exports.getRapportInspectionCout = async (req, res) => {
 
     //Top 10 véhicules par coût cumulé
     const topVehiculesQuery = `
-      SELECT v.id_vehicule, v.immatriculation,
-             SUM(iv.cout) AS cout_cumule
+            SELECT v.id_vehicule, v.immatriculation, m.nom_marque,
+             SUM(iv.cout) AS cout_cumule,
+             COUNT(*) AS nb_interventions
       FROM inspection_valide iv
       JOIN sub_inspection_gen sg ON sg.id_sub_inspection_gen = iv.id_sub_inspection_gen
       JOIN inspection_gen ig ON sg.id_inspection_gen = ig.id_inspection_gen
       JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
+      JOIN marque m ON v.id_marque = m.id_marque
       WHERE sg.est_supprime = 0
       GROUP BY v.id_vehicule
       ORDER BY cout_cumule DESC
@@ -1262,12 +1265,12 @@ exports.getRapportInspectionCout = async (req, res) => {
 
     // Répartition pièces vs main-d’œuvre
     const repartitionQuery = `
-     SELECT 
-        ROUND(SUM(sg.id_cat_inspection) / SUM(sg.id_cat_inspection + iv.manoeuvre) * 100, 2) AS pct_pieces,
-        ROUND(SUM(iv.manoeuvre) / SUM(sg.id_cat_inspection + iv.manoeuvre) * 100, 2) AS pct_manoeuvre
-      FROM inspection_valide iv
-      JOIN sub_inspection_gen sg ON sg.id_sub_inspection_gen = iv.id_sub_inspection_gen
-      WHERE sg.est_supprime = 0;
+    SELECT 
+        ROUND(SUM(iv.cout) / SUM(iv.cout + iv.manoeuvre) * 100, 2) AS pct_pieces,
+        ROUND(SUM(iv.manoeuvre) / SUM(iv.cout + iv.manoeuvre) * 100, 2) AS pct_manoeuvre
+    FROM inspection_valide iv
+    JOIN sub_inspection_gen sg ON sg.id_sub_inspection_gen = iv.id_sub_inspection_gen
+    WHERE sg.est_supprime = 0;
     `;
 
     // Exécution parallèle des requêtes
