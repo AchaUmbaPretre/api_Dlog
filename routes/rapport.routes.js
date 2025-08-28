@@ -52,4 +52,7 @@ router.get('/inspection_rapport_rep', rapportController.getRapportInspectionRepa
 //Rapport cout de maintanance
 router.get('/inspection_rapport_cout', rapportController.getRapportInspectionCout)
 
+//Performance maintenance (délais & disponibilité)
+router.get('/performance_glo_delais', rapportController.getRapportPerformanceDelais)
+
 module.exports = router;

@@ -1306,3 +1306,91 @@ exports.getRapportInspectionCout = async (req, res) => {
     res.status(500).json({ error: 'Erreur serveur lors de la récupération des données.' });
   }
 };
+
+//Performance maintenance (délais & disponibilité)
+exports.getRapportPerformanceDelais = async (req, res) => {
+  try {
+    // MTTR par véhicule
+    const mttrVehiculeQuery = `
+      SELECT 
+        r.id_vehicule, v.immatriculation, m.nom_marque,
+        AVG(DATEDIFF(sr.date_sortie, sr.created_at)) AS MTTR_jours
+      FROM sud_reparation sr
+      JOIN reparations r ON r.id_reparation = sr.id_reparation
+      JOIN vehicules v ON v.id_vehicule = r.id_vehicule
+      JOIN marque m ON v.id_marque = m.id_marque
+      WHERE sr.created_at IS NOT NULL AND sr.est_supprime = 0
+      GROUP BY r.id_vehicule
+    `;
+
+    // Downtime total
+    const downtimeQuery = `
+     SELECT SUM(TIMESTAMPDIFF(HOUR, sr.created_at, sr.date_sortie)) AS downtime_total_heures
+      FROM sud_reparation sr
+      WHERE sr.date_reparation IS NOT NULL AND sr.est_supprime = 0
+    `;
+
+    // Respect des SLA
+    const slaQuery = `
+      SELECT 
+        100 * SUM(CASE WHEN sr.date_sortie <= r.date_prevu THEN 1 ELSE 0 END) / COUNT(*) AS respect_sla_pct
+      FROM sud_reparation sr
+      JOIN reparations r ON r.id_reparation = sr.id_reparation
+      WHERE sr.date_sortie IS NOT NULL AND sr.est_supprime = 0
+    `;
+
+    //Réparations rapides < 24h
+    const rapidesQuery = `
+      SELECT 
+        100 * SUM(CASE WHEN TIMESTAMPDIFF(HOUR, sr.created_at, sr.date_sortie) < 24 THEN 1 ELSE 0 END) / COUNT(*) AS reparations_rapides_pct
+      FROM sud_reparation sr
+      WHERE sr.date_sortie IS NOT NULL AND sr.est_supprime = 0
+    `;
+
+    // Taux de réouverture ≤ 30 jours
+    const reouvertureQuery = `
+     SELECT 
+        100 * SUM(CASE WHEN DATEDIFF(sr2.created_at, sr1.date_sortie) <= 30 THEN 1 ELSE 0 END) / COUNT(*) AS taux_reouverture_pct
+      FROM sud_reparation sr1
+      JOIN sud_reparation sr2 
+        ON sr1.id_reparation = sr2.id_reparation
+        AND sr1.id_type_reparation = sr2.id_type_reparation
+        AND sr2.created_at > sr1.date_sortie
+      WHERE sr1.est_supprime = 0 AND sr2.est_supprime = 0
+    `;
+
+    // Exécution de toutes les requêtes en parallèle
+    const [
+      mttrVehicule,
+      downtimeResult,
+      slaResult,
+      rapidesResult,
+      reouvertureResult
+    ] = await Promise.all([
+      query(mttrVehiculeQuery),
+      query(downtimeQuery),
+      query(slaQuery),
+      query(rapidesQuery),
+      query(reouvertureQuery)
+    ]);
+
+    // Calcul disponibilité (%)
+/*     const debutPeriode = new Date('2025-08-01');
+    const finPeriode = new Date('2025-08-31');
+    const heuresTotales = ((finPeriode - debutPeriode) / (1000*60*60)); // heures totales dans la période
+    const downtimeTotal = downtimeResult[0].downtime_total_heures || 0;
+    const disponibilitePct = ((1 - downtimeTotal / heuresTotales) * 100).toFixed(2);
+ */
+    res.json({
+      mttrVehicule,
+      downtimeResult,
+      respectSlaPct: slaResult[0].respect_sla_pct,
+      reparationsRapidesPct: rapidesResult[0].reparations_rapides_pct,
+      tauxReouverturePct: reouvertureResult[0].taux_reouverture_pct
+    });
+
+  } catch (error) {
+    console.error('Erreur serveur:', error);
+    res.status(500).json({ error: 'Erreur serveur lors de la récupération des données.' });
+  }
+};

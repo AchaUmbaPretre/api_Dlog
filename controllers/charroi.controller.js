@@ -2866,13 +2866,15 @@ exports.postSuiviReparation = async (req, res) => {
           await connQuery(updateEvalQuery, [id_evaluation, id_sud_reparation]);
   
           // Mise à jour du statut si évaluation est "OK (R)" → id_evaluation = 1
+          const now = new Date();
           if (parseInt(id_evaluation) === 1) {
               const updateStatusQuery = `
                 UPDATE sud_reparation
-                SET id_statut = 9
+                SET id_statut = 9, 
+                date_sortie = ?
                 WHERE id_sud_reparation = ?
               `;
-              await connQuery(updateStatusQuery, [id_sud_reparation]);
+              await connQuery(updateStatusQuery, [ now ,id_sud_reparation]);
 
               const updateEtatQuery = `
                 UPDATE reparations

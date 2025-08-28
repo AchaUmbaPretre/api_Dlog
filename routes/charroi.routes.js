@@ -94,10 +94,8 @@ router.put('/reparation', charroiController.putReparation)
 router.get('/reparation_image', charroiController.getReparationImage)
 router.post('/reparation_image', upload.any(), charroiController.postReparationImage)
 
-
 //Carateristique Rep
 router.get('/carateristique_rep', charroiController.getCarateristiqueRep)
-
 
 //Inspection generale
 router.post('/inspection_gens', charroiController.getInspectionGen)
@@ -112,12 +110,9 @@ router.get('/sub_inspection_genOne', charroiController.getSubInspectionOne)
 router.put('/sub_inspection_gen', upload.any(), charroiController.putInspectionGen)
 router.post('/delete_inspection', charroiController.deleteInspectionGen)
 
-
-
 //Validation inspection
 router.get('/inspection_validation', charroiController.getValidationInspection)
 router.post('/inspection_validation', charroiController.postValidationInspection)
-
 
 //Suivi inspection
 router.get('/suivi_inspections', charroiController.getSuiviInspection)
