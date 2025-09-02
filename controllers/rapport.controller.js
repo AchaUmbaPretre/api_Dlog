@@ -1425,9 +1425,12 @@ exports.getRapportKioske = async (req, res) => {
         SELECT 
           b.id_bande_sortie,
           v.immatriculation,
-          b.id_chauffeur,
+          c.nom AS nom_chauffeur,
+          sd.nom_service,
+          d.nom_destination,
           b.date_prevue,
           b.sortie_time,
+          b.retour_time,
           CASE
               WHEN b.sortie_time IS NULL AND b.date_prevue < NOW() THEN 'Départ non effectué à temps'
               WHEN b.sortie_time > b.date_prevue THEN 'Départ en retard'
@@ -1435,12 +1438,15 @@ exports.getRapportKioske = async (req, res) => {
           END AS statut_sortie
         FROM bande_sortie b
         INNER JOIN vehicules v ON b.id_vehicule = v.id_vehicule
+        INNER JOIN chauffeurs c ON b.id_chauffeur = c.id_chauffeur
+        INNER JOIN service_demandeur sd ON b.id_demandeur = sd.id_service_demandeur
+        INNER JOIN destination d ON b.id_destination = d.id_destination
         WHERE b.est_supprime = 0
           AND (
               b.sortie_time IS NULL AND b.date_prevue < NOW()
               OR b.sortie_time > b.date_prevue
           );
-    `
+    `;
 
     const ponctualiteSql = `
             SELECT
@@ -1464,7 +1470,45 @@ exports.getRapportKioske = async (req, res) => {
 
         FROM bande_sortie b
         WHERE b.est_supprime = 0;
-        `
+      `;
+
+    const courseVehiculeSql = `
+      SELECT COUNT(id_vehicule) AS nbre_course, c.nom, c.prenom FROM bande_sortie bs 
+        INNER JOIN chauffeurs c ON bs.id_chauffeur = c.id_chauffeur
+        GROUP BY bs.id_vehicule
+        ORDER BY nbre_course DESC
+    `;
+
+    const courseServiceSql = `
+      SELECT sd.nom_service, COUNT(DISTINCT bs.id_bande_sortie) AS nbre_service FROM bande_sortie bs
+        INNER JOIN service_demandeur sd ON bs.id_demandeur = sd.id_service_demandeur
+        GROUP BY bs.id_demandeur
+        ORDER BY nbre_service DESC
+      `
+
+      //Mini-tendances
+    const miniTendanceSql = `
+              SELECT
+                -- Ponctualité Départ (% des départs effectués à l'heure)
+                ROUND(
+                    100 * SUM(CASE WHEN b.sortie_time IS NOT NULL AND b.sortie_time <= b.date_prevue THEN 1 ELSE 0 END) 
+                    / NULLIF(COUNT(b.id_bande_sortie), 0), 2
+                ) AS ponctualite_depart,
+
+                -- Ponctualité Retour (% des retours effectués à l'heure)
+                ROUND(
+                    100 * SUM(CASE WHEN b.retour_time IS NOT NULL AND b.retour_time <= b.date_retour THEN 1 ELSE 0 END) 
+                    / NULLIF(COUNT(b.id_bande_sortie), 0), 2
+                ) AS ponctualite_retour,
+
+                -- Utilisation du Parc (% des véhicules utilisés sur la période)
+                ROUND(
+                    100 * COUNT(DISTINCT CASE WHEN b.sortie_time IS NOT NULL THEN b.id_vehicule END) 
+                    / NULLIF(COUNT(DISTINCT b.id_vehicule), 0), 2
+                ) AS utilisation_parc
+            FROM bande_sortie b
+            WHERE b.est_supprime = 0;
+        `;
     
   } catch (error) {
     console.error('Erreur serveur:', error);
