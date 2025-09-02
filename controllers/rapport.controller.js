@@ -1394,3 +1394,80 @@ exports.getRapportPerformanceDelais = async (req, res) => {
     res.status(500).json({ error: 'Erreur serveur lors de la récupération des données.' });
   }
 };
+
+//KiosKi
+exports.getRapportKioske = async (req, res) => {
+  try {
+    const AnomaliesDuJour = `
+      SELECT 
+        SUM(CASE WHEN v.id_validation_demande IS NULL THEN 1 ELSE 0 END) AS nb_depart_non_valide,
+        SUM(CASE WHEN b.retour_time IS NOT NULL AND b.retour_time > b.date_retour THEN 1 ELSE 0 END) AS nb_retour_en_retard
+      FROM bande_sortie b
+      LEFT JOIN validation_demande v 
+          ON b.id_bande_sortie = v.id_bande_sortie
+      WHERE b.est_supprime = 0;
+    `;
+
+    const evenementLive = `
+      SELECT bs.id_bande_sortie, 
+        d.nom_destination, 
+        v.immatriculation, 
+        bs.sortie_time, 
+        stbs.nom_statut_bs 
+      FROM bande_sortie bs
+        INNER JOIN destination d ON bs.id_destination = d.id_destination
+        INNER JOIN vehicules v ON bs.id_vehicule = v.id_vehicule
+        INNER JOIN statut_bs stbs ON bs.statut = stbs.id_statut_bs
+      WHERE bs.sortie_time IS NOT NULL AND bs.statut = 5
+    `;
+
+    const departHorsTiming = `
+        SELECT 
+          b.id_bande_sortie,
+          v.immatriculation,
+          b.id_chauffeur,
+          b.date_prevue,
+          b.sortie_time,
+          CASE
+              WHEN b.sortie_time IS NULL AND b.date_prevue < NOW() THEN 'Départ non effectué à temps'
+              WHEN b.sortie_time > b.date_prevue THEN 'Départ en retard'
+              ELSE 'OK'
+          END AS statut_sortie
+        FROM bande_sortie b
+        INNER JOIN vehicules v ON b.id_vehicule = v.id_vehicule
+        WHERE b.est_supprime = 0
+          AND (
+              b.sortie_time IS NULL AND b.date_prevue < NOW()
+              OR b.sortie_time > b.date_prevue
+          );
+    `
+
+    const ponctualiteSql = `
+            SELECT
+            -- Ponctualité Départ
+            ROUND(
+                100 * SUM(CASE WHEN b.sortie_time IS NOT NULL AND b.sortie_time <= b.date_prevue THEN 1 ELSE 0 END) /
+                NULLIF(COUNT(b.id_bande_sortie), 0), 2
+            ) AS ponctualite_depart,
+
+            -- Ponctualité Retour
+            ROUND(
+                100 * SUM(CASE WHEN b.retour_time IS NOT NULL AND b.retour_time <= b.date_retour THEN 1 ELSE 0 END) /
+                NULLIF(COUNT(b.id_bande_sortie), 0), 2
+            ) AS ponctualite_retour,
+
+            -- Utilisation du Parc
+            ROUND(
+                100 * SUM(CASE WHEN b.sortie_time IS NOT NULL THEN 1 ELSE 0 END) /
+                NULLIF(COUNT(DISTINCT b.id_vehicule), 0), 2
+            ) AS utilisation_parc
+
+        FROM bande_sortie b
+        WHERE b.est_supprime = 0;
+        `
+    
+  } catch (error) {
+    console.error('Erreur serveur:', error);
+    res.status(500).json({ error: 'Erreur serveur lors de la récupération des données.' });
+  }
+}

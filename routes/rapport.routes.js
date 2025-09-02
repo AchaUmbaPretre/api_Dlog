@@ -55,4 +55,9 @@ router.get('/inspection_rapport_cout', rapportController.getRapportInspectionCou
 //Performance maintenance (délais & disponibilité)
 router.get('/performance_glo_delais', rapportController.getRapportPerformanceDelais)
 
+//Mode tv
+router.get('/rapport_kioske', rapportController.getRapportPerformanceDelais)
+
+
+
 module.exports = router;
