@@ -1449,69 +1449,89 @@ exports.getRapportKioske = async (req, res) => {
     `;
 
     const ponctualiteSql = `
-            SELECT
-            -- Ponctualité Départ
-            ROUND(
-                100 * SUM(CASE WHEN b.sortie_time IS NOT NULL AND b.sortie_time <= b.date_prevue THEN 1 ELSE 0 END) /
-                NULLIF(COUNT(b.id_bande_sortie), 0), 2
-            ) AS ponctualite_depart,
-
-            -- Ponctualité Retour
-            ROUND(
-                100 * SUM(CASE WHEN b.retour_time IS NOT NULL AND b.retour_time <= b.date_retour THEN 1 ELSE 0 END) /
-                NULLIF(COUNT(b.id_bande_sortie), 0), 2
-            ) AS ponctualite_retour,
-
-            -- Utilisation du Parc
-            ROUND(
-                100 * SUM(CASE WHEN b.sortie_time IS NOT NULL THEN 1 ELSE 0 END) /
-                NULLIF(COUNT(DISTINCT b.id_vehicule), 0), 2
-            ) AS utilisation_parc
-
-        FROM bande_sortie b
-        WHERE b.est_supprime = 0;
-      `;
+      SELECT
+        ROUND(
+            100 * SUM(CASE WHEN b.sortie_time IS NOT NULL AND b.sortie_time <= b.date_prevue THEN 1 ELSE 0 END) /
+            NULLIF(COUNT(b.id_bande_sortie), 0), 2
+        ) AS ponctualite_depart,
+        ROUND(
+            100 * SUM(CASE WHEN b.retour_time IS NOT NULL AND b.retour_time <= b.date_retour THEN 1 ELSE 0 END) /
+            NULLIF(COUNT(b.id_bande_sortie), 0), 2
+        ) AS ponctualite_retour,
+        ROUND(
+            100 * SUM(CASE WHEN b.sortie_time IS NOT NULL THEN 1 ELSE 0 END) /
+            NULLIF(COUNT(DISTINCT b.id_vehicule), 0), 2
+        ) AS utilisation_parc
+      FROM bande_sortie b
+      WHERE b.est_supprime = 0;
+    `;
 
     const courseVehiculeSql = `
-      SELECT COUNT(id_vehicule) AS nbre_course, c.nom, c.prenom FROM bande_sortie bs 
-        INNER JOIN chauffeurs c ON bs.id_chauffeur = c.id_chauffeur
-        GROUP BY bs.id_vehicule
-        ORDER BY nbre_course DESC
+      SELECT COUNT(id_vehicule) AS nbre_course, c.nom, c.prenom 
+      FROM bande_sortie bs 
+      INNER JOIN chauffeurs c ON bs.id_chauffeur = c.id_chauffeur
+      GROUP BY bs.id_vehicule
+      ORDER BY nbre_course DESC
     `;
 
     const courseServiceSql = `
-      SELECT sd.nom_service, COUNT(DISTINCT bs.id_bande_sortie) AS nbre_service FROM bande_sortie bs
-        INNER JOIN service_demandeur sd ON bs.id_demandeur = sd.id_service_demandeur
-        GROUP BY bs.id_demandeur
-        ORDER BY nbre_service DESC
-      `
+      SELECT sd.nom_service, COUNT(DISTINCT bs.id_bande_sortie) AS nbre_service 
+      FROM bande_sortie bs
+      INNER JOIN service_demandeur sd ON bs.id_demandeur = sd.id_service_demandeur
+      GROUP BY bs.id_demandeur
+      ORDER BY nbre_service DESC
+    `;
 
-      //Mini-tendances
     const miniTendanceSql = `
-              SELECT
-                -- Ponctualité Départ (% des départs effectués à l'heure)
-                ROUND(
-                    100 * SUM(CASE WHEN b.sortie_time IS NOT NULL AND b.sortie_time <= b.date_prevue THEN 1 ELSE 0 END) 
-                    / NULLIF(COUNT(b.id_bande_sortie), 0), 2
-                ) AS ponctualite_depart,
+      SELECT
+        ROUND(
+            100 * SUM(CASE WHEN b.sortie_time IS NOT NULL AND b.sortie_time <= b.date_prevue THEN 1 ELSE 0 END) 
+            / NULLIF(COUNT(b.id_bande_sortie), 0), 2
+        ) AS ponctualite_depart,
+        ROUND(
+            100 * SUM(CASE WHEN b.retour_time IS NOT NULL AND b.retour_time <= b.date_retour THEN 1 ELSE 0 END) 
+            / NULLIF(COUNT(b.id_bande_sortie), 0), 2
+        ) AS ponctualite_retour,
+        ROUND(
+            100 * COUNT(DISTINCT CASE WHEN b.sortie_time IS NOT NULL THEN b.id_vehicule END) 
+            / NULLIF(COUNT(DISTINCT b.id_vehicule), 0), 2
+        ) AS utilisation_parc
+      FROM bande_sortie b
+      WHERE b.est_supprime = 0;
+    `;
 
-                -- Ponctualité Retour (% des retours effectués à l'heure)
-                ROUND(
-                    100 * SUM(CASE WHEN b.retour_time IS NOT NULL AND b.retour_time <= b.date_retour THEN 1 ELSE 0 END) 
-                    / NULLIF(COUNT(b.id_bande_sortie), 0), 2
-                ) AS ponctualite_retour,
+    // Exécution en parallèle
+    const [
+      [anomalies],
+      evenementLiveRows,
+      departHorsTimingRows,
+      [ponctualite],
+      courseVehiculeRows,
+      courseServiceRows,
+      [miniTendances]
+    ] = await Promise.all([
+      db.query(AnomaliesDuJour),
+      db.query(evenementLive),
+      db.query(departHorsTiming),
+      db.query(ponctualiteSql),
+      db.query(courseVehiculeSql),
+      db.query(courseServiceSql),
+      db.query(miniTendanceSql)
+    ]);
 
-                -- Utilisation du Parc (% des véhicules utilisés sur la période)
-                ROUND(
-                    100 * COUNT(DISTINCT CASE WHEN b.sortie_time IS NOT NULL THEN b.id_vehicule END) 
-                    / NULLIF(COUNT(DISTINCT b.id_vehicule), 0), 2
-                ) AS utilisation_parc
-            FROM bande_sortie b
-            WHERE b.est_supprime = 0;
-        `;
-    
+    res.json({
+      anomalies,
+      evenementLive: evenementLiveRows,
+      departHorsTiming: departHorsTimingRows,
+      ponctualite,
+      courseVehicule: courseVehiculeRows,
+      courseService: courseServiceRows,
+      miniTendances
+    });
+
   } catch (error) {
-    console.error('Erreur serveur:', error);
-    res.status(500).json({ error: 'Erreur serveur lors de la récupération des données.' });
+    console.error("Erreur serveur:", error);
+    res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
   }
-}
+};
+
