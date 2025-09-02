@@ -58,5 +58,4 @@ router.get('/performance_glo_delais', rapportController.getRapportPerformanceDel
 //Kiosque
 router.get('/rapport_kiosque', rapportController.getRapportKiosque)
 
-
 module.exports = router;
