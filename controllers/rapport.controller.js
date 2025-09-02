@@ -1534,4 +1534,3 @@ exports.getRapportKiosque = async (req, res) => {
     res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
   }
 };
-
