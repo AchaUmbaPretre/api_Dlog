@@ -1395,8 +1395,8 @@ exports.getRapportPerformanceDelais = async (req, res) => {
   }
 };
 
-//KiosKi
-exports.getRapportKioske = async (req, res) => {
+//Kiosque
+exports.getRapportKiosque = async (req, res) => {
   try {
     const AnomaliesDuJour = `
       SELECT 
