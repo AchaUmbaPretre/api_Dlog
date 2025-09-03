@@ -1510,13 +1510,13 @@ exports.getRapportKiosque = async (req, res) => {
       courseServiceRows,
       [miniTendances]
     ] = await Promise.all([
-      db.query(AnomaliesDuJour),
-      db.query(evenementLive),
-      db.query(departHorsTiming),
-      db.query(ponctualiteSql),
-      db.query(courseVehiculeSql),
-      db.query(courseServiceSql),
-      db.query(miniTendanceSql)
+      query(AnomaliesDuJour),
+      query(evenementLive),
+      query(departHorsTiming),
+      query(ponctualiteSql),
+      query(courseVehiculeSql),
+      query(courseServiceSql),
+      query(miniTendanceSql)
     ]);
 
     res.json({
