@@ -1751,13 +1751,10 @@ exports.getRapportCharroiVehicule = async(req, res) => {
     //En attente
       const qEnAttenteSql = `
             SELECT 
-                ad.id_bande_sortie, 
                 ad.date_prevue,
                 ad.date_retour,
-                ad.personne_bord,
                 ad.sortie_time,
                 ad.retour_time,
-                ad.id_vehicule,
                 mfd.nom_motif_demande,
                 bs.nom_statut_bs,
                 cv.nom_cat,
@@ -1767,20 +1764,46 @@ exports.getRapportCharroiVehicule = async(req, res) => {
                 c.prenom AS prenom_chauffeur,
                 v.immatriculation, 
                 m.nom_marque,
-                CASE 
-              WHEN ad.sortie_time IS NULL 
-                  AND TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW()) > 60
-                  THEN 'Non sorti - Retardé'
-              WHEN ad.sortie_time IS NULL 
-                  THEN 'À l\'heure (en attente sortie)'
-              WHEN ad.sortie_time IS NOT NULL 
-                  AND ad.retour_time IS NULL
-                  THEN 'En cours'
-              WHEN ad.sortie_time IS NOT NULL 
-                  AND TIMESTAMPDIFF(MINUTE, ad.date_prevue, ad.sortie_time) > 60
-                  THEN 'Sorti en retard'
-              ELSE 'Sorti à l\'heure'
-          END AS statut_sortie
+            CASE
+                -- Véhicule non encore sorti
+                WHEN ad.sortie_time IS NULL THEN
+                    CASE
+                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW()) <= 30 THEN "À l\'heure"
+                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW()) <= 60 THEN 'Retard léger'
+                        ELSE 'Retard'
+                    END
+
+                -- Véhicule sorti mais pas encore revenu
+                WHEN ad.sortie_time IS NOT NULL AND ad.retour_time IS NULL THEN
+                    CASE
+                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, ad.sortie_time) <= 30 THEN "À l\'heure"
+                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, ad.sortie_time) <= 60 THEN 'Retard léger'
+                        ELSE 'Retard'
+                    END
+
+                -- Tout le reste
+                ELSE "À l\'heure"
+            END AS statut_sortie,
+
+            -- Durée de retard (minutes, heures, jours)
+            CASE
+                WHEN ad.sortie_time IS NULL AND NOW() > ad.date_prevue THEN
+                    CASE
+                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW()) >= 1440 THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW())/1440,1), ' jour(s)')
+                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW()) >= 60 THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW())/60,1), ' heure(s)')
+                        ELSE CONCAT(TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW()), ' minute(s)')
+                    END
+
+                WHEN ad.sortie_time IS NOT NULL AND ad.retour_time IS NULL AND NOW() > ad.date_retour THEN
+                    CASE
+                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) >= 1440 THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW())/1440,1), ' jour(s)')
+                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) >= 60 THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW())/60,1), ' heure(s)')
+                        ELSE CONCAT(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()), ' minute(s)')
+                    END
+
+                ELSE '0 minute'
+            END AS duree_retard
+            
               FROM bande_sortie ad
                   INNER JOIN chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
                   INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
@@ -1823,7 +1846,7 @@ exports.getRapportCharroiVehicule = async(req, res) => {
                     AND ad.retour_time IS NULL 
                     AND TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) > 60
                     THEN 'Retard'
-                ELSE 'À l\'heure'
+                ELSE "À l\'heure"
             END AS statut_sortie,
             CASE 
                 WHEN ad.sortie_time IS NOT NULL 
