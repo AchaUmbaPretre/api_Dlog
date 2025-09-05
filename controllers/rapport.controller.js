@@ -1745,7 +1745,7 @@ ORDER BY b.created_at DESC;
   }
 };
 
-exports.getRapportCharroiVehicule = (req, res) => {
+exports.getRapportCharroiVehicule = async(req, res) => {
   
   try {
     //En attente
@@ -1880,10 +1880,24 @@ exports.getRapportCharroiVehicule = (req, res) => {
         ORDER BY ad.created_at DESC;
       `;
 
+    const [
+      listeEnAttente,
+      listeCourse,
+      listeUtilitaire
+    ] = await Promise.all([
+      query(qEnAttenteSql),
+      query(qCourseSql),
+      query(qUtilitaireSql)
+    ]);
 
+    res.json({
+      listeEnAttente,
+      listeCourse,
+      listeUtilitaire
+    })
 
   } catch (error) {
     console.error("Erreur serveur:", error);
     res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
   }
-}
+};
