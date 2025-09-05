@@ -1744,3 +1744,59 @@ ORDER BY b.created_at DESC;
     res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
   }
 };
+
+exports.getRapportCharroiVehicule = (req, res) => {
+  
+  try {
+    //En attente
+      const qEnAttenteSql = `
+            SELECT 
+                ad.id_bande_sortie, 
+                ad.date_prevue,
+                ad.date_retour,
+                ad.personne_bord,
+                ad.sortie_time,
+                ad.retour_time,
+                ad.id_vehicule,
+                mfd.nom_motif_demande,
+                bs.nom_statut_bs,
+                cv.nom_cat,
+                sd.nom_service,
+                l.nom_destination,
+                c.nom, 
+                c.prenom AS prenom_chauffeur,
+                v.immatriculation, 
+                m.nom_marque,
+                CASE 
+              WHEN ad.sortie_time IS NULL 
+                  AND TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW()) > 60
+                  THEN 'Non sorti - Retardé'
+              WHEN ad.sortie_time IS NULL 
+                  THEN 'À l\'heure (en attente sortie)'
+              WHEN ad.sortie_time IS NOT NULL 
+                  AND ad.retour_time IS NULL
+                  THEN 'En cours'
+              WHEN ad.sortie_time IS NOT NULL 
+                  AND TIMESTAMPDIFF(MINUTE, ad.date_prevue, ad.sortie_time) > 60
+                  THEN 'Sorti en retard'
+              ELSE 'Sorti à l\'heure'
+          END AS statut_sortie
+              FROM bande_sortie ad
+                  INNER JOIN chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
+                  INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
+                  INNER JOIN marque m ON m.id_marque = v.id_marque
+                  LEFT JOIN modeles md ON v.id_modele = md.id_modele
+                  INNER JOIN statut_bs bs ON ad.statut = bs.id_statut_bs
+                  LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+                  LEFT JOIN motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
+                  LEFT JOIN service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
+                  LEFT JOIN destination l ON ad.id_destination = l.id_destination
+              WHERE ad.statut = 4 AND ad.est_supprime = 0
+                ORDER BY ad.created_at DESC
+        `;
+
+  } catch (error) {
+    console.error("Erreur serveur:", error);
+    res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+  }
+}
