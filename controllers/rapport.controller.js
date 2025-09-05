@@ -1794,6 +1794,7 @@ exports.getRapportCharroiVehicule = async(req, res) => {
               WHERE ad.statut = 4 AND ad.est_supprime = 0
                 ORDER BY ad.created_at DESC
         `;
+    //Course
       const qCourseSql = `
         SELECT 
             ad.id_bande_sortie, 
@@ -1851,7 +1852,7 @@ exports.getRapportCharroiVehicule = async(req, res) => {
         WHERE ad.statut = 5 AND ad.est_supprime = 0
         ORDER BY ad.created_at DESC;
           `;
-
+    //Utilitaire
       const qUtilitaireSql = `
         SELECT 
           cv.nom_cat,
@@ -1894,7 +1895,7 @@ exports.getRapportCharroiVehicule = async(req, res) => {
       listeEnAttente,
       listeCourse,
       listeUtilitaire
-    })
+    });
 
   } catch (error) {
     console.error("Erreur serveur:", error);
