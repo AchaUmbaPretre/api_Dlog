@@ -1750,72 +1750,62 @@ exports.getRapportCharroiVehicule = async(req, res) => {
   try {
     //En attente
       const qEnAttenteSql = `
-            SELECT 
-                ad.date_prevue,
-                ad.date_retour,
-                ad.sortie_time,
-                ad.retour_time,
-                mfd.nom_motif_demande,
-                bs.nom_statut_bs,
-                cv.nom_cat,
-                sd.nom_service,
-                l.nom_destination,
-                c.nom, 
-                c.prenom AS prenom_chauffeur,
-                v.immatriculation, 
-                m.nom_marque,
+                SELECT 
+        ad.date_prevue,
+        ad.date_retour,
+        ad.sortie_time,
+        ad.retour_time,
+        mfd.nom_motif_demande,
+        bs.nom_statut_bs,
+        cv.nom_cat,
+        sd.nom_service,
+        l.nom_destination,
+        c.nom, 
+        c.prenom AS prenom_chauffeur,
+        v.immatriculation, 
+        m.nom_marque,
+    CASE
+        WHEN ad.sortie_time IS NULL THEN
             CASE
-                -- Véhicule non encore sorti
-                WHEN ad.sortie_time IS NULL THEN
-                    CASE
-                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW()) <= 30 THEN "À l\'heure"
-                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW()) <= 60 THEN 'Retard léger'
-                        ELSE 'Retard'
-                    END
-
-                -- Véhicule sorti mais pas encore revenu
-                WHEN ad.sortie_time IS NOT NULL AND ad.retour_time IS NULL THEN
-                    CASE
-                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, ad.sortie_time) <= 30 THEN "À l\'heure"
-                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, ad.sortie_time) <= 60 THEN 'Retard léger'
-                        ELSE 'Retard'
-                    END
-
-                -- Tout le reste
-                ELSE "À l\'heure"
-            END AS statut_sortie,
-
-            -- Durée de retard (minutes, heures, jours)
+                WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW()) <= 30 THEN "À l'heure"
+                WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW()) <= 60 THEN 'Retard léger'
+                ELSE 'Retard'
+            END
+        WHEN ad.sortie_time IS NOT NULL AND ad.retour_time IS NULL THEN
             CASE
-                WHEN ad.sortie_time IS NULL AND NOW() > ad.date_prevue THEN
-                    CASE
-                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW()) >= 1440 THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW())/1440,1), ' jour(s)')
-                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW()) >= 60 THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW())/60,1), ' heure(s)')
-                        ELSE CONCAT(TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW()), ' minute(s)')
-                    END
-
-                WHEN ad.sortie_time IS NOT NULL AND ad.retour_time IS NULL AND NOW() > ad.date_retour THEN
-                    CASE
-                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) >= 1440 THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW())/1440,1), ' jour(s)')
-                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) >= 60 THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW())/60,1), ' heure(s)')
-                        ELSE CONCAT(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()), ' minute(s)')
-                    END
-
-                ELSE '0 minute'
-            END AS duree_retard
-            
-              FROM bande_sortie ad
-                  INNER JOIN chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
-                  INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
-                  INNER JOIN marque m ON m.id_marque = v.id_marque
-                  LEFT JOIN modeles md ON v.id_modele = md.id_modele
-                  INNER JOIN statut_bs bs ON ad.statut = bs.id_statut_bs
-                  LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
-                  LEFT JOIN motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
-                  LEFT JOIN service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
-                  LEFT JOIN destination l ON ad.id_destination = l.id_destination
-              WHERE ad.statut = 4 AND ad.est_supprime = 0
-                ORDER BY ad.created_at DESC
+                WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, ad.sortie_time) <= 30 THEN "À l'heure"
+                WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, ad.sortie_time) <= 60 THEN 'Retard léger'
+                ELSE 'Retard'
+            END
+        ELSE "À l'heure"
+    END AS statut_sortie,
+    CASE
+        WHEN ad.sortie_time IS NULL AND NOW() > ad.date_prevue THEN
+            CASE
+                WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW()) >= 1440 THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW())/1440,1), ' jour(s)')
+                WHEN TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW()) >= 60 THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW())/60,1), ' heure(s)')
+                ELSE CONCAT(TIMESTAMPDIFF(MINUTE, ad.date_prevue, NOW()), ' minute(s)')
+            END
+        WHEN ad.sortie_time IS NOT NULL AND ad.retour_time IS NULL AND NOW() > ad.date_retour THEN
+            CASE
+                WHEN TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) >= 1440 THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW())/1440,1), ' jour(s)')
+                WHEN TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) >= 60 THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW())/60,1), ' heure(s)')
+                ELSE CONCAT(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()), ' minute(s)')
+            END
+        ELSE '0 minute'
+    END AS duree_retard
+    FROM bande_sortie ad
+        INNER JOIN chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
+        INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
+        INNER JOIN marque m ON m.id_marque = v.id_marque
+        LEFT JOIN modeles md ON v.id_modele = md.id_modele
+        INNER JOIN statut_bs bs ON ad.statut = bs.id_statut_bs
+        LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+        LEFT JOIN motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
+        LEFT JOIN service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
+        LEFT JOIN destination l ON ad.id_destination = l.id_destination
+    WHERE ad.statut = 4 AND ad.est_supprime = 0
+    ORDER BY ad.created_at DESC;
         `;
       
     //En attente count
