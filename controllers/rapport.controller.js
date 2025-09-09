@@ -1896,33 +1896,38 @@ exports.getRapportCharroiVehicule = async(req, res) => {
           `;
 
     //Utilitaire
-      const qUtilitaireSql = `
-        SELECT 
-          cv.nom_cat,
-          sd.nom_service,
-          l.nom_destination,
-              CASE 
-                WHEN ad.sortie_time IS NOT NULL 
-                    AND ad.retour_time IS NULL 
-                    AND TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) > 0
-                THEN 
-                    CASE 
-                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) >= 1440 
-                            THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW())/1440,1), ' jour(s)')
-                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) >= 60 
-                            THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW())/60,1), ' heure(s)')
-                        ELSE CONCAT(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()), ' minute(s)')
-                    END
-                ELSE '0 minute'
-            END AS duree_retard
-        FROM bande_sortie ad
-          INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
-          LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
-          LEFT JOIN service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
-          LEFT JOIN destination l ON ad.id_destination = l.id_destination
-        WHERE ad.statut = 5 AND ad.est_supprime = 0
-        ORDER BY ad.created_at DESC;
-      `;
+    const qUtilitaireSql = `
+    SELECT 
+        cv.nom_cat,
+        sd.nom_service,
+        l.nom_destination,
+        CASE 
+            WHEN ad.sortie_time IS NOT NULL 
+                AND ad.retour_time IS NULL 
+                AND TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) > 0
+            THEN 
+                CASE 
+                    WHEN TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) >= 1440
+                        THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) / 1440, 1), ' jour(s)')
+                    WHEN TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) >= 60
+                        THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) / 60, 1), ' heure(s)')
+                    ELSE CONCAT(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()), ' minute(s)')
+                END
+            ELSE '0 minute'
+        END AS duree_retard
+    FROM 
+        bande_sortie AS ad
+        INNER JOIN vehicules AS v ON ad.id_vehicule = v.id_vehicule
+        LEFT JOIN cat_vehicule AS cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+        LEFT JOIN service_demandeur AS sd ON ad.id_demandeur = sd.id_service_demandeur
+        LEFT JOIN destination AS l ON ad.id_destination = l.id_destination
+    WHERE 
+        ad.statut = 5 
+        AND ad.est_supprime = 0
+    ORDER BY 
+        ad.created_at DESC;
+    `;
+
 
     //Utilitaire count
     const qUtilitaireCount = `
