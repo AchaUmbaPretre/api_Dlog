@@ -1858,19 +1858,20 @@ exports.getRapportCharroiVehicule = async(req, res) => {
                 ELSE "À l\'heure"
             END AS statut_sortie,
             CASE 
-                WHEN ad.sortie_time IS NOT NULL 
-                    AND ad.retour_time IS NULL 
-                    AND TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) > 0
-                THEN 
-                    CASE 
-                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) >= 1440 
-                            THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW())/1440,1), ' jour(s)')
-                        WHEN TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) >= 60 
-                            THEN CONCAT(ROUND(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW())/60,1), ' heure(s)')
-                        ELSE CONCAT(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()), ' minute(s)')
-                    END
-                ELSE '0 minute'
-            END AS duree_retard
+              WHEN ad.sortie_time IS NOT NULL 
+                  AND ad.retour_time IS NULL 
+                  AND TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) > 0
+              THEN 
+                  CASE 
+                      WHEN TIMESTAMPDIFF(HOUR, ad.date_retour, NOW()) >= 48 
+                          THEN CONCAT(FLOOR(TIMESTAMPDIFF(HOUR, ad.date_retour, NOW())/24), ' jour(s)')
+                      WHEN TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) >= 60 
+                          THEN CONCAT(FLOOR(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW())/60), ' heure(s)')
+                      ELSE CONCAT(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()), ' minute(s)')
+                  END
+              ELSE '0 minute'
+          END AS duree_retard
+
         FROM bande_sortie ad
             INNER JOIN chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
             INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
