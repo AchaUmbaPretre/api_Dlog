@@ -1817,6 +1817,15 @@ exports.getRapportCharroiVehicule = async(req, res) => {
               WHERE ad.statut = 4 AND ad.est_supprime = 0
                 ORDER BY ad.created_at DESC
         `;
+      
+    //En attente count
+    const qAttenteCout = `
+        SELECT 
+          COUNT(DISTINCT ad.id_bande_sortie) AS Count_enattente
+            FROM bande_sortie ad
+          WHERE ad.statut = 4 AND ad.est_supprime = 0
+      `;
+
     //Course
       const qCourseSql = `
         SELECT 
@@ -1875,6 +1884,16 @@ exports.getRapportCharroiVehicule = async(req, res) => {
         WHERE ad.statut = 5 AND ad.est_supprime = 0
         ORDER BY ad.created_at DESC;
           `;
+
+      //Course count
+      const qCourseCout = `
+          SELECT 
+            COUNT(ad.id_bande_sortie) AS count_course
+              FROM bande_sortie ad
+              WHERE ad.statut = 5 AND ad.est_supprime = 0
+              ORDER BY ad.created_at DESC;
+          `;
+
     //Utilitaire
       const qUtilitaireSql = `
         SELECT 
@@ -1904,20 +1923,38 @@ exports.getRapportCharroiVehicule = async(req, res) => {
         ORDER BY ad.created_at DESC;
       `;
 
+    //Utilitaire count
+    const qUtilitaireCount = `
+      SELECT 
+		    COUNT(ad.id_bande_sortie) AS count_utilitaire
+          FROM bande_sortie ad
+        WHERE ad.statut = 5 AND ad.est_supprime = 0
+        ORDER BY ad.created_at DESC;
+    `;
+
     const [
       listeEnAttente,
+      countAttente,
       listeCourse,
-      listeUtilitaire
+      countCourse,
+      listeUtilitaire,
+      countUtilitaire
     ] = await Promise.all([
       query(qEnAttenteSql),
+      query(qAttenteCout),
       query(qCourseSql),
-      query(qUtilitaireSql)
+      query(qCourseCout),
+      query(qUtilitaireSql),
+      query(qUtilitaireCount)
     ]);
 
     res.json({
       listeEnAttente,
+      countAttente,
       listeCourse,
-      listeUtilitaire
+      countCourse,
+      listeUtilitaire,
+      countUtilitaire
     });
 
   } catch (error) {

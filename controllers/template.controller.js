@@ -476,6 +476,54 @@ exports.deleteUpdateTemplate = (req, res) => {
     });
   }
 
+exports.putTemplate = (req, res) => {
+    const { id_template } = req.query;
+
+    if (!id_template || isNaN(id_template)) {
+        return res.status(400).json({ error: 'Invalid template ID provided' });
+    }
+
+    try {
+        const q = `UPDATE template_occupation
+                    SET 
+                        id_client = ?,
+                        id_type_occupation = ?,
+                        id_batiment = ?,
+                        id_niveau = ?,
+                        id_denomination = ?,
+                        id_contrat = ?,
+                        desc_template = ?
+                    WHERE id_template = ?
+                `;
+
+                const values = [
+                    req.body.id_client,
+                    req.body.id_type_occupation,
+                    req.body.id_batiment,
+                    req.body.id_niveau,
+                    req.body.id_denomination,
+                    req.body.id_contrat,
+                    req.body.desc_template,
+                    id_template
+                ];
+
+                db.query(q, values, (error, data)=> {
+                    if(error) {
+                        console.log(error);
+                        return res.status(500).json({ error: 'Error updating'})
+                    } if (data.affectedRows === 0) {
+                        return res.status(404).json({ error: 'Template record not found' });
+                    }
+                    return res.json({ message: 'Template record updated successfully' });
+
+                })
+
+    } catch (error) {
+        console.error("Error updating template:", err);
+        return res.status(500).json({ error: 'Failed to update template record' });
+    }
+
+}
 
 //Type d'occupation
 exports.getTypeOccupation = (req, res) => {
@@ -1383,7 +1431,7 @@ exports.putDeclaration = (req, res) => {
             req.body.total_manutation,
             req.body.ttc_manutation,
             req.body.desc_manutation,
-            id_declaration // ID de la déclaration à mettre à jour
+            id_declaration
         ];
 
         db.query(q, values, (error, data) => {

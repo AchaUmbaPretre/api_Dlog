@@ -12,8 +12,8 @@ router.get('/one', templateController.getTemplateOne)
 router.post('/', templateController.postTemplate)
 router.put('/statut', templateController.putTemplateStatut)
 router.put('/template_update_delete', templateController.deleteUpdateTemplate)
-/* router.put('/template_update', templateController.putTemplate)
- */
+router.put('/template_update', templateController.putTemplate)
+
 //Type d'occupation
 router.get('/type_occupation', templateController.getTypeOccupation)
 router.get('/objet_facture', templateController.getObjetFacture)
