@@ -1540,14 +1540,15 @@ exports.getRapportKiosque = async (req, res) => {
   try {
     // 1️⃣ Anomalies du jour
     const anomaliesSql = `
-      SELECT 
-        SUM(CASE WHEN v.id_validation_demande IS NULL THEN 1 ELSE 0 END) AS depart_non_valide,
-        SUM(CASE WHEN b.sortie_time > b.date_prevue THEN 1 ELSE 0 END) AS depart_en_retard,
-        SUM(CASE WHEN b.retour_time IS NOT NULL AND b.retour_time > b.date_retour THEN 1 ELSE 0 END) AS retour_en_retard,
-        SUM(CASE WHEN b.retour_time IS NULL AND b.sortie_time IS NOT NULL AND b.date_retour < NOW() THEN 1 ELSE 0 END) AS retour_non_apparie
-      FROM bande_sortie b
-      LEFT JOIN validation_demande v ON b.id_bande_sortie = v.id_bande_sortie
-      WHERE b.est_supprime = 0;
+    SELECT 
+      COALESCE(SUM(CASE WHEN v.id_validation_demande IS NULL THEN 1 ELSE 0 END), 0) AS depart_non_valide,
+      COALESCE(SUM(CASE WHEN b.sortie_time > b.date_prevue THEN 1 ELSE 0 END), 0) AS depart_en_retard,
+      COALESCE(SUM(CASE WHEN b.retour_time IS NOT NULL AND b.retour_time > b.date_retour THEN 1 ELSE 0 END), 0) AS retour_en_retard,
+      COALESCE(SUM(CASE WHEN b.retour_time IS NULL AND b.sortie_time IS NOT NULL AND b.date_retour < NOW() THEN 1 ELSE 0 END), 0) AS retour_non_apparie
+    FROM bande_sortie b
+    LEFT JOIN validation_demande v ON b.id_bande_sortie = v.id_bande_sortie
+    WHERE b.est_supprime = 0
+      AND DATE(b.date_prevue) = CURDATE();
     `;
 
     // 2️⃣ Événements live (véhicules dehors ou réservés)
@@ -1602,7 +1603,7 @@ exports.getRapportKiosque = async (req, res) => {
         ROUND(100 * SUM(CASE WHEN b.retour_time IS NOT NULL AND b.retour_time <= b.date_retour THEN 1 ELSE 0 END) / NULLIF(COUNT(b.id_bande_sortie), 0), 2) AS ponctualite_retour,
         ROUND(100 * COUNT(DISTINCT CASE WHEN b.sortie_time IS NOT NULL THEN b.id_vehicule END) / NULLIF(COUNT(DISTINCT b.id_vehicule), 0), 2) AS utilisation_parc
       FROM bande_sortie b
-      WHERE b.est_supprime = 0;
+      WHERE b.est_supprime = 0 AND DATE(b.date_prevue) = CURDATE();
     `;
 
     // 5️⃣ Courses par chauffeur (aujourd’hui)
@@ -1680,6 +1681,8 @@ WHERE b.est_supprime = 0
       OR b.sortie_time > b.date_prevue
       OR (b.retour_time IS NOT NULL AND b.retour_time > b.date_retour)
   )
+  
+ AND DATE(b.date_prevue) = CURDATE()
 
 GROUP BY 
     b.id_bande_sortie, v.immatriculation, c.nom, sd.nom_service, d.nom_destination,
