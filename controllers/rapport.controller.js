@@ -1593,6 +1593,7 @@ exports.getRapportKiosque = async (req, res) => {
           b.sortie_time IS NULL AND b.date_prevue < NOW()
           OR b.sortie_time > b.date_prevue
         )
+        AND DATE(b.date_prevue) = CURDATE()
       ORDER BY b.created_at DESC;
     `;
 
@@ -1622,10 +1623,17 @@ exports.getRapportKiosque = async (req, res) => {
     // 6️⃣ Leaderboard par service
     const courseServiceSql = `
       SELECT 
-        sd.nom_service,
-        COUNT(DISTINCT bs.id_bande_sortie) AS nbre_service
+          sd.nom_service,
+          ROUND(
+              COUNT(DISTINCT bs.id_bande_sortie) * 100.0 / 
+              (SELECT COUNT(DISTINCT id_bande_sortie) 
+              FROM bande_sortie 
+              WHERE est_supprime = 0),
+              2
+          ) AS nbre_service
       FROM bande_sortie bs
-      INNER JOIN service_demandeur sd ON bs.id_demandeur = sd.id_service_demandeur
+      INNER JOIN service_demandeur sd 
+          ON bs.id_demandeur = sd.id_service_demandeur
       WHERE bs.est_supprime = 0
       GROUP BY sd.nom_service
       ORDER BY nbre_service DESC;
