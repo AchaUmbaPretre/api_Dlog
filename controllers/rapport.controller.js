@@ -1843,61 +1843,48 @@ exports.getRapportCharroiVehicule = async(req, res) => {
     //Course
       const qCourseSql = `
         SELECT 
-            ad.id_bande_sortie, 
-            ad.date_prevue,
-            ad.date_retour,
-            ad.personne_bord,
-            ad.sortie_time,
-            ad.retour_time,
-            ad.id_vehicule,
-            mfd.nom_motif_demande,
-            bs.nom_statut_bs,
-            cv.nom_cat,
-            sd.nom_service,
-            l.nom_destination,
-            c.nom, 
-            c.prenom AS prenom_chauffeur,
-            v.immatriculation, 
-            m.nom_marque,
-            CASE 
-                WHEN ad.sortie_time IS NOT NULL 
-                    AND ad.retour_time IS NULL 
-                    AND TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) > 30 
-                    AND TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) <= 60
-                    THEN 'Léger retard'
-                WHEN ad.sortie_time IS NOT NULL 
-                    AND ad.retour_time IS NULL 
-                    AND TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) > 60
-                    THEN 'Retard'
-                ELSE "À l\'heure"
-            END AS statut_sortie,
-            CASE 
-              WHEN ad.sortie_time IS NOT NULL 
-                  AND ad.retour_time IS NULL 
-                  AND TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) > 0
-              THEN 
-                  CASE 
-                      WHEN TIMESTAMPDIFF(HOUR, ad.date_retour, NOW()) >= 48 
-                          THEN CONCAT(FLOOR(TIMESTAMPDIFF(HOUR, ad.date_retour, NOW())/24), ' jour(s)')
-                      WHEN TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()) >= 60 
-                          THEN CONCAT(FLOOR(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW())/60), ' heure(s)')
-                      ELSE CONCAT(TIMESTAMPDIFF(MINUTE, ad.date_retour, NOW()), ' minute(s)')
-                  END
-              ELSE '0 minute'
-          END AS duree_retard
+              ad.id_bande_sortie, 
+              ad.date_prevue,
+              ad.sortie_time,
+              ad.retour_time,
+              ad.id_vehicule,
+              mfd.nom_motif_demande,
+              bs.nom_statut_bs,
+              cv.nom_cat,
+              sd.nom_service,
+              l.nom_destination,
+              c.nom, 
+              c.prenom AS prenom_chauffeur,
+              v.immatriculation, 
+              m.nom_marque,
 
-        FROM bande_sortie ad
-            INNER JOIN chauffeurs c ON  ad.id_chauffeur = c.id_chauffeur
-            INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
-            INNER JOIN marque m ON m.id_marque = v.id_marque
-            LEFT JOIN modeles md ON v.id_modele = md.id_modele
-            INNER JOIN statut_bs bs ON ad.statut = bs.id_statut_bs
-            LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
-            LEFT JOIN motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
-            LEFT JOIN service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
-            LEFT JOIN destination l ON ad.id_destination = l.id_destination
-        WHERE ad.statut = 5 AND ad.est_supprime = 0
-        ORDER BY ad.created_at DESC;
+              -- Durée réelle en minutes depuis le départ
+              CASE 
+                  WHEN ad.sortie_time IS NOT NULL THEN TIMESTAMPDIFF(MINUTE, ad.sortie_time, NOW())
+                  ELSE 0
+              END AS duree_reelle_min,
+
+              -- Durée moyenne en minutes pour le même axe + type de véhicule
+              (
+                  SELECT AVG(TIMESTAMPDIFF(MINUTE, bs2.sortie_time, bs2.retour_time))
+                  FROM bande_sortie bs2
+                  WHERE bs2.id_destination = ad.id_destination
+                    AND bs2.id_vehicule = ad.id_vehicule
+                    AND bs2.retour_time IS NOT NULL
+                    AND bs2.id_bande_sortie != ad.id_bande_sortie
+              ) AS duree_moyenne_min
+
+          FROM bande_sortie ad
+              INNER JOIN chauffeurs c ON ad.id_chauffeur = c.id_chauffeur
+              INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
+              INNER JOIN marque m ON m.id_marque = v.id_marque
+              LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+              LEFT JOIN motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
+              LEFT JOIN service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
+              LEFT JOIN destination l ON ad.id_destination = l.id_destination
+              INNER JOIN statut_bs bs ON ad.statut = bs.id_statut_bs
+          WHERE ad.statut = 5 AND ad.est_supprime = 0
+          ORDER BY ad.created_at DESC;
           `;
 
       //Course count
