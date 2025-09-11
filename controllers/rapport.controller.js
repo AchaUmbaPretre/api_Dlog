@@ -1868,8 +1868,9 @@ exports.getRapportCharroiVehicule = async(req, res) => {
               (
                   SELECT AVG(TIMESTAMPDIFF(MINUTE, bs2.sortie_time, bs2.retour_time))
                   FROM bande_sortie bs2
+                  INNER JOIN vehicules v2 ON bs2.id_vehicule = v2.id_vehicule
                   WHERE bs2.id_destination = ad.id_destination
-                    AND bs2.id_vehicule = ad.id_vehicule
+                    AND v2.id_cat_vehicule = cv.id_cat_vehicule
                     AND bs2.retour_time IS NOT NULL
                     AND bs2.id_bande_sortie != ad.id_bande_sortie
               ) AS duree_moyenne_min
