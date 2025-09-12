@@ -1597,14 +1597,14 @@ exports.getRapportKiosque = async (req, res) => {
       ORDER BY b.created_at DESC;
     `;
 
-    // 4️⃣ Ponctualité départ / retour et utilisation parc
-    const ponctualiteSql = `
+    // 4️⃣ total nbre_départ, nbre_attente et nbre_dispo
+    const totalSql = `
       SELECT
-        ROUND(100 * SUM(CASE WHEN b.sortie_time IS NOT NULL AND b.sortie_time <= b.date_prevue THEN 1 ELSE 0 END) / NULLIF(COUNT(b.id_bande_sortie), 0), 2) AS ponctualite_depart,
-        ROUND(100 * SUM(CASE WHEN b.retour_time IS NOT NULL AND b.retour_time <= b.date_retour THEN 1 ELSE 0 END) / NULLIF(COUNT(b.id_bande_sortie), 0), 2) AS ponctualite_retour,
-        ROUND(100 * COUNT(DISTINCT CASE WHEN b.sortie_time IS NOT NULL THEN b.id_vehicule END) / NULLIF(COUNT(DISTINCT b.id_vehicule), 0), 2) AS utilisation_parc
-      FROM bande_sortie b
-      WHERE b.est_supprime = 0 AND DATE(b.date_prevue) = CURDATE();
+          SUM(CASE WHEN b.statut = 5 THEN 1 ELSE 0 END) AS nbre_depart,
+          SUM(CASE WHEN b.statut = 4 THEN 1 ELSE 0 END) AS nbre_attente,
+          (SELECT COUNT(*) FROM vehicules v WHERE v.IsDispo = 1) AS vehicule_dispo
+      FROM bande_sortie b;
+
     `;
 
     // 5️⃣ Courses par chauffeur (aujourd’hui)
@@ -1703,7 +1703,7 @@ ORDER BY b.created_at DESC;
       [anomalies],
       evenementLiveRows,
       departHorsTimingRows,
-      [ponctualite],
+      [total],
       courseChauffeurRows,
       courseServiceRows,
       departHorsTimingCompletRows
@@ -1711,7 +1711,7 @@ ORDER BY b.created_at DESC;
       query(anomaliesSql),
       query(evenementLiveSql),
       query(departHorsTimingSql),
-      query(ponctualiteSql),
+      query(totalSql),
       query(courseChauffeurSql),
       query(courseServiceSql),
       query(départsHorsTimingCompletSql)
@@ -1734,15 +1734,10 @@ ORDER BY b.created_at DESC;
       anomalies,
       evenementLive: evenementLiveRows,
       departHorsTiming: departHorsTimingRows,
-      ponctualite: {
-        depart: ponctualite.ponctualite_depart,
-        departBadge: getBadge(ponctualite.ponctualite_depart),
-        retour: ponctualite.ponctualite_retour,
-        retourBadge: getBadge(ponctualite.ponctualite_retour),
-        tolérance: 10
-      },
-      utilisationParc: {
-        pourcentage: ponctualite.utilisation_parc
+      total: {
+        depart: total.nbre_depart,
+        attente: total.nbre_attente,
+        vehicule_dispo: total.vehicule_dispo,
       },
       courseChauffeur: courseChauffeurWithBadge,
       courseService: courseServiceRows,
