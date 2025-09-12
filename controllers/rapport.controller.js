@@ -1851,6 +1851,7 @@ exports.getRapportCharroiVehicule = async(req, res) => {
         SELECT 
               ad.id_bande_sortie, 
               ad.date_prevue,
+              ad.date_retour,
               ad.sortie_time,
               ad.retour_time,
               ad.id_vehicule,
