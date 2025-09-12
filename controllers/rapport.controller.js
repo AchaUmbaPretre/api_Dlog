@@ -1698,6 +1698,13 @@ GROUP BY
 ORDER BY b.created_at DESC;
     `;
 
+    //8. MOTIF
+    const motifSql = `
+      SELECT md.nom_motif_demande, COUNT(b.id_bande_sortie) nbre_course FROM bande_sortie b
+        INNER JOIN motif_demande md ON b.id_motif_demande = md.id_motif_demande
+        WHERE b.sortie_time IS NOT NULL
+    `
+
     // ✅ Exécution parallèle
     const [
       [anomalies],
@@ -1706,7 +1713,8 @@ ORDER BY b.created_at DESC;
       [total],
       courseChauffeurRows,
       courseServiceRows,
-      departHorsTimingCompletRows
+      departHorsTimingCompletRows,
+      motifRows
     ] = await Promise.all([
       query(anomaliesSql),
       query(evenementLiveSql),
@@ -1714,7 +1722,8 @@ ORDER BY b.created_at DESC;
       query(totalSql),
       query(courseChauffeurSql),
       query(courseServiceSql),
-      query(départsHorsTimingCompletSql)
+      query(départsHorsTimingCompletSql),
+      query(motifSql)
     ]);
 
     // 7️⃣ Fonction pour badge selon seuil
@@ -1742,6 +1751,7 @@ ORDER BY b.created_at DESC;
       courseChauffeur: courseChauffeurWithBadge,
       courseService: courseServiceRows,
       departHorsTimingCompletRows,
+      motifRows,
       lastUpdated: new Date()
     });
 
