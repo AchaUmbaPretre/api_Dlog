@@ -1700,9 +1700,16 @@ ORDER BY b.created_at DESC;
 
     //8. MOTIF
     const motifSql = `
-      SELECT md.nom_motif_demande, COUNT(b.id_bande_sortie) nbre_course FROM bande_sortie b
-        INNER JOIN motif_demande md ON b.id_motif_demande = md.id_motif_demande
-        WHERE b.sortie_time IS NOT NULL
+      SELECT 
+    md.nom_motif_demande, 
+    COUNT(b.id_bande_sortie) AS nbre_course
+FROM bande_sortie b
+INNER JOIN motif_demande md 
+    ON b.id_motif_demande = md.id_motif_demande
+WHERE b.sortie_time IS NOT NULL
+GROUP BY md.id_motif_demande
+ORDER BY nbre_course DESC;
+
     `
 
     // ✅ Exécution parallèle
@@ -1972,6 +1979,192 @@ exports.getRapportCharroiVehicule = async(req, res) => {
       listeUtilitaire,
       countUtilitaire
     });
+
+  } catch (error) {
+    console.error("Erreur serveur:", error);
+    res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+  }
+};
+
+exports.getRapportUtilitaire = async (req, res) => {
+
+  try {
+    //1. Véhicule Dispo
+    const vehiculeDispoSql = `
+        SELECT 
+            v.id_vehicule,
+            v.immatriculation,
+            CASE 
+                WHEN v.IsDispo = 1 THEN 'Disponible'
+                WHEN v.IsDispo = 0 AND bs2.sortie_time IS NULL AND bs2.retour_time IS NULL THEN 'Réservé (pas encore sorti)'
+            END AS statut_affichage,
+            COUNT(bs.id_bande_sortie) AS score
+        FROM vehicules v
+
+        LEFT JOIN bande_sortie bs 
+            ON v.id_vehicule = bs.id_vehicule
+            AND bs.est_supprime = 0
+
+        LEFT JOIN bande_sortie bs2
+            ON v.id_vehicule = bs2.id_vehicule
+            AND bs2.est_supprime = 0
+            AND bs2.retour_time IS NULL
+
+        WHERE v.est_supprime = 0
+          AND (
+                v.IsDispo = 1
+                OR (v.IsDispo = 0 AND bs2.sortie_time IS NULL)
+              )
+        GROUP BY v.id_vehicule, v.immatriculation, statut_affichage
+        ORDER BY score DESC, statut_affichage DESC;
+            `;
+    
+    //2.Véhicules en course
+    const vehiculeCourseSql = `
+        SELECT 
+            ad.id_bande_sortie, 
+            ad.date_prevue,
+            ad.date_retour,
+            ad.sortie_time,
+            ad.retour_time,
+            ad.commentaire,
+            mfd.nom_motif_demande,
+            bs.nom_statut_bs,
+            cv.nom_cat,
+            sd.nom_service,
+            l.nom_destination,
+            c.nom, 
+            c.prenom AS prenom_chauffeur,
+            v.immatriculation, 
+            m.nom_marque,
+
+              -- Durée réelle en minutes depuis le départ
+              CASE 
+                  WHEN ad.sortie_time IS NOT NULL THEN TIMESTAMPDIFF(MINUTE, ad.sortie_time, NOW())
+                  ELSE 0
+              END AS duree_reelle_min,
+
+              -- Durée moyenne en minutes pour le même axe + type de véhicule
+              (
+                  SELECT AVG(TIMESTAMPDIFF(MINUTE, bs2.sortie_time, bs2.retour_time))
+                  FROM bande_sortie bs2
+                  INNER JOIN vehicules v2 ON bs2.id_vehicule = v2.id_vehicule
+                  WHERE bs2.id_destination = ad.id_destination
+                    AND v2.id_cat_vehicule = cv.id_cat_vehicule
+                    AND bs2.retour_time IS NOT NULL
+                    AND bs2.id_bande_sortie != ad.id_bande_sortie
+              ) AS duree_moyenne_min
+
+          FROM bande_sortie ad
+              INNER JOIN chauffeurs c ON ad.id_chauffeur = c.id_chauffeur
+              INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
+              INNER JOIN marque m ON m.id_marque = v.id_marque
+              LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+              LEFT JOIN motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
+              LEFT JOIN service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
+              LEFT JOIN destination l ON ad.id_destination = l.id_destination
+              INNER JOIN statut_bs bs ON ad.statut = bs.id_statut_bs
+          WHERE ad.statut = 5 AND ad.est_supprime = 0
+          ORDER BY ad.created_at DESC;
+    `;
+
+    //3.Moyennes pour les véhicules hors course
+    const vehiculeMoyenneSql = `
+            SELECT 
+              v.id_vehicule,
+              v.immatriculation,
+              cv.nom_cat AS type_vehicule,
+              
+              -- chauffeur actuel si mission en cours ou prévue
+              ch.nom AS chauffeur,
+              
+              -- dernière destination connue (mission en cours ou réservée)
+              d.nom_destination AS derniere_destination,
+              
+              -- moyenne historique (durée en heures)
+              ROUND(AVG(TIMESTAMPDIFF(HOUR, bs_historique.sortie_time, bs_historique.retour_time)), 1) AS duree_moyenne_heures,
+              
+              -- chrono en cours si véhicule sorti
+              CASE 
+                  WHEN bs_en_cours.sortie_time IS NOT NULL 
+                      AND bs_en_cours.retour_time IS NULL 
+                  THEN TIMESTAMPDIFF(HOUR, bs_en_cours.sortie_time, NOW())
+              END AS chrono_cours,
+              
+              -- disponibilité estimée
+              CASE 
+                  -- véhicule sorti : retour estimé = départ + moyenne historique
+                  WHEN bs_en_cours.sortie_time IS NOT NULL 
+                      AND bs_en_cours.retour_time IS NULL
+                  THEN DATE_ADD(
+                          bs_en_cours.sortie_time, 
+                          INTERVAL ROUND(AVG(TIMESTAMPDIFF(HOUR, bs_historique.sortie_time, bs_historique.retour_time))) HOUR
+                      )
+                  
+                  -- véhicule réservé : départ prévu + moyenne historique
+                  WHEN bs_reserve.id_bande_sortie IS NOT NULL
+                  THEN DATE_ADD(
+                          bs_reserve.date_prevue, 
+                          INTERVAL ROUND(AVG(TIMESTAMPDIFF(HOUR, bs_historique.sortie_time, bs_historique.retour_time))) HOUR
+                      )
+              END AS dispo_estimee
+
+          FROM vehicules v
+          LEFT JOIN cat_vehicule cv 
+                ON v.id_cat_vehicule = cv.id_cat_vehicule
+
+          -- historique terminé
+          LEFT JOIN bande_sortie bs_historique 
+                ON v.id_vehicule = bs_historique.id_vehicule
+                AND bs_historique.sortie_time IS NOT NULL
+                AND bs_historique.retour_time IS NOT NULL
+                AND bs_historique.est_supprime = 0
+
+          -- mission en cours
+          LEFT JOIN bande_sortie bs_en_cours
+                ON v.id_vehicule = bs_en_cours.id_vehicule
+                AND bs_en_cours.sortie_time IS NOT NULL
+                AND bs_en_cours.retour_time IS NULL
+                AND bs_en_cours.est_supprime = 0
+
+          -- mission réservée (prévue mais pas encore sortie)
+          LEFT JOIN bande_sortie bs_reserve
+                ON v.id_vehicule = bs_reserve.id_vehicule
+                AND bs_reserve.sortie_time IS NULL
+                AND bs_reserve.retour_time IS NULL
+                AND bs_reserve.est_supprime = 0
+
+          -- chauffeur (lié soit à mission en cours soit à mission réservée)
+          LEFT JOIN chauffeurs ch 
+                ON ch.id_chauffeur = COALESCE(bs_en_cours.id_chauffeur, bs_reserve.id_chauffeur)
+
+          -- destination (en cours ou prévue)
+          LEFT JOIN destination d 
+                ON d.id_destination = COALESCE(bs_en_cours.id_destination, bs_reserve.id_destination)
+
+          WHERE v.est_supprime = 0
+            AND (
+                  v.IsDispo = 1                  -- dispo immédiate
+                  OR (v.IsDispo = 0 AND bs_reserve.id_bande_sortie IS NOT NULL) -- réservé
+                )
+
+          GROUP BY v.id_vehicule, v.immatriculation, type_vehicule, ch.nom, d.nom_destination;
+              `;
+      const [
+        listVehiculeDispo,
+        listVehiculeCourse,
+        listVehiculeMoyenne
+      ] = await Promise.all([
+        query(vehiculeDispoSql),
+        query(vehiculeCourseSql),
+        query(vehiculeMoyenneSql)
+      ]);
+     
+    res.json({
+        listVehiculeDispo,
+        listVehiculeCourse,
+        listVehiculeMoyenne
+    })
 
   } catch (error) {
     console.error("Erreur serveur:", error);
