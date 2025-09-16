@@ -61,4 +61,7 @@ router.get('/rapport_kiosque', rapportController.getRapportKiosque)
 //Charroi vehicule
 router.get('/rapport_charroi_vehicule', rapportController.getRapportCharroiVehicule)
 
+//Rapport utilitaire
+router.get('/rapport_utilitaire', rapportController.getRapportUtilitaire)
+
 module.exports = router;

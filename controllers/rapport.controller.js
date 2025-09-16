@@ -861,14 +861,20 @@ exports.getRapportKpi = async (req, res) => {
   try {
     const { service, destination, type, vehicule, dateRange } = req.query;
 
+
     const whereConditions = ['bs.est_supprime = 0'];
     const params = [];
 
     // Filtrage par dates
     if (dateRange && Array.isArray(dateRange) && dateRange.length === 2) {
-      whereConditions.push('DATE(bs.sortie_time) BETWEEN ? AND ?');
-      params.push(dateRange[0], dateRange[1]);
-    }
+    // Convertir en format 'YYYY-MM-DD' compatible MySQL
+    const startDate = new Date(dateRange[0]).toISOString().split('T')[0];
+    const endDate = new Date(dateRange[1]).toISOString().split('T')[0];
+
+    whereConditions.push('DATE(bs.sortie_time) BETWEEN ? AND ?');
+    params.push(startDate, endDate);
+  }
+
 
     // Filtrage par type
     if (type && type.length > 0) {
@@ -1991,32 +1997,35 @@ exports.getRapportUtilitaire = async (req, res) => {
   try {
     //1. Véhicule Dispo
     const vehiculeDispoSql = `
-        SELECT 
+          SELECT 
             v.id_vehicule,
             v.immatriculation,
+            m.nom_marque,
+            cv.nom_cat,
             CASE 
                 WHEN v.IsDispo = 1 THEN 'Disponible'
                 WHEN v.IsDispo = 0 AND bs2.sortie_time IS NULL AND bs2.retour_time IS NULL THEN 'Réservé (pas encore sorti)'
             END AS statut_affichage,
-            COUNT(bs.id_bande_sortie) AS score
-        FROM vehicules v
+              COUNT(bs.id_bande_sortie) AS score
+            FROM vehicules v
+          LEFT JOIN marque m  ON v.id_marque = m.id_marque
+            LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+            LEFT JOIN bande_sortie bs 
+              ON v.id_vehicule = bs.id_vehicule
+              AND bs.est_supprime = 0
 
-        LEFT JOIN bande_sortie bs 
-            ON v.id_vehicule = bs.id_vehicule
-            AND bs.est_supprime = 0
+          LEFT JOIN bande_sortie bs2
+              ON v.id_vehicule = bs2.id_vehicule
+              AND bs2.est_supprime = 0
+              AND bs2.retour_time IS NULL
 
-        LEFT JOIN bande_sortie bs2
-            ON v.id_vehicule = bs2.id_vehicule
-            AND bs2.est_supprime = 0
-            AND bs2.retour_time IS NULL
-
-        WHERE v.est_supprime = 0
-          AND (
-                v.IsDispo = 1
-                OR (v.IsDispo = 0 AND bs2.sortie_time IS NULL)
-              )
-        GROUP BY v.id_vehicule, v.immatriculation, statut_affichage
-        ORDER BY score DESC, statut_affichage DESC;
+          WHERE v.est_supprime = 0
+            AND (
+                  v.IsDispo = 1
+                  OR (v.IsDispo = 0 AND bs2.sortie_time IS NULL)
+                )
+          GROUP BY v.id_vehicule, v.immatriculation, statut_affichage
+          ORDER BY score DESC, statut_affichage DESC;
             `;
     
     //2.Véhicules en course
@@ -2065,90 +2074,97 @@ exports.getRapportUtilitaire = async (req, res) => {
               LEFT JOIN destination l ON ad.id_destination = l.id_destination
               INNER JOIN statut_bs bs ON ad.statut = bs.id_statut_bs
           WHERE ad.statut = 5 AND ad.est_supprime = 0
-          ORDER BY ad.created_at DESC;
+          ORDER BY ad.date_retour DESC;
     `;
 
     //3.Moyennes pour les véhicules hors course
     const vehiculeMoyenneSql = `
-            SELECT 
-              v.id_vehicule,
-              v.immatriculation,
-              cv.nom_cat AS type_vehicule,
-              
-              -- chauffeur actuel si mission en cours ou prévue
-              ch.nom AS chauffeur,
-              
-              -- dernière destination connue (mission en cours ou réservée)
-              d.nom_destination AS derniere_destination,
-              
-              -- moyenne historique (durée en heures)
-              ROUND(AVG(TIMESTAMPDIFF(HOUR, bs_historique.sortie_time, bs_historique.retour_time)), 1) AS duree_moyenne_heures,
-              
-              -- chrono en cours si véhicule sorti
-              CASE 
-                  WHEN bs_en_cours.sortie_time IS NOT NULL 
-                      AND bs_en_cours.retour_time IS NULL 
-                  THEN TIMESTAMPDIFF(HOUR, bs_en_cours.sortie_time, NOW())
-              END AS chrono_cours,
-              
-              -- disponibilité estimée
-              CASE 
-                  -- véhicule sorti : retour estimé = départ + moyenne historique
-                  WHEN bs_en_cours.sortie_time IS NOT NULL 
-                      AND bs_en_cours.retour_time IS NULL
-                  THEN DATE_ADD(
-                          bs_en_cours.sortie_time, 
-                          INTERVAL ROUND(AVG(TIMESTAMPDIFF(HOUR, bs_historique.sortie_time, bs_historique.retour_time))) HOUR
-                      )
-                  
-                  -- véhicule réservé : départ prévu + moyenne historique
-                  WHEN bs_reserve.id_bande_sortie IS NOT NULL
-                  THEN DATE_ADD(
-                          bs_reserve.date_prevue, 
-                          INTERVAL ROUND(AVG(TIMESTAMPDIFF(HOUR, bs_historique.sortie_time, bs_historique.retour_time))) HOUR
-                      )
-              END AS dispo_estimee
+        SELECT 
+            v.id_vehicule,
+            v.immatriculation,
+            cv.nom_cat AS type_vehicule,
+            
+            -- Chauffeur actuel si mission en cours ou réservée
+            COALESCE(ch_en_cours.nom, ch_reserve.nom) AS chauffeur,
+            
+            -- Dernière destination connue (en cours, réservée ou historique)
+            COALESCE(d_en_cours.nom_destination, d_reserve.nom_destination, d_last.nom_destination) AS derniere_destination,
+            
+            -- Moyenne historique en heures
+            bs_histo_avg.duree_moyenne_heures,
+            
+            -- Chrono en cours si véhicule sorti
+            CASE 
+                WHEN bs_en_cours.id_bande_sortie IS NOT NULL THEN TIMESTAMPDIFF(HOUR, bs_en_cours.sortie_time, NOW())
+                ELSE NULL
+            END AS chrono_cours,
+            
+            -- Disponibilité estimée
+            CASE 
+                WHEN bs_en_cours.id_bande_sortie IS NOT NULL THEN DATE_ADD(bs_en_cours.sortie_time, INTERVAL bs_histo_avg.duree_moyenne_heures HOUR)
+                WHEN bs_reserve.id_bande_sortie IS NOT NULL THEN DATE_ADD(bs_reserve.date_prevue, INTERVAL bs_histo_avg.duree_moyenne_heures HOUR)
+                ELSE NULL
+            END AS dispo_estimee,
 
-          FROM vehicules v
-          LEFT JOIN cat_vehicule cv 
-                ON v.id_cat_vehicule = cv.id_cat_vehicule
+            -- Statut clair
+            CASE
+                WHEN v.IsDispo = 1 THEN 'Disponible'
+                WHEN v.IsDispo = 0 AND bs_reserve.id_bande_sortie IS NOT NULL THEN 'Réservé'
+                WHEN bs_en_cours.id_bande_sortie IS NOT NULL THEN 'En cours'
+                ELSE 'Indéfini'
+            END AS statut
 
-          -- historique terminé
-          LEFT JOIN bande_sortie bs_historique 
-                ON v.id_vehicule = bs_historique.id_vehicule
-                AND bs_historique.sortie_time IS NOT NULL
-                AND bs_historique.retour_time IS NOT NULL
-                AND bs_historique.est_supprime = 0
+        FROM vehicules v
+        LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
 
-          -- mission en cours
-          LEFT JOIN bande_sortie bs_en_cours
-                ON v.id_vehicule = bs_en_cours.id_vehicule
-                AND bs_en_cours.sortie_time IS NOT NULL
-                AND bs_en_cours.retour_time IS NULL
-                AND bs_en_cours.est_supprime = 0
+        -- Historique terminé pour moyenne
+        LEFT JOIN (
+            SELECT id_vehicule, ROUND(AVG(TIMESTAMPDIFF(HOUR, sortie_time, retour_time)), 1) AS duree_moyenne_heures
+            FROM bande_sortie
+            WHERE sortie_time IS NOT NULL AND retour_time IS NOT NULL AND est_supprime = 0
+            GROUP BY id_vehicule
+        ) AS bs_histo_avg ON v.id_vehicule = bs_histo_avg.id_vehicule
 
-          -- mission réservée (prévue mais pas encore sortie)
-          LEFT JOIN bande_sortie bs_reserve
-                ON v.id_vehicule = bs_reserve.id_vehicule
-                AND bs_reserve.sortie_time IS NULL
-                AND bs_reserve.retour_time IS NULL
-                AND bs_reserve.est_supprime = 0
+        -- Mission en cours
+        LEFT JOIN bande_sortie bs_en_cours
+              ON v.id_vehicule = bs_en_cours.id_vehicule
+              AND bs_en_cours.sortie_time IS NOT NULL
+              AND bs_en_cours.retour_time IS NULL
+              AND bs_en_cours.est_supprime = 0
 
-          -- chauffeur (lié soit à mission en cours soit à mission réservée)
-          LEFT JOIN chauffeurs ch 
-                ON ch.id_chauffeur = COALESCE(bs_en_cours.id_chauffeur, bs_reserve.id_chauffeur)
+        -- Mission réservée
+        LEFT JOIN bande_sortie bs_reserve
+              ON v.id_vehicule = bs_reserve.id_vehicule
+              AND bs_reserve.sortie_time IS NULL
+              AND bs_reserve.retour_time IS NULL
+              AND bs_reserve.est_supprime = 0
 
-          -- destination (en cours ou prévue)
-          LEFT JOIN destination d 
-                ON d.id_destination = COALESCE(bs_en_cours.id_destination, bs_reserve.id_destination)
+        -- Dernière mission historique pour dernière destination
+        LEFT JOIN (
+            SELECT bs1.id_vehicule, d.nom_destination
+            FROM bande_sortie bs1
+            JOIN destination d ON bs1.id_destination = d.id_destination
+            WHERE bs1.sortie_time IS NOT NULL AND bs1.retour_time IS NOT NULL AND bs1.est_supprime = 0
+              AND bs1.retour_time = (
+                  SELECT MAX(bs2.retour_time)
+                  FROM bande_sortie bs2
+                  WHERE bs2.id_vehicule = bs1.id_vehicule
+                    AND bs2.sortie_time IS NOT NULL
+                    AND bs2.retour_time IS NOT NULL
+                    AND bs2.est_supprime = 0
+              )
+        ) AS d_last ON v.id_vehicule = d_last.id_vehicule
 
-          WHERE v.est_supprime = 0
-            AND (
-                  v.IsDispo = 1                  -- dispo immédiate
-                  OR (v.IsDispo = 0 AND bs_reserve.id_bande_sortie IS NOT NULL) -- réservé
-                )
+        -- Chauffeurs
+        LEFT JOIN chauffeurs ch_en_cours ON bs_en_cours.id_chauffeur = ch_en_cours.id_chauffeur
+        LEFT JOIN chauffeurs ch_reserve ON bs_reserve.id_chauffeur = ch_reserve.id_chauffeur
 
-          GROUP BY v.id_vehicule, v.immatriculation, type_vehicule, ch.nom, d.nom_destination;
+        -- Destinations
+        LEFT JOIN destination d_en_cours ON bs_en_cours.id_destination = d_en_cours.id_destination
+        LEFT JOIN destination d_reserve ON bs_reserve.id_destination = d_reserve.id_destination
+
+        WHERE v.est_supprime = 0
+        ORDER BY bs_histo_avg.duree_moyenne_heures DESC;
               `;
       const [
         listVehiculeDispo,
