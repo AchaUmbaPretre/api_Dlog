@@ -1606,11 +1606,25 @@ exports.getRapportKiosque = async (req, res) => {
     // 4️⃣ total nbre_départ, nbre_attente et nbre_dispo
     const totalSql = `
       SELECT
-          SUM(CASE WHEN b.statut = 5 THEN 1 ELSE 0 END) AS nbre_depart,
-          SUM(CASE WHEN b.statut = 4 THEN 1 ELSE 0 END) AS nbre_attente,
-          (SELECT COUNT(*) FROM vehicules v WHERE v.IsDispo = 1) AS vehicule_dispo
-      FROM bande_sortie b;
-
+          CURRENT.nbre_depart AS depart_actuel,
+          PREV.nbre_depart AS depart_precedent,
+          CURRENT.nbre_attente AS attente_actuel,
+          PREV.nbre_attente AS attente_precedent,
+          (SELECT COUNT(*) FROM vehicules v WHERE v.IsDispo = 1 AND v.est_supprime = 0) AS vehicule_dispo
+      FROM
+          (SELECT 
+              SUM(CASE WHEN statut = 5 THEN 1 ELSE 0 END) AS nbre_depart,
+              SUM(CASE WHEN statut = 4 THEN 1 ELSE 0 END) AS nbre_attente
+          FROM bande_sortie
+          WHERE est_supprime = 0
+            AND DATE(date_prevue) = CURRENT_DATE()) AS CURRENT
+      JOIN
+          (SELECT 
+              SUM(CASE WHEN statut = 5 THEN 1 ELSE 0 END) AS nbre_depart,
+              SUM(CASE WHEN statut = 4 THEN 1 ELSE 0 END) AS nbre_attente
+          FROM bande_sortie
+          WHERE est_supprime = 0
+            AND DATE(date_prevue) = CURRENT_DATE() - INTERVAL 1 DAY) AS PREV
     `;
 
     // 5️⃣ Courses par chauffeur (aujourd’hui)
