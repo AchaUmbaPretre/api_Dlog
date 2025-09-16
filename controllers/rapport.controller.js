@@ -1541,7 +1541,6 @@ exports.getRapportPerformanceDelais = async (req, res) => {
   }
 }; */
 
-
 exports.getRapportKiosque = async (req, res) => {
   try {
     // 1️⃣ Anomalies du jour
@@ -1797,11 +1796,7 @@ ORDER BY nbre_course DESC;
       anomalies,
       evenementLive: evenementLiveRows,
       departHorsTiming: departHorsTimingRows,
-      total: {
-        depart: total.nbre_depart,
-        attente: total.nbre_attente,
-        vehicule_dispo: total.vehicule_dispo,
-      },
+      total,
       courseChauffeur: courseChauffeurWithBadge,
       courseService: courseServiceRows,
       departHorsTimingCompletRows,
