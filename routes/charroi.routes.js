@@ -39,9 +39,9 @@ router.get('/vehicule_dispo', charroiController.getVehiculeDispo)
 router.get('/vehicule_occupe', charroiController.getVehiculeOccupe)
 router.get('/vehicule/one', charroiController.getVehiculeOne)
 router.post('/vehicule', upload.array('img', 10), charroiController.postVehicule)
-router.put('/vehicule', charroiController.putVehicule)
-router.put('/vehicule_estSupprime', charroiController.deleteVehicule)
-router.put('/vehicule_falcon')
+router.put('/vehicule', charroiController.putVehicule);
+router.put('/vehicule_estSupprime', charroiController.deleteVehicule);
+router.put('/vehicule_falcon', charroiController.putRelierVehiculeFalcon)
 //Chauffeur
 router.get('/chauffeur_count', charroiController.getChauffeurCount)
 router.get('/chauffeur', charroiController.getChauffeur)
