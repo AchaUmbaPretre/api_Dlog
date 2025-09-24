@@ -89,6 +89,73 @@ app.use('/api/rapport', rapportRoutes)
 app.use('/api/charroi', charroiRoutes)
 app.use('/api/transporteur', transporteurRoutes)
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+/* app.get("/api/falcon", (req, res) => {
+  const options = {
+    hostname: "31.207.34.171",
+    port: 80,
+    path: "/api/get_devices?&lang=fr&user_api_hash=$2y$10$FbpbQMzKNaJVnv0H2RbAfel1NMjXRUoCy8pZUogiA/bvNNj1kdcY.",
+    method: "GET",
+  };
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    let data = "";
+
+    proxyRes.on("data", (chunk) => {
+      data += chunk;
+    });
+
+    proxyRes.on("end", () => {
+      try {
+        const jsonData = JSON.parse(data);
+        res.json(jsonData);
+      } catch (e) {
+        res.status(500).send("Erreur lors du parsing JSON");
+      }
+    });
+  });
+
+  proxyReq.on("error", (err) => {
+    console.error("Erreur proxy falcon:", err.message);
+    res.status(500).send("Erreur proxy falcon");
+  });
+
+  proxyReq.end();
+}); */
+
+app.get("/api/falcon", (req, res) => {
+  const options = {
+    hostname: "31.207.34.171",
+    port: 80,
+    path: "/api/get_devices?&lang=fr&user_api_hash=$2y$10$FbpbQMzKNaJVnv0H2RbAfel1NMjXRUoCy8pZUogiA/bvNNj1kdcY.",
+    method: "GET",
+  };
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    let data = "";
+
+    proxyRes.on("data", (chunk) => {
+      data += chunk;
+    });
+
+    proxyRes.on("end", () => {
+      console.log("Falcon API response:");
+      try {
+        res.json(JSON.parse(data));
+      } catch (e) {
+        console.error("Erreur parsing JSON:", e.message);
+        res.status(500).send(data);
+      }
+    });
+  });
+
+  proxyReq.on("error", (err) => {
+    console.error("Erreur proxy falcon:", err.message);
+    res.status(500).send("Erreur proxy falcon: " + err.message);
+  });
+
+  proxyReq.end();
+});
+
 
 app.get('/api/image-proxy', (req, res) => {
   const imageUrl = req.query.url;

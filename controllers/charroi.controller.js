@@ -550,6 +550,35 @@ exports.deleteVehicule = async (req, res) => {
     }
 };
 
+exports.putRelierVehiculeFalcon = async (req, res) => {
+    try {
+      const { id_vehicule } = req.query;
+      const { id_capteur, name_capteur } = req.body;
+
+      if (!id_vehicule) {
+        return res.status(400).json({ message: "Paramètre 'id_vehicule' manquant." });
+      }
+  
+      const q = "UPDATE vehicules SET id_capteur = ?, name_capteur = ? WHERE id_vehicule = ?";
+  
+      db.query(q, [id_vehicule, id_capteur, name_capteur], (err, result) => {
+        if (err) {
+          console.error("Erreur de requête de base de données:", err);
+          return res.status(500).json({ message: "Une erreur de base de données s'est produite." });
+        }
+  
+        if (result.affectedRows === 0) {
+          return res.status(404).json({ message: "Vehicule introuvable." });
+        }
+  
+        return res.status(200).json({ message: "Vehicule supprimé avec succès." });
+      });
+    } catch (error) {
+      console.error("Erreur inattendue:", error);
+      return res.status(500).json({ message: "Une erreur inattendue s'est produite." });
+    }
+};
+
 //Chauffeur
 exports.getChauffeurCount = async(req, res) => {
 

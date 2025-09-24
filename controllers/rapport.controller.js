@@ -1913,6 +1913,8 @@ exports.getRapportCharroiVehicule = async(req, res) => {
               c.nom, 
               c.prenom AS prenom_chauffeur,
               v.immatriculation, 
+              v.id_capteur,
+              v.name_capteur,
               m.nom_marque,
 
               -- Durée réelle en minutes depuis le départ
