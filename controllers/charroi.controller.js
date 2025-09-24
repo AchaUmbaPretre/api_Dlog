@@ -346,6 +346,8 @@ exports.getVehiculeOne = async (req, res) => {
                 v.nbre_moteur,
                 v.date_service,
                 v.pneus,
+                v.id_capteur,
+                v.name_capteur,
                 marque.nom_marque, 
                 modeles.modele, 
                 cv.nom_cat, 
@@ -561,7 +563,7 @@ exports.putRelierVehiculeFalcon = async (req, res) => {
   
       const q = "UPDATE vehicules SET id_capteur = ?, name_capteur = ? WHERE id_vehicule = ?";
   
-      db.query(q, [id_vehicule, id_capteur, name_capteur], (err, result) => {
+      db.query(q, [id_capteur, name_capteur, id_vehicule ], (err, result) => {
         if (err) {
           console.error("Erreur de requête de base de données:", err);
           return res.status(500).json({ message: "Une erreur de base de données s'est produite." });
