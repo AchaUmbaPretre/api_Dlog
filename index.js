@@ -156,6 +156,75 @@ app.get("/api/falcon", (req, res) => {
   proxyReq.end();
 });
 
+app.get("/api/get_event", (req, res) => {
+  const query = new URLSearchParams(req.query).toString();
+
+  const options = {
+    hostname: "falconeyesolutions.com",
+    port: 80,
+    path: `/api/get_events?${query}`,
+    method: "GET",
+  };
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    let data = "";
+
+    proxyRes.on("data", (chunk) => {
+      data += chunk;
+    });
+
+    proxyRes.on("end", () => {
+      try {
+        res.json(JSON.parse(data));
+      } catch (e) {
+        console.error("Erreur parsing JSON:", e.message);
+        res.status(500).send(data);
+      }
+    });
+  });
+
+  proxyReq.on("error", (err) => {
+    console.error("Erreur proxy falcon:", err.message);
+    res.status(500).send("Erreur proxy falcon: " + err.message);
+  });
+
+  proxyReq.end();
+});
+
+app.get("/api/get_history", (req, res) => {
+  const query = new URLSearchParams(req.query).toString();
+
+  const options = {
+    hostname: "falconeyesolutions.com",
+    port: 80,
+    path: `/api/get_history?${query}`,
+    method: "GET",
+  };
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    let data = "";
+
+    proxyRes.on("data", (chunk) => {
+      data += chunk;
+    });
+
+    proxyRes.on("end", () => {
+      try {
+        res.json(JSON.parse(data));
+      } catch (e) {
+        console.error("Erreur parsing JSON:", e.message);
+        res.status(500).send(data);
+      }
+    });
+  });
+
+  proxyReq.on("error", (err) => {
+    console.error("Erreur proxy falcon:", err.message);
+    res.status(500).send("Erreur proxy falcon: " + err.message);
+  });
+
+  proxyReq.end();
+});
 
 app.get('/api/image-proxy', (req, res) => {
   const imageUrl = req.query.url;
