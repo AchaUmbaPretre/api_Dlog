@@ -127,7 +127,7 @@ exports.postEvent = async (req, res) => {
 };
 
 
-exports.getRawReport = async (req, res) => {
+/* exports.getRawReport = async (req, res) => {
     const { startDate, endDate } = req.query;
 
     if (!startDate || !endDate) {
@@ -200,4 +200,130 @@ exports.getRawReport = async (req, res) => {
         console.error(err);
         return res.status(500).json({ error: 'Erreur lors de la génération du rapport brut' });
     }
+}; */
+
+/* exports.getRawReport = async (startDate, endDate) => {
+  try {
+    // 1️⃣ Récupérer tous les événements pour la période, par véhicule, en ignorant les doublons event_time
+    const sql = `
+      SELECT 
+        ve.device_name AS vehicle,
+        ve.type,
+        ve.event_time,
+        ve.latitude,
+        ve.longitude
+      FROM vehicle_events ve
+      WHERE ve.event_time BETWEEN ? AND ?
+      GROUP BY ve.device_name, ve.type, ve.event_time
+      ORDER BY ve.device_name, ve.event_time
+    `;
+
+    const events = await query(sql, [startDate, endDate]);
+
+    // 2️⃣ Regrouper par véhicule
+    const vehicles = {};
+
+    events.forEach(e => {
+      if (!vehicles[e.vehicle]) vehicles[e.vehicle] = { ignition: 0, overspeed: 0, disconnectPeriods: [], lastEventTime: null, details: [] };
+
+      const v = vehicles[e.vehicle];
+
+      // Compter les types
+      if (e.type === 'ignition_on') v.ignition += 1;
+      if (e.type === 'overspeed') v.overspeed += 1;
+
+      // Déconnexion : si écart > 6h avec le dernier événement
+      if (v.lastEventTime) {
+        const diffHours = moment(e.event_time).diff(moment(v.lastEventTime), 'hours', true);
+        if (diffHours > 6) {
+          v.disconnectPeriods.push(diffHours); // durée en heures
+        }
+      }
+      v.lastEventTime = e.event_time;
+
+      // Ajouter les détails pour le rapport
+      v.details.push(`${e.event_time} | ${e.type} | lat:${e.latitude} lon:${e.longitude}`);
+    });
+
+    // 3️⃣ Générer le rapport
+    const report = Object.keys(vehicles).map(vehicleName => {
+      const v = vehicles[vehicleName];
+      const totalDisconnect = v.disconnectPeriods.reduce((sum, h) => sum + h, 0); // total en heures
+      const disconnectMinutes = Math.round(totalDisconnect * 60); // convertir en minutes
+
+      return {
+        vehicle: vehicleName,
+        summary: `Véhicule ${vehicleName} → ${v.ignition} événements d’allumage, ${v.overspeed} dépassements vitesse, ${v.disconnectPeriods.length} déconnexions (${disconnectMinutes} min)`,
+        details: v.details.join('\n')
+      };
+    });
+
+    return report;
+
+  } catch (err) {
+    console.error('Erreur génération rapport:', err.message);
+    throw err;
+  }
+}; */
+
+exports.getRawReport = async (startDate, endDate) => {
+    
+  try {
+    // 1️⃣ Récupérer tous les événements pour la période, par véhicule
+    const sql = `
+      SELECT device_name AS vehicle, type, event_time, latitude, longitude
+      FROM vehicle_events
+      WHERE event_time BETWEEN ? AND ?
+      ORDER BY device_name, event_time
+    `;
+    const events = await query(sql, [startDate, endDate]);
+
+    // 2️⃣ Regrouper par véhicule en filtrant les doublons event_time
+    const vehicles = {};
+
+    events.forEach(e => {
+      if (!vehicles[e.vehicle]) vehicles[e.vehicle] = { ignition: 0, overspeed: 0, disconnectPeriods: [], lastEventTime: null, seenTimes: new Set(), details: [] };
+
+      const v = vehicles[e.vehicle];
+
+      // Ignorer si on a déjà vu ce event_time pour ce véhicule
+      if (v.seenTimes.has(e.event_time)) return;
+      v.seenTimes.add(e.event_time);
+
+      // Compter les types
+      if (e.type === 'ignition_on') v.ignition += 1;
+      if (e.type === 'overspeed') v.overspeed += 1;
+
+      // Déconnexion : si écart > 6h avec le dernier événement
+      if (v.lastEventTime) {
+        const diffHours = moment(e.event_time).diff(moment(v.lastEventTime), 'hours', true);
+        if (diffHours > 6) {
+          v.disconnectPeriods.push(diffHours); // durée en heures
+        }
+      }
+      v.lastEventTime = e.event_time;
+
+      // Ajouter les détails pour le rapport
+      v.details.push(`${e.event_time} | ${e.type} | lat:${e.latitude} lon:${e.longitude}`);
+    });
+
+    // 3️⃣ Générer le rapport
+    const report = Object.keys(vehicles).map(vehicleName => {
+      const v = vehicles[vehicleName];
+      const totalDisconnect = v.disconnectPeriods.reduce((sum, h) => sum + h, 0);
+      const disconnectMinutes = Math.round(totalDisconnect * 60);
+
+      return {
+        vehicle: vehicleName,
+        summary: `Véhicule ${vehicleName} → ${v.ignition} événements d’allumage, ${v.overspeed} dépassements vitesse, ${v.disconnectPeriods.length} déconnexions (${disconnectMinutes} min)`,
+        details: v.details.join('\n')
+      };
+    });
+
+    return report;
+
+  } catch (err) {
+    console.error('Erreur génération rapport:', err.message);
+    throw err;
+  }
 };
