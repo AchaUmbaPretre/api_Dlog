@@ -25,6 +25,7 @@ const templateRoutes = require('./routes/template.routes');
 const rapportRoutes = require('./routes/rapport.routes');
 const charroiRoutes = require('./routes/charroi.routes');
 const transporteurRoutes = require('./routes/transporteur.routes');
+const eventRoutes = require('./routes/event.routes')
 
 const https = require('https');
 const http = require('http');
@@ -87,6 +88,7 @@ app.use('/api/permission', permissionRoutes)
 app.use('/api/template', templateRoutes)
 app.use('/api/rapport', rapportRoutes)
 app.use('/api/charroi', charroiRoutes)
+app.use('/api/event', eventRoutes)
 app.use('/api/transporteur', transporteurRoutes)
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 /* app.get("/api/falcon", (req, res) => {
