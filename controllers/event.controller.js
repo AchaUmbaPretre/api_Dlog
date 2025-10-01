@@ -125,3 +125,79 @@ exports.postEvent = async (req, res) => {
         return res.status(500).json({ error: 'Erreur lors de l\'ajout de l\'événement.' });
     }
 };
+
+
+exports.getRawReport = async (req, res) => {
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+        return res.status(400).json({ error: 'startDate et endDate sont obligatoires' });
+    }
+
+    try {
+        const events = await query(
+            `SELECT device_name, type, time 
+             FROM vehicle_events
+             WHERE time BETWEEN ? AND ?
+             ORDER BY device_name, time`,
+            [`${startDate} 00:00:00`, `${endDate} 23:59:59`]
+        );
+
+        const vehicles = {};
+
+        // Grouper les événements par véhicule
+        events.forEach(ev => {
+            if (!vehicles[ev.device_name]) vehicles[ev.device_name] = [];
+            vehicles[ev.device_name].push(ev);
+        });
+
+        const report = Object.entries(vehicles).map(([vehicle, evs]) => {
+            let ignitionCount = 0;
+            let overspeedCount = 0;
+            let totalIgnitionMinutes = 0;
+            let totalDisconnectedMinutes = 0;
+
+            let lastEventTime = null;
+            let ignitionOnTime = null;
+
+            evs.forEach(e => {
+                const eventTime = moment(e.time, "DD-MM-YYYY HH:mm:ss");
+
+                // Compter overspeed
+                if (e.type === 'overspeed') overspeedCount++;
+
+                // Compter ignition
+                if (e.type === 'ignition_on') {
+                    ignitionCount++;
+                    ignitionOnTime = eventTime;
+                }
+
+                if (e.type === 'ignition_off' && ignitionOnTime) {
+                    const diffMinutes = eventTime.diff(ignitionOnTime, 'minutes');
+                    totalIgnitionMinutes += diffMinutes;
+                    ignitionOnTime = null;
+                }
+
+                // Calculer déconnexion (>6h)
+                if (lastEventTime) {
+                    const diffHours = eventTime.diff(lastEventTime, 'hours');
+                    if (diffHours > 6) totalDisconnectedMinutes += diffHours * 60;
+                }
+                lastEventTime = eventTime;
+            });
+
+            return {
+                vehicle,
+                summary: `${vehicle} → ${ignitionCount} événements d’allumage, ${overspeedCount} dépassements vitesse, ${totalDisconnectedMinutes} min de déconnexion, ${totalIgnitionMinutes} min allumé`,
+                first_event: evs[0].time,
+                last_event: evs[evs.length - 1].time
+            };
+        });
+
+        return res.status(200).json(report);
+
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Erreur lors de la génération du rapport brut' });
+    }
+};
