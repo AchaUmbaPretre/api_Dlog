@@ -17,6 +17,13 @@ exports.getEvent = (req, res) => {
 
 // Créer une alerte dans MySQL
 const createAlert = async ({ event_id, device_id, device_name, alert_type, alert_level, alert_message, alert_time }) => {
+    // Vérifier si l'alerte existe déjà
+    const exists = await query(
+        `SELECT 1 FROM vehicle_alerts WHERE device_id = ? AND alert_type = ? AND alert_time = ?`,
+        [device_id, alert_type, alert_time]
+    );
+    if (exists.length) return; // Ne rien faire si existe déjà
+
     const sql = `
         INSERT INTO vehicle_alerts
             (event_id, device_id, device_name, alert_type, alert_level, alert_message, alert_time)
@@ -25,7 +32,7 @@ const createAlert = async ({ event_id, device_id, device_name, alert_type, alert
     await query(sql, [event_id, device_id, device_name, alert_type, alert_level, alert_message, alert_time]);
 };
 
-// Vérifier si un device est déconnecté (>6h sans événement)
+
 // Vérifier si un device est déconnecté (>6h sans événement)
 const checkDisconnectedDevices = async () => {
     try {
@@ -75,20 +82,30 @@ const checkDisconnectedDevices = async () => {
     }
 };
 
-
-// 📌 postEvent amélioré avec bande_sortie et alertes
+//postEvent amélioré avec bande_sortie et alertes
 exports.postEvent = async (req, res) => {
     let { external_id, device_id, device_name, type, message, speed = 0, latitude, longitude, event_time } = req.body;
 
     if (!external_id || !device_id || !type || !event_time) {
-        if(res) return res.status(400).json({ error: 'external_id, device_id, type et event_time sont obligatoires.' });
+        if (res) return res.status(400).json({ error: 'external_id, device_id, type et event_time sont obligatoires.' });
         return;
     }
 
     try {
         const formattedEventTime = moment(event_time, "DD-MM-YYYY HH:mm:ss").format("YYYY-MM-DD HH:mm:ss");
 
-        //Insertion dans vehicle_events
+        // ✅ Vérifier si l'événement existe déjà
+        const existsEvent = await query(
+            `SELECT 1 FROM vehicle_events WHERE external_id = ? AND device_id = ? AND event_time = ?`,
+            [external_id, device_id, formattedEventTime]
+        );
+
+        if (existsEvent.length) {
+            console.log(`Événement déjà présent pour device ${device_id} à ${formattedEventTime}, insertion ignorée.`);
+            return res ? res.status(200).json({ message: 'Événement déjà existant, ignoré.' }) : null;
+        }
+
+        // Insertion dans vehicle_events
         const sqlInsertEvent = `
             INSERT INTO vehicle_events
                 (external_id, device_id, device_name, type, message, speed, latitude, longitude, event_time)
@@ -100,10 +117,9 @@ exports.postEvent = async (req, res) => {
 
         const event_id = result.insertId;
 
-        //Génération des alertes
         const alerts = [];
 
-        //Dépassement vitesse
+        // Dépassement vitesse
         if (type === 'overspeed' || speed > 80) {
             alerts.push({
                 event_id,
@@ -116,7 +132,7 @@ exports.postEvent = async (req, res) => {
             });
         }
 
-        //Véhicule en mouvement sans mission assignée
+        // Véhicule en mouvement sans mission assignée
         if ((type === 'ignition_on' || speed > 0) && (!message || !message.includes('course_active'))) {
             const unauthorized = await checkUnauthorizedMovementByDeviceName(device_name);
             if (unauthorized) {
@@ -132,17 +148,27 @@ exports.postEvent = async (req, res) => {
             }
         }
 
-        //Enregistrement des alertes
-        for (const alert of alerts) await createAlert(alert);
+        // ✅ Enregistrement des alertes sans doublons
+        for (const alert of alerts) {
+            const existsAlert = await query(
+                `SELECT 1 FROM vehicle_alerts WHERE device_id = ? AND alert_type = ? AND alert_time = ?`,
+                [alert.device_id, alert.alert_type, alert.alert_time]
+            );
+            if (!existsAlert.length) {
+                await createAlert(alert);
+            } else {
+                console.log(`Alerte déjà existante pour device ${alert.device_id} à ${alert.alert_time}, ignorée.`);
+            }
+        }
 
-        //Vérification connectivité des devices
+        // Vérification connectivité des devices
         await checkDisconnectedDevices();
 
-        if(res) return res.status(201).json({ message: 'Événement ajouté et alertes générées si nécessaire.' });
+        if (res) return res.status(201).json({ message: 'Événement ajouté et alertes générées si nécessaire.' });
 
     } catch (error) {
         console.error('Erreur ajout événement :', error.message);
-        if(res) return res.status(500).json({ error: 'Erreur lors de l\'ajout de l\'événement.' });
+        if (res) return res.status(500).json({ error: 'Erreur lors de l\'ajout de l\'événement.' });
     }
 };
 
