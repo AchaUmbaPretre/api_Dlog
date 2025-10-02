@@ -16,20 +16,53 @@ exports.getEvent = (req, res) => {
 };
 
 // Créer une alerte dans MySQL
-const createAlert = async ({ event_id, device_id, device_name, alert_type, alert_level, alert_message, alert_time }) => {
-    // Vérifier si l'alerte existe déjà
-    const exists = await query(
-        `SELECT 1 FROM vehicle_alerts WHERE device_id = ? AND alert_type = ? AND alert_time = ?`,
-        [device_id, alert_type, alert_time]
-    );
-    if (exists.length) return; // Ne rien faire si existe déjà
+const createAlert = async ({
+  event_id,
+  device_id,
+  device_name,
+  alert_type,
+  alert_level,
+  alert_message,
+  alert_time
+}) => {
+  // Vérifier si une alerte similaire non résolue existe déjà
+  const existing = await query(
+    `SELECT id FROM vehicle_alerts 
+     WHERE device_id = ? AND alert_type = ? AND resolved = 0 
+     ORDER BY created_at DESC LIMIT 1`,
+    [device_id, alert_type]
+  );
 
-    const sql = `
-        INSERT INTO vehicle_alerts
-            (event_id, device_id, device_name, alert_type, alert_level, alert_message, alert_time)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    `;
-    await query(sql, [event_id, device_id, device_name, alert_type, alert_level, alert_message, alert_time]);
+  if (existing.length > 0) {
+    // ⚠️ Mettre à jour l’alerte existante au lieu de dupliquer
+    await query(
+      `UPDATE vehicle_alerts 
+       SET alert_time = ?, alert_message = ?, alert_level = ? 
+       WHERE id = ?`,
+      [alert_time, alert_message, alert_level, existing[0].id]
+    );
+    console.log(`⚠️ Alerte mise à jour pour ${device_name} (${alert_type})`);
+    return { updated: true, alertId: existing[0].id };
+  }
+
+  // 🚨 Sinon insérer une nouvelle alerte
+  const sql = `
+    INSERT INTO vehicle_alerts
+      (event_id, device_id, device_name, alert_type, alert_level, alert_message, alert_time, resolved, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW())
+  `;
+  const result = await query(sql, [
+    event_id,
+    device_id,
+    device_name,
+    alert_type,
+    alert_level,
+    alert_message,
+    alert_time
+  ]);
+
+  console.log(`🚨 Nouvelle alerte créée pour ${device_name} (${alert_type})`);
+  return { created: true, alertId: result.insertId };
 };
 
 // Vérifier si un device est déconnecté (>6h sans événement)
