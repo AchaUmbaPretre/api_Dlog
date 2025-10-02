@@ -96,26 +96,38 @@ const checkDisconnectedDevices = async () => {
             const diffHours = now.diff(lastEventTime, 'hours');
             const status = diffHours > 6 ? 'disconnected' : 'connected';
 
-            // Récupérer le dernier état connu dans tracker_connectivity
-            const lastRecord = await query(
-                `SELECT status, last_connection 
-                 FROM tracker_connectivity 
-                 WHERE device_id = ? 
-                 ORDER BY check_time DESC 
-                 LIMIT 1`,
+            // Vérifier si une ligne existe déjà pour le device aujourd'hui
+            const existing = await query(`
+                SELECT id, status, last_connection 
+                FROM tracker_connectivity
+                WHERE device_id = ? AND DATE(check_time) = CURDATE()
+                LIMIT 1
+            `, [device.device_id]);
+
+            // Récupérer le device_name depuis vehicle_events
+            const lastEvent = await query(
+                "SELECT device_name FROM vehicle_events WHERE device_id = ? ORDER BY event_time DESC LIMIT 1",
                 [device.device_id]
             );
+            const deviceNameSafe = lastEvent[0]?.device_name || `Device ${device.device_id}`;
 
-            // Si l'état a changé ou pas de record existant
-            if (!lastRecord.length || lastRecord[0].status !== status || lastRecord[0].last_connection !== lastEventTime.format('YYYY-MM-DD HH:mm:ss')) {
-                // Récupérer le device_name depuis vehicle_events
-                const lastEvent = await query(
-                    "SELECT device_name FROM vehicle_events WHERE device_id = ? ORDER BY event_time DESC LIMIT 1",
-                    [device.device_id]
-                );
-                const deviceNameSafe = lastEvent[0]?.device_name || `Device ${device.device_id}`;
-
-                // Stocker dans tracker_connectivity avec device_name
+            if (existing.length) {
+                // Mise à jour si l'état ou la dernière connexion a changé
+                if (existing[0].status !== status || existing[0].last_connection !== lastEventTime.format('YYYY-MM-DD HH:mm:ss')) {
+                    await query(`
+                        UPDATE tracker_connectivity
+                        SET device_name = ?, last_connection = ?, status = ?, check_time = ?
+                        WHERE id = ?
+                    `, [
+                        deviceNameSafe,
+                        lastEventTime.format('YYYY-MM-DD HH:mm:ss'),
+                        status,
+                        now.format('YYYY-MM-DD HH:mm:ss'),
+                        existing[0].id
+                    ]);
+                }
+            } else {
+                // Sinon insertion
                 await query(`
                     INSERT INTO tracker_connectivity (device_id, device_name, last_connection, status, check_time)
                     VALUES (?, ?, ?, ?, ?)
@@ -139,7 +151,7 @@ const checkDisconnectedDevices = async () => {
                     await createAlert({
                         event_id: null,
                         device_id: device.device_id,
-                        device_name: lastRecord[0]?.device_name || `Device ${device.device_id}`,
+                        device_name: deviceNameSafe,
                         alert_type: 'disconnected',
                         alert_level: 'CRITICAL',
                         alert_message: 'Traceur déconnecté depuis plus de 6 heures',
@@ -272,6 +284,7 @@ const checkUnauthorizedMovementByDeviceName = async (device_name) => {
 // Générer rapport raw
 exports.getRawReport = async (req, res) => {
     const { startDate, endDate } = req.query;
+
     try {
         const start = moment(startDate);
         const end = moment(endDate);
@@ -283,6 +296,7 @@ exports.getRawReport = async (req, res) => {
         const startSQL = start.format('YYYY-MM-DD HH:mm:ss');
         const endSQL = end.format('YYYY-MM-DD HH:mm:ss');
 
+        // Récupérer tous les événements pour la période
         const sql = `
             SELECT device_name AS vehicle, type, event_time, latitude, longitude
             FROM vehicle_events
@@ -291,47 +305,92 @@ exports.getRawReport = async (req, res) => {
         `;
         const events = await query(sql, [startSQL, endSQL]);
 
+        // Filtrer les événements avec coordonnées valides
         const validEvents = events.filter(e =>
             e.latitude !== null && e.longitude !== null &&
             !isNaN(e.latitude) && !isNaN(e.longitude)
         );
 
+        // Regrouper les données par véhicule
         const vehicles = {};
         validEvents.forEach(e => {
-            if (!vehicles[e.vehicle]) vehicles[e.vehicle] = { ignition:0, overspeed:0, disconnectPeriods:[], lastEventTime:null, seenTimes:new Set(), details:[] };
+            if (!vehicles[e.vehicle]) {
+                vehicles[e.vehicle] = {
+                    ignitionOn: 0,
+                    ignitionOff: 0,
+                    overspeedCount: 0,
+                    disconnectPeriods: [],
+                    lastEventTime: null,
+                    seenTimes: new Set(),
+                    details: []
+                };
+            }
+
             const v = vehicles[e.vehicle];
             if (v.seenTimes.has(e.event_time)) return;
             v.seenTimes.add(e.event_time);
-            if (e.type === 'ignition_on') v.ignition += 1;
-            if (e.type === 'overspeed') v.overspeed += 1;
+
+            // Comptabiliser les événements
+            if (e.type === 'ignition_on') v.ignitionOn += 1;
+            if (e.type === 'ignition_off') v.ignitionOff += 1;
+            if (e.type === 'overspeed') v.overspeedCount += 1;
+
+            // Calcul des périodes de déconnexion (>6h)
             if (v.lastEventTime) {
                 const diffMinutes = moment(e.event_time).diff(moment(v.lastEventTime), 'minutes', true);
                 if (diffMinutes > 360) v.disconnectPeriods.push(diffMinutes);
             }
+
             v.lastEventTime = e.event_time;
-            v.details.push({ time: e.event_time, type: e.type, latitude: e.latitude, longitude: e.longitude });
+            v.details.push({
+                time: e.event_time,
+                type: e.type,
+                latitude: e.latitude,
+                longitude: e.longitude
+            });
         });
 
+        // Générer le rapport structuré
         const report = Object.keys(vehicles).map(vehicleName => {
             const v = vehicles[vehicleName];
-            const totalDisconnectMinutes = Math.round(v.disconnectPeriods.reduce((sum,m)=>sum+m,0));
+            const totalDisconnectMinutes = Math.round(v.disconnectPeriods.reduce((sum, m) => sum + m, 0));
+            const status = v.lastEventTime && (moment().diff(moment(v.lastEventTime), 'hours') > 6 ? 'disconnected' : 'connected');
+
             return {
                 vehicle: vehicleName,
-                ignitionCount: v.ignition,
-                overspeedCount: v.overspeed,
-                disconnects: v.disconnectPeriods.map(min=>({ durationMinutes: Math.round(min) })),
-                details: v.details,
-                summary: `Véhicule ${vehicleName} → ${v.ignition} événements d’allumage, ${v.overspeed} dépassements vitesse, ${v.disconnectPeriods.length} déconnexions (${totalDisconnectMinutes} min)`
+                summary: {
+                    totalIgnitionsOn: v.ignitionOn,
+                    totalIgnitionsOff: v.ignitionOff,
+                    totalOverspeed: v.overspeedCount,
+                    totalDisconnects: v.disconnectPeriods.length,
+                    totalDisconnectMinutes
+                },
+                summaryText: `Véhicule ${vehicleName} → ${v.ignitionOn} démarrages, ${v.ignitionOff} arrêts, ${v.overspeedCount} dépassements vitesse, ${v.disconnectPeriods.length} déconnexions (${totalDisconnectMinutes} min)`,
+                disconnects: v.disconnectPeriods.map((duration, idx) => ({
+                    number: idx + 1,
+                    durationMinutes: Math.round(duration)
+                })),
+                events: v.details,
+                status
             };
         });
 
-        res.json(report);
+        // Réponse finale
+        res.json({
+            period: {
+                start: startSQL,
+                end: endSQL
+            },
+            report
+        });
 
-    } catch(err) {
-        console.error('Erreur génération rapport:', err.message);
-        res.status(500).json({ error: 'Erreur lors de la génération du rapport' });
+    } catch (err) {
+        console.error('Erreur génération rapport pro:', err.message);
+        res.status(500).json({ error: 'Erreur lors de la génération du rapport professionnel' });
     }
 };
+
+
 
 //Récupération automatique depuis l’API Falcon
 const fetchAndStoreEvents = async () => {
