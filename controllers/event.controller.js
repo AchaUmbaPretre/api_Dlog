@@ -6,7 +6,7 @@ const query = util.promisify(db.query).bind(db);
 
 const FETCH_INTERVAL_MINUTES = 5;
 
-// Récupérer tous les événements depuis MySQL
+// Récupérer tous les événements
 exports.getEvent = (req, res) => {
     const q = `SELECT * FROM vehicle_events`;
     db.query(q, (error, data) => {
