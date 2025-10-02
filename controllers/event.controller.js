@@ -49,30 +49,49 @@ const checkDisconnectedDevices = async () => {
             const diffHours = now.diff(lastEventTime, 'hours');
             const status = diffHours > 6 ? 'disconnected' : 'connected';
 
-            // Stocker dans tracker_connectivity
-            await query(`
-                INSERT INTO tracker_connectivity (device_id, last_connection, status, check_time)
-                VALUES (?, ?, ?, ?)
-            `, [device.device_id, lastEventTime.format('YYYY-MM-DD HH:mm:ss'), status, now.format('YYYY-MM-DD HH:mm:ss')]);
+            // ✅ Vérifier si le dernier état est identique pour éviter doublons
+            const lastRecord = await query(
+                `SELECT status, last_connection 
+                 FROM tracker_connectivity 
+                 WHERE device_id = ? 
+                 ORDER BY check_time DESC 
+                 LIMIT 1`,
+                [device.device_id]
+            );
+
+            if (!lastRecord.length || lastRecord[0].status !== status || lastRecord[0].last_connection !== lastEventTime.format('YYYY-MM-DD HH:mm:ss')) {
+                // Stocker dans tracker_connectivity uniquement si l'état a changé
+                await query(`
+                    INSERT INTO tracker_connectivity (device_id, last_connection, status, check_time)
+                    VALUES (?, ?, ?, ?)
+                `, [device.device_id, lastEventTime.format('YYYY-MM-DD HH:mm:ss'), status, now.format('YYYY-MM-DD HH:mm:ss')]);
+            }
 
             // Générer alerte si disconnected
             if (status === 'disconnected') {
-                // Récupérer device_name depuis le dernier événement
                 const lastEvent = await query(
                     "SELECT device_name FROM vehicle_events WHERE device_id = ? ORDER BY event_time DESC LIMIT 1",
                     [device.device_id]
                 );
                 const deviceNameSafe = lastEvent[0]?.device_name || `Device ${device.device_id}`;
 
-                await createAlert({
-                    event_id: null,
-                    device_id: device.device_id,
-                    device_name: deviceNameSafe,
-                    alert_type: 'disconnected',
-                    alert_level: 'CRITICAL',
-                    alert_message: 'Traceur déconnecté depuis plus de 6 heures',
-                    alert_time: now.format('YYYY-MM-DD HH:mm:ss')
-                });
+                // ✅ Vérifier si l'alerte existe déjà pour éviter doublons
+                const existingAlert = await query(
+                    `SELECT 1 FROM vehicle_alerts WHERE device_id = ? AND alert_type = ? AND alert_time = ?`,
+                    [device.device_id, 'disconnected', now.format('YYYY-MM-DD HH:mm:ss')]
+                );
+
+                if (!existingAlert.length) {
+                    await createAlert({
+                        event_id: null,
+                        device_id: device.device_id,
+                        device_name: deviceNameSafe,
+                        alert_type: 'disconnected',
+                        alert_level: 'CRITICAL',
+                        alert_message: 'Traceur déconnecté depuis plus de 6 heures',
+                        alert_time: now.format('YYYY-MM-DD HH:mm:ss')
+                    });
+                }
             }
         }
 
