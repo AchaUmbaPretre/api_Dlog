@@ -234,7 +234,7 @@ exports.getRawReport = async (req, res) => {
     }
 };
 
-// 🔄 Récupération automatique depuis l’API Falcon
+//Récupération automatique depuis l’API Falcon
 const fetchAndStoreEvents = async () => {
     try {
         const [lastEventRow] = await query(`SELECT MAX(event_time) AS last_time FROM vehicle_events`);
@@ -298,7 +298,7 @@ const fetchAndStoreEvents = async () => {
     }
 };
 
-// 🔁 Lancer la récupération automatique toutes les 5 minutes
+//Lancer la récupération automatique toutes les 5 minutes
 setInterval(fetchAndStoreEvents, FETCH_INTERVAL_MINUTES * 60 * 1000);
 
 // Optionnel : lancer immédiatement au démarrage
