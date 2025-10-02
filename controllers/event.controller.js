@@ -15,6 +15,19 @@ exports.getEvent = (req, res) => {
     });
 };
 
+exports.getRapportDay = (req, res) => {
+    const q = `
+        SELECT device_name, device_id, last_connection, status
+            FROM tracker_connectivity
+            WHERE DATE(check_time) = CURDATE()
+            GROUP BY device_name
+            ORDER BY status DESC, last_connection DESC
+        `;
+    db.query(q, (error, data) => {
+        if(error) return res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+}
 // Créer une alerte dans MySQL
 const createAlert = async ({
   event_id,
@@ -66,8 +79,10 @@ const createAlert = async ({
 };
 
 // Vérifier si un device est déconnecté (>6h sans événement)
+// Vérifier si un device est déconnecté (>6h sans événement)
 const checkDisconnectedDevices = async () => {
     try {
+        // Récupérer tous les devices et leur dernier événement
         const devices = await query(`
             SELECT device_id, MAX(event_time) AS last_event
             FROM vehicle_events
@@ -81,7 +96,7 @@ const checkDisconnectedDevices = async () => {
             const diffHours = now.diff(lastEventTime, 'hours');
             const status = diffHours > 6 ? 'disconnected' : 'connected';
 
-            // ✅ Vérifier si le dernier état est identique pour éviter doublons
+            // Récupérer le dernier état connu dans tracker_connectivity
             const lastRecord = await query(
                 `SELECT status, last_connection 
                  FROM tracker_connectivity 
@@ -91,23 +106,30 @@ const checkDisconnectedDevices = async () => {
                 [device.device_id]
             );
 
+            // Si l'état a changé ou pas de record existant
             if (!lastRecord.length || lastRecord[0].status !== status || lastRecord[0].last_connection !== lastEventTime.format('YYYY-MM-DD HH:mm:ss')) {
-                // Stocker dans tracker_connectivity uniquement si l'état a changé
-                await query(`
-                    INSERT INTO tracker_connectivity (device_id, last_connection, status, check_time)
-                    VALUES (?, ?, ?, ?)
-                `, [device.device_id, lastEventTime.format('YYYY-MM-DD HH:mm:ss'), status, now.format('YYYY-MM-DD HH:mm:ss')]);
-            }
-
-            // Générer alerte si disconnected
-            if (status === 'disconnected') {
+                // Récupérer le device_name depuis vehicle_events
                 const lastEvent = await query(
                     "SELECT device_name FROM vehicle_events WHERE device_id = ? ORDER BY event_time DESC LIMIT 1",
                     [device.device_id]
                 );
                 const deviceNameSafe = lastEvent[0]?.device_name || `Device ${device.device_id}`;
 
-                // ✅ Vérifier si l'alerte existe déjà pour éviter doublons
+                // Stocker dans tracker_connectivity avec device_name
+                await query(`
+                    INSERT INTO tracker_connectivity (device_id, device_name, last_connection, status, check_time)
+                    VALUES (?, ?, ?, ?, ?)
+                `, [
+                    device.device_id,
+                    deviceNameSafe,
+                    lastEventTime.format('YYYY-MM-DD HH:mm:ss'),
+                    status,
+                    now.format('YYYY-MM-DD HH:mm:ss')
+                ]);
+            }
+
+            // Générer alerte si disconnected
+            if (status === 'disconnected') {
                 const existingAlert = await query(
                     `SELECT 1 FROM vehicle_alerts WHERE device_id = ? AND alert_type = ? AND alert_time = ?`,
                     [device.device_id, 'disconnected', now.format('YYYY-MM-DD HH:mm:ss')]
@@ -117,7 +139,7 @@ const checkDisconnectedDevices = async () => {
                     await createAlert({
                         event_id: null,
                         device_id: device.device_id,
-                        device_name: deviceNameSafe,
+                        device_name: lastRecord[0]?.device_name || `Device ${device.device_id}`,
                         alert_type: 'disconnected',
                         alert_level: 'CRITICAL',
                         alert_message: 'Traceur déconnecté depuis plus de 6 heures',
@@ -132,6 +154,7 @@ const checkDisconnectedDevices = async () => {
         console.error('Erreur vérification connectivité:', err.message);
     }
 };
+
 
 // postEvent amélioré avec bande_sortie et alertes
 exports.postEvent = async (req, res) => {
