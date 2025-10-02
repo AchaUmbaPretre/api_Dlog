@@ -4,7 +4,7 @@ const http = require('http');
 const { db } = require('./../config/database');
 const query = util.promisify(db.query).bind(db);
 
-const FETCH_INTERVAL_MINUTES = 5; // Intervalle de récupération automatique
+const FETCH_INTERVAL_MINUTES = 5;
 
 // Récupérer tous les événements depuis MySQL
 exports.getEvent = (req, res) => {
@@ -31,7 +31,6 @@ const createAlert = async ({ event_id, device_id, device_name, alert_type, alert
     `;
     await query(sql, [event_id, device_id, device_name, alert_type, alert_level, alert_message, alert_time]);
 };
-
 
 // Vérifier si un device est déconnecté (>6h sans événement)
 const checkDisconnectedDevices = async () => {
@@ -101,7 +100,7 @@ const checkDisconnectedDevices = async () => {
     }
 };
 
-//postEvent amélioré avec bande_sortie et alertes
+// postEvent amélioré avec bande_sortie et alertes
 exports.postEvent = async (req, res) => {
     let { external_id, device_id, device_name, type, message, speed = 0, latitude, longitude, event_time } = req.body;
 
@@ -213,7 +212,6 @@ const checkUnauthorizedMovementByDeviceName = async (device_name) => {
         return false;
     }
 };
-
 
 // Générer rapport raw
 exports.getRawReport = async (req, res) => {
