@@ -75,7 +75,8 @@ const checkDisconnectedDevices = async () => {
     }
 };
 
-// Ajouter un événement + vérifier alertes
+
+// 📌 postEvent amélioré avec bande_sortie et alertes
 exports.postEvent = async (req, res) => {
     let { external_id, device_id, device_name, type, message, speed = 0, latitude, longitude, event_time } = req.body;
 
@@ -87,23 +88,27 @@ exports.postEvent = async (req, res) => {
     try {
         const formattedEventTime = moment(event_time, "DD-MM-YYYY HH:mm:ss").format("YYYY-MM-DD HH:mm:ss");
 
+        //Insertion dans vehicle_events
         const sqlInsertEvent = `
             INSERT INTO vehicle_events
                 (external_id, device_id, device_name, type, message, speed, latitude, longitude, event_time)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
-
         const result = await query(sqlInsertEvent, [
             external_id, device_id, device_name, type, message, speed, latitude, longitude, formattedEventTime
         ]);
 
         const event_id = result.insertId;
 
-        // Générer alertes basiques
+        //Génération des alertes
         const alerts = [];
+
+        //Dépassement vitesse
         if (type === 'overspeed' || speed > 80) {
             alerts.push({
-                event_id, device_id, device_name,
+                event_id,
+                device_id,
+                device_name,
                 alert_type: 'overspeed',
                 alert_level: 'HIGH',
                 alert_message: `Dépassement vitesse : ${speed} km/h`,
@@ -111,18 +116,26 @@ exports.postEvent = async (req, res) => {
             });
         }
 
+        //Véhicule en mouvement sans mission assignée
         if ((type === 'ignition_on' || speed > 0) && (!message || !message.includes('course_active'))) {
-            alerts.push({
-                event_id, device_id, device_name,
-                alert_type: 'not_in_course',
-                alert_level: 'HIGH',
-                alert_message: 'Véhicule en mouvement sans mission assignée',
-                alert_time: formattedEventTime
-            });
+            const unauthorized = await checkUnauthorizedMovementByDeviceName(device_name);
+            if (unauthorized) {
+                alerts.push({
+                    event_id,
+                    device_id,
+                    device_name,
+                    alert_type: 'not_in_course',
+                    alert_level: 'HIGH',
+                    alert_message: 'Véhicule en mouvement sans mission assignée',
+                    alert_time: formattedEventTime
+                });
+            }
         }
 
+        //Enregistrement des alertes
         for (const alert of alerts) await createAlert(alert);
 
+        //Vérification connectivité des devices
         await checkDisconnectedDevices();
 
         if(res) return res.status(201).json({ message: 'Événement ajouté et alertes générées si nécessaire.' });
@@ -132,6 +145,30 @@ exports.postEvent = async (req, res) => {
         if(res) return res.status(500).json({ error: 'Erreur lors de l\'ajout de l\'événement.' });
     }
 };
+
+//Fonction pour vérifier si un véhicule est autorisé ou non via device_name
+const checkUnauthorizedMovementByDeviceName = async (device_name) => {
+    try {
+        const result = await query(
+            `SELECT v.name_capteur AS device_name, bs.statut 
+             FROM bande_sortie bs
+             LEFT JOIN vehicules v ON bs.id_vehicule = v.id_vehicule
+             WHERE v.name_capteur = ? 
+               AND bs.est_supprime = 0
+               AND NOW() BETWEEN bs.sortie_time AND COALESCE(bs.retour_time, NOW())
+             ORDER BY bs.sortie_time DESC
+             LIMIT 1`,
+            [device_name]
+        );
+
+        if (!result.length || result[0].statut !== 4) return true; // non autorisé
+        return false; // autorisé
+    } catch (err) {
+        console.error('Erreur vérification bande sortie par device_name:', err.message);
+        return false;
+    }
+};
+
 
 // Générer rapport raw
 exports.getRawReport = async (req, res) => {
