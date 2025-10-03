@@ -8,7 +8,7 @@ const FETCH_INTERVAL_MINUTES = 5;
 
 //Récupérer toutes les alertes
 exports.getAlertVehicule = (req, res) => {
-    const q = `SELECT * FROM vehicle_alerts ORDER BY created_at DESC`;
+    const q = `SELECT va.* FROM vehicle_alerts va WHERE va.resolved = 0 ORDER BY created_at DESC`;
     db.query(q, (error, data) => {
         if (error) {
             console.error("Erreur getAlertVehicule:", error);
