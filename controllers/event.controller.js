@@ -6,26 +6,38 @@ const query = util.promisify(db.query).bind(db);
 
 const FETCH_INTERVAL_MINUTES = 5;
 
-//Alert vehicule
+//Récupérer toutes les alertes
 exports.getAlertVehicule = (req, res) => {
-    const q = `SELECT * FROM vehicle_alerts`;
+    const q = `SELECT * FROM vehicle_alerts ORDER BY created_at DESC`;
     db.query(q, (error, data) => {
-        if(error) return res.status(500).send(error);
+        if (error) {
+            console.error("Erreur getAlertVehicule:", error);
+            return res.status(500).json({ error: "Erreur interne du serveur" });
+        }
         return res.status(200).json(data);
     });
 };
 
-exports.putAlertVehicule = (req, res) => {
+//Marquer une alerte comme lue
+exports.markAlertAsRead = (req, res) => {
     const { id } = req.query;
 
     if (!id || isNaN(id)) {
-        return res.status(400).json({ error: 'ID de alert non valide fourni' });
+        return res.status(400).json({ error: "ID d'alerte non valide" });
     }
 
-    const q = `UPDATE vehicle_alerts SET resolved = ? WHERE id = ?`;
-    db.query(q, (error, data) => {
-        if(error) return res.status(500).send(error);
-        return res.status(200).json(data);
+    const q = `UPDATE vehicle_alerts SET resolved = 1 WHERE id = ?`;
+    db.query(q, [id], (error, data) => {
+        if (error) {
+            console.error("Erreur markAlertAsRead:", error);
+            return res.status(500).json({ error: "Erreur interne du serveur" });
+        }
+
+        if (data.affectedRows === 0) {
+            return res.status(404).json({ error: "Alerte non trouvée" });
+        }
+
+        return res.status(200).json({ message: "Alerte marquée comme lue ✅", id });
     });
 };
 
