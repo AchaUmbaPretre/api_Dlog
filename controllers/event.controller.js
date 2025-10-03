@@ -6,6 +6,29 @@ const query = util.promisify(db.query).bind(db);
 
 const FETCH_INTERVAL_MINUTES = 5;
 
+//Alert vehicule
+exports.getAlertVehicule = (req, res) => {
+    const q = `SELECT * FROM vehicle_alerts`;
+    db.query(q, (error, data) => {
+        if(error) return res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+};
+
+exports.putAlertVehicule = (req, res) => {
+    const { id } = req.query;
+
+    if (!id || isNaN(id)) {
+        return res.status(400).json({ error: 'ID de alert non valide fourni' });
+    }
+
+    const q = `UPDATE vehicle_alerts SET resolved = ? WHERE id = ?`;
+    db.query(q, (error, data) => {
+        if(error) return res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+};
+
 // Récupérer tous les événements
 exports.getEvent = (req, res) => {
     const q = `SELECT * FROM vehicle_events`;

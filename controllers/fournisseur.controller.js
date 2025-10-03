@@ -45,8 +45,6 @@ exports.getFournisseurActivite = (req, res) => {
     });
 };
 
-
-
 exports.postFournisseur = async (req, res) => {
     const { nom_activite } = req.body;
 
@@ -95,8 +93,6 @@ exports.postFournisseur = async (req, res) => {
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du fournisseur." });
     }
 };
-
-
 
 exports.deleteFournisseur = (req, res) => {
     const id = req.params.id;
