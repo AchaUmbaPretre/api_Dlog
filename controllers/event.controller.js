@@ -494,29 +494,95 @@ setInterval(fetchAndStoreEvents, FETCH_INTERVAL_MINUTES * 60 * 1000);
 fetchAndStoreEvents();
 
 
-// Insertion ou mise à jour d'un device_status
+//GET DEVICE
+exports.getDevice = (req, res) => {
+    const { startDate, endDate, status } = req.query;
+    const params = [];
+
+    let q = `
+        SELECT ds.device_id, ds.name, ds.latitude, ds.longitude, ds.online_status, ds.timestamp AS last_seen
+        FROM device_status ds
+        INNER JOIN (
+            SELECT device_id, MAX(timestamp) AS max_ts
+            FROM device_status
+            WHERE 1=1
+            ${startDate ? "AND timestamp >= ?" : ""}
+            ${endDate ? "AND timestamp <= ?" : ""}
+            GROUP BY device_id
+        ) last_ds ON ds.device_id = last_ds.device_id AND ds.timestamp = last_ds.max_ts
+        WHERE 1=1
+    `;
+
+    if (startDate) params.push(startDate + " 00:00:00");
+    if (endDate) params.push(endDate + " 23:59:59");
+    if (status && (status === "connected" || status === "disconnected")) {
+        q += " AND ds.online_status = ?";
+        params.push(status);
+    }
+
+    q += " ORDER BY ds.timestamp DESC";
+
+    db.query(q, params, (err, data) => {
+        if (err) {
+            console.error("Erreur:", err);
+            return res.status(500).json({ error: "Erreur interne du serveur" });
+        }
+        return res.status(200).json(data);
+    });
+};
+
+// Stocke le statut du device uniquement si le statut a changé
 const storeDeviceStatus = async (device) => {
     try {
-        const lastEventTime = device.time
-            ? moment(device.time, "DD-MM-YYYY HH:mm:ss").format("YYYY-MM-DD HH:mm:ss")
-            : moment().format("YYYY-MM-DD HH:mm:ss");
+        const now = moment();
+
+        // Formater correctement le timestamp du device
+        let lastEventTime;
+        if (device.time) {
+            lastEventTime = moment(device.time, "DD-MM-YYYY HH:mm:ss", true);
+            if (!lastEventTime.isValid()) {
+                console.warn(`Timestamp invalide pour ${device.name}, utilisation de maintenant`);
+                lastEventTime = now;
+            }
+        } else {
+            lastEventTime = now;
+        }
+
         const status = device.online === 'ack' ? 'connected' : 'disconnected';
 
-        await query(`
-            INSERT INTO device_status (device_id, name, timestamp, online_status)
-            VALUES (?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                name = VALUES(name),
-                timestamp = VALUES(timestamp),
-                online_status = VALUES(online_status)
-        `, [device.device_id, device.device_name, lastEventTime, status]);
+        // Récupérer le dernier status enregistré pour ce device
+        const [lastRecord] = await query(`
+            SELECT online_status 
+            FROM device_status
+            WHERE device_id = ?
+            ORDER BY timestamp DESC
+            LIMIT 1
+        `, [device.id]);
+
+        // N’insérer que si le statut a changé
+        if (!lastRecord || lastRecord.online_status !== status) {
+            await query(`
+                INSERT INTO device_status (device_id, name, timestamp, online_status, latitude, longitude)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `, [
+                device.id,
+                device.name,
+                lastEventTime.format('YYYY-MM-DD HH:mm:ss'),
+                status,
+                device.lat || null,
+                device.lng || null
+            ]);
+            console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] Statut enregistré pour ${device.name} : ${status}`);
+        } else {
+            console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] Aucun changement pour ${device.name} (${status})`);
+        }
 
     } catch (err) {
-        console.error(`Erreur insertion device_status pour ${device.device_name}:`, err.message);
+        console.error(`Erreur insertion device_status pour ${device.name}:`, err.message);
     }
 };
 
-// Fonction pour fetch API avec promesse
+// Fetch devices depuis l'API Falcon
 const fetchDevices = () => {
     return new Promise((resolve, reject) => {
         const options = {
@@ -541,14 +607,16 @@ const fetchDevices = () => {
 const fetchStatusAndStore = async () => {
     try {
         const data = await fetchDevices();
-        const devices = JSON.parse(data)[0].items;
+        const devices = JSON.parse(data)[0]?.items || []; // sécurité si pas de [0]
 
         for (const device of devices) {
             await storeDeviceStatus({
-                device_id: device.id,
-                device_name: device.name,
+                id: device.id,
+                name: device.name,
                 time: device.time,
-                online: device.online
+                online: device.online,
+                lat: device.lat,
+                lng: device.lng
             });
         }
 
@@ -560,5 +628,6 @@ const fetchStatusAndStore = async () => {
 
 // Lancer toutes les 3 minutes
 setInterval(fetchStatusAndStore, FETCH_INTERVAL_MINUTES * 60 * 1000);
+
 // Lancer immédiatement au démarrage
 fetchStatusAndStore();
