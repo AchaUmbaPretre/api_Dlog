@@ -581,6 +581,39 @@ exports.putRelierVehiculeFalcon = async (req, res) => {
     }
 };
 
+//Site vehicule
+exports.postSiteVehicule = async (req, res) => {
+    try {
+        const { id_vehicule, id_site } = req.body;
+
+        if (!id_vehicule || !id_site) {
+            return res.status(400).json({ error: "Les champs 'id_vehicule' et 'id_site' sont requis." });
+        }
+
+        // Vérifie si le véhicule est déjà affecté à ce site pour éviter les doublons
+        const checkQuery = 'SELECT * FROM sites_vehicule WHERE id_vehicule = ? AND id_site = ?';
+        const [existing] = await db.query(checkQuery, [id_vehicule, id_site]);
+
+        if (existing.length > 0) {
+            return res.status(409).json({ message: 'Ce véhicule est déjà affecté à ce site.' });
+        }
+
+        // ✅ Insertion sécurisée
+        const insertQuery = 'INSERT INTO sites_vehicule(`id_vehicule`, `id_site`) VALUES (?, ?)';
+        await db.query(insertQuery, [id_vehicule, id_site]);
+
+        return res.status(201).json({
+            message: 'Le véhicule a été affecté au site avec succès.'
+        });
+
+    } catch (error) {
+        console.error("Erreur lors de l'ajout du véhicule au site :", error);
+        return res.status(500).json({
+            error: "Une erreur s'est produite lors de l'affectation du véhicule au site."
+        });
+    }
+};
+
 //Chauffeur
 exports.getChauffeurCount = async(req, res) => {
 
