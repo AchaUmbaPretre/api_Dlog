@@ -494,11 +494,12 @@ setInterval(fetchAndStoreEvents, FETCH_INTERVAL_MINUTES * 60 * 1000);
 fetchAndStoreEvents();
 
 
-//Device status
+// Insertion ou mise à jour d'un device_status
 const storeDeviceStatus = async (device) => {
     try {
-        const now = moment().format('YYYY-MM-DD HH:mm:ss');
-        const lastEventTime = device.time ? moment(device.time).format('YYYY-MM-DD HH:mm:ss') : now;
+        const lastEventTime = device.time
+            ? moment(device.time, "DD-MM-YYYY HH:mm:ss").format("YYYY-MM-DD HH:mm:ss")
+            : moment().format("YYYY-MM-DD HH:mm:ss");
         const status = device.online === 'ack' ? 'connected' : 'disconnected';
 
         await query(`
@@ -515,38 +516,49 @@ const storeDeviceStatus = async (device) => {
     }
 };
 
-const fetchStatusAndStore = async () => {
-    const options = {
-        hostname: "31.207.34.171",
-        port: 80,
-        path: "/api/get_devices?&lang=fr&user_api_hash=$2y$10$FbpbQMzKNaJVnv0H2RbAfel1NMjXRUoCy8pZUogiA/bvNNj1kdcY",
-        method: "GET"
-    };
+// Fonction pour fetch API avec promesse
+const fetchDevices = () => {
+    return new Promise((resolve, reject) => {
+        const options = {
+            hostname: "31.207.34.171",
+            port: 80,
+            path: "/api/get_devices?&lang=fr&user_api_hash=$2y$10$FbpbQMzKNaJVnv0H2RbAfel1NMjXRUoCy8pZUogiA/bvNNj1kdcY.",
+            method: "GET"
+        };
 
-    const req = http.request(options, (res) => {
-        let data = "";
-        res.on("data", chunk => data += chunk);
-        res.on("end", async () => {
-            try {
-                const devices = JSON.parse(data)[0].items;
-                for (const device of devices) {
-                    await storeDeviceStatus({
-                        device_id: device.id,
-                        device_name: device.name,
-                        time: device.time,
-                        online: device.online
-                    });
-                }
-                console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] Statut device_status mis à jour.`);
-            } catch (err) {
-                console.error("Erreur fetchStatusAndStore:", err.message);
-            }
+        const req = http.request(options, (res) => {
+            let data = "";
+            res.on("data", chunk => data += chunk);
+            res.on("end", () => resolve(data));
         });
-    });
 
-    req.on("error", err => console.error("Erreur API Falcon:", err.message));
-    req.end();
+        req.on("error", err => reject(err));
+        req.end();
+    });
+};
+
+// Fonction principale pour fetch et stocker
+const fetchStatusAndStore = async () => {
+    try {
+        const data = await fetchDevices();
+        const devices = JSON.parse(data)[0].items;
+
+        for (const device of devices) {
+            await storeDeviceStatus({
+                device_id: device.id,
+                device_name: device.name,
+                time: device.time,
+                online: device.online
+            });
+        }
+
+        console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] Statut device_status mis à jour pour ${devices.length} traceurs.`);
+    } catch (err) {
+        console.error("Erreur fetchStatusAndStore:", err.message);
+    }
 };
 
 // Lancer toutes les 3 minutes
 setInterval(fetchStatusAndStore, FETCH_INTERVAL_MINUTES * 60 * 1000);
+// Lancer immédiatement au démarrage
+fetchStatusAndStore();
