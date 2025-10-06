@@ -536,7 +536,7 @@ const storeDeviceStatus = async (device) => {
     try {
         const now = moment();
 
-        // Formater correctement le timestamp du device
+        // Formater le timestamp du device
         let lastEventTime;
         if (device.time) {
             lastEventTime = moment(device.time, "DD-MM-YYYY HH:mm:ss", true);
@@ -548,7 +548,14 @@ const storeDeviceStatus = async (device) => {
             lastEventTime = now;
         }
 
-        const status = device.online === 'ack' ? 'connected' : 'disconnected';
+        const status = (
+            device.online === 'ack' ||
+            device.online === 'online' ||
+            device.online === 'ENGINE'
+            )
+            ? 'connected'
+            : 'disconnected';
+
 
         // Récupérer le dernier status enregistré pour ce device
         const [lastRecord] = await query(`
