@@ -44,7 +44,7 @@ router.put('/vehicule_estSupprime', charroiController.deleteVehicule);
 router.put('/vehicule_falcon', charroiController.putRelierVehiculeFalcon)
 
 //Site vehicule
-router.get('/site_vehicule', charroiController.postSiteVehicule)
+router.post('/site_vehicule', charroiController.postSiteVehicule)
 
 //Chauffeur
 router.get('/chauffeur_count', charroiController.getChauffeurCount)
