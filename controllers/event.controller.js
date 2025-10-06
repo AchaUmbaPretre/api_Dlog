@@ -4,7 +4,7 @@ const http = require('http');
 const { db } = require('./../config/database');
 const query = util.promisify(db.query).bind(db);
 
-const FETCH_INTERVAL_MINUTES = 5;
+const FETCH_INTERVAL_MINUTES = 3;
 
 //Récupérer toutes les alertes
 exports.getAlertVehicule = (req, res) => {
@@ -114,7 +114,6 @@ const createAlert = async ({
 };
 
 // Vérifier si un device est déconnecté (>6h sans événement)
-// Vérifier si un device est déconnecté (>6h sans événement)
 const checkDisconnectedDevices = async () => {
     try {
         // Récupérer tous les devices et leur dernier événement
@@ -201,7 +200,6 @@ const checkDisconnectedDevices = async () => {
         console.error('Erreur vérification connectivité:', err.message);
     }
 };
-
 
 // postEvent amélioré avec bande_sortie et alertes
 exports.postEvent = async (req, res) => {
@@ -425,8 +423,6 @@ exports.getRawReport = async (req, res) => {
     }
 };
 
-
-
 //Récupération automatique depuis l’API Falcon
 const fetchAndStoreEvents = async () => {
     try {
@@ -496,3 +492,61 @@ setInterval(fetchAndStoreEvents, FETCH_INTERVAL_MINUTES * 60 * 1000);
 
 // Optionnel : lancer immédiatement au démarrage
 fetchAndStoreEvents();
+
+
+//Device status
+const storeDeviceStatus = async (device) => {
+    try {
+        const now = moment().format('YYYY-MM-DD HH:mm:ss');
+        const lastEventTime = device.time ? moment(device.time).format('YYYY-MM-DD HH:mm:ss') : now;
+        const status = device.online === 'ack' ? 'connected' : 'disconnected';
+
+        await query(`
+            INSERT INTO device_status (device_id, name, timestamp, online_status)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                name = VALUES(name),
+                timestamp = VALUES(timestamp),
+                online_status = VALUES(online_status)
+        `, [device.device_id, device.device_name, lastEventTime, status]);
+
+    } catch (err) {
+        console.error(`Erreur insertion device_status pour ${device.device_name}:`, err.message);
+    }
+};
+
+const fetchStatusAndStore = async () => {
+    const options = {
+        hostname: "31.207.34.171",
+        port: 80,
+        path: "/api/get_devices?&lang=fr&user_api_hash=$2y$10$FbpbQMzKNaJVnv0H2RbAfel1NMjXRUoCy8pZUogiA/bvNNj1kdcY",
+        method: "GET"
+    };
+
+    const req = http.request(options, (res) => {
+        let data = "";
+        res.on("data", chunk => data += chunk);
+        res.on("end", async () => {
+            try {
+                const devices = JSON.parse(data)[0].items;
+                for (const device of devices) {
+                    await storeDeviceStatus({
+                        device_id: device.id,
+                        device_name: device.name,
+                        time: device.time,
+                        online: device.online
+                    });
+                }
+                console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] Statut device_status mis à jour.`);
+            } catch (err) {
+                console.error("Erreur fetchStatusAndStore:", err.message);
+            }
+        });
+    });
+
+    req.on("error", err => console.error("Erreur API Falcon:", err.message));
+    req.end();
+};
+
+// Lancer toutes les 3 minutes
+setInterval(fetchStatusAndStore, FETCH_INTERVAL_MINUTES * 60 * 1000);
