@@ -614,7 +614,6 @@ exports.postSiteVehicule = (req, res) => {
     });
 };
 
-
 //Chauffeur
 exports.getChauffeurCount = async(req, res) => {
 
