@@ -63,6 +63,7 @@ exports.getRapportDay = (req, res) => {
         return res.status(200).json(data);
     });
 }
+
 // Créer une alerte dans MySQL
 const createAlert = async ({
   event_id,
@@ -295,14 +296,21 @@ exports.postEvent = async (req, res) => {
 const checkUnauthorizedMovementByDeviceName = async (device_name) => {
     try {
         const result = await query(
-            `SELECT v.name_capteur AS device_name, bs.statut 
-             FROM bande_sortie bs
-             LEFT JOIN vehicules v ON bs.id_vehicule = v.id_vehicule
-             WHERE v.name_capteur = ? 
-               AND bs.est_supprime = 0
-               AND NOW() BETWEEN bs.sortie_time AND COALESCE(bs.retour_time, NOW())
-             ORDER BY bs.sortie_time DESC
-             LIMIT 1`,
+            `      SELECT 
+          v.name_capteur AS device_name, 
+          bs.statut,
+          bs.sortie_time
+      FROM bande_sortie bs
+      LEFT JOIN vehicules v 
+          ON bs.id_vehicule = v.id_vehicule
+      WHERE v.name_capteur = ? 
+        AND bs.est_supprime = 0
+        AND (
+              NOW() BETWEEN bs.sortie_time AND COALESCE(bs.retour_time, NOW())
+              OR (bs.statut = 4 AND DATE(bs.sortie_time) = CURDATE())
+            )
+      ORDER BY bs.sortie_time DESC
+      LIMIT 1`,
             [device_name]
         );
 
@@ -313,6 +321,76 @@ const checkUnauthorizedMovementByDeviceName = async (device_name) => {
         return false;
     }
 };
+
+//Récupération automatique depuis l’API Falcon
+const fetchAndStoreEvents = async () => {
+    try {
+        const [lastEventRow] = await query(`SELECT MAX(event_time) AS last_time FROM vehicle_events`);
+        const fromTime = lastEventRow?.last_time 
+            ? moment(lastEventRow.last_time) 
+            : moment().subtract(FETCH_INTERVAL_MINUTES, 'minutes');
+        const toTime = moment();
+
+        const queryStr = new URLSearchParams({
+            date_from: fromTime.format('YYYY-MM-DD HH:mm:ss'),
+            date_to: toTime.format('YYYY-MM-DD HH:mm:ss'),
+            user_api_hash : '$2y$10$FbpbQMzKNaJVnv0H2RbAfel1NMjXRUoCy8pZUogiA/bvNNj1kdcY.',
+            limit : 10
+        }).toString();
+
+        const options = {
+            hostname: "falconeyesolutions.com",
+            port: 80,
+            path: `/api/get_events?${queryStr}`,
+            method: "GET",
+        };
+
+        const proxyReq = http.request(options, (proxyRes) => {
+            let data = "";
+            proxyRes.on("data", chunk => data += chunk);
+
+            proxyRes.on("end", async () => {
+                try {
+                    const response = JSON.parse(data);
+                    if (response.status !== 1 || !response.items?.data) return;
+
+                    const events = response.items.data;
+                    for (const e of events) {
+                        await exports.postEvent({
+                            body: {
+                                external_id: e.id,
+                                device_id: e.device_id,
+                                device_name: e.device_name,
+                                type: e.type,
+                                message: e.message || e.name,
+                                speed: e.speed || 0,
+                                latitude: e.latitude,
+                                longitude: e.longitude,
+                                event_time: e.time
+                            }
+                        }, null);
+                    }
+
+                    console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] ${events.length} événements stockés.`);
+                } catch (err) {
+                    console.error("Erreur parsing API ou insertion :", err.message);
+                }
+            });
+        });
+
+        proxyReq.on("error", (err) => console.error("Erreur proxy falcon:", err.message));
+        proxyReq.end();
+
+    } catch (err) {
+        console.error("Erreur récupération dernier event_time :", err.message);
+    }
+};
+
+//Lancer la récupération automatique toutes les 5 minutes
+setInterval(fetchAndStoreEvents, FETCH_INTERVAL_MINUTES * 60 * 1000);
+
+// Optionnel : lancer immédiatement au démarrage
+fetchAndStoreEvents();
 
 // Générer rapport raw
 exports.getRawReport = async (req, res) => {
@@ -422,77 +500,6 @@ exports.getRawReport = async (req, res) => {
         res.status(500).json({ error: 'Erreur lors de la génération du rapport professionnel' });
     }
 };
-
-//Récupération automatique depuis l’API Falcon
-const fetchAndStoreEvents = async () => {
-    try {
-        const [lastEventRow] = await query(`SELECT MAX(event_time) AS last_time FROM vehicle_events`);
-        const fromTime = lastEventRow?.last_time 
-            ? moment(lastEventRow.last_time) 
-            : moment().subtract(FETCH_INTERVAL_MINUTES, 'minutes');
-        const toTime = moment();
-
-        const queryStr = new URLSearchParams({
-            date_from: fromTime.format('YYYY-MM-DD HH:mm:ss'),
-            date_to: toTime.format('YYYY-MM-DD HH:mm:ss'),
-            user_api_hash : '$2y$10$FbpbQMzKNaJVnv0H2RbAfel1NMjXRUoCy8pZUogiA/bvNNj1kdcY.',
-            limit : 10
-        }).toString();
-
-        const options = {
-            hostname: "falconeyesolutions.com",
-            port: 80,
-            path: `/api/get_events?${queryStr}`,
-            method: "GET",
-        };
-
-        const proxyReq = http.request(options, (proxyRes) => {
-            let data = "";
-            proxyRes.on("data", chunk => data += chunk);
-
-            proxyRes.on("end", async () => {
-                try {
-                    const response = JSON.parse(data);
-                    if (response.status !== 1 || !response.items?.data) return;
-
-                    const events = response.items.data;
-                    for (const e of events) {
-                        await exports.postEvent({
-                            body: {
-                                external_id: e.id,
-                                device_id: e.device_id,
-                                device_name: e.device_name,
-                                type: e.type,
-                                message: e.message || e.name,
-                                speed: e.speed || 0,
-                                latitude: e.latitude,
-                                longitude: e.longitude,
-                                event_time: e.time
-                            }
-                        }, null);
-                    }
-
-                    console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] ${events.length} événements stockés.`);
-                } catch (err) {
-                    console.error("Erreur parsing API ou insertion :", err.message);
-                }
-            });
-        });
-
-        proxyReq.on("error", (err) => console.error("Erreur proxy falcon:", err.message));
-        proxyReq.end();
-
-    } catch (err) {
-        console.error("Erreur récupération dernier event_time :", err.message);
-    }
-};
-
-//Lancer la récupération automatique toutes les 5 minutes
-setInterval(fetchAndStoreEvents, FETCH_INTERVAL_MINUTES * 60 * 1000);
-
-// Optionnel : lancer immédiatement au démarrage
-fetchAndStoreEvents();
-
 
 //GET DEVICE
 exports.getDevice = (req, res) => {
