@@ -296,7 +296,7 @@ exports.postEvent = async (req, res) => {
 const checkUnauthorizedMovementByDeviceName = async (device_name) => {
     try {
         const result = await query(
-            `      SELECT 
+            `SELECT 
           v.name_capteur AS device_name, 
           bs.statut,
           bs.sortie_time
@@ -322,7 +322,7 @@ const checkUnauthorizedMovementByDeviceName = async (device_name) => {
     }
 };
 
-//Récupération automatique depuis l’API Falcon
+/* //Récupération automatique depuis l’API Falcon
 const fetchAndStoreEvents = async () => {
     try {
         const [lastEventRow] = await query(`SELECT MAX(event_time) AS last_time FROM vehicle_events`);
@@ -385,12 +385,98 @@ const fetchAndStoreEvents = async () => {
         console.error("Erreur récupération dernier event_time :", err.message);
     }
 };
+ */
 
-//Lancer la récupération automatique toutes les 5 minutes
+const fetchEvents = (fromTime, toTime) => {
+    return new Promise((resolve, reject) => {
+        const params = new URLSearchParams({
+            date_from: fromTime.format('YYYY-MM-DD HH:mm:ss'),
+            date_to: toTime.format('YYYY-MM-DD HH:mm:ss'),
+            user_api_hash: '$2y$10$FbpbQMzKNaJVnv0H2RbAfel1NMjXRUoCy8pZUogiA/bvNNj1kdcY.',
+            limit: 50
+        }).toString();
+
+        const options = {
+            hostname: "falconeyesolutions.com",
+            port: 80,
+            path: `/api/get_events?${params}`,
+            method: "GET",
+        };
+
+        const req = http.request(options, (res) => {
+            let data = "";
+            res.on("data", chunk => data += chunk);
+            res.on("end", () => {
+                try {
+                    const json = JSON.parse(data);
+                    resolve(json);
+                } catch (err) {
+                    reject(new Error(`Erreur JSON: ${err.message} - Data reçue: ${data}`));
+                }
+            });
+        });
+
+        req.on("error", reject);
+        req.end();
+    });
+};
+
+// Fonction principale pour fetch et stocker les events
+const fetchAndStoreEvents = async () => {
+    try {
+        // Déterminer le dernier event_time pour fetch uniquement les nouveaux
+        const [lastEventRow] = await query(`SELECT MAX(event_time) AS last_time FROM vehicle_events`);
+        const fromTime = lastEventRow?.last_time
+            ? moment.utc(lastEventRow.last_time)
+            : moment.utc().subtract(FETCH_INTERVAL_MINUTES, 'minutes');
+        const toTime = moment.utc();
+
+        const response = await fetchEvents(fromTime, toTime);
+
+        if (!response?.items?.data?.length) {
+            console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] Aucun nouvel événement à stocker.`);
+            return;
+        }
+
+        const events = response.items.data;
+        console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] ${events.length} événements reçus.`);
+
+        // Traiter les événements séquentiellement
+        for (const e of events) {
+            try {
+                await exports.postEvent({
+                    body: {
+                        external_id: e.id,
+                        device_id: e.device_id,
+                        device_name: e.device_name,
+                        type: e.type,
+                        message: e.message || e.name,
+                        speed: e.speed || 0,
+                        latitude: e.latitude,
+                        longitude: e.longitude,
+                        event_time: e.time
+                    }
+                }, null);
+            } catch (err) {
+                console.error(`Erreur postEvent pour device ${e.device_id}:`, err.message);
+            }
+        }
+
+        console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] Tous les événements ont été traités.`);
+    } catch (err) {
+        console.error(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] Erreur fetchAndStoreEvents:`, err.message);
+    }
+};
+
+// Lancer la récupération automatique toutes les 5 minutes
 setInterval(fetchAndStoreEvents, FETCH_INTERVAL_MINUTES * 60 * 1000);
 
-// Optionnel : lancer immédiatement au démarrage
+// Lancer immédiatement au démarrage
 fetchAndStoreEvents();
+
+// Logs pour capturer les erreurs non catchées
+process.on('unhandledRejection', err => console.error('Unhandled Rejection:', err));
+process.on('uncaughtException', err => console.error('Uncaught Exception:', err));
 
 // Générer rapport raw
 exports.getRawReport = async (req, res) => {
