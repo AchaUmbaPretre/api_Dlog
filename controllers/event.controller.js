@@ -5,6 +5,7 @@ const { db } = require('./../config/database');
 const query = util.promisify(db.query).bind(db);
 
 const FETCH_INTERVAL_MINUTES = 3;
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 
 //Récupérer toutes les alertes
 exports.getAlertVehicule = (req, res) => {
@@ -661,7 +662,7 @@ exports.getDevice = (req, res) => {
 };
 
 // Stocke le statut du device uniquement si le statut a changé
-const storeDeviceStatus = async (device) => {
+/* const storeDeviceStatus = async (device) => {
     try {
         const now = moment();
 
@@ -716,10 +717,10 @@ const storeDeviceStatus = async (device) => {
     } catch (err) {
         console.error(`Erreur insertion device_status pour ${device.name}:`, err.message);
     }
-};
+}; */
 
 // Fetch devices depuis l'API Falcon
-const fetchDevices = () => {
+/* const fetchDevices = () => {
     return new Promise((resolve, reject) => {
         const options = {
             hostname: "31.207.34.171",
@@ -738,9 +739,9 @@ const fetchDevices = () => {
         req.end();
     });
 };
-
+ */
 // Fonction principale pour fetch et stocker
-const fetchStatusAndStore = async () => {
+/* const fetchStatusAndStore = async () => {
     try {
         const data = await fetchDevices();
         const devices = JSON.parse(data)[0]?.items || []; // sécurité si pas de [0]
@@ -760,10 +761,81 @@ const fetchStatusAndStore = async () => {
     } catch (err) {
         console.error("Erreur fetchStatusAndStore:", err.message);
     }
+}; */
+
+const storeDeviceStatusPeriodic = async (device) => {
+  try {
+    const now = moment();
+
+    const status = (device.online === 'ack' || device.online === 'online' || device.online === 'ENGINE')
+      ? 'connected'
+      : 'disconnected';
+
+    await query(`
+      INSERT INTO device_status (device_id, name, timestamp, online_status, latitude, longitude)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [
+      device.id,
+      device.name,
+      now.format('YYYY-MM-DD HH:mm:ss'),
+      status,
+      device.lat || null,
+      device.lng || null
+    ]);
+
+    console.log(`[${now.format('YYYY-MM-DD HH:mm:ss')}] Statut périodique enregistré pour ${device.name} : ${status}`);
+
+  } catch (err) {
+    console.error(`Erreur insertion device_status pour ${device.name}:`, err.message);
+  }
 };
 
-// Lancer toutes les 3 minutes
-setInterval(fetchStatusAndStore, FETCH_INTERVAL_MINUTES * 60 * 1000);
+// Fetch devices depuis l'API
+const fetchDevices = () => {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "31.207.34.171",
+      port: 80,
+      path: "/api/get_devices?&lang=fr&user_api_hash=$2y$10$FbpbQMzKNaJVnv0H2RbAfel1NMjXRUoCy8pZUogiA/bvNNj1kdcY.",
+      method: "GET"
+    };
 
-// Lancer immédiatement au démarrage
-fetchStatusAndStore();
+    const req = http.request(options, (res) => {
+      let data = "";
+      res.on("data", chunk => data += chunk);
+      res.on("end", () => resolve(data));
+    });
+
+    req.on("error", err => reject(err));
+    req.end();
+  });
+};
+
+// Fonction principale pour fetch et stocker toutes les 6h
+const fetchAndStorePeriodic = async () => {
+  try {
+    const data = await fetchDevices();
+    const devices = JSON.parse(data)[0]?.items || [];
+
+    for (const device of devices) {
+      await storeDeviceStatusPeriodic({
+        id: device.id,
+        name: device.name,
+        online: device.online,
+        lat: device.lat,
+        lng: device.lng
+      });
+    }
+
+    console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] Statut périodique mis à jour pour ${devices.length} véhicules.`);
+
+  } catch (err) {
+    console.error("Erreur fetchAndStorePeriodic:", err.message);
+  }
+};
+
+// Lancer immédiatement
+fetchAndStorePeriodic();
+
+// Puis toutes les 6 heures
+setInterval(fetchAndStorePeriodic, SIX_HOURS_MS);
