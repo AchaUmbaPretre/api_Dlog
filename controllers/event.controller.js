@@ -215,7 +215,7 @@ exports.postEvent = async (req, res) => {
     try {
         const formattedEventTime = moment(event_time, "DD-MM-YYYY HH:mm:ss").format("YYYY-MM-DD HH:mm:ss");
 
-        // ✅ Vérifier si l'événement existe déjà
+        //Vérifier si l'événement existe déjà
         const existsEvent = await query(
             `SELECT 1 FROM vehicle_events WHERE external_id = ? AND device_id = ? AND event_time = ?`,
             [external_id, device_id, formattedEventTime]
