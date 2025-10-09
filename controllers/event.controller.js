@@ -732,7 +732,6 @@ exports.getRawReport = (req, res) => {
   });
 };
 
-
 //GET DEVICE
 exports.getDevice = (req, res) => {
     const { startDate, endDate, status } = req.query;
