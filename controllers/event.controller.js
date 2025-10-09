@@ -7,6 +7,7 @@ const query = util.promisify(db.query).bind(db);
 const FETCH_INTERVAL_MINUTES = 3;
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 
+
 //Récupérer toutes les alertes
 exports.getAlertVehicule = (req, res) => {
     const q = `SELECT va.* FROM vehicle_alerts va WHERE va.resolved = 0 ORDER BY created_at DESC`;
@@ -116,7 +117,7 @@ const createAlert = async ({
 };
 
 // Vérifier si un device est déconnecté (>6h sans événement)
-const checkDisconnectedDevices = async () => {
+/* const checkDisconnectedDevices = async () => {
     try {
         // Récupérer tous les devices et leur dernier événement
         const devices = await query(`
@@ -201,7 +202,58 @@ const checkDisconnectedDevices = async () => {
     } catch (err) {
         console.error('Erreur vérification connectivité:', err.message);
     }
+}; */
+
+const recordDeviceSnapshots = async () => {
+  try {
+    // Étape 1 : récupérer le dernier event de chaque device
+    const devices = await query(`
+      SELECT ve.device_id, ve.device_name, MAX(ve.event_time) AS last_event
+      FROM vehicle_events ve
+      GROUP BY ve.device_id, ve.device_name
+    `);
+
+    const now = moment();
+
+    // Étape 2 : enregistrer un snapshot par device
+    for (const device of devices) {
+      const lastEventTime = moment(device.last_event).format('YYYY-MM-DD HH:mm:ss');
+      const deviceNameSafe = device.device_name || `Device ${device.device_id}`;
+
+      // Étape 3 : éviter les doublons (si déjà enregistré dans les dernières 6h)
+      const existing = await query(`
+        SELECT id 
+        FROM tracker_connectivity
+        WHERE device_id = ?
+        AND check_time >= DATE_SUB(NOW(), INTERVAL 6 HOUR)
+        LIMIT 1
+      `, [device.device_id]);
+
+      if (existing.length === 0) {
+        await query(`
+          INSERT INTO tracker_connectivity (device_id, device_name, last_connection, check_time)
+          VALUES (?, ?, ?, ?)
+        `, [
+          device.device_id,
+          deviceNameSafe,
+          lastEventTime,
+          now.format('YYYY-MM-DD HH:mm:ss')
+        ]);
+      }
+    }
+
+    console.log(`[${now.format('YYYY-MM-DD HH:mm:ss')}] ✅ Snapshot enregistré pour ${devices.length} devices.`);
+  } catch (err) {
+    console.error('❌ Erreur enregistrement snapshot :', err.message);
+  }
 };
+
+// Exécuter immédiatement
+recordDeviceSnapshots();
+
+// Puis toutes les 6h
+setInterval(recordDeviceSnapshots, SIX_HOURS_MS);
+
 
 // postEvent amélioré avec bande_sortie et alertes
 exports.postEvent = async (req, res) => {
@@ -283,7 +335,7 @@ exports.postEvent = async (req, res) => {
         }
 
         // Vérification connectivité des devices
-        await checkDisconnectedDevices();
+/*         await checkDisconnectedDevices(); */
 
         if (res) return res.status(201).json({ message: 'Événement ajouté et alertes générées si nécessaire.' });
 
@@ -763,7 +815,7 @@ exports.getDevice = (req, res) => {
     }
 }; */
 
-const storeDeviceStatusPeriodic = async (device) => {
+/* const storeDeviceStatusPeriodic = async (device) => {
   try {
     const now = moment();
 
@@ -788,10 +840,10 @@ const storeDeviceStatusPeriodic = async (device) => {
   } catch (err) {
     console.error(`Erreur insertion device_status pour ${device.name}:`, err.message);
   }
-};
+}; */
 
 // Fetch devices depuis l'API
-const fetchDevices = () => {
+/* const fetchDevices = () => {
   return new Promise((resolve, reject) => {
     const options = {
       hostname: "31.207.34.171",
@@ -809,10 +861,10 @@ const fetchDevices = () => {
     req.on("error", err => reject(err));
     req.end();
   });
-};
+}; */
 
 // Fonction principale pour fetch et stocker toutes les 6h
-const fetchAndStorePeriodic = async () => {
+/* const fetchAndStorePeriodic = async () => {
   try {
     const data = await fetchDevices();
     const devices = JSON.parse(data)[0]?.items || [];
@@ -832,10 +884,10 @@ const fetchAndStorePeriodic = async () => {
   } catch (err) {
     console.error("Erreur fetchAndStorePeriodic:", err.message);
   }
-};
+}; */
 
 // Lancer immédiatement
-fetchAndStorePeriodic();
-
+/* fetchAndStorePeriodic();
+ */
 // Puis toutes les 6 heures
-setInterval(fetchAndStorePeriodic, SIX_HOURS_MS);
+/* setInterval(fetchAndStorePeriodic, SIX_HOURS_MS); */
