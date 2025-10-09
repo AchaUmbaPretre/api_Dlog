@@ -116,7 +116,7 @@ const createAlert = async ({
   return { created: true, alertId: result.insertId };
 };
 
-// Vérifier si un device est déconnecté (>6h sans événement)
+//À chaque exécution (toutes les 6 heures)
 /* const checkDisconnectedDevices = async () => {
     try {
         // Récupérer tous les devices et leur dernier événement
@@ -568,7 +568,7 @@ process.on('unhandledRejection', err => console.error('Unhandled Rejection:', er
 process.on('uncaughtException', err => console.error('Uncaught Exception:', err));
 
 // Générer rapport raw
-exports.getRawReport = async (req, res) => {
+/* exports.getRawReport = async (req, res) => {
     const { startDate, endDate } = req.query;
 
     try {
@@ -669,6 +669,40 @@ exports.getRawReport = async (req, res) => {
             },
             report
         });
+
+    } catch (err) {
+        console.error('Erreur génération rapport pro:', err.message);
+        res.status(500).json({ error: 'Erreur lors de la génération du rapport professionnel' });
+    }
+}; */
+
+exports.getRawReport = async (req, res) => {
+    const { startDate, endDate } = req.query;
+
+    try {
+        const start = moment(startDate);
+        const end = moment(endDate);
+
+        if (!start.isValid() || !end.isValid()) {
+            return res.status(400).json({ error: 'Dates invalides fournies pour le rapport' });
+        }
+
+        const startSQL = start.format('YYYY-MM-DD HH:mm:ss');
+        const endSQL = end.format('YYYY-MM-DD HH:mm:ss');
+
+        // Récupérer tous les événements pour la période
+        const q = `SELECT 
+                    v.device_id,
+                    v.device_name,
+                    COUNT(DISTINCT CASE WHEN t.status = 'connected' THEN t.id END) AS nbre_connexions,
+                    COUNT(DISTINCT CASE WHEN ve.speed > 80 THEN ve.id END) AS nbre_depassements
+                FROM vehicle_events ve
+                LEFT JOIN tracker_connectivity t ON ve.device_id = t.device_id
+                LEFT JOIN (
+                    SELECT DISTINCT device_id, device_name FROM vehicle_events
+                ) v ON v.device_id = ve.device_id
+                GROUP BY v.device_id, v.device_name
+                ORDER BY nbre_depassements DESC, nbre_connexions DESC;`
 
     } catch (err) {
         console.error('Erreur génération rapport pro:', err.message);
