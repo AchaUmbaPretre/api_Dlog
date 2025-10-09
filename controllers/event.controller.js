@@ -676,51 +676,60 @@ process.on('uncaughtException', err => console.error('Uncaught Exception:', err)
     }
 }; */
 
-exports.getRawReport = async (req, res) => {
+exports.getRawReport = (req, res) => {
   const { startDate, endDate } = req.query;
 
-  try {
-    const start = moment(startDate);
-    const end = moment(endDate);
+  const start = moment(startDate);
+  const end = moment(endDate);
 
-    if (!start.isValid() || !end.isValid()) {
-      return res.status(400).json({ error: "Dates invalides fournies pour le rapport" });
+  if (!start.isValid() || !end.isValid()) {
+    return res.status(400).json({ error: "Dates invalides fournies pour le rapport" });
+  }
+
+  const startSQL = start.format("YYYY-MM-DD HH:mm:ss");
+  const endSQL = end.format("YYYY-MM-DD HH:mm:ss");
+
+  // Requête regroupée par device et par mois
+  const q = `
+    SELECT 
+        ve.device_id,
+        ve.device_name,
+        DATE_FORMAT(ve.event_time, '%Y-%m') AS month,
+        COUNT(DISTINCT CASE WHEN t.status = 'connected' THEN t.id END) AS nbre_connexions,
+        COUNT(DISTINCT CASE WHEN ve.speed > 80 THEN ve.id END) AS nbre_depassements
+    FROM vehicle_events ve
+    LEFT JOIN tracker_connectivity t 
+        ON ve.device_id = t.device_id
+        AND t.check_time BETWEEN ? AND ?
+    WHERE ve.event_time BETWEEN ? AND ?
+    GROUP BY ve.device_id, ve.device_name, month
+    ORDER BY ve.device_name ASC, month ASC;
+  `;
+
+  db.query(q, [startSQL, endSQL, startSQL, endSQL], (err, rows) => {
+    if (err) {
+      console.error("Erreur génération rapport:", err.message);
+      return res.status(500).json({ error: "Erreur lors de la génération du rapport" });
     }
 
-    const startSQL = start.format("YYYY-MM-DD HH:mm:ss");
-    const endSQL = end.format("YYYY-MM-DD HH:mm:ss");
+    // Transformer le résultat pour React : { device_id, device_name, months: { '2025-10': { connexions, depassements } } }
+    const report = {};
+    rows.forEach(row => {
+      if (!report[row.device_id]) {
+        report[row.device_id] = {
+          device_id: row.device_id,
+          device_name: row.device_name,
+          months: {},
+        };
+      }
+      report[row.device_id].months[row.month] = {
+        connexions: row.nbre_connexions,
+        depassements: row.nbre_depassements,
+      };
+    });
 
-    // Requête principale
-    const q = `
-      SELECT 
-          v.device_id,
-          v.device_name,
-          COUNT(DISTINCT CASE 
-              WHEN TIMESTAMPDIFF(HOUR, t.last_connected, t.next_connected) >= 6 
-              THEN t.id 
-          END) AS nbre_connexions,
-          COUNT(DISTINCT CASE 
-              WHEN ve.speed > 80 THEN ve.id 
-          END) AS nbre_depassements
-      FROM vehicle_events ve
-      LEFT JOIN tracker_connectivity t 
-          ON ve.device_id = t.device_id
-      LEFT JOIN (
-          SELECT DISTINCT device_id, device_name 
-          FROM vehicle_events
-      ) v ON v.device_id = ve.device_id
-      WHERE ve.event_time BETWEEN ? AND ?
-      GROUP BY v.device_id, v.device_name
-      ORDER BY nbre_depassements DESC, nbre_connexions DESC;
-    `;
-
-    const [rows] = await db.query(q, [startSQL, endSQL]);
-    res.status(200).json(rows);
-
-  } catch (err) {
-    console.error("Erreur génération rapport:", err.message);
-    res.status(500).json({ error: "Erreur lors de la génération du rapport" });
-  }
+    res.status(200).json(Object.values(report));
+  });
 };
 
 
