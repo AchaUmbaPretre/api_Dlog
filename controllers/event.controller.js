@@ -208,19 +208,22 @@ const recordDeviceSnapshots = async () => {
   try {
     // Étape 1 : récupérer le dernier event de chaque device
     const devices = await query(`
-      SELECT ve.device_id, ve.device_name, MAX(ve.event_time) AS last_event
+      SELECT ve.device_id, ve.device_name, MAX(ve.event_time) AS last_event,
+             MAX(CASE WHEN ve.message = 'Moteur en marche' THEN 1 ELSE 0 END) AS engine_on
       FROM vehicle_events ve
       GROUP BY ve.device_id, ve.device_name
     `);
 
     const now = moment();
 
-    // Étape 2 : enregistrer un snapshot par device
     for (const device of devices) {
       const lastEventTime = moment(device.last_event).format('YYYY-MM-DD HH:mm:ss');
       const deviceNameSafe = device.device_name || `Device ${device.device_id}`;
 
-      // Étape 3 : éviter les doublons (si déjà enregistré dans les dernières 6h)
+      // Déterminer le status en fonction du message "Moteur en marche"
+      const status = device.engine_on ? 'connected' : 'disconnected';
+
+      // Étape 2 : éviter les doublons (si déjà enregistré dans les dernières 6h)
       const existing = await query(`
         SELECT id 
         FROM tracker_connectivity
@@ -231,12 +234,13 @@ const recordDeviceSnapshots = async () => {
 
       if (existing.length === 0) {
         await query(`
-          INSERT INTO tracker_connectivity (device_id, device_name, last_connection, check_time)
-          VALUES (?, ?, ?, ?)
+          INSERT INTO tracker_connectivity (device_id, device_name, last_connection, status, check_time)
+          VALUES (?, ?, ?, ?, ?)
         `, [
           device.device_id,
           deviceNameSafe,
           lastEventTime,
+          status,
           now.format('YYYY-MM-DD HH:mm:ss')
         ]);
       }
