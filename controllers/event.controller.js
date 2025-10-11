@@ -206,58 +206,66 @@ const createAlert = async ({
 
 const recordDeviceSnapshots = async () => {
   try {
-    // Étape 1 : récupérer le dernier event de chaque device
-    const devices = await query(`
-      SELECT ve.device_id, ve.device_name, MAX(ve.event_time) AS last_event,
-             MAX(CASE WHEN ve.message = 'Moteur en marche' THEN 1 ELSE 0 END) AS engine_on
-      FROM vehicle_events ve
-      GROUP BY ve.device_id, ve.device_name
-    `);
-
     const now = moment();
+    const sixHoursAgo = moment().subtract(6, 'hours');
+    const start = sixHoursAgo.format('YYYY-MM-DD HH:mm:ss');
+    const end = now.format('YYYY-MM-DD HH:mm:ss');
+
+    // Étape 1 : Récupérer tous les devices ayant émis des events dans les 6 dernières heures
+    const devices = await query(`
+      SELECT
+        ve.device_id,
+        ve.device_name,
+        MAX(ve.event_time) AS last_event,
+        MAX(CASE WHEN ve.message = 'Moteur en marche' THEN 1 ELSE 0 END) AS was_connected
+      FROM vehicle_events ve
+      WHERE ve.event_time BETWEEN ? AND ?
+      GROUP BY ve.device_id, ve.device_name
+    `, [start, end]);
 
     for (const device of devices) {
-      const lastEventTime = moment(device.last_event).format('YYYY-MM-DD HH:mm:ss');
-      const deviceNameSafe = device.device_name || `Device ${device.device_id}`;
+      const { device_id, device_name, last_event, was_connected } = device;
 
-      // Déterminer le status en fonction du message "Moteur en marche"
-      const status = device.engine_on ? 'connected' : 'disconnected';
-
-      // Étape 2 : éviter les doublons (si déjà enregistré dans les dernières 6h)
+      // Vérifier si un snapshot a déjà été enregistré pour ce device dans la période
       const existing = await query(`
-        SELECT id 
+        SELECT id
         FROM tracker_connectivity
         WHERE device_id = ?
-        AND check_time >= DATE_SUB(NOW(), INTERVAL 6 HOUR)
+        AND check_time BETWEEN ? AND ?
         LIMIT 1
-      `, [device.device_id]);
+      `, [device_id, start, end]);
 
-      if (existing.length === 0) {
-        await query(`
-          INSERT INTO tracker_connectivity (device_id, device_name, last_connection, status, check_time)
-          VALUES (?, ?, ?, ?, ?)
-        `, [
-          device.device_id,
-          deviceNameSafe,
-          lastEventTime,
-          status,
-          now.format('YYYY-MM-DD HH:mm:ss')
-        ]);
+      if (existing.length > 0) {
+        continue; // Déjà un snapshot enregistré dans cette plage
       }
+
+      // Déterminer le statut en fonction de l'activité observée
+      const status = was_connected ? 'connected' : 'disconnected';
+
+      // Insérer le snapshot
+      await query(`
+        INSERT INTO tracker_connectivity (device_id, device_name, last_connection, status, check_time)
+        VALUES (?, ?, ?, ?, ?)
+      `, [
+        device_id,
+        device_name || `Device ${device_id}`,
+        moment(last_event).format('YYYY-MM-DD HH:mm:ss'),
+        status,
+        now.format('YYYY-MM-DD HH:mm:ss')
+      ]);
     }
 
-    console.log(`[${now.format('YYYY-MM-DD HH:mm:ss')}] ✅ Snapshot enregistré pour ${devices.length} devices.`);
+    console.log(`[${now.format('YYYY-MM-DD HH:mm:ss')}] ✅ ${devices.length} snapshots enregistrés.`);
   } catch (err) {
-    console.error('❌ Erreur enregistrement snapshot :', err.message);
+    console.error('❌ Erreur snapshot :', err.message);
   }
 };
 
-// Exécuter immédiatement
+// Lancer immédiatement
 recordDeviceSnapshots();
 
-// Puis toutes les 6h
+// Puis répéter toutes les 6 heures
 setInterval(recordDeviceSnapshots, SIX_HOURS_MS);
-
 
 // postEvent amélioré avec bande_sortie et alertes
 exports.postEvent = async (req, res) => {
@@ -680,7 +688,7 @@ process.on('uncaughtException', err => console.error('Uncaught Exception:', err)
     }
 }; */
 
-exports.getRawReport = (req, res) => {
+/* exports.getRawReport = (req, res) => {
   const { startDate, endDate } = req.query;
 
   const start = moment(startDate);
@@ -734,7 +742,237 @@ exports.getRawReport = (req, res) => {
 
     res.status(200).json(Object.values(report));
   });
+}; */
+
+/* exports.getRawReport = (req, res) => {
+  const { startDate, endDate } = req.query;
+
+  const start = moment(startDate);
+  const end = moment(endDate);
+
+  if (!start.isValid() || !end.isValid()) {
+    return res.status(400).json({ error: "Dates invalides fournies pour le rapport" });
+  }
+
+  const startSQL = start.format("YYYY-MM-DD HH:mm:ss");
+  const endSQL = end.format("YYYY-MM-DD HH:mm:ss");
+
+  const q = `
+    WITH etats AS (
+      SELECT 
+        t.device_id,
+        t.device_name,
+        t.check_time,
+        t.status,
+        DATE_FORMAT(t.check_time, '%Y-%m') AS month,
+        LEAD(t.check_time) OVER (PARTITION BY t.device_id ORDER BY t.check_time) AS next_check_time
+      FROM tracker_connectivity t
+      WHERE t.check_time BETWEEN ? AND ?
+    ),
+
+    deconnexions AS (
+      SELECT
+        device_id,
+        device_name,
+        month,
+        TIMESTAMPDIFF(MINUTE, check_time, next_check_time) AS duree_minutes
+      FROM etats
+      WHERE status = 'disconnected' AND next_check_time IS NOT NULL
+    ),
+
+    stats_connexions AS (
+      SELECT
+        device_id,
+        device_name,
+        DATE_FORMAT(check_time, '%Y-%m') AS month,
+        SUM(status = 'connected') AS fois_connecte,
+        SUM(status = 'disconnected') AS fois_deconnecte
+      FROM tracker_connectivity
+      WHERE check_time BETWEEN ? AND ?
+      GROUP BY device_id, device_name, month
+    ),
+
+    stats_depassements AS (
+      SELECT
+        ve.device_id,
+        DATE_FORMAT(ve.event_time, '%Y-%m') AS month,
+        COUNT(*) AS depassements
+      FROM vehicle_events ve
+      WHERE ve.event_time BETWEEN ? AND ?
+        AND ve.speed > 80
+      GROUP BY ve.device_id, month
+    )
+
+    SELECT
+      sc.device_id,
+      sc.device_name,
+      sc.month,
+      sc.fois_connecte,
+      sc.fois_deconnecte AS nombre_deconnexions,
+      COALESCE(SUM(d.duree_minutes), 0) AS total_minutes_deconnecte,
+      COALESCE(MAX(d.duree_minutes), 0) AS max_duree_deconnexion,
+      COALESCE(sd.depassements, 0) AS depassements
+    FROM stats_connexions sc
+    LEFT JOIN deconnexions d
+      ON sc.device_id = d.device_id AND sc.month = d.month
+    LEFT JOIN stats_depassements sd
+      ON sc.device_id = sd.device_id AND sc.month = sd.month
+    GROUP BY
+      sc.device_id,
+      sc.device_name,
+      sc.month,
+      sc.fois_connecte,
+      sc.fois_deconnecte,
+      sd.depassements
+    ORDER BY sc.device_name ASC, sc.month ASC;
+  `;
+
+  db.query(q, [startSQL, endSQL, startSQL, endSQL, startSQL, endSQL], (err, rows) => {
+    if (err) {
+      console.error("Erreur génération rapport:", err.message);
+      return res.status(500).json({ error: "Erreur lors de la génération du rapport" });
+    }
+
+    // Reformater les données pour le frontend
+    const report = {};
+    rows.forEach(row => {
+      if (!report[row.device_id]) {
+        report[row.device_id] = {
+          device_id: row.device_id,
+          device_name: row.device_name,
+          months: {}
+        };
+      }
+
+      report[row.device_id].months[row.month] = {
+        connexions: row.fois_connecte,
+        deconnexions: row.nombre_deconnexions,
+        total_minutes_deconnecte: row.total_minutes_deconnecte,
+        max_duree_deconnexion: row.max_duree_deconnexion,
+        depassements: row.depassements
+      };
+    });
+
+    res.status(200).json(Object.values(report));
+  });
+}; */
+
+exports.getRawReport = (req, res) => {
+  const { startDate, endDate } = req.query;
+
+  const start = moment(startDate);
+  const end = moment(endDate);
+
+  if (!start.isValid() || !end.isValid()) {
+    return res.status(400).json({ error: "Dates invalides fournies pour le rapport" });
+  }
+
+  const startSQL = start.format("YYYY-MM-DD HH:mm:ss");
+  const endSQL = end.format("YYYY-MM-DD HH:mm:ss");
+
+  const q = `
+    WITH etats AS (
+      SELECT 
+        t.device_id,
+        t.device_name,
+        DATE(t.check_time) AS jour,
+        t.check_time,
+        t.status,
+        LEAD(t.check_time) OVER (PARTITION BY t.device_id ORDER BY t.check_time) AS next_check_time
+      FROM tracker_connectivity t
+      WHERE t.check_time BETWEEN ? AND ?
+    ),
+
+    deconnexions AS (
+      SELECT
+        device_id,
+        device_name,
+        jour,
+        TIMESTAMPDIFF(MINUTE, check_time, next_check_time) AS duree_minutes
+      FROM etats
+      WHERE status = 'disconnected' AND next_check_time IS NOT NULL
+    ),
+
+    stats_connexions AS (
+      SELECT
+        device_id,
+        device_name,
+        DATE(check_time) AS jour,
+        SUM(status = 'connected') AS fois_connecte,
+        SUM(status = 'disconnected') AS fois_deconnecte
+      FROM tracker_connectivity
+      WHERE check_time BETWEEN ? AND ?
+      GROUP BY device_id, device_name, jour
+    ),
+
+    stats_depassements AS (
+      SELECT
+        ve.device_id,
+        DATE(ve.event_time) AS jour,
+        COUNT(*) AS depassements
+      FROM vehicle_events ve
+      WHERE ve.event_time BETWEEN ? AND ?
+        AND ve.speed > 80
+      GROUP BY ve.device_id, jour
+    )
+
+    SELECT
+      sc.device_id,
+      sc.device_name,
+      sc.jour,
+      sc.fois_connecte,
+      sc.fois_deconnecte AS nombre_deconnexions,
+      COALESCE(SUM(d.duree_minutes), 0) AS total_minutes_deconnecte,
+      COALESCE(MAX(d.duree_minutes), 0) AS max_duree_deconnexion,
+      COALESCE(sd.depassements, 0) AS depassements
+    FROM stats_connexions sc
+    LEFT JOIN deconnexions d ON sc.device_id = d.device_id AND sc.jour = d.jour
+    LEFT JOIN stats_depassements sd ON sc.device_id = sd.device_id AND sc.jour = sd.jour
+    GROUP BY
+      sc.device_id,
+      sc.device_name,
+      sc.jour,
+      sc.fois_connecte,
+      sc.fois_deconnecte
+    ORDER BY sc.device_name ASC, sc.jour ASC;
+  `;
+
+  db.query(q, [startSQL, endSQL, startSQL, endSQL, startSQL, endSQL], (err, rows) => {
+    if (err) {
+      console.error("Erreur génération rapport:", err.message);
+      return res.status(500).json({ error: "Erreur lors de la génération du rapport" });
+    }
+
+// Au lieu de renvoyer juste les phrases, renvoie aussi le device_id
+    const result = rows.map((row, index) => {
+    const dateFormatted = moment(row.jour).format("DD/MM/YYYY");
+
+    const parts = [`${index + 1}. 🚗 ${row.device_name} (${dateFormatted}) →`];
+
+    if (row.fois_connecte > 0) {
+        parts.push(`${row.fois_connecte} connexion${row.fois_connecte > 1 ? 's' : ''}`);
+    }
+
+    if (row.depassements > 0) {
+        parts.push(`${row.depassements} dépassement${row.depassements > 1 ? 's' : ''} de vitesse`);
+    }
+
+    if (row.nombre_deconnexions > 0) {
+        parts.push(`${row.nombre_deconnexions} déconnexion${row.nombre_deconnexions > 1 ? 's' : ''} (max: ${row.max_duree_deconnexion} min)`);
+    }
+
+    return {
+        device_id: row.device_id,
+        device_name: row.device_name,
+        phrase: parts.join(' ')
+    };
+    });
+
+    res.status(200).json(result);
+
+  });
 };
+
 
 //GET DEVICE
 exports.getDevice = (req, res) => {
