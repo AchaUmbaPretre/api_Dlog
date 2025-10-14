@@ -6,6 +6,7 @@ const query = util.promisify(db.query).bind(db);
 
 const FETCH_INTERVAL_MINUTES = 1;
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+const MAX_OFFLINE_MINUTES = 30;
 
 
 //Récupérer toutes les alertes
