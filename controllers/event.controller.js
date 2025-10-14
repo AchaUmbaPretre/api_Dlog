@@ -4,7 +4,7 @@ const http = require('http');
 const { db } = require('./../config/database');
 const query = util.promisify(db.query).bind(db);
 
-const FETCH_INTERVAL_MINUTES = 3;
+const FETCH_INTERVAL_MINUTES = 1;
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 
 
@@ -346,9 +346,6 @@ exports.postEvent = async (req, res) => {
             }
         }
 
-        // Vérification connectivité des devices
-/*         await checkDisconnectedDevices(); */
-
         if (res) return res.status(201).json({ message: 'Événement ajouté et alertes générées si nécessaire.' });
 
     } catch (error) {
@@ -388,38 +385,52 @@ exports.postEvent = async (req, res) => {
 }; */
 
 const checkUnauthorizedMovementByDeviceName = async (device_name) => {
-    try {
-        const result = await query(
-            `
-            SELECT 
-                v.name_capteur AS device_name, 
-                bs.statut,
-                bs.sortie_time
-            FROM bande_sortie bs
-            LEFT JOIN vehicules v ON bs.id_vehicule = v.id_vehicule
-            WHERE 
-                v.name_capteur = ? 
-                AND bs.est_supprime = 0
-                AND (
-                    NOW() BETWEEN bs.sortie_time AND COALESCE(bs.retour_time, NOW())
-                    OR (bs.statut IN (4, 5) AND DATE(bs.sortie_time) = CURDATE())
-                )
-            ORDER BY bs.sortie_time DESC
-            LIMIT 1
-            `,
-            [device_name]
-        );
+  try {
+    const result = await query(
+      `
+      SELECT 
+        v.name_capteur AS device_name, 
+        bs.statut,
+        bs.sortie_time,
+        bs.retour_time
+      FROM bande_sortie bs
+      LEFT JOIN vehicules v ON bs.id_vehicule = v.id_vehicule
+      WHERE 
+        v.name_capteur = ? 
+        AND bs.est_supprime = 0
+      ORDER BY bs.sortie_time DESC
+      LIMIT 1
+      `,
+      [device_name]
+    );
 
-        // Si aucun enregistrement OU statut différent de 4 et 5 => mouvement non autorisé
-        if (!result.length || ![4, 5].includes(result[0].statut)) {
-            return true; // Mouvement non autorisé
-        }
-
-        return false; // Mouvement autorisé
-    } catch (err) {
-        console.error('Erreur lors de la vérification du mouvement non autorisé par device_name :', err.message);
-        return false;
+    if (!result.length) {
+      // Aucun bon trouvé => mouvement non autorisé
+      return true;
     }
+
+    const bon = result[0];
+    const now = new Date();
+
+    const sortie = new Date(bon.sortie_time);
+    const retour = bon.retour_time ? new Date(bon.retour_time) : null;
+
+    // Vérifie si on est encore dans la période de validité du bon
+    const isValidPeriod =
+      now >= sortie && (!retour || now <= retour);
+
+    const isValidStatus = [4, 5].includes(bon.statut);
+
+    // Si la période et le statut sont valides => autorisé
+    if (isValidPeriod && isValidStatus) {
+      return false; // pas d'alerte
+    }
+
+    return true; // sinon alerte
+  } catch (err) {
+    console.error('Erreur checkUnauthorizedMovementByDeviceName:', err.message);
+    return false;
+  }
 };
 
 
