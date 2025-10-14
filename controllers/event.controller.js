@@ -354,24 +354,29 @@ exports.postEvent = async (req, res) => {
                     console.error('Erreur API geofence COBRA:', e.message);
                 }
 
-                //Ne pas répéter une alerte identique dans les 15 dernières minutes
-                const recentAlert = await query(
-                    `SELECT 1 FROM vehicle_alerts 
-                    WHERE device_id = ? AND alert_type = 'engine_out_of_hours' 
-                    AND alert_time >= (NOW() - INTERVAL 15 MINUTE)`,
-                    [device_id]
-                );
+                // Vérifier si le véhicule a un BS actif
+                const hasBS = !(await checkUnauthorizedMovementByDeviceName(device_name)); // true si BS actif
 
-                if (!recentAlert.length) {
-                    alerts.push({
-                        event_id,
-                        device_id,
-                        device_name,
-                        alert_type: 'engine_out_of_hours',
-                        alert_level: 'MEDIUM',
-                        alert_message: `🚨 Moteur allumé hors horaire (${eventHour}h) pour ${device_name}${inCobra ? ' (zone COBRA)' : ''}`,
-                        alert_time: formattedEventTime
-                    });
+                if (!hasBS) { // Déclenche l’alerte seulement si pas de BS
+                    // Anti-spam : ne pas répéter une alerte identique dans les 15 dernières minutes
+                    const recentAlert = await query(
+                        `SELECT 1 FROM vehicle_alerts 
+                        WHERE device_id = ? AND alert_type = 'engine_out_of_hours' 
+                        AND alert_time >= (NOW() - INTERVAL 15 MINUTE)`,
+                        [device_id]
+                    );
+
+                    if (!recentAlert.length) {
+                        alerts.push({
+                            event_id,
+                            device_id,
+                            device_name,
+                            alert_type: 'engine_out_of_hours',
+                            alert_level: 'MEDIUM',
+                            alert_message: `🚨 Moteur allumé hors horaire (${eventHour}h) pour ${device_name}${inCobra ? ' (zone COBRA)' : ''}`,
+                            alert_time: formattedEventTime
+                        });
+                    }
                 }
             }
         }
