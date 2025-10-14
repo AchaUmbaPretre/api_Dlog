@@ -134,7 +134,7 @@ const fetchFalconDevices = () => {
       res.on("end", () => {
         try {
           const json = JSON.parse(data);
-          resolve(json[0].items); // récupération des devices
+          resolve(json[0].items);
         } catch (e) {
           reject(e);
         }
@@ -155,7 +155,7 @@ const recordLogSnapshot = async () => {
     for (const device of devices) {
       const { id: device_id, name: device_name, timestamp } = device;
 
-      const lastPosTime = moment(timestamp * 1000); // timestamp Unix
+      const lastPosTime = moment(timestamp * 1000);
       const diffMinutes = now.diff(lastPosTime, 'minutes');
       const status = diffMinutes <= MAX_OFFLINE_MINUTES ? 'connected' : 'disconnected';
 
@@ -219,13 +219,7 @@ const generateDailySnapshot = async () => {
 
 // Lancer le log toutes les 5 minutes
 setInterval(recordLogSnapshot, INTERVAL_MS);
-
-// Générer snapshot 4x/jour via cron (00h, 06h, 12h, 18h)
-const cron = require('node-cron');
-cron.schedule('0 0,6,12,18 * * *', () => {
-  console.log('📌 Exécution snapshot 4x/jour...');
-  generateDailySnapshot();
-});
+setInterval(generateDailySnapshot, SIX_HOURS_MS);
 
 //À chaque exécution (toutes les 6 heures)
 /* const checkDisconnectedDevices = async () => {
