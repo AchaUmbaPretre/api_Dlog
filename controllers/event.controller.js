@@ -279,7 +279,7 @@ exports.postEvent = async (req, res) => {
     try {
         const formattedEventTime = moment(event_time, "DD-MM-YYYY HH:mm:ss").format("YYYY-MM-DD HH:mm:ss");
 
-        //Vérifier si l'événement existe déjà
+        // Vérifier si l'événement existe déjà
         const existsEvent = await query(
             `SELECT 1 FROM vehicle_events WHERE external_id = ? AND device_id = ? AND event_time = ?`,
             [external_id, device_id, formattedEventTime]
@@ -318,7 +318,7 @@ exports.postEvent = async (req, res) => {
         }
 
         // Véhicule en mouvement sans mission assignée
-        if ((type === 'ignition_on' || speed > 0) && (!message || !message.includes('course_active'))) {
+        if ((type === 'ignition_on' || speed > 7) && (!message || !message.includes('Moteur en marche'))) {
             const unauthorized = await checkUnauthorizedMovementByDeviceName(device_name);
             if (unauthorized) {
                 alerts.push({
@@ -432,7 +432,6 @@ const checkUnauthorizedMovementByDeviceName = async (device_name) => {
     return false;
   }
 };
-
 
 /* //Récupération automatique depuis l’API Falcon
 const fetchAndStoreEvents = async () => {
