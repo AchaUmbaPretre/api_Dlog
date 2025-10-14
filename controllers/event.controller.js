@@ -7,7 +7,6 @@ const query = util.promisify(db.query).bind(db);
 const FETCH_INTERVAL_MINUTES = 1;
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 const INTERVAL_MS = 5 * 60 * 1000; // toutes les 5 minutes
-const MAX_OFFLINE_MINUTES = 30;
 
 //Récupérer toutes les alertes
 exports.getAlertVehicule = (req, res) => {
@@ -117,7 +116,6 @@ const createAlert = async ({
   return { created: true, alertId: result.insertId };
 };
 
-
 // Fonction pour récupérer les données depuis Falcon
 const fetchFalconDevices = () => {
   return new Promise((resolve, reject) => {
@@ -153,11 +151,12 @@ const recordLogSnapshot = async () => {
     const devices = await fetchFalconDevices();
 
     for (const device of devices) {
-      const { id: device_id, name: device_name, timestamp } = device;
+      const { id: device_id, name: device_name, online, timestamp } = device;
+
+      // Déterminer le statut réel en se basant sur online
+      const status = online === "offline" ? "disconnected" : "connected";
 
       const lastPosTime = moment(timestamp * 1000);
-      const diffMinutes = now.diff(lastPosTime, 'minutes');
-      const status = diffMinutes <= MAX_OFFLINE_MINUTES ? 'connected' : 'disconnected';
 
       await query(`
         INSERT INTO tracker_connectivity_log (device_id, device_name, last_connection, status, recorded_at)
@@ -309,7 +308,7 @@ setInterval(generateDailySnapshot, SIX_HOURS_MS);
     }
 }; */
 
-const recordDeviceSnapshots = async () => {
+/* const recordDeviceSnapshots = async () => {
   try {
     const now = moment();
     const sixHoursAgo = moment().subtract(6, 'hours');
@@ -365,12 +364,12 @@ const recordDeviceSnapshots = async () => {
     console.error('❌ Erreur snapshot :', err.message);
   }
 };
-
+ */
 // Lancer immédiatement
-recordDeviceSnapshots();
+/* recordDeviceSnapshots(); */
 
 // Puis répéter toutes les 6 heures
-setInterval(recordDeviceSnapshots, SIX_HOURS_MS);
+/* setInterval(recordDeviceSnapshots, SIX_HOURS_MS); */
 
 // postEvent amélioré avec bande_sortie et alertes
 exports.postEvent = async (req, res) => {
@@ -774,9 +773,9 @@ setInterval(fetchAndStoreEvents, FETCH_INTERVAL_MINUTES * 60 * 1000);
 fetchAndStoreEvents();
 
 // Logs pour capturer les erreurs non catchées
-process.on('unhandledRejection', err => console.error('Unhandled Rejection:', err));
+/* process.on('unhandledRejection', err => console.error('Unhandled Rejection:', err));
 process.on('uncaughtException', err => console.error('Uncaught Exception:', err));
-
+ */
 // Générer rapport raw
 /* exports.getRawReport = (req, res) => {
   const { startDate, endDate } = req.query;
