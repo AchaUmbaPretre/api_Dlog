@@ -412,7 +412,7 @@ exports.postEvent = async (req, res) => {
         }
 
 
-        // ✅ Enregistrement des alertes sans doublons
+        //Enregistrement des alertes sans doublons
         for (const alert of alerts) {
             const existsAlert = await query(
                 `SELECT 1 FROM vehicle_alerts WHERE device_id = ? AND alert_type = ? AND alert_time = ?`,
@@ -669,170 +669,6 @@ process.on('unhandledRejection', err => console.error('Unhandled Rejection:', er
 process.on('uncaughtException', err => console.error('Uncaught Exception:', err));
 
 // Générer rapport raw
-/* exports.getRawReport = async (req, res) => {
-    const { startDate, endDate } = req.query;
-
-    try {
-        const start = moment(startDate);
-        const end = moment(endDate);
-
-        if (!start.isValid() || !end.isValid()) {
-            return res.status(400).json({ error: 'Dates invalides fournies pour le rapport' });
-        }
-
-        const startSQL = start.format('YYYY-MM-DD HH:mm:ss');
-        const endSQL = end.format('YYYY-MM-DD HH:mm:ss');
-
-        // Récupérer tous les événements pour la période
-        const sql = `
-            SELECT device_name AS vehicle, type, event_time, latitude, longitude
-            FROM vehicle_events
-            WHERE event_time BETWEEN ? AND ?
-            ORDER BY device_name, event_time
-        `;
-        const events = await query(sql, [startSQL, endSQL]);
-
-        // Filtrer les événements avec coordonnées valides
-        const validEvents = events.filter(e =>
-            e.latitude !== null && e.longitude !== null &&
-            !isNaN(e.latitude) && !isNaN(e.longitude)
-        );
-
-        // Regrouper les données par véhicule
-        const vehicles = {};
-        validEvents.forEach(e => {
-            if (!vehicles[e.vehicle]) {
-                vehicles[e.vehicle] = {
-                    ignitionOn: 0,
-                    ignitionOff: 0,
-                    overspeedCount: 0,
-                    disconnectPeriods: [],
-                    lastEventTime: null,
-                    seenTimes: new Set(),
-                    details: []
-                };
-            }
-
-            const v = vehicles[e.vehicle];
-            if (v.seenTimes.has(e.event_time)) return;
-            v.seenTimes.add(e.event_time);
-
-            // Comptabiliser les événements
-            if (e.type === 'ignition_on') v.ignitionOn += 1;
-            if (e.type === 'ignition_off') v.ignitionOff += 1;
-            if (e.type === 'overspeed') v.overspeedCount += 1;
-
-            // Calcul des périodes de déconnexion (>6h)
-            if (v.lastEventTime) {
-                const diffMinutes = moment(e.event_time).diff(moment(v.lastEventTime), 'minutes', true);
-                if (diffMinutes > 360) v.disconnectPeriods.push(diffMinutes);
-            }
-
-            v.lastEventTime = e.event_time;
-            v.details.push({
-                time: e.event_time,
-                type: e.type,
-                latitude: e.latitude,
-                longitude: e.longitude
-            });
-        });
-
-        // Générer le rapport structuré
-        const report = Object.keys(vehicles).map(vehicleName => {
-            const v = vehicles[vehicleName];
-            const totalDisconnectMinutes = Math.round(v.disconnectPeriods.reduce((sum, m) => sum + m, 0));
-            const status = v.lastEventTime && (moment().diff(moment(v.lastEventTime), 'hours') > 6 ? 'disconnected' : 'connected');
-
-            return {
-                vehicle: vehicleName,
-                summary: {
-                    totalIgnitionsOn: v.ignitionOn,
-                    totalIgnitionsOff: v.ignitionOff,
-                    totalOverspeed: v.overspeedCount,
-                    totalDisconnects: v.disconnectPeriods.length,
-                    totalDisconnectMinutes
-                },
-                summaryText: `Véhicule ${vehicleName} → ${v.ignitionOn} démarrages, ${v.ignitionOff} arrêts, ${v.overspeedCount} dépassements vitesse, ${v.disconnectPeriods.length} déconnexions (${totalDisconnectMinutes} min)`,
-                disconnects: v.disconnectPeriods.map((duration, idx) => ({
-                    number: idx + 1,
-                    durationMinutes: Math.round(duration)
-                })),
-                events: v.details,
-                status
-            };
-        });
-
-        // Réponse finale
-        res.json({
-            period: {
-                start: startSQL,
-                end: endSQL
-            },
-            report
-        });
-
-    } catch (err) {
-        console.error('Erreur génération rapport pro:', err.message);
-        res.status(500).json({ error: 'Erreur lors de la génération du rapport professionnel' });
-    }
-}; */
-
-/* exports.getRawReport = (req, res) => {
-  const { startDate, endDate } = req.query;
-
-  const start = moment(startDate);
-  const end = moment(endDate);
-
-  if (!start.isValid() || !end.isValid()) {
-    return res.status(400).json({ error: "Dates invalides fournies pour le rapport" });
-  }
-
-  const startSQL = start.format("YYYY-MM-DD HH:mm:ss");
-  const endSQL = end.format("YYYY-MM-DD HH:mm:ss");
-
-  // Requête regroupée par device et par mois
-  const q = `
-    SELECT 
-        ve.device_id,
-        ve.device_name,
-        DATE_FORMAT(ve.event_time, '%Y-%m') AS month,
-        COUNT(DISTINCT CASE WHEN t.status = 'connected' THEN t.id END) AS nbre_connexions,
-        COUNT(DISTINCT CASE WHEN ve.speed > 80 THEN ve.id END) AS nbre_depassements
-    FROM vehicle_events ve
-    LEFT JOIN tracker_connectivity t 
-        ON ve.device_id = t.device_id
-        AND t.check_time BETWEEN ? AND ?
-    WHERE ve.event_time BETWEEN ? AND ?
-    GROUP BY ve.device_id, ve.device_name, month
-    ORDER BY ve.device_name ASC, month ASC;
-  `;
-
-  db.query(q, [startSQL, endSQL, startSQL, endSQL], (err, rows) => {
-    if (err) {
-      console.error("Erreur génération rapport:", err.message);
-      return res.status(500).json({ error: "Erreur lors de la génération du rapport" });
-    }
-
-    // Transformer le résultat pour React : { device_id, device_name, months: { '2025-10': { connexions, depassements } } }
-    const report = {};
-    rows.forEach(row => {
-      if (!report[row.device_id]) {
-        report[row.device_id] = {
-          device_id: row.device_id,
-          device_name: row.device_name,
-          months: {},
-        };
-      }
-      report[row.device_id].months[row.month] = {
-        connexions: row.nbre_connexions,
-        depassements: row.nbre_depassements,
-      };
-    });
-
-    res.status(200).json(Object.values(report));
-  });
-}; */
-
 /* exports.getRawReport = (req, res) => {
   const { startDate, endDate } = req.query;
 
@@ -1061,7 +897,6 @@ exports.getRawReport = (req, res) => {
 
   });
 };
-
 
 //GET DEVICE
 exports.getDevice = (req, res) => {
