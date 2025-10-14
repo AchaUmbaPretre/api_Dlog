@@ -6,8 +6,8 @@ const query = util.promisify(db.query).bind(db);
 
 const FETCH_INTERVAL_MINUTES = 1;
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+const INTERVAL_MS = 5 * 60 * 1000; // toutes les 5 minutes
 const MAX_OFFLINE_MINUTES = 30;
-
 
 //Récupérer toutes les alertes
 exports.getAlertVehicule = (req, res) => {
@@ -116,6 +116,116 @@ const createAlert = async ({
   console.log(`🚨 Nouvelle alerte créée pour ${device_name} (${alert_type})`);
   return { created: true, alertId: result.insertId };
 };
+
+
+// Fonction pour récupérer les données depuis Falcon
+const fetchFalconDevices = () => {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "31.207.34.171",
+      port: 80,
+      path: "/api/get_devices?&lang=fr&user_api_hash=$2y$10$FbpbQMzKNaJVnv0H2RbAfel1NMjXRUoCy8pZUogiA/bvNNj1kdcY.",
+      method: "GET",
+    };
+
+    const req = http.request(options, (res) => {
+      let data = "";
+      res.on("data", (chunk) => data += chunk);
+      res.on("end", () => {
+        try {
+          const json = JSON.parse(data);
+          resolve(json[0].items); // récupération des devices
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+
+    req.on("error", (err) => reject(err));
+    req.end();
+  });
+};
+
+// Enregistrer l’historique toutes les 5 minutes
+const recordLogSnapshot = async () => {
+  try {
+    const now = moment();
+    const devices = await fetchFalconDevices();
+
+    for (const device of devices) {
+      const { id: device_id, name: device_name, timestamp } = device;
+
+      const lastPosTime = moment(timestamp * 1000); // timestamp Unix
+      const diffMinutes = now.diff(lastPosTime, 'minutes');
+      const status = diffMinutes <= MAX_OFFLINE_MINUTES ? 'connected' : 'disconnected';
+
+      await query(`
+        INSERT INTO tracker_connectivity_log (device_id, device_name, last_connection, status, recorded_at)
+        VALUES (?, ?, ?, ?, ?)
+      `, [
+        device_id,
+        device_name || `Device ${device_id}`,
+        lastPosTime.format('YYYY-MM-DD HH:mm:ss'),
+        status,
+        now.format('YYYY-MM-DD HH:mm:ss')
+      ]);
+    }
+
+    console.log(`[${now.format('YYYY-MM-DD HH:mm:ss')}] ✅ Historique log enregistré (${devices.length} devices)`);
+  } catch (err) {
+    console.error("❌ Erreur log snapshot:", err.message);
+  }
+};
+
+// Générer snapshot 4x/jour à partir du log
+const generateDailySnapshot = async () => {
+  try {
+    const now = moment();
+    const sixHoursAgo = moment().subtract(6, 'hours');
+
+    // Récupérer le dernier log de chaque device dans les 6h
+    const logs = await query(`
+      SELECT t1.device_id, t1.device_name, t1.last_connection, t1.status
+      FROM tracker_connectivity_log t1
+      INNER JOIN (
+        SELECT device_id, MAX(recorded_at) AS max_time
+        FROM tracker_connectivity_log
+        WHERE recorded_at BETWEEN ? AND ?
+        GROUP BY device_id
+      ) t2 ON t1.device_id = t2.device_id AND t1.recorded_at = t2.max_time
+    `, [sixHoursAgo.format('YYYY-MM-DD HH:mm:ss'), now.format('YYYY-MM-DD HH:mm:ss')]);
+
+    for (const log of logs) {
+      // Vérifier doublon
+      const existing = await query(`
+        SELECT id FROM tracker_connectivity
+        WHERE device_id = ? AND check_time = ?
+        LIMIT 1
+      `, [log.device_id, now.format('YYYY-MM-DD HH:mm:ss')]);
+
+      if (existing.length > 0) continue;
+
+      await query(`
+        INSERT INTO tracker_connectivity (device_id, device_name, last_connection, status, check_time)
+        VALUES (?, ?, ?, ?, ?)
+      `, [log.device_id, log.device_name, log.last_connection, log.status, now.format('YYYY-MM-DD HH:mm:ss')]);
+    }
+
+    console.log(`[${now.format('YYYY-MM-DD HH:mm:ss')}] ✅ Snapshot 4x/jour généré (${logs.length} devices)`);
+  } catch (err) {
+    console.error("❌ Erreur génération snapshot:", err.message);
+  }
+};
+
+// Lancer le log toutes les 5 minutes
+setInterval(recordLogSnapshot, INTERVAL_MS);
+
+// Générer snapshot 4x/jour via cron (00h, 06h, 12h, 18h)
+const cron = require('node-cron');
+cron.schedule('0 0,6,12,18 * * *', () => {
+  console.log('📌 Exécution snapshot 4x/jour...');
+  generateDailySnapshot();
+});
 
 //À chaque exécution (toutes les 6 heures)
 /* const checkDisconnectedDevices = async () => {
