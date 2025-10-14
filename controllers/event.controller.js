@@ -411,7 +411,6 @@ exports.postEvent = async (req, res) => {
             }
         }
 
-
         //Enregistrement des alertes sans doublons
         for (const alert of alerts) {
             const existsAlert = await query(
