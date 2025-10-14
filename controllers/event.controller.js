@@ -318,7 +318,7 @@ exports.postEvent = async (req, res) => {
         }
 
         // Véhicule en mouvement sans mission assignée
-        if ((type === 'ignition_on' || speed > 7) && (!message || !message.includes('Moteur en marche'))) {
+        if ((type === 'ignition_on' || speed > 7) && (!message || message?.toLowerCase().includes('moteur en marche'))) {
             const unauthorized = await checkUnauthorizedMovementByDeviceName(device_name);
             if (unauthorized) {
                 alerts.push({
@@ -332,6 +332,85 @@ exports.postEvent = async (req, res) => {
                 });
             }
         }
+
+        // Moteur allumé hors horaire entre 22h et 05h
+        if (type === 'ignition_on' || message?.toLowerCase().includes('moteur en marche')) {
+            const eventHour = moment(formattedEventTime).hour();
+
+            // Moteur allumé entre 22h et 05h
+            const isNight = eventHour >= 22 || eventHour < 5;
+            const isStationary = speed === 0;
+
+            if (isNight && isStationary) {
+                // Vérifier zone COBRA
+                let inCobra = false;
+                try {
+                    const url = `http://falconeyesolutions.com/api/point_in_geofences?lat=${latitude}&lng=${longitude}&lang=fr&user_api_hash=$2y$10$FbpbQMzKNaJVnv0H2RbAfel1NMjXRUoCy8pZUogiA/bvNNj1kdcY`;
+                    const res = await fetch(url);
+                    const geo = await res.json();
+                    const zones = geo?.zones || [];
+                    inCobra = zones.some(z => z.toLowerCase().includes('cobra'));
+                } catch (e) {
+                    console.error('Erreur API geofence COBRA:', e.message);
+                }
+
+                //Ne pas répéter une alerte identique dans les 15 dernières minutes
+                const recentAlert = await query(
+                    `SELECT 1 FROM vehicle_alerts 
+                    WHERE device_id = ? AND alert_type = 'engine_out_of_hours' 
+                    AND alert_time >= (NOW() - INTERVAL 15 MINUTE)`,
+                    [device_id]
+                );
+
+                if (!recentAlert.length) {
+                    alerts.push({
+                        event_id,
+                        device_id,
+                        device_name,
+                        alert_type: 'engine_out_of_hours',
+                        alert_level: 'MEDIUM',
+                        alert_message: `🚨 Moteur allumé hors horaire (${eventHour}h) pour ${device_name}${inCobra ? ' (zone COBRA)' : ''}`,
+                        alert_time: formattedEventTime
+                    });
+                }
+            }
+        }
+
+        //Sortie nocturne non autorisée entre 22h et 05h
+        if (type === 'ignition_on' || message?.toLowerCase().includes('moteur en marche')) {
+            const eventHour = moment(formattedEventTime).hour();
+            const isNight = eventHour >= 22 || eventHour < 5;
+
+            if (isNight) {
+                const noBS = await checkUnauthorizedMovementByDeviceName(device_name);
+
+                const alertType = noBS ? 'night_exit_unauthorized' : 'night_exit_with_bs';
+                const level = noBS ? 'CRITICAL' : 'MEDIUM';
+                const messageAlert = noBS
+                    ? `🚨 Sortie nocturne non autorisée (${eventHour}h) – ${device_name}`
+                    : `ℹ️ Sortie nocturne avec BS pour ${device_name}`;
+
+                const recentAlert = await query(
+                    `SELECT 1 FROM vehicle_alerts 
+                    WHERE device_id = ? AND alert_type = ? 
+                    AND alert_time >= (NOW() - INTERVAL 15 MINUTE)`,
+                    [device_id, alertType]
+                );
+
+                if (!recentAlert.length) {
+                    alerts.push({
+                        event_id,
+                        device_id,
+                        device_name,
+                        alert_type: alertType,
+                        alert_level: level,
+                        alert_message: messageAlert,
+                        alert_time: formattedEventTime
+                    });
+                }
+            }
+        }
+
 
         // ✅ Enregistrement des alertes sans doublons
         for (const alert of alerts) {
