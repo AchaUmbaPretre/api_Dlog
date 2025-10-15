@@ -25,7 +25,8 @@ const templateRoutes = require('./routes/template.routes');
 const rapportRoutes = require('./routes/rapport.routes');
 const charroiRoutes = require('./routes/charroi.routes');
 const transporteurRoutes = require('./routes/transporteur.routes');
-const eventRoutes = require('./routes/event.routes')
+const eventRoutes = require('./routes/event.routes');
+const webhookRoutes = require('./routes/webhook.routes');
 
 const https = require('https');
 const http = require('http');
@@ -123,7 +124,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
   proxyReq.end();
 }); */
-
+app.use('/api/event', eventRoutes)
 app.get("/api/falcon", (req, res) => {
   const options = {
     hostname: "31.207.34.171",
@@ -157,6 +158,7 @@ app.get("/api/falcon", (req, res) => {
 
   proxyReq.end();
 });
+app.use('/', webhookRoutes)
 
 app.get("/api/get_event", (req, res) => {
   const query = new URLSearchParams(req.query).toString();
