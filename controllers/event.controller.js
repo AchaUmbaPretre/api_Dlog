@@ -715,54 +715,54 @@ exports.getDevice = (req, res) => {
 };
 
 exports.getConnectivity = (req, res) => {
-    const { startDate, endDate, status } = req.query;
-    const params = [];
+    const { startDate, endDate } = req.query;
+    const start = startDate ? `'${startDate} 00:00:00'` : 'CURDATE()';
+    const end = endDate ? `'${endDate} 23:59:59'` : `CONCAT(CURDATE(), ' 23:59:59')`;
 
-    const q = `SELECT 
-                    d.device_id,
-                    d.device_name,
-                    CURDATE() AS jour,
-
-                    -- 🔹 Nombre de snapshots connectés (table tracker_connectivity 4x/jour)
-                    COALESCE(SUM(CASE WHEN t.status = 'connected' THEN 1 ELSE 0 END), 0) AS snapshots_connected,
-
-                    -- 🔹 Pourcentage sur 4
-                    ROUND((COALESCE(SUM(CASE WHEN t.status = 'connected' THEN 1 ELSE 0 END), 0)/4)*100,2) AS taux_connectivite_pourcent,
-
-                    -- 🔹 Durée depuis la dernière déconnexion (en minutes) calculée à partir du log toutes les 5 min
-                    COALESCE(
-                        TIMESTAMPDIFF(
-                            MINUTE,
-                            (
-                                SELECT MAX(log.last_connection)
-                                FROM tracker_connectivity_log log
-                                WHERE log.device_id = d.device_id
-                                AND log.status = 'disconnected'
-                            ),
-                            NOW()
-                        ),
-                        0
-                    ) AS duree_derniere_deconnexion_minutes,
-
-                    -- 🔹 Statut actuel basé sur le dernier log
+    const q = `
+        SELECT 
+            d.device_id,
+            d.device_name,
+            DATE(${start}) AS jour,
+            COALESCE(SUM(CASE WHEN t.status = 'connected' THEN 1 ELSE 0 END), 0) AS snapshots_connected,
+            ROUND((COALESCE(SUM(CASE WHEN t.status = 'connected' THEN 1 ELSE 0 END), 0)/4)*100,2) AS taux_connectivite_pourcent,
+            COALESCE(
+                TIMESTAMPDIFF(
+                    MINUTE,
                     (
-                        SELECT log2.status
-                        FROM tracker_connectivity_log log2
-                        WHERE log2.device_id = d.device_id
-                        ORDER BY log2.id DESC
-                        LIMIT 1
-                    ) AS statut_actuel
+                        SELECT MAX(log.last_connection)
+                        FROM tracker_connectivity_log log
+                        WHERE log.device_id = d.device_id
+                          AND log.status = 'disconnected'
+                          AND log.recorded_at BETWEEN ${start} AND ${end}
+                    ),
+                    NOW()
+                ),
+                0
+            ) AS duree_derniere_deconnexion_minutes,
+            (
+                SELECT log2.status
+                FROM tracker_connectivity_log log2
+                WHERE log2.device_id = d.device_id
+                ORDER BY log2.id DESC
+                LIMIT 1
+            ) AS statut_actuel
+        FROM (
+            SELECT DISTINCT device_id, device_name
+            FROM tracker_connectivity
+        ) d
+        LEFT JOIN tracker_connectivity t
+          ON t.device_id = d.device_id
+          AND t.check_time BETWEEN ${start} AND ${end}
+        GROUP BY d.device_id, d.device_name
+        ORDER BY taux_connectivite_pourcent DESC;
+    `;
 
-                FROM (
-                    -- Liste des traceurs connus
-                    SELECT DISTINCT device_id, device_name
-                    FROM tracker_connectivity
-                ) d
-                LEFT JOIN tracker_connectivity t
-                ON t.device_id = d.device_id
-                AND t.check_time BETWEEN CURDATE() AND CONCAT(CURDATE(), ' 23:59:59')
-                GROUP BY d.device_id, d.device_name
-                ORDER BY taux_connectivite_pourcent DESC;
-                `
-
-}
+    db.query(q, (err, data) => {
+        if (err) {
+            console.error("Erreur:", err);
+            return res.status(500).json({ error: "Erreur interne du serveur" });
+        }
+        return res.status(200).json(data);
+    });
+};
