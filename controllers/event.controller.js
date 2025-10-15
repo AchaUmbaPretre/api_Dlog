@@ -253,9 +253,6 @@ const cleanOldLogs = async () => {
 
 setInterval(cleanOldLogs, ONE_DAY_MS);
 
-// Puis répéter toutes les 6 heures
-/* setInterval(recordDeviceSnapshots, SIX_HOURS_MS); */
-
 // postEvent amélioré avec bande_sortie et alertes
 exports.postEvent = async (req, res) => {
     let { external_id, device_id, device_name, type, message, speed = 0, latitude, longitude, event_time } = req.body;
@@ -427,35 +424,6 @@ exports.postEvent = async (req, res) => {
 };
 
 //Fonction pour vérifier si un véhicule est autorisé ou non via device_name
-/* const checkUnauthorizedMovementByDeviceName = async (device_name) => {
-    try {
-        const result = await query(
-            `SELECT 
-          v.name_capteur AS device_name, 
-          bs.statut,
-          bs.sortie_time
-      FROM bande_sortie bs
-      LEFT JOIN vehicules v 
-          ON bs.id_vehicule = v.id_vehicule
-      WHERE v.name_capteur = ? 
-        AND bs.est_supprime = 0
-        AND (
-              NOW() BETWEEN bs.sortie_time AND COALESCE(bs.retour_time, NOW())
-              OR (bs.statut = 4 AND DATE(bs.sortie_time) = CURDATE())
-            )
-      ORDER BY bs.sortie_time DESC
-      LIMIT 1`,
-            [device_name]
-        );
-
-        if (!result.length || result[0].statut !== 4) return true; // non autorisé
-        return false; // autorisé
-    } catch (err) {
-        console.error('Erreur vérification bande sortie par device_name:', err.message);
-        return false;
-    }
-}; */
-
 const checkUnauthorizedMovementByDeviceName = async (device_name) => {
   try {
     const result = await query(
