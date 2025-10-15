@@ -713,3 +713,56 @@ exports.getDevice = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+exports.getConnectivity = (req, res) => {
+    const { startDate, endDate, status } = req.query;
+    const params = [];
+
+    const q = `SELECT 
+                    d.device_id,
+                    d.device_name,
+                    CURDATE() AS jour,
+
+                    -- 🔹 Nombre de snapshots connectés (table tracker_connectivity 4x/jour)
+                    COALESCE(SUM(CASE WHEN t.status = 'connected' THEN 1 ELSE 0 END), 0) AS snapshots_connected,
+
+                    -- 🔹 Pourcentage sur 4
+                    ROUND((COALESCE(SUM(CASE WHEN t.status = 'connected' THEN 1 ELSE 0 END), 0)/4)*100,2) AS taux_connectivite_pourcent,
+
+                    -- 🔹 Durée depuis la dernière déconnexion (en minutes) calculée à partir du log toutes les 5 min
+                    COALESCE(
+                        TIMESTAMPDIFF(
+                            MINUTE,
+                            (
+                                SELECT MAX(log.last_connection)
+                                FROM tracker_connectivity_log log
+                                WHERE log.device_id = d.device_id
+                                AND log.status = 'disconnected'
+                            ),
+                            NOW()
+                        ),
+                        0
+                    ) AS duree_derniere_deconnexion_minutes,
+
+                    -- 🔹 Statut actuel basé sur le dernier log
+                    (
+                        SELECT log2.status
+                        FROM tracker_connectivity_log log2
+                        WHERE log2.device_id = d.device_id
+                        ORDER BY log2.id DESC
+                        LIMIT 1
+                    ) AS statut_actuel
+
+                FROM (
+                    -- Liste des traceurs connus
+                    SELECT DISTINCT device_id, device_name
+                    FROM tracker_connectivity
+                ) d
+                LEFT JOIN tracker_connectivity t
+                ON t.device_id = d.device_id
+                AND t.check_time BETWEEN CURDATE() AND CONCAT(CURDATE(), ' 23:59:59')
+                GROUP BY d.device_id, d.device_name
+                ORDER BY taux_connectivite_pourcent DESC;
+                `
+
+}
