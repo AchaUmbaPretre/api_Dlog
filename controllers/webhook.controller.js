@@ -3,14 +3,112 @@ const moment = require('moment');
 const { db } = require('./../config/database');
 const query = util.promisify(db.query).bind(db);
 
+const checkUnauthorizedMovementByDeviceName = async (device_name) => {
+  try {
+    const result = await query(
+      `
+      SELECT 
+        v.name_capteur AS device_name, 
+        bs.statut,
+        bs.sortie_time,
+        bs.retour_time
+      FROM bande_sortie bs
+      LEFT JOIN vehicules v ON bs.id_vehicule = v.id_vehicule
+      WHERE 
+        v.name_capteur = ? 
+        AND bs.est_supprime = 0
+      ORDER BY bs.sortie_time DESC
+      LIMIT 1
+      `,
+      [device_name]
+    );
+
+    if (!result.length) {
+      // Aucun bon trouvé => mouvement non autorisé
+      return true;
+    }
+
+    const bon = result[0];
+    const now = new Date();
+
+    const sortie = new Date(bon.sortie_time);
+    const retour = bon.retour_time ? new Date(bon.retour_time) : null;
+
+    // Vérifie si on est encore dans la période de validité du bon
+    const isValidPeriod =
+      now >= sortie && (!retour || now <= retour);
+
+    const isValidStatus = [4, 5].includes(bon.statut);
+
+    // Si la période et le statut sont valides => autorisé
+    if (isValidPeriod && isValidStatus) {
+      return false; // pas d'alerte
+    }
+
+    return true; // sinon alerte
+  } catch (err) {
+    console.error('Erreur checkUnauthorizedMovementByDeviceName:', err.message);
+    return false;
+  }
+};
+
+const createAlert = async ({
+  event_id,
+  device_id,
+  device_name,
+  alert_type,
+  alert_level,
+  alert_message,
+  alert_time
+}) => {
+  // Vérifier si une alerte similaire non résolue existe déjà
+  const existing = await query(
+    `SELECT id FROM vehicle_alerts 
+     WHERE device_id = ? AND alert_type = ? AND resolved = 0 
+     ORDER BY created_at DESC LIMIT 1`,
+    [device_id, alert_type]
+  );
+
+  if (existing.length > 0) {
+    // ⚠️ Mettre à jour l’alerte existante au lieu de dupliquer
+    await query(
+      `UPDATE vehicle_alerts 
+       SET alert_time = ?, alert_message = ?, alert_level = ? 
+       WHERE id = ?`,
+      [alert_time, alert_message, alert_level, existing[0].id]
+    );
+    console.log(`⚠️ Alerte mise à jour pour ${device_name} (${alert_type})`);
+    return { updated: true, alertId: existing[0].id };
+  }
+
+  // 🚨 Sinon insérer une nouvelle alerte
+  const sql = `
+    INSERT INTO vehicle_alerts
+      (event_id, device_id, device_name, alert_type, alert_level, alert_message, alert_time, resolved, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW())
+  `;
+  const result = await query(sql, [
+    event_id,
+    device_id,
+    device_name,
+    alert_type,
+    alert_level,
+    alert_message,
+    alert_time
+  ]);
+
+  console.log(`🚨 Nouvelle alerte créée pour ${device_name} (${alert_type})`);
+  return { created: true, alertId: result.insertId };
+};
+
 exports.postWebhook = async (req, res) => {
     let { external_id, device_id, device_name, type, message, speed = 0, latitude, longitude, event_time } = req.body;
 
     const token = req.query.token;
-    if(token !== 'SECRETFALCON2025') {
+    if(token !== 'Falcon2322211') {
         return res.status(403).send("Accés refusé")
     }
-    
+
     if (!external_id || !device_id || !type || !event_time) {
         if (res) return res.status(400).json({ error: 'external_id, device_id, type et event_time sont obligatoires.' });
         return;
