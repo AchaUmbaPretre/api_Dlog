@@ -11,6 +11,6 @@ router.get('/raw_report', eventController.getRawReport);
 router.post('/', eventController.postEvent);
 
 //Device
-router.get('/device', eventController.getDevice)
+router.get('/connectivity', eventController.getConnectivity)
 
 module.exports = router;

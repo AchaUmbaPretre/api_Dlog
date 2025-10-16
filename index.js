@@ -158,7 +158,7 @@ app.get("/api/falcon", (req, res) => {
 
   proxyReq.end();
 });
-app.use('/', webhookRoutes)
+app.use('/webhook', webhookRoutes)
 
 app.get("/api/get_event", (req, res) => {
   const query = new URLSearchParams(req.query).toString();
