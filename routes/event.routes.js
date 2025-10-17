@@ -10,7 +10,7 @@ router.get('/rapport_day', eventController.getRapportDay);
 router.get('/raw_report', eventController.getRawReport);
 router.post('/', eventController.postEvent);
 
-//Device
+//Connectivity
 router.get('/connectivity', eventController.getConnectivity)
 
 module.exports = router;
