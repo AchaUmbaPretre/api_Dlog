@@ -1196,15 +1196,29 @@ exports.getConnectivity = (req, res) => {
   });
 };
 
-exports.getConnectivityWeek = (req, res) => {
-  const { month } = req.query;
+// controllers/connectivityController.js
+exports.getConnectivityMonth = (req, res) => {
+  const { month } = req.query; // ex: "2025-10"
 
-  const q = `SELECT * FROM score`;
+  const q = `
+    SELECT 
+      device_name,
+      DATE_FORMAT(date_jour, '%d') AS jour,
+      score_percent
+    FROM score
+    WHERE DATE_FORMAT(date_jour, '%Y-%m') = ?
+    ORDER BY device_name, jour
+  `;
 
-  db.query(q, (error, data) => {
+  // Ici on passe [month] pour remplacer le ?
+  db.query(q, [month], (error, data) => {
     if (error) {
-        return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    })
-}
+      return res.status(500).json({
+        message: "Erreur lors de la récupération des scores",
+        error
+      });
+    }
+    return res.status(200).json(data);
+  });
+};
+

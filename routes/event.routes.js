@@ -12,5 +12,6 @@ router.post('/', eventController.postEvent);
 
 //Connectivity
 router.get('/connectivity', eventController.getConnectivity)
+router.get('/connectivity/month', eventController.getConnectivityMonth)
 
 module.exports = router;
