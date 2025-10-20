@@ -1090,7 +1090,6 @@ exports.getConnectivity = (req, res) => {
   });
 };
 
-
 // controllers/connectivityController.js
 exports.getConnectivityMonth = (req, res) => {
   const { month } = req.query; // ex: "2025-10"
@@ -1131,5 +1130,3 @@ exports.getConnectivityMonth = (req, res) => {
     return res.status(200).json(data);
   });
 };
-
-
