@@ -238,7 +238,7 @@ const fetchFalconDevices = () => {
 setInterval(generateDailySnapshot, SIX_HOURS_MS); */
 
 // 🔹 1. Enregistre l’état de tous les devices (toutes les 5 min)
-const recordLogSnapshot = async () => {
+/* const recordLogSnapshot = async () => {
   try {
     const now = moment();
 
@@ -264,173 +264,8 @@ const recordLogSnapshot = async () => {
   } catch (err) {
     console.error("❌ Erreur snapshot Falcon:", err);
   }
-};
-
-// 🔹 2. Calcule les durées et états (toutes les 6h)
-/* const generateDailySnapshot = async () => {
-  try {
-    const now = moment();
-    const sixHoursAgo = now.clone().subtract(6, "hours");
-
-    const devices = await query(`SELECT DISTINCT device_id, device_name FROM tracker_connectivity_log`);
-
-    await Promise.all(devices.map(async (device) => {
-      const logs = await query(
-        `SELECT status, recorded_at, last_connection
-         FROM tracker_connectivity_log
-         WHERE device_id = ?
-           AND recorded_at BETWEEN ? AND ?
-         ORDER BY recorded_at ASC`,
-        [device.device_id, sixHoursAgo.format("YYYY-MM-DD HH:mm:ss"), now.format("YYYY-MM-DD HH:mm:ss")]
-      );
-
-      if (logs.length === 0) return;
-
-      const connectedLogs = logs.filter(l => l.status === "connected");
-      const disconnectedLogs = logs.filter(l => l.status === "disconnected");
-
-      const status = connectedLogs.length > 0 ? "connected" : "disconnected";
-      const lastConnection = connectedLogs.length > 0
-        ? connectedLogs[connectedLogs.length - 1].last_connection
-        : logs[0].last_connection; // première connexion ou début logs
-
-      const lastDisconnection = disconnectedLogs.length > 0
-        ? disconnectedLogs[disconnectedLogs.length - 1].last_connection
-        : logs[0].last_connection; // première déconnexion ou début logs
-
-      // 🔸 Calculer le downtime total
-      let downtimeMinutes = 0;
-      let lastStatus = null;
-      let lastTime = moment(logs[0].last_connection);
-
-      logs.forEach((log) => {
-        if (lastStatus === "connected" && log.status === "disconnected") {
-          lastTime = moment(log.last_connection);
-        } else if ((lastStatus === "disconnected" || lastStatus === null) && log.status === "connected") {
-          downtimeMinutes += moment(log.last_connection).diff(lastTime, "minutes");
-        }
-        lastStatus = log.status;
-      });
-
-      if (lastStatus === "disconnected") {
-        downtimeMinutes += now.diff(moment(lastDisconnection), "minutes");
-      }
-
-      // 🔸 Vérifier doublons pour check_time arrondi toutes les 6h
-      const roundedHour = Math.floor(now.hour() / 6) * 6;
-      const checkTime = now.clone().hour(roundedHour).minute(0).second(0).format("YYYY-MM-DD HH:mm:ss");
-
-      const existing = await query(
-        `SELECT id FROM tracker_connectivity WHERE device_id = ? AND check_time = ? LIMIT 1`,
-        [device.device_id, checkTime]
-      );
-      if (existing.length > 0) return;
-
-      // 🔹 Insertion snapshot consolidé
-      await query(
-        `INSERT INTO tracker_connectivity
-          (device_id, device_name, status, last_connection, last_disconnection, downtime_minutes, check_time)
-        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [device.device_id, device.device_name, status, lastConnection, lastDisconnection, downtimeMinutes, checkTime]
-      );
-    }));
-
-    console.log(`[${now.format("YYYY-MM-DD HH:mm:ss")}] ✅ Snapshot généré pour tous les devices (${devices.length})`);
-  } catch (err) {
-    console.error("❌ Erreur génération snapshot:", err.message);
-  }
 }; */
 
-/* const generateDailySnapshot = async () => {
-  try {
-    const now = moment();
-    const sixHoursAgo = now.clone().subtract(6, "hours");
-
-    const devices = await query(`
-      SELECT DISTINCT device_id, device_name
-      FROM tracker_connectivity_log
-    `);
-
-    await Promise.all(devices.map(async (device) => {
-      const logs = await query(`
-        SELECT status, recorded_at, last_connection
-        FROM tracker_connectivity_log
-        WHERE device_id = ?
-          AND recorded_at BETWEEN ? AND ?
-        ORDER BY recorded_at ASC
-      `, [
-        device.device_id,
-        sixHoursAgo.format("YYYY-MM-DD HH:mm:ss"),
-        now.format("YYYY-MM-DD HH:mm:ss"),
-      ]);
-
-      if (logs.length === 0) return;
-
-      const connectedLogs = logs.filter(l => l.status === "connected");
-      const disconnectedLogs = logs.filter(l => l.status === "disconnected");
-
-      const status = connectedLogs.length > 0 ? "connected" : "disconnected";
-      const lastConnection = connectedLogs.length > 0
-        ? connectedLogs[connectedLogs.length - 1].last_connection
-        : sixHoursAgo.format("YYYY-MM-DD HH:mm:ss");
-
-      const lastDisconnection = disconnectedLogs.length > 0
-        ? disconnectedLogs[disconnectedLogs.length - 1].last_connection
-        : sixHoursAgo.format("YYYY-MM-DD HH:mm:ss");
-
-      // 🔸 Calculer la durée totale de déconnexion
-      let downtimeMinutes = 0;
-      let lastStatus = null;
-      let lastTime = moment(sixHoursAgo);
-
-      logs.forEach((log) => {
-        if (lastStatus === "connected" && log.status === "disconnected") {
-          lastTime = moment(log.last_connection);
-        } else if (
-          (lastStatus === "disconnected" || lastStatus === null) &&
-          log.status === "connected"
-        ) {
-          downtimeMinutes += moment(log.last_connection).diff(lastTime, "minutes");
-        }
-        lastStatus = log.status;
-      });
-
-      if (lastStatus === "disconnected") {
-        downtimeMinutes += now.diff(moment(lastDisconnection), "minutes");
-      }
-
-      // 🔸 Empêcher doublons
-      const existing = await query(`
-        SELECT id FROM tracker_connectivity
-        WHERE device_id = ? AND check_time = ?
-        LIMIT 1
-      `, [device.device_id, now.format("YYYY-MM-DD HH:mm:ss")]);
-
-      if (existing.length > 0) return;
-
-      // 🔹 Insertion snapshot consolidé
-      await query(`
-        INSERT INTO tracker_connectivity
-          (device_id, device_name, status, last_connection, last_disconnection, downtime_minutes, check_time)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, [
-        device.device_id,
-        device.device_name,
-        status,
-        lastConnection,
-        lastDisconnection,
-        downtimeMinutes,
-        now.format("YYYY-MM-DD HH:mm:ss"),
-      ]);
-    }));
-
-    console.log(
-      `[${now.format("YYYY-MM-DD HH:mm:ss")}] ✅ Snapshot généré pour tous les devices (${devices.length})`
-    );
-  } catch (err) {
-    console.error("❌ Erreur génération snapshot:", err.message);
-  }
-}; */
 
 // 🔹 2. Calcule les durées et états (toutes les 6h) et enregistre le score
 /* const generateDailySnapshot = async () => {
@@ -546,139 +381,78 @@ const recordLogSnapshot = async () => {
 const generateDailySnapshot = async () => {
   try {
     const now = moment();
-    const sixHoursAgo = now.clone().subtract(6, "hours");
+    const twoHoursAgo = now.clone().subtract(2, "hours");
+    const today = now.format("YYYY-MM-DD");
 
-    const devices = await query(`
-      SELECT DISTINCT device_id, device_name
-      FROM tracker_connectivity_log
-    `);
+    // Récupérer les devices depuis Falcon
+    const devices = await fetchFalconDevices();
 
-    await Promise.all(devices.map(async (device) => {
-      const logs = await query(`
-        SELECT status, recorded_at, last_connection
-        FROM tracker_connectivity_log
-        WHERE device_id = ?
-          AND recorded_at BETWEEN ? AND ?
-        ORDER BY recorded_at ASC
-      `, [
-        device.device_id,
-        sixHoursAgo.format("YYYY-MM-DD HH:mm:ss"),
-        now.format("YYYY-MM-DD HH:mm:ss"),
-      ]);
+    for (const d of devices) {
+      const lastConnection = moment.unix(d.timestamp);
+      const wasConnected = lastConnection.isAfter(twoHoursAgo);
 
-      if (logs.length === 0) return;
-
-      const connectedLogs = logs.filter(l => l.status === "connected");
-      const disconnectedLogs = logs.filter(l => l.status === "disconnected");
-
-      const status = connectedLogs.length > 0 ? "connected" : "disconnected";
-      const lastConnection = connectedLogs.length > 0
-        ? connectedLogs[connectedLogs.length - 1].last_connection
-        : logs[0].last_connection;
-
-      const lastDisconnection = disconnectedLogs.length > 0
-        ? disconnectedLogs[disconnectedLogs.length - 1].last_connection
-        : logs[0].last_connection;
-
-      // 🔸 Calculer la durée totale de déconnexion
-      let downtimeMinutes = 0;
-      let lastStatus = null;
-      let lastTime = moment(logs[0].last_connection);
-
-      logs.forEach((log) => {
-        if (lastStatus === "connected" && log.status === "disconnected") {
-          lastTime = moment(log.last_connection);
-        } else if ((lastStatus === "disconnected" || lastStatus === null) && log.status === "connected") {
-          downtimeMinutes += moment(log.last_connection).diff(lastTime, "minutes");
-        }
-        lastStatus = log.status;
-      });
-
-      if (lastStatus === "disconnected") {
-        downtimeMinutes += now.diff(moment(lastDisconnection), "minutes");
-      }
-
-      // 🔸 Arrondir check_time toutes les 6h
+      // 🔹 Arrondir check_time toutes les 6h
       const roundedHour = Math.floor(now.hour() / 6) * 6;
       const checkTime = now.clone().hour(roundedHour).minute(0).second(0).format("YYYY-MM-DD HH:mm:ss");
 
-      // 🔸 Vérifier doublons tracker_connectivity
-      const existing = await query(`
-        SELECT id FROM tracker_connectivity WHERE device_id = ? AND check_time = ? LIMIT 1
-      `, [device.device_id, checkTime]);
+      // 🔹 Vérifier si ce créneau a déjà été traité
+      const existingSnapshot = await query(
+        `SELECT id FROM tracker_connectivity WHERE device_id = ? AND check_time = ? LIMIT 1`,
+        [d.id, checkTime]
+      );
 
-      if (existing.length === 0) {
-        await query(`
-          INSERT INTO tracker_connectivity
-            (device_id, device_name, status, last_connection, last_disconnection, downtime_minutes, check_time)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [
-          device.device_id,
-          device.device_name,
-          status,
-          lastConnection,
-          lastDisconnection,
-          downtimeMinutes,
-          checkTime
-        ]);
+      if (existingSnapshot.length > 0) {
+        console.log(`⏩ ${d.name}: snapshot déjà enregistré pour ${checkTime}`);
+        continue; // ne rien recalculer pour le même créneau
       }
 
-      // 🔹 Calcul du score progressif sur 24h (25% par tranche de 6h)
-      const wasConnected = connectedLogs.length > 0; // connecté au moins une fois pendant la tranche
+      // 🔹 Enregistrer snapshot (historique)
+      await query(
+        `INSERT INTO tracker_connectivity (device_id, device_name, status, last_connection, check_time, downtime_minutes)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [d.id, d.name, wasConnected ? 'connected' : 'disconnected', lastConnection.format("YYYY-MM-DD HH:mm:ss"), checkTime, 0]
+      );
 
-      // Vérifier s’il existe déjà un score pour aujourd’hui
-      const existingScoreRows = await query(`
-        SELECT id_score, score_percent 
-        FROM score 
-        WHERE device_id = ? 
-          AND DATE(date_jour) = CURDATE()
-        LIMIT 1
-      `, [device.device_id]);
+      // 🔹 Vérifier si un score existe pour aujourd’hui
+      const [existingScore] = await query(
+        `SELECT id_score, score_percent FROM score WHERE device_id = ? AND DATE(date_jour) = ? LIMIT 1`,
+        [d.id, today]
+      );
 
       let newScore = 0;
-
-      if (existingScoreRows.length > 0) {
-        const existingScore = existingScoreRows[0]; // ✅ on récupère la première ligne
-        // Si le véhicule s’est connecté pendant cette tranche, on ajoute +25%
+      if (existingScore) {
         newScore = wasConnected
           ? Math.min(existingScore.score_percent + 25, 100)
           : existingScore.score_percent;
 
-        await query(`
-          UPDATE score 
-          SET score_percent = ?, date_jour = ?
-          WHERE id_score = ?
-        `, [newScore, now.format("YYYY-MM-DD HH:mm:ss"), existingScore.id_score]);
-
-        } else {
-        // Premier snapshot du jour → 25% si connecté, sinon 0%
+        await query(
+          `UPDATE score SET score_percent = ?, date_jour = ? WHERE id_score = ?`,
+          [newScore, today, existingScore.id_score]
+        );
+      } else {
         newScore = wasConnected ? 25 : 0;
-
-        await query(`
-          INSERT INTO score (device_id, device_name, date_jour, score_percent)
-          VALUES (?, ?, ?, ?)
-        `, [
-          device.device_id,
-          device.device_name,
-          now.format("YYYY-MM-DD HH:mm:ss"),
-          newScore
-        ]);
+        await query(
+          `INSERT INTO score (device_id, device_name, date_jour, score_percent)
+           VALUES (?, ?, ?, ?)`,
+          [d.id, d.name, today, newScore]
+        );
       }
-      console.log(`✅ ${device.device_name}: connecté=${wasConnected} → score du jour = ${newScore}%`);
-    }));
 
-    console.log(`[${now.format("YYYY-MM-DD HH:mm:ss")}] ✅ Snapshot généré et score mis à jour pour tous les devices (${devices.length})`);
+      console.log(`✅ ${d.name}: connecté=${wasConnected} → score du jour = ${newScore}%`);
+    }
+
+    console.log(`[${now.format("YYYY-MM-DD HH:mm:ss")}] ✅ Snapshot généré avec succès (${devices.length} traceurs)`);
   } catch (err) {
     console.error("❌ Erreur génération snapshot:", err.message);
   }
 };
 
 // 🔹 3. Lancer en continu
-setInterval(recordLogSnapshot, INTERVAL_MS);
-setInterval(generateDailySnapshot, SIX_HOURS_MS);
+/* setInterval(recordLogSnapshot, INTERVAL_MS); */
+setInterval(generateDailySnapshot, INTERVAL_MS);
 
-recordLogSnapshot();
-generateDailySnapshot();
+/* recordLogSnapshot();
+ */generateDailySnapshot();
 
 // 🔹 4. Backfill downtime_minutes pour snapshots existants
 const backfillDowntime = async () => {
@@ -1243,113 +1017,119 @@ exports.getRawReport = (req, res) => {
 
 exports.getConnectivity = (req, res) => {
   const { startDate, endDate } = req.query;
+
   const start = startDate ? `'${startDate} 00:00:00'` : 'CURDATE()';
   const end = endDate ? `'${endDate} 23:59:59'` : `CONCAT(CURDATE(), ' 23:59:59')`;
 
   const q = `
     SELECT 
-        d.device_id,
-        d.device_name,
-        DATE(${start}) AS jour,
+      d.device_id,
+      d.device_name,
+      DATE(t.check_time) AS jour,
 
-        -- 🔹 Nombre de snapshots connectés
-        COALESCE(SUM(CASE WHEN t.status = 'connected' THEN 1 ELSE 0 END), 0) AS snapshots_connected,
+      -- 🔹 Nombre de snapshots "connected" sur la période
+      COALESCE(SUM(CASE WHEN t.status = 'connected' THEN 1 ELSE 0 END), 0) AS snapshots_connected,
 
-        -- 🔹 Taux de connectivité sur 4 snapshots
-        ROUND((COALESCE(SUM(CASE WHEN t.status = 'connected' THEN 1 ELSE 0 END), 0)/4)*100,2) AS taux_connectivite_pourcent,
+      -- 🔹 Nombre total de snapshots (devrait être 4/jour en théorie)
+      COALESCE(COUNT(t.id), 0) AS total_snapshots,
 
-        -- 🔹 Durée réelle depuis la dernière déconnexion (en minutes)
-        COALESCE(
-            TIMESTAMPDIFF(
-                MINUTE,
-                COALESCE(
-                    -- dernier moment où il était connecté
-                    (SELECT MAX(log.last_connection)
-                     FROM tracker_connectivity_log log
-                     WHERE log.device_id = d.device_id
-                       AND log.status = 'connected'),
-                    -- si jamais connecté, prendre le premier moment où il a été disconnected
-                    (SELECT MIN(log2.last_connection)
-                     FROM tracker_connectivity_log log2
-                     WHERE log2.device_id = d.device_id
-                       AND log2.status = 'disconnected')
-                ),
-                NOW()
-            ),
-            0
-        ) AS duree_derniere_deconnexion_minutes,
+      -- 🔹 Taux de connectivité (%) basé sur les snapshots
+      ROUND(
+        (COALESCE(SUM(CASE WHEN t.status = 'connected' THEN 1 ELSE 0 END), 0) / 
+         NULLIF(COUNT(t.id), 0)) * 100,
+        2
+      ) AS taux_connectivite_pourcent,
 
-        -- 🔹 Downtime total sur la période (en minutes)
-        COALESCE((
-            SELECT SUM(TIMESTAMPDIFF(MINUTE,
-                    log_dis.last_connection,
-                    IFNULL(
-                      (SELECT MIN(log_con.last_connection)
-                       FROM tracker_connectivity_log log_con
-                       WHERE log_con.device_id = log_dis.device_id
-                         AND log_con.status = 'connected'
-                         AND log_con.last_connection > log_dis.last_connection),
-                      NOW()
-                    )
-                  ))
-            FROM tracker_connectivity_log log_dis
-            WHERE log_dis.device_id = d.device_id
-              AND log_dis.status = 'disconnected'
-              AND log_dis.last_connection BETWEEN ${start} AND ${end}
-        ),0) AS downtime_minutes,
-
-        -- 🔹 Statut actuel du traceur
+      -- 🔹 Score journalier (issu de la table score)
+      COALESCE(
         (
-            SELECT log2.status
-            FROM tracker_connectivity_log log2
-            WHERE log2.device_id = d.device_id
-            ORDER BY log2.id DESC
-            LIMIT 1
-        ) AS statut_actuel
+          SELECT s.score_percent
+          FROM score s
+          WHERE s.device_id = d.device_id
+            AND DATE(s.date_jour) = DATE(t.check_time)
+          LIMIT 1
+        ), 0
+      ) AS score_journalier,
+
+      -- 🔹 Dernier statut connu du traceur
+      (
+        SELECT t2.status
+        FROM tracker_connectivity t2
+        WHERE t2.device_id = d.device_id
+        ORDER BY t2.check_time DESC
+        LIMIT 1
+      ) AS statut_actuel,
+
+      -- 🔹 Dernière heure de connexion connue
+      (
+        SELECT t3.last_connection
+        FROM tracker_connectivity t3
+        WHERE t3.device_id = d.device_id
+        ORDER BY t3.check_time DESC
+        LIMIT 1
+      ) AS derniere_connexion
 
     FROM (
-        SELECT DISTINCT device_id, device_name
-        FROM tracker_connectivity
+      SELECT DISTINCT device_id, device_name
+      FROM tracker_connectivity
     ) d
     LEFT JOIN tracker_connectivity t
       ON t.device_id = d.device_id
       AND t.check_time BETWEEN ${start} AND ${end}
-    GROUP BY d.device_id, d.device_name
-    ORDER BY taux_connectivite_pourcent DESC;
+
+    GROUP BY d.device_id, d.device_name, DATE(t.check_time)
+    ORDER BY jour DESC, taux_connectivite_pourcent DESC;
   `;
 
   db.query(q, (err, data) => {
     if (err) {
-      console.error("Erreur:", err);
+      console.error("❌ Erreur SQL:", err);
       return res.status(500).json({ error: "Erreur interne du serveur" });
     }
-    return res.status(200).json(data);
+    res.status(200).json(data);
   });
 };
+
 
 // controllers/connectivityController.js
 exports.getConnectivityMonth = (req, res) => {
   const { month } = req.query; // ex: "2025-10"
 
+  if (!month) {
+    return res.status(400).json({
+      message: "Le paramètre 'month' est requis au format YYYY-MM"
+    });
+  }
+
   const q = `
     SELECT 
-      device_name,
-      DATE_FORMAT(date_jour, '%d') AS jour,
-      score_percent
-    FROM score
-    WHERE DATE_FORMAT(date_jour, '%Y-%m') = ?
-    ORDER BY device_name, jour
+      s.device_id,
+      s.device_name,
+      DATE_FORMAT(s.date_jour, '%d') AS jour,
+      s.score_percent
+    FROM score s
+    WHERE DATE_FORMAT(s.date_jour, '%Y-%m') = ?
+    ORDER BY s.device_name, jour
   `;
 
-  // Ici on passe [month] pour remplacer le ?
   db.query(q, [month], (error, data) => {
     if (error) {
+      console.error("Erreur SQL (getConnectivityMonth):", error.sqlMessage);
       return res.status(500).json({
-        message: "Erreur lors de la récupération des scores",
-        error
+        message: "Erreur lors de la récupération des scores de connectivité",
+        error: error.sqlMessage
       });
     }
+
+    // Si aucune donnée trouvée
+    if (!data.length) {
+      return res.status(404).json({
+        message: `Aucune donnée trouvée pour le mois ${month}`
+      });
+    }
+
     return res.status(200).json(data);
   });
 };
+
 
