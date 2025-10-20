@@ -1090,6 +1090,62 @@ exports.getConnectivity = (req, res) => {
   });
 };
 
+// Récupérer le détail d'un device
+exports.getDeviceDetails = async (req, res) => {
+  const { deviceId, startDate, endDate } = req.query;
+
+  if (!deviceId) return res.status(400).json({ error: "deviceId requis" });
+
+  const start = startDate ? `'${startDate} 00:00:00'` : `'1970-01-01 00:00:00'`;
+  const end = endDate ? `'${endDate} 23:59:59'` : `'${new Date().toISOString().slice(0, 19).replace("T", " ")}'`;
+
+  const q = `
+    SELECT 
+      t.device_id,
+      t.device_name,
+      t.status,
+      t.last_connection,
+      t.downtime_minutes,
+      t.check_time,
+
+      -- 🔹 Nombre de snapshots connectés / total
+      COALESCE(SUM(CASE WHEN t.status = 'connected' THEN 1 ELSE 0 END), 0) AS snapshots_connected,
+      COALESCE(COUNT(t.id), 0) AS total_snapshots,
+
+      -- 🔹 Taux de connectivité (%)
+      ROUND(
+        (COALESCE(SUM(CASE WHEN t.status = 'connected' THEN 1 ELSE 0 END), 0) /
+         NULLIF(COUNT(t.id), 0)) * 100,
+        2
+      ) AS taux_connectivite_pourcent,
+
+      -- 🔹 Score journalier
+      COALESCE(
+        (SELECT s.score_percent
+         FROM score s
+         WHERE s.device_id = t.device_id
+           AND DATE(s.date_jour) = DATE(t.check_time)
+         LIMIT 1),
+        0
+      ) AS score_journalier
+
+    FROM tracker_connectivity t
+    WHERE t.device_id = ?
+      AND t.check_time BETWEEN ${start} AND ${end}
+    GROUP BY t.device_id, t.device_name, t.check_time
+    ORDER BY t.check_time ASC
+  `;
+
+  db.query(q, [deviceId], (err, data) => {
+    if (err) {
+      console.error("❌ Erreur SQL:", err);
+      return res.status(500).json({ error: "Erreur interne du serveur" });
+    }
+    res.status(200).json(data);
+  });
+};
+
+
 // controllers/connectivityController.js
 exports.getConnectivityMonth = (req, res) => {
   const { month } = req.query; // ex: "2025-10"
