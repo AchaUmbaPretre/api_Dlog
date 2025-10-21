@@ -195,7 +195,7 @@ app.get("/api/get_event", (req, res) => {
   proxyReq.end();
 });
 
-app.get("/api/get_history", (req, res) => {
+ app.get("/api/get_history", (req, res) => {
   const query = new URLSearchParams(req.query).toString();
 
   const options = {
