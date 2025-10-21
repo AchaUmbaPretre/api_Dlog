@@ -1091,9 +1091,8 @@ exports.getConnectivity = (req, res) => {
 };
 
 // Récupérer le détail d'un device
-exports.getDeviceDetails = async (req, res) => {
+exports.getDeviceDetails = (req, res) => {
   const { deviceId, startDate, endDate } = req.query;
-
   if (!deviceId) return res.status(400).json({ error: "deviceId requis" });
 
   const start = startDate ? `'${startDate} 00:00:00'` : `'1970-01-01 00:00:00'`;
@@ -1101,39 +1100,16 @@ exports.getDeviceDetails = async (req, res) => {
 
   const q = `
     SELECT 
-      t.device_id,
-      t.device_name,
-      t.status,
-      t.last_connection,
-      t.downtime_minutes,
-      t.check_time,
-
-      -- 🔹 Nombre de snapshots connectés / total
-      COALESCE(SUM(CASE WHEN t.status = 'connected' THEN 1 ELSE 0 END), 0) AS snapshots_connected,
-      COALESCE(COUNT(t.id), 0) AS total_snapshots,
-
-      -- 🔹 Taux de connectivité (%)
-      ROUND(
-        (COALESCE(SUM(CASE WHEN t.status = 'connected' THEN 1 ELSE 0 END), 0) /
-         NULLIF(COUNT(t.id), 0)) * 100,
-        2
-      ) AS taux_connectivite_pourcent,
-
-      -- 🔹 Score journalier
-      COALESCE(
-        (SELECT s.score_percent
-         FROM score s
-         WHERE s.device_id = t.device_id
-           AND DATE(s.date_jour) = DATE(t.check_time)
-         LIMIT 1),
-        0
-      ) AS score_journalier
-
-    FROM tracker_connectivity t
-    WHERE t.device_id = ?
-      AND t.check_time BETWEEN ${start} AND ${end}
-    GROUP BY t.device_id, t.device_name, t.check_time
-    ORDER BY t.check_time ASC
+      device_id,
+      device_name,
+      status,
+      last_connection,
+      downtime_minutes,
+      check_time
+    FROM tracker_connectivity
+    WHERE device_id = ?
+      AND check_time BETWEEN ${start} AND ${end}
+    ORDER BY check_time ASC
   `;
 
   db.query(q, [deviceId], (err, data) => {
@@ -1141,10 +1117,35 @@ exports.getDeviceDetails = async (req, res) => {
       console.error("❌ Erreur SQL:", err);
       return res.status(500).json({ error: "Erreur interne du serveur" });
     }
-    res.status(200).json(data);
+
+    if (!data.length) return res.status(200).json([]);
+
+    // Calcul des snapshots connectés
+    const totalSnapshots = data.length;
+    const connectedSnapshots = data.filter(d => d.status === "connected").length;
+    const taux_connectivite_pourcent = ((connectedSnapshots / totalSnapshots) * 100).toFixed(2);
+
+    // Score journalier (par palier de 25%)
+    let score_percent = 0;
+    if (taux_connectivite_pourcent >= 100) score_percent = 100;
+    else if (taux_connectivite_pourcent >= 75) score_percent = 75;
+    else if (taux_connectivite_pourcent >= 50) score_percent = 50;
+    else if (taux_connectivite_pourcent >= 25) score_percent = 25;
+    else score_percent = 0;
+
+    const result = {
+      device_id: data[0].device_id,
+      device_name: data[0].device_name,
+      taux_connectivite_pourcent,
+      score_percent,
+      total_snapshots: totalSnapshots,
+      connected_snapshots: connectedSnapshots,
+      details: data
+    };
+
+    res.status(200).json(result);
   });
 };
-
 
 // controllers/connectivityController.js
 exports.getConnectivityMonth = (req, res) => {
