@@ -6,9 +6,7 @@ const db = mysql.createPool({
     user: 'root',
     password: '',
     database: 'dlog',
-    timezone: '+02:00',
 });
-
 
 db.getConnection((err, connection) => {
     if (err) {
