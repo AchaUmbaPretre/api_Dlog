@@ -5,7 +5,8 @@ const db = mysql.createPool({
     host: 'localhost',
     user: 'root',
     password: '',
-    database: 'dlog'
+    database: 'dlog',
+    timezone: '+02:00',
 });
 
 
