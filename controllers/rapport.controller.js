@@ -1825,6 +1825,7 @@ exports.getRapportCharroiVehicule = async(req, res) => {
                 mfd.nom_motif_demande,
                 bs.nom_statut_bs,
                 cv.nom_cat,
+                cv.abreviation,
                 sd.nom_service,
                 l.nom_destination,
                 c.nom, 
@@ -1909,6 +1910,7 @@ exports.getRapportCharroiVehicule = async(req, res) => {
               bs.nom_statut_bs,
               cv.nom_cat,
               cv.abreviation,
+              cv.abreviation,
               sd.nom_service,
               l.nom_destination,
               c.nom, 
@@ -1962,6 +1964,7 @@ exports.getRapportCharroiVehicule = async(req, res) => {
     SELECT 
         cv.nom_cat,
         sd.nom_service,
+        cv.abreviation,
         l.nom_destination,
         CASE 
             WHEN ad.sortie_time IS NOT NULL 
