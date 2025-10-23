@@ -5,6 +5,7 @@ const { db } = require('./../config/database');
 const query = util.promisify(db.query).bind(db);
 
 const FETCH_INTERVAL_MINUTES = 1;
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000
 const INTERVAL_MS = 5 * 60 * 1000; // toutes les 5 minutes
 const ONE_DAY_MS = 24 * 60 * 60 * 1000; // Exécution chaque jour à minuit (24h)
 
@@ -65,56 +66,6 @@ exports.getRapportDay = (req, res) => {
         return res.status(200).json(data);
     });
 }
-
-// Créer une alerte dans MySQL
-const createAlert = async ({
-  event_id,
-  device_id,
-  device_name,
-  alert_type,
-  alert_level,
-  alert_message,
-  alert_time
-}) => {
-  // Vérifier si une alerte similaire non résolue existe déjà
-  const existing = await query(
-    `SELECT id FROM vehicle_alerts 
-     WHERE device_id = ? AND alert_type = ? AND resolved = 0 
-     ORDER BY created_at DESC LIMIT 1`,
-    [device_id, alert_type]
-  );
-
-  if (existing.length > 0) {
-    // ⚠️ Mettre à jour l’alerte existante au lieu de dupliquer
-    await query(
-      `UPDATE vehicle_alerts 
-       SET alert_time = ?, alert_message = ?, alert_level = ? 
-       WHERE id = ?`,
-      [alert_time, alert_message, alert_level, existing[0].id]
-    );
-    console.log(`⚠️ Alerte mise à jour pour ${device_name} (${alert_type})`);
-    return { updated: true, alertId: existing[0].id };
-  }
-
-  // 🚨 Sinon insérer une nouvelle alerte
-  const sql = `
-    INSERT INTO vehicle_alerts
-      (event_id, device_id, device_name, alert_type, alert_level, alert_message, alert_time, resolved, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW())
-  `;
-  const result = await query(sql, [
-    event_id,
-    device_id,
-    device_name,
-    alert_type,
-    alert_level,
-    alert_message,
-    alert_time
-  ]);
-
-  console.log(`🚨 Nouvelle alerte créée pour ${device_name} (${alert_type})`);
-  return { created: true, alertId: result.insertId };
-};
 
 // Fonction pour récupérer les données depuis Falcon
 const fetchFalconDevices = () => {
@@ -448,94 +399,10 @@ const generateDailySnapshot = async () => {
 
 // 🔹 3. Lancer en continu
 /* setInterval(recordLogSnapshot, INTERVAL_MS); */
-setInterval(generateDailySnapshot, INTERVAL_MS);
+setInterval(generateDailySnapshot, SIX_HOURS_MS);
 
 /* recordLogSnapshot();
  */generateDailySnapshot();
-
-// 🔹 4. Backfill downtime_minutes pour snapshots existants
-const backfillDowntime = async () => {
-  try {
-    // 1️⃣ Récupérer tous les snapshots existants
-    const snapshots = await query(`
-      SELECT id, device_id, check_time
-      FROM tracker_connectivity
-      WHERE downtime_minutes IS NULL OR downtime_minutes = 0
-    `);
-
-    for (const s of snapshots) {
-      const checkTime = moment(s.check_time);
-      const sixHoursAgo = checkTime.clone().subtract(6, "hours");
-
-      // 2️⃣ Récupérer les logs du device dans les 6h avant le snapshot
-      const logs = await query(`
-        SELECT status, last_connection, recorded_at
-        FROM tracker_connectivity_log
-        WHERE device_id = ?
-          AND recorded_at BETWEEN ? AND ?
-        ORDER BY recorded_at ASC
-      `, [
-        s.device_id,
-        sixHoursAgo.format("YYYY-MM-DD HH:mm:ss"),
-        checkTime.format("YYYY-MM-DD HH:mm:ss"),
-      ]);
-
-      if (!logs || logs.length === 0) continue;
-
-      // 3️⃣ Calculer downtimeMinutes exactement comme dans generateDailySnapshot
-      let downtimeMinutes = 0;
-      let lastStatus = null;
-      let lastTime = sixHoursAgo;
-
-      logs.forEach((log) => {
-        const logTime = moment(log.last_connection || log.recorded_at);
-        if (lastStatus === "connected" && log.status === "disconnected") {
-          lastTime = logTime;
-        } else if ((lastStatus === "disconnected" || lastStatus === null) && log.status === "connected") {
-          downtimeMinutes += logTime.diff(lastTime, "minutes");
-        }
-        lastStatus = log.status;
-      });
-
-      if (lastStatus === "disconnected") {
-        const lastDisconnection = [...logs].reverse().find(l => l.status === 'disconnected');
-        const lastDisTime = lastDisconnection ? moment(lastDisconnection.last_connection) : sixHoursAgo;
-        downtimeMinutes += checkTime.diff(lastDisTime, "minutes");
-      }
-
-      // 4️⃣ Mettre à jour la snapshot existante
-      await query(`
-        UPDATE tracker_connectivity
-        SET downtime_minutes = ?
-        WHERE id = ?
-      `, [downtimeMinutes, s.id]);
-    }
-
-    console.log("✅ Backfill downtime terminé pour tous les snapshots existants");
-  } catch (err) {
-    console.error("❌ Erreur backfill downtime:", err);
-  }
-};
-
-// 🔹 Exécuter le backfill une seule fois si nécessaire
-backfillDowntime();
-
-
-const cleanOldLogs = async () => {
-  try {
-    const yesterday = moment().subtract(1, "day").format("YYYY-MM-DD HH:mm:ss");
-    const result = await query(`
-      DELETE FROM tracker_connectivity_log 
-      WHERE recorded_at < ?
-    `, [yesterday]);
-
-    console.log(`[${moment().format("YYYY-MM-DD HH:mm:ss")}] 🧹 ${result.affectedRows} anciens logs supprimés.`);
-  } catch (err) {
-    console.error("❌ Erreur lors du nettoyage des logs:", err.message);
-  }
-};
-
-setInterval(cleanOldLogs, ONE_DAY_MS);
 
 // postEvent amélioré avec bande_sortie et alertes
 exports.postEvent = async (req, res) => {
@@ -707,6 +574,56 @@ exports.postEvent = async (req, res) => {
     }
 };
 
+// Créer une alerte dans MySQL
+const createAlert = async ({
+  event_id,
+  device_id,
+  device_name,
+  alert_type,
+  alert_level,
+  alert_message,
+  alert_time
+}) => {
+  // Vérifier si une alerte similaire non résolue existe déjà
+  const existing = await query(
+    `SELECT id FROM vehicle_alerts 
+     WHERE device_id = ? AND alert_type = ? AND resolved = 0 
+     ORDER BY created_at DESC LIMIT 1`,
+    [device_id, alert_type]
+  );
+
+  if (existing.length > 0) {
+    // ⚠️ Mettre à jour l’alerte existante au lieu de dupliquer
+    await query(
+      `UPDATE vehicle_alerts 
+       SET alert_time = ?, alert_message = ?, alert_level = ? 
+       WHERE id = ?`,
+      [alert_time, alert_message, alert_level, existing[0].id]
+    );
+    console.log(`⚠️ Alerte mise à jour pour ${device_name} (${alert_type})`);
+    return { updated: true, alertId: existing[0].id };
+  }
+
+  // 🚨 Sinon insérer une nouvelle alerte
+  const sql = `
+    INSERT INTO vehicle_alerts
+      (event_id, device_id, device_name, alert_type, alert_level, alert_message, alert_time, resolved, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW())
+  `;
+  const result = await query(sql, [
+    event_id,
+    device_id,
+    device_name,
+    alert_type,
+    alert_level,
+    alert_message,
+    alert_time
+  ]);
+
+  console.log(`🚨 Nouvelle alerte créée pour ${device_name} (${alert_type})`);
+  return { created: true, alertId: result.insertId };
+};
+
 //Fonction pour vérifier si un véhicule est autorisé ou non via device_name
 const checkUnauthorizedMovementByDeviceName = async (device_name) => {
   try {
@@ -840,8 +757,8 @@ const fetchAndStoreEvents = async () => {
 };
 
 // Lancer la récupération automatique toutes les 5 minutes
-setInterval(fetchAndStoreEvents, FETCH_INTERVAL_MINUTES * 60 * 1000);
-
+/* setInterval(fetchAndStoreEvents, FETCH_INTERVAL_MINUTES * 60 * 1000);
+ */
 // Lancer immédiatement au démarrage
 fetchAndStoreEvents();
 
@@ -961,58 +878,6 @@ exports.getRawReport = (req, res) => {
   });
 };
 
-/* exports.getConnectivity = (req, res) => {
-    const { startDate, endDate } = req.query;
-    const start = startDate ? `'${startDate} 00:00:00'` : 'CURDATE()';
-    const end = endDate ? `'${endDate} 23:59:59'` : `CONCAT(CURDATE(), ' 23:59:59')`;
-
-    const q = `
-        SELECT 
-            d.device_id,
-            d.device_name,
-            DATE(${start}) AS jour,
-            COALESCE(SUM(CASE WHEN t.status = 'connected' THEN 1 ELSE 0 END), 0) AS snapshots_connected,
-            ROUND((COALESCE(SUM(CASE WHEN t.status = 'connected' THEN 1 ELSE 0 END), 0)/4)*100,2) AS taux_connectivite_pourcent,
-            COALESCE(
-                TIMESTAMPDIFF(
-                    MINUTE,
-                    (
-                        SELECT MAX(log.last_connection)
-                        FROM tracker_connectivity_log log
-                        WHERE log.device_id = d.device_id
-                          AND log.status = 'disconnected'
-                          AND log.recorded_at BETWEEN ${start} AND ${end}
-                    ),
-                    NOW()
-                ),
-                0
-            ) AS duree_derniere_deconnexion_minutes,
-            (
-                SELECT log2.status
-                FROM tracker_connectivity_log log2
-                WHERE log2.device_id = d.device_id
-                ORDER BY log2.id DESC
-                LIMIT 1
-            ) AS statut_actuel
-        FROM (
-            SELECT DISTINCT device_id, device_name
-            FROM tracker_connectivity
-        ) d
-        LEFT JOIN tracker_connectivity t
-          ON t.device_id = d.device_id
-          AND t.check_time BETWEEN ${start} AND ${end}
-        GROUP BY d.device_id, d.device_name
-        ORDER BY taux_connectivite_pourcent DESC;
-    `;
-
-    db.query(q, (err, data) => {
-        if (err) {
-            console.error("Erreur:", err);
-            return res.status(500).json({ error: "Erreur interne du serveur" });
-        }
-        return res.status(200).json(data);
-    });
-}; */
 
 exports.getConnectivity = (req, res) => {
   const { startDate, endDate } = req.query;
