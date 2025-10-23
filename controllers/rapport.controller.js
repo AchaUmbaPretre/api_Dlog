@@ -1908,6 +1908,7 @@ exports.getRapportCharroiVehicule = async(req, res) => {
               mfd.nom_motif_demande,
               bs.nom_statut_bs,
               cv.nom_cat,
+              cv.abreviation,
               sd.nom_service,
               l.nom_destination,
               c.nom, 
