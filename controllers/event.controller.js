@@ -757,8 +757,8 @@ const fetchAndStoreEvents = async () => {
 };
 
 // Lancer la récupération automatique toutes les 5 minutes
-/* setInterval(fetchAndStoreEvents, FETCH_INTERVAL_MINUTES * 60 * 1000);
- */
+setInterval(fetchAndStoreEvents, FETCH_INTERVAL_MINUTES * 60 * 1000);
+
 // Lancer immédiatement au démarrage
 fetchAndStoreEvents();
 
