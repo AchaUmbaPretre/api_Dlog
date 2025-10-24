@@ -1139,3 +1139,46 @@ exports.getConnectivityMonth = (req, res) => {
     return res.status(200).json(data);
   });
 };
+
+exports.getDetailAlerteType = (req, res) => {
+  const { idVehicule } = req.query;
+
+  const q = `
+    SELECT 
+      tc.device_id,
+      tc.device_name,
+      DATE_FORMAT(tc.last_connection, '%Y-%m-%d %H:%i:%s') AS last_connection,
+      tc.status,
+      tc.latitude,
+      tc.longitude,
+      tc.alert_type
+    FROM tracker_connectivity tc
+    LEFT JOIN vehicules v ON tc.device_id = v.id_capteur
+    WHERE v.id_vehicule = ?
+    ORDER BY last_connection DESC
+    LIMIT 4
+  `;
+
+  db.query(q, [idVehicule], (err, data) => {
+    if (err) {
+      console.error("❌ Erreur SQL:", err);
+      return res.status(500).json({ error: "Erreur interne du serveur" });
+    }
+
+    if (data.length === 0) {
+      return res.status(404).json({ message: "Aucune donnée trouvée pour ce véhicule." });
+    }
+
+    // ✅ Optionnel : formater proprement la réponse
+    const result = data.map((row) => ({
+      device_id: row.device_id,
+      device_name: row.device_name,
+      date_heure: row.last_connection,
+      statut: row.status === "connected" ? "Connecté" : "Déconnecté",
+      position: row.latitude && row.longitude ? `${row.latitude}, ${row.longitude}` : "N/A",
+      alerte: row.alert_type || "OK",
+    }));
+
+    res.status(200).json(result);
+  });
+};

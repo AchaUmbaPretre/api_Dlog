@@ -15,4 +15,7 @@ router.get('/connectivity', eventController.getConnectivity);
 router.get('/connectivityDetail', eventController.getDeviceDetails);
 router.get('/connectivity/month', eventController.getConnectivityMonth)
 
+//Detail
+router.get('/connectivity/detailAlertType', eventController.getDetailAlerteType)
+
 module.exports = router;
