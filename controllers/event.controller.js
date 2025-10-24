@@ -328,7 +328,7 @@ setInterval(generateDailySnapshot, SIX_HOURS_MS); */
 };
  */
 
-const generateDailySnapshot = async () => {
+/* const generateDailySnapshot = async () => {
   try {
     const now = moment();
     const twoHoursAgo = now.clone().subtract(2, "hours");
@@ -358,8 +358,8 @@ const generateDailySnapshot = async () => {
 
       // 🔹 Enregistrer snapshot (historique)
       await query(
-        `INSERT INTO tracker_connectivity (device_id, device_name, status, last_connection, check_time, downtime_minutes)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO tracker_connectivity (device_id, device_name, status, latitude, longitude,	alert_type, last_connection, check_time, downtime_minutes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [d.id, d.name, wasConnected ? 'connected' : 'disconnected', lastConnection.format("YYYY-MM-DD HH:mm:ss"), checkTime, 0]
       );
 
@@ -395,6 +395,93 @@ const generateDailySnapshot = async () => {
   } catch (err) {
     console.error("❌ Erreur génération snapshot:", err.message);
   }
+}; */
+
+const generateDailySnapshot = async () => {
+  try {
+    const now = moment();
+    const sixHoursAgo = now.clone().subtract(6, "hours");
+    const today = now.format("YYYY-MM-DD");
+
+    const devices = await fetchFalconDevices();
+
+    for (const d of devices) {
+      const lastConnection = moment.unix(d.timestamp);
+      const wasConnected = lastConnection.isAfter(sixHoursAgo);
+      const status = wasConnected ? "connected" : "disconnected";
+
+      // Détection du type d'alerte
+      let alertType = "OK";
+      const alertSensor = d.sensors.find(s => s.type === "textual" && s.val);
+
+      // Heure arrondie à 6 h
+      const roundedHour = Math.floor(now.hour() / 6) * 6;
+      const checkTime = now.clone().hour(roundedHour).minute(0).second(0).format("YYYY-MM-DD HH:mm:ss");
+
+      // Vérifie si le snapshot existe déjà
+      const existingSnapshot = await query(
+        `SELECT id FROM tracker_connectivity WHERE device_id = ? AND check_time = ? LIMIT 1`,
+        [d.id, checkTime]
+      );
+
+      if (existingSnapshot.length > 0) {
+        console.log(`⏩ ${d.name}: snapshot déjà enregistré pour ${checkTime}`);
+        continue;
+      }
+
+      // Insertion de la ligne historique
+      await query(
+        `INSERT INTO tracker_connectivity 
+        (device_id, device_name, status, latitude, longitude, alert_type, last_connection, check_time, downtime_minutes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          d.id,
+          d.name,
+          wasConnected ? 'connected' : 'disconnected',
+          d.lat,
+          d.lng,
+          d.sensors?.find(s => s.type === 'textual' && s.name === '#MSG')?.val || 'OK', // 🔹 alert_type
+          lastConnection.format("YYYY-MM-DD HH:mm:ss"),
+          checkTime,
+          0
+        ]
+      );
+
+      // Gestion du score journalier
+      const [existingScore] = await query(
+        `SELECT id_score, score_percent FROM score WHERE device_id = ? AND DATE(date_jour) = ? LIMIT 1`,
+        [d.id, today]
+      );
+
+      let newScore = 0;
+      if (existingScore) {
+        newScore = wasConnected
+          ? Math.min(existingScore.score_percent + 25, 100)
+          : existingScore.score_percent;
+        await query(
+          `UPDATE score SET score_percent = ?, date_jour = ? WHERE id_score = ?`,
+          [newScore, today, existingScore.id_score]
+        );
+      } else {
+        newScore = wasConnected ? 25 : 0;
+        await query(
+          `INSERT INTO score (device_id, device_name, date_jour, score_percent)
+           VALUES (?, ?, ?, ?)`,
+          [d.id, d.name, today, newScore]
+        );
+      }
+
+      console.log(
+        `✅ ${d.name}: ${status} (${alertType}) → score du jour = ${newScore}%`
+      );
+    }
+
+    console.log(
+      `[${now.format("YYYY-MM-DD HH:mm:ss")}] ✅ Snapshot généré avec succès (${devices.length} traceurs)`
+    );
+  } catch (err) {
+    console.error("❌ Erreur génération snapshot:", err.message);
+  }
 };
 
 // 🔹 3. Lancer en continu
@@ -402,7 +489,8 @@ const generateDailySnapshot = async () => {
 setInterval(generateDailySnapshot, SIX_HOURS_MS);
 
 /* recordLogSnapshot();
- */generateDailySnapshot();
+ */
+generateDailySnapshot();
 
 // postEvent amélioré avec bande_sortie et alertes
 exports.postEvent = async (req, res) => {
