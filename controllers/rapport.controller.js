@@ -1604,53 +1604,74 @@ exports.getRapportKiosque = async (req, res) => {
 
     // 4️⃣ total nbre_départ, nbre_attente et nbre_dispo
     const totalSql = `
-      SELECT
-        CURRENT.nbre_depart AS depart_actuel,
-        PREV.nbre_depart AS depart_precedent,
-        CURRENT.nbre_attente AS attente_actuel,
-        PREV.nbre_attente AS attente_precedent,
-        (SELECT COUNT(*) 
+SELECT
+    CURRENT.nbre_depart AS depart_actuel,
+    PREV.nbre_depart AS depart_precedent,
+    CURRENT.nbre_attente AS attente_actuel,
+    PREV.nbre_attente AS attente_precedent,
+    CURRENT.nbre_course AS course_actuel,
+    PREV.nbre_course AS course_precedent,
+    (
+        SELECT COUNT(*) 
         FROM vehicules v 
         WHERE v.IsDispo = 1 
-          AND v.est_supprime = 0) AS vehicule_dispo
-      FROM
-        (
-            SELECT 
-                -- Départs = véhicules sortis aujourd'hui
-                SUM(CASE 
-                        WHEN sortie_time IS NOT NULL
-                        AND DATE(sortie_time) = CURRENT_DATE()
-                        THEN 1 ELSE 0 END
-                ) AS nbre_depart,
+          AND v.est_supprime = 0
+    ) AS vehicule_dispo
+FROM
+    (
+        SELECT 
+            -- Départs = véhicules sortis aujourd'hui
+            SUM(CASE 
+                    WHEN sortie_time IS NOT NULL
+                    AND DATE(sortie_time) = CURRENT_DATE()
+                    THEN 1 ELSE 0 END
+            ) AS nbre_depart,
 
-                -- Attente = statut 4 aujourd'hui
-                SUM(CASE 
-                        WHEN statut = 4 
-                        AND DATE(date_prevue) = CURRENT_DATE()
-                        THEN 1 ELSE 0 END
-                ) AS nbre_attente
-            FROM bande_sortie
-            WHERE est_supprime = 0
-        ) AS CURRENT
-    JOIN
-        (
-            SELECT 
-                -- Départs hier
-                SUM(CASE 
-                        WHEN sortie_time IS NOT NULL
-                        AND DATE(sortie_time) = CURRENT_DATE() - INTERVAL 1 DAY
-                        THEN 1 ELSE 0 END
-                ) AS nbre_depart,
+            -- Attente = statut 4 aujourd'hui
+            SUM(CASE 
+                    WHEN statut = 4 
+                    AND DATE(date_prevue) = CURRENT_DATE()
+                    THEN 1 ELSE 0 END
+            ) AS nbre_attente,
 
-                -- Attente hier
-                SUM(CASE 
-                        WHEN statut = 4 
-                        AND DATE(date_prevue) = CURRENT_DATE() - INTERVAL 1 DAY
-                        THEN 1 ELSE 0 END
-                ) AS nbre_attente
-            FROM bande_sortie
-            WHERE est_supprime = 0
-        ) AS PREV;
+            -- Courses = statut 5 aujourd'hui
+            SUM(CASE 
+                    WHEN statut = 5 
+                    AND DATE(date_prevue) = CURRENT_DATE()
+                    THEN 1 ELSE 0 END
+            ) AS nbre_course
+
+        FROM bande_sortie
+        WHERE est_supprime = 0
+    ) AS CURRENT
+JOIN
+    (
+        SELECT 
+            -- Départs hier
+            SUM(CASE 
+                    WHEN sortie_time IS NOT NULL
+                    AND DATE(sortie_time) = CURRENT_DATE() - INTERVAL 1 DAY
+                    THEN 1 ELSE 0 END
+            ) AS nbre_depart,
+
+            -- Attente hier
+            SUM(CASE 
+                    WHEN statut = 4 
+                    AND DATE(date_prevue) = CURRENT_DATE() - INTERVAL 1 DAY
+                    THEN 1 ELSE 0 END
+            ) AS nbre_attente,
+
+            -- Courses hier
+            SUM(CASE 
+                    WHEN statut = 5 
+                    AND DATE(date_prevue) = CURRENT_DATE() - INTERVAL 1 DAY
+                    THEN 1 ELSE 0 END
+            ) AS nbre_course
+
+        FROM bande_sortie
+        WHERE est_supprime = 0
+    ) AS PREV;
+
     `;
 
     // 5️⃣ Courses par chauffeur (aujourd’hui)
@@ -1809,6 +1830,7 @@ ORDER BY nbre_course DESC;
     res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
   }
 };
+
 
 exports.getRapportCharroiVehicule = async(req, res) => {
   
