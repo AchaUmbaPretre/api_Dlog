@@ -11,17 +11,7 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000; // Exécution chaque jour à minuit (24h
 
 //Récupérer toutes les alertes
 exports.getAlertVehicule = (req, res) => {
-    const q = `SELECT 
-                va.id, 
-                va.device_id, 
-                va.device_name, 
-                va.alert_type, 
-                va.alert_level, 
-                va.alert_message, 
-                DATE_FORMAT(va.alert_time, '%Y-%m-%d %H:%i:%s') AS alert_time 
-                FROM vehicle_alerts va 
-                WHERE va.resolved = 0 ORDER BY created_at DESC
-              `;
+    const q = `SELECT va.* FROM vehicle_alerts va WHERE va.resolved = 0 ORDER BY created_at DESC`;
     db.query(q, (error, data) => {
         if (error) {
             console.error("Erreur getAlertVehicule:", error);
@@ -540,23 +530,32 @@ exports.postEvent = async (req, res) => {
         const alerts = [];
 
         // Dépassement vitesse && // Véhicule en mouvement sans mission assignée
-        if (speed > 7) {
-          const unauthorized = await checkUnauthorizedMovementByDeviceName(device_name);
-          if (unauthorized) {
-            const alertMsg = speed > 80
-              ? `🚨 Dépassement vitesse (${speed} km/h) sans BS valide`
-              : `🚨 Véhicule en mouvement sans BS valide`;
-              
+        if (type === 'overspeed' || speed > 80) {
             alerts.push({
-              event_id,
-              device_id,
-              device_name,
-              alert_type: 'not_in_course',
-              alert_level: 'CRITICAL',
-              alert_message: alertMsg,
-              alert_time: formattedEventTime
+                event_id,
+                device_id,
+                device_name,
+                alert_type: 'overspeed',
+                alert_level: 'HIGH',
+                alert_message: `Dépassement vitesse : ${speed} km/h`,
+                alert_time: formattedEventTime
             });
-          }
+        }
+
+        // Véhicule en mouvement sans mission assignée
+        if ((type === 'ignition_on' || speed > 7) && (!message || message?.toLowerCase().includes('Moteur en marche'))) {
+            const unauthorized = await checkUnauthorizedMovementByDeviceName(device_name);
+            if (unauthorized) {
+                alerts.push({
+                    event_id,
+                    device_id,
+                    device_name,
+                    alert_type: 'not_in_course',
+                    alert_level: 'HIGH',
+                    alert_message: 'Véhicule en mouvement sans mission assignée',
+                    alert_time: formattedEventTime
+                });
+            }
         }
 
         // Moteur allumé hors horaire entre 22h et 05h
