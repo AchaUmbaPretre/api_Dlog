@@ -196,7 +196,6 @@ router.put('/bande_sortie_est_supprime', charroiController.putSupprimeBandeSorti
 router.put('/bande_sortie_annuler', charroiController.putBandeSortieAnnuler)
 router.put('/bon_update_date', charroiController.putBonSortieDate)
 
-
 //Bon de sortie du personnel
 router.get('/bon_sortie', charroiController.getBonSortiePerso)
 router.get('/bon_sortieOne_perso', charroiController.getBonSortiePersoOne)
