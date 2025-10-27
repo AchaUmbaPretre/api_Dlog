@@ -529,33 +529,24 @@ exports.postEvent = async (req, res) => {
 
         const alerts = [];
 
-        // Dépassement vitesse
-        if (type === 'overspeed' || speed > 80) {
+        // Dépassement vitesse && // Véhicule en mouvement sans mission assignée
+        if (speed > 7) {
+          const unauthorized = await checkUnauthorizedMovementByDeviceName(device_name);
+          if (unauthorized) {
+            const alertMsg = speed > 80
+              ? `🚨 Dépassement vitesse (${speed} km/h) sans BS valide`
+              : `🚨 Véhicule en mouvement sans BS valide`;
+              
             alerts.push({
-                event_id,
-                device_id,
-                device_name,
-                alert_type: 'overspeed',
-                alert_level: 'HIGH',
-                alert_message: `Dépassement vitesse : ${speed} km/h`,
-                alert_time: formattedEventTime
+              event_id,
+              device_id,
+              device_name,
+              alert_type: 'not_in_course',
+              alert_level: 'CRITICAL',
+              alert_message: alertMsg,
+              alert_time: formattedEventTime
             });
-        }
-
-        // Véhicule en mouvement sans mission assignée
-        if ((type === 'ignition_on' || speed > 7) && (!message || message?.toLowerCase().includes('moteur en marche'))) {
-            const unauthorized = await checkUnauthorizedMovementByDeviceName(device_name);
-            if (unauthorized) {
-                alerts.push({
-                    event_id,
-                    device_id,
-                    device_name,
-                    alert_type: 'not_in_course',
-                    alert_level: 'HIGH',
-                    alert_message: 'Véhicule en mouvement sans mission assignée',
-                    alert_time: formattedEventTime
-                });
-            }
+          }
         }
 
         // Moteur allumé hors horaire entre 22h et 05h
@@ -576,7 +567,7 @@ exports.postEvent = async (req, res) => {
                     const zones = geo?.zones || [];
                     inCobra = zones.some(z => z.toLowerCase().includes('cobra'));
                 } catch (e) {
-                    console.error('Erreur API geofence COBRA:', e.message);
+                  console.error('Erreur API geofence COBRA:', e.message);
                 }
 
                 // Vérifier si le véhicule a un BS actif
