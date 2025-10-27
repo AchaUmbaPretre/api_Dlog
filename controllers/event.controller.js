@@ -11,7 +11,17 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000; // Exécution chaque jour à minuit (24h
 
 //Récupérer toutes les alertes
 exports.getAlertVehicule = (req, res) => {
-    const q = `SELECT va.* FROM vehicle_alerts va WHERE va.resolved = 0 ORDER BY created_at DESC`;
+    const q = `SELECT 
+                va.id, 
+                va.device_id, 
+                va.device_name, 
+                va.alert_type, 
+                va.alert_level, 
+                va.alert_message, 
+                DATE_FORMAT(va.alert_time, '%Y-%m-%d %H:%i:%s') AS alert_time 
+                FROM vehicle_alerts va 
+                WHERE va.resolved = 0 ORDER BY created_at DESC
+              `;
     db.query(q, (error, data) => {
         if (error) {
             console.error("Erreur getAlertVehicule:", error);
