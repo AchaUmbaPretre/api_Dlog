@@ -5884,7 +5884,7 @@ exports.getVehiculeCourseOne = (req, res) => {
             ad.sortie_time,
             ad.retour_time,
             mfd.nom_motif_demande,
-            ts.nom_statut_bs,
+            ts.nom_statut_bs AS nom_type_statut,
             cv.nom_cat AS nom_type_vehicule,
             sd.nom_service,
             l.nom_destination,
