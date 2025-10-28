@@ -493,7 +493,7 @@ setInterval(generateDailySnapshot, SIX_HOURS_MS);
 generateDailySnapshot();
 
 // postEvent avec bande_sortie et alertes
-exports.postEvent = async (req, res) => {
+/* exports.postEvents = async (req, res) => {
     let { external_id, device_id, device_name, type, message, speed = 0, latitude, longitude, event_time } = req.body;
 
     if (!external_id || !device_id || !type || !event_time) {
@@ -674,6 +674,228 @@ exports.postEvent = async (req, res) => {
         console.error('Erreur ajout événement :', error.message);
         if (res) return res.status(500).json({ error: 'Erreur lors de l\'ajout de l\'événement.' });
     }
+}; */
+
+exports.postEvent = async (req, res) => {
+  let {
+    external_id,
+    device_id,
+    device_name,
+    type,
+    message,
+    speed = 0,
+    latitude,
+    longitude,
+    event_time,
+  } = req.body;
+
+  if (!external_id || !device_id || !type || !event_time) {
+    if (res)
+      return res
+        .status(400)
+        .json({ error: "external_id, device_id, type et event_time sont obligatoires." });
+    return;
+  }
+
+  try {
+    // 🔄 Correction fuseau horaire (Kinshasa = UTC+1)
+    const eventMoment = moment(event_time, "DD-MM-YYYY HH:mm:ss").utcOffset(+60);
+    const formattedEventTime = eventMoment.format("YYYY-MM-DD HH:mm:ss");
+    const eventHour = eventMoment.hour();
+    const isNight = eventHour >= 22 || eventHour < 5;
+
+    // 🔍 Vérifier si l'événement existe déjà
+    const existsEvent = await query(
+      `SELECT 1 FROM vehicle_events WHERE external_id = ? AND device_id = ? AND event_time = ?`,
+      [external_id, device_id, formattedEventTime]
+    );
+    if (existsEvent.length) {
+      console.log(`⏩ Événement déjà présent pour ${device_id} à ${formattedEventTime}, ignoré.`);
+      return res ? res.status(200).json({ message: "Événement déjà existant, ignoré." }) : null;
+    }
+
+    // 💾 Insertion dans vehicle_events
+    const result = await query(
+      `INSERT INTO vehicle_events (external_id, device_id, device_name, type, message, speed, latitude, longitude, event_time)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [external_id, device_id, device_name, type, message, speed, latitude, longitude, formattedEventTime]
+    );
+
+    const event_id = result.insertId;
+    const alerts = [];
+
+    // === 1️⃣ Alerte de dépassement de vitesse ===
+    if (type === "overspeed" || speed > 80) {
+      const recent = await query(
+        `SELECT 1 FROM vehicle_alerts WHERE device_id = ? AND alert_type = 'overspeed' 
+         AND alert_time >= (NOW() - INTERVAL 5 MINUTE)`,
+        [device_id]
+      );
+      if (!recent.length) {
+        alerts.push({
+          event_id,
+          device_id,
+          device_name,
+          alert_type: "overspeed",
+          alert_level: "HIGH",
+          alert_message: `Excès de vitesse : ${speed} km/h`,
+          alert_time: formattedEventTime,
+        });
+      }
+    }
+
+    // === 2️⃣ Mouvement sans mission (non autorisé) ===
+    if ((["ignition_on", "movement", "zone_out"].includes(type) || speed > 7) && (!message || message?.toLowerCase().includes('moteur en marche'))) {
+      const unauthorized = await checkUnauthorizedMovementByDeviceName(device_name);
+      if (unauthorized) {
+        const recent = await query(
+          `SELECT 1 FROM vehicle_alerts WHERE device_id = ? AND alert_type = 'not_in_course' 
+           AND alert_time >= (NOW() - INTERVAL 15 MINUTE)`,
+          [device_id]
+        );
+        if (!recent.length) {
+          alerts.push({
+            event_id,
+            device_id,
+            device_name,
+            alert_type: "not_in_course",
+            alert_level: "HIGH",
+            alert_message: "Mouvement sans mission assignée",
+            alert_time: formattedEventTime,
+          });
+        }
+      }
+    }
+
+    // === 3️⃣ Durée hors ligne prolongée ===
+    if (type === 'offline_duration') {
+      alerts.push({
+        event_id,
+        device_id,
+        device_name,
+        alert_type: 'offline_duration',
+        alert_level: 'HIGH',
+        alert_message: 'Durée hors ligne plus longue que (360 Minutes)',
+        alert_time: formattedEventTime,
+      });
+    }
+
+    // === 4️⃣ Moteur allumé hors horaire (22h–05h) ===
+    if (type === 'ignition_on' || message?.toLowerCase().includes('Moteur en marche')) {
+      const eventTimeUTC = new Date(event_time + " UTC");
+      const eventHourReal = eventTimeUTC.getUTCHours() + 1; // UTC+1 pour Kinshasa
+      const isNightHour = eventHourReal >= 22 || eventHourReal < 5;
+      const isStationary = speed === 0;
+
+      if (isNightHour && isStationary) {
+        // Vérifier zone COBRA
+        let inCobra = false;
+        try {
+          const url = `http://falconeyesolutions.com/api/point_in_geofences?lat=${latitude}&lng=${longitude}&lang=fr&user_api_hash=$2y$10$FbpbQMzKNaJVnv0H2RbAfel1NMjXRUoCy8pZUogiA/bvNNj1kdcY.`;
+          const resGeo = await fetch(url);
+          const geo = await resGeo.json();
+          const zones = geo?.zones || [];
+          inCobra = zones.some(z => z.toLowerCase().includes('cobra'));
+        } catch (e) {
+          console.error('Erreur API geofence COBRA:', e.message);
+        }
+
+        const hasBS = !(await checkUnauthorizedMovementByDeviceName(device_name));
+        if (!hasBS) {
+          const recentAlert = await query(
+            `SELECT 1 FROM vehicle_alerts WHERE device_id = ? AND alert_type = 'engine_out_of_hours' 
+             AND alert_time >= (NOW() - INTERVAL 15 MINUTE)`,
+            [device_id]
+          );
+          if (!recentAlert.length) {
+            alerts.push({
+              event_id,
+              device_id,
+              device_name,
+              alert_type: 'engine_out_of_hours',
+              alert_level: 'MEDIUM',
+              alert_message: `Moteur allumé hors horaire (${eventHourReal}h) pour ${device_name}${inCobra ? ' (zone COBRA)' : ''}`,
+              alert_time: formattedEventTime,
+            });
+          }
+        }
+      }
+    }
+
+    // === 5️⃣ Sortie nocturne (avec ou sans BS) ===
+    if ((type === 'ignition_on' || type === 'movement' || type === 'zone_out') && isNight) {
+      const noBS = await checkUnauthorizedMovementByDeviceName(device_name);
+      const alertType = noBS ? 'night_exit_unauthorized' : 'night_exit_with_bs';
+      const level = noBS ? 'CRITICAL' : 'MEDIUM';
+      const messageAlert = noBS
+        ? `Sortie nocturne non autorisée (${eventHour}h) – ${device_name}`
+        : `ℹ️ Sortie nocturne autorisée (${eventHour}h) – ${device_name}`;
+
+      const recentAlert = await query(
+        `SELECT 1 FROM vehicle_alerts WHERE device_id = ? AND alert_type = ? 
+         AND alert_time >= (NOW() - INTERVAL 15 MINUTE)`,
+        [device_id, alertType]
+      );
+
+      if (!recentAlert.length) {
+        alerts.push({
+          event_id,
+          device_id,
+          device_name,
+          alert_type: alertType,
+          alert_level: level,
+          alert_message: messageAlert,
+          alert_time: formattedEventTime,
+        });
+      }
+    }
+
+    // === 6️⃣ Entrée / sortie de zone ===
+    if (type === "zone_in" || type === "zone_out") {
+      const alertType = type === "zone_out" ? "zone_exit" : "zone_entry";
+      const level = type === "zone_out" ? "MEDIUM" : "LOW";
+      const msg = type === "zone_out"
+        ? `${device_name} est sorti de la zone ${message || ""}`
+        : `${device_name} est entré dans la zone ${message || ""}`;
+
+      const recent = await query(
+        `SELECT 1 FROM vehicle_alerts WHERE device_id = ? AND alert_type = ? 
+         AND alert_time >= (NOW() - INTERVAL 10 MINUTE)`,
+        [device_id, alertType]
+      );
+      if (!recent.length) {
+        alerts.push({
+          event_id,
+          device_id,
+          device_name,
+          alert_type: alertType,
+          alert_level: level,
+          alert_message: msg,
+          alert_time: formattedEventTime,
+        });
+      }
+    }
+
+    // === 7️⃣ Enregistrement final des alertes (sans doublons exacts) ===
+    for (const alert of alerts) {
+      const existsAlert = await query(
+        `SELECT 1 FROM vehicle_alerts WHERE device_id = ? AND alert_type = ? AND alert_time = ?`,
+        [alert.device_id, alert.alert_type, alert.alert_time]
+      );
+      if (!existsAlert.length) {
+        await createAlert(alert);
+        console.log(`✅ Nouvelle alerte : ${alert.alert_type} → ${alert.alert_message}`);
+      } else {
+        console.log(`⚠️ Alerte déjà existante (${alert.alert_type}) ignorée.`);
+      }
+    }
+
+    if (res) return res.status(201).json({ message: "Événement ajouté et alertes générées." });
+  } catch (error) {
+    console.error("❌ Erreur ajout événement :", error.message);
+    if (res)
+      return res.status(500).json({ error: "Erreur lors de l'ajout de l'événement." });
+  }
 };
 
 /* exports.postEvent = async (req, res) => {
