@@ -1918,6 +1918,59 @@ exports.getRapportCharroiVehicule = async(req, res) => {
         WHERE ad.statut = 4 AND ad.est_supprime = 0;
       `;
 
+    //Depart
+      const qDepartSql = `
+        SELECT 
+              ad.id_bande_sortie, 
+              ad.date_prevue,
+              ad.date_retour,
+              ad.sortie_time,
+              ad.retour_time,
+              ad.id_vehicule,
+              ad.commentaire,
+              mfd.nom_motif_demande,
+              bs.nom_statut_bs,
+              cv.nom_cat,
+              cv.abreviation,
+              sd.nom_service,
+              l.nom_destination,
+              c.nom, 
+              c.prenom AS prenom_chauffeur,
+              v.immatriculation, 
+              v.id_capteur,
+              v.name_capteur,
+              m.nom_marque,
+
+              -- Durée réelle en minutes depuis le départ
+              CASE 
+                  WHEN ad.sortie_time IS NOT NULL THEN TIMESTAMPDIFF(MINUTE, ad.sortie_time, NOW())
+                  ELSE 0
+              END AS duree_reelle_min,
+
+              -- Durée moyenne en minutes pour le même axe + type de véhicule
+              (
+                  SELECT AVG(TIMESTAMPDIFF(MINUTE, bs2.sortie_time, bs2.retour_time))
+                  FROM bande_sortie bs2
+                  INNER JOIN vehicules v2 ON bs2.id_vehicule = v2.id_vehicule
+                  WHERE bs2.id_destination = ad.id_destination
+                    AND v2.id_cat_vehicule = cv.id_cat_vehicule
+                    AND bs2.retour_time IS NOT NULL
+                    AND bs2.id_bande_sortie != ad.id_bande_sortie
+              ) AS duree_moyenne_min
+
+          FROM bande_sortie ad
+              INNER JOIN chauffeurs c ON ad.id_chauffeur = c.id_chauffeur
+              INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
+              INNER JOIN marque m ON m.id_marque = v.id_marque
+              LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+              LEFT JOIN motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
+              LEFT JOIN service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
+              LEFT JOIN destination l ON ad.id_destination = l.id_destination
+              INNER JOIN statut_bs bs ON ad.statut = bs.id_statut_bs
+          WHERE DATE(ad.date_prevue) = CURDATE() AND ad.est_supprime = 0
+          ORDER BY ad.created_at DESC;
+          `;
+
     //Course
       const qCourseSql = `
         SELECT 
@@ -2031,14 +2084,16 @@ exports.getRapportCharroiVehicule = async(req, res) => {
       listeCourse,
       countCourse,
       listeUtilitaire,
-      countUtilitaire
+      countUtilitaire,
+      listeDepart
     ] = await Promise.all([
       query(qEnAttenteSql),
       query(qAttenteCout),
       query(qCourseSql),
       query(qCourseCout),
       query(qUtilitaireSql),
-      query(qUtilitaireCount)
+      query(qUtilitaireCount),
+      query(qDepartSql)
     ]);
 
     res.json({
@@ -2047,7 +2102,8 @@ exports.getRapportCharroiVehicule = async(req, res) => {
       listeCourse,
       countCourse,
       listeUtilitaire,
-      countUtilitaire
+      countUtilitaire,
+      listeDepart
     });
 
   } catch (error) {

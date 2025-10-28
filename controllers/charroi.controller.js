@@ -5323,15 +5323,25 @@ exports.putBonSortieDate = (req, res) => {
       if (!id_bon || !user_cr) throw new Error("Champs requis manquants.");
 
       const format = "YYYY-MM-DD HH:mm:ss";
-      if (!moment(sortie_time, format, true).isValid() ||
-          (retour_time && !moment(retour_time, format, true).isValid())) {
+      if (
+        !moment(sortie_time, format, true).isValid() ||
+        (retour_time && !moment(retour_time, format, true).isValid())
+      ) {
         throw new Error("Dates invalides");
       }
 
       const datePrevue = moment(sortie_time, format).format(format);
       const dateRetour = retour_time ? moment(retour_time, format).format(format) : null;
 
-      // Mise à jour des dates et du statut si retour_time existe
+      // 1. Récupère l'id_vehicule avant mise à jour
+      const rows = await queryPromise(conn, `SELECT id_vehicule FROM bande_sortie WHERE id_bande_sortie = ?`, [id_bon]);
+      if (!rows || rows.length === 0 || rows[0].length === 0) throw new Error("Bon de sortie non trouvé.");
+
+      // ici rows[0][0] est RowDataPacket { id_vehicule: 6 }
+      const id_vehicule = rows[0][0].id_vehicule;
+
+
+      // 2. Met à jour les dates et le statut
       const updateSql = dateRetour
         ? `UPDATE bande_sortie SET sortie_time = ?, retour_time = ?, statut = 7 WHERE id_bande_sortie = ?`
         : `UPDATE bande_sortie SET sortie_time = ? WHERE id_bande_sortie = ?`;
@@ -5339,53 +5349,70 @@ exports.putBonSortieDate = (req, res) => {
       const params = dateRetour ? [datePrevue, dateRetour, id_bon] : [datePrevue, id_bon];
       const result = await queryPromise(conn, updateSql, params);
 
-      if (result.affectedRows === 0) throw new Error("Bon de sortie non trouvé");
+      if (result.affectedRows === 0) throw new Error("Échec de la mise à jour du bon de sortie.");
 
-      // Insère notification
+      // 3. Si retour_time existe → libère le véhicule
+      if (dateRetour) {
+        try {
+          await queryPromise(conn, `UPDATE vehicules SET IsDispo = 1 WHERE id_vehicule = ?`, [id_vehicule]);
+          console.log("✅ Véhicule libéré :", id_vehicule);
+        } catch (err) {
+          console.error("⚠️ Erreur libération véhicule :", err);
+        }
+      }
+
+
+
+      // 4️⃣ Insère une notification
       const notifMsg = `La date du bon de sortie n°${id_bon} a été modifiée.`;
       await queryPromise(conn, `INSERT INTO notifications (user_id, message) VALUES (?, ?)`, [user_cr, notifMsg]);
 
-      // Récupère informations utilisateur
-      const [userRow] = (await queryPromise(conn,
-        `SELECT prenom, nom, email FROM utilisateur WHERE id_utilisateur = ?`, [user_cr]))[0] || [{}];
-      const modifierName = userRow.prenom && userRow.nom ? `${userRow.prenom} ${userRow.nom}` : "Un utilisateur";
-      const userEmail = userRow.email;
+      // 5️⃣ Récupère infos utilisateur
+      const [userRow] = await queryPromise(conn, `SELECT prenom, nom, email FROM utilisateur WHERE id_utilisateur = ?`, [user_cr]);
+      const modifierName = userRow ? `${userRow.prenom} ${userRow.nom}` : "Un utilisateur";
+      const userEmail = userRow?.email;
 
-      // Récupère emails utilisateurs autorisés
-      const perRows = (await queryPromise(conn, `
+      // 6️⃣ Récupère les utilisateurs autorisés à être notifiés
+      const perRows = await queryPromise(conn, `
         SELECT u.email FROM permission p
         INNER JOIN utilisateur u ON p.user_id = u.id_utilisateur
         INNER JOIN submenus sub ON p.submenu_id = sub.id
         WHERE sub.id = 50 AND p.can_read = 1
         GROUP BY p.user_id
-      `))[0];
+      `);
 
-      // Prépare message email
+      // 7️⃣ Prépare le message email
       const message = `
 Bonjour,
 
-Le bon de sortie n° ${id_bon} a été modifié avec succès par ${modifierName}.
+Le bon de sortie n° ${id_bon} a été modifié par ${modifierName}.
 
-• Date de départ mise à jour : ${datePrevue}
-${dateRetour ? `• Date de retour mise à jour : ${dateRetour}` : ""}
+• Date de départ : ${datePrevue}
+${dateRetour ? `• Date de retour : ${dateRetour}` : ""}
 
-Merci de prendre note de ces modifications.
+Le véhicule a été ${dateRetour ? "libéré et est maintenant disponible" : "mis à jour"}.
 
 Cordialement,
 L'équipe Dlog
       `;
 
-      // Envoie emails sauf à l'utilisateur qui a modifié
-      perRows
-        .filter(row => row.email !== userEmail)
-        .forEach(row => sendEmail({ email: row.email, subject: '📌 Modification de date du bon de sortie', message }));
+      // 8️⃣ Envoie les emails sauf à celui qui a modifié
+      for (const row of perRows) {
+        if (row.email !== userEmail) {
+          await sendEmail({
+            email: row.email,
+            subject: "📌 Modification de date du bon de sortie",
+            message,
+          });
+        }
+      }
 
-      // Commit transaction
       await conn.commit();
       conn.release();
 
-      return res.json({ message: "Mise à jour effectuée et notifications envoyées." });
-
+      return res.json({
+        message: `Mise à jour effectuée avec succès${dateRetour ? " et véhicule libéré." : "."}`,
+      });
     } catch (error) {
       await conn.rollback();
       conn.release();

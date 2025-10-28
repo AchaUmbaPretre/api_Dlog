@@ -4,7 +4,7 @@ const http = require('http');
 const { db } = require('./../config/database');
 const query = util.promisify(db.query).bind(db);
 
-const FETCH_INTERVAL_MINUTES = 1;
+const FETCH_INTERVAL_MINUTES = 10;
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000
 const INTERVAL_MS = 5 * 60 * 1000; // toutes les 5 minutes
 const ONE_DAY_MS = 24 * 60 * 60 * 1000; // Exécution chaque jour à minuit (24h)
@@ -476,9 +476,9 @@ const generateDailySnapshot = async () => {
       );
     }
 
-    console.log(
+/*     console.log(
       `[${now.format("YYYY-MM-DD HH:mm:ss")}] ✅ Snapshot généré avec succès (${devices.length} traceurs)`
-    );
+    ); */
   } catch (err) {
     console.error("❌ Erreur génération snapshot:", err.message);
   }
