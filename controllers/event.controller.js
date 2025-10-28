@@ -573,7 +573,8 @@ exports.postEvent = async (req, res) => {
 
         // Moteur allumé hors horaire entre 22h et 05h
         if (type === 'ignition_on' || message?.toLowerCase().includes('Moteur en marche')) {
-            const eventHour = moment(formattedEventTime).hour();
+          const eventTimeUTC = new Date(req.body.event_time + " UTC"); // corrige le fuseau
+          const eventHour = eventTimeUTC.getHours();  
 
             // Moteur allumé entre 22h et 05h
             const isNight = eventHour >= 22 || eventHour < 5;
