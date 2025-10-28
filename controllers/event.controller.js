@@ -559,16 +559,16 @@ exports.postEvent = async (req, res) => {
         }
 
         // Durée hors ligne plus longue que (360 Minutes)
-          if (type === 'offline_duration') {
-            alerts.push({
-              event_id,
-              device_id,
-              device_name,
-              alert_type: 'offline_duration',
-              alert_level: 'HIGH',
-              alert_message: 'Durée hors ligne plus longue que (360 Minutes)',
-              alert_time: formattedEventTime
-            });
+        if (type === 'offline_duration') {
+          alerts.push({
+          event_id,
+          device_id,
+          device_name,
+          alert_type: 'offline_duration',
+          alert_level: 'HIGH',
+          alert_message: 'Durée hors ligne plus longue que (360 Minutes)',
+          alert_time: formattedEventTime
+          });
         }
 
         // Moteur allumé hors horaire entre 22h et 05h
