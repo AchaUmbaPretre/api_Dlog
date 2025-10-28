@@ -492,7 +492,7 @@ setInterval(generateDailySnapshot, SIX_HOURS_MS);
  */
 generateDailySnapshot();
 
-// postEvent amélioré avec bande_sortie et alertes
+// postEvent avec bande_sortie et alertes
 exports.postEvent = async (req, res) => {
     let { external_id, device_id, device_name, type, message, speed = 0, latitude, longitude, event_time } = req.body;
 
