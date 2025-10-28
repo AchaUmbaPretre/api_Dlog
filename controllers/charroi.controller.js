@@ -5884,7 +5884,7 @@ exports.getVehiculeCourseOne = (req, res) => {
             ad.sortie_time,
             ad.retour_time,
             mfd.nom_motif_demande,
-            ts.nom_type_statut,
+            ts.nom_statut_bs,
             cv.nom_cat AS nom_type_vehicule,
             sd.nom_service,
             l.nom_destination,
@@ -5913,7 +5913,7 @@ exports.getVehiculeCourseOne = (req, res) => {
             LEFT JOIN 
               modeles md ON v.id_modele = md.id_modele
             INNER JOIN 
-              type_statut_suivi ts ON ad.statut = ts.id_type_statut_suivi
+             statut_bs ts ON ad.statut = ts.id_statut_bs
             LEFT JOIN 
               motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
             LEFT JOIN
