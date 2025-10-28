@@ -5310,108 +5310,91 @@ L'équipe Dlog.
 };
 
 exports.putBonSortieDate = (req, res) => {
-  connection.getConnection((connErr, conn) => {
+  connection.getConnection(async (connErr, conn) => {
     if (connErr) {
       console.error("Erreur de connexion DB :", connErr);
       return res.status(500).json({ error: "Connexion à la base de données échouée." });
     }
 
-    conn.beginTransaction(async (trxErr) => {
-      if (trxErr) {
-        conn.release();
-        console.error('Erreur transaction : ', trxErr);
-        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+    try {
+      await conn.beginTransaction();
+
+      const { id_bon, sortie_time, retour_time, user_cr } = req.body;
+      if (!id_bon || !user_cr) throw new Error("Champs requis manquants.");
+
+      const format = "YYYY-MM-DD HH:mm:ss";
+      if (!moment(sortie_time, format, true).isValid() ||
+          (retour_time && !moment(retour_time, format, true).isValid())) {
+        throw new Error("Dates invalides");
       }
 
-      try {
-        const { id_bon, sortie_time, retour_time, user_cr } = req.body;
-        if (!id_bon || !user_cr) {
-          throw new Error("Champs requis manquants.");
-        }
+      const datePrevue = moment(sortie_time, format).format(format);
+      const dateRetour = retour_time ? moment(retour_time, format).format(format) : null;
 
-        const format = 'YYYY-MM-DD HH:mm:ss';
-        if (!moment(sortie_time, format, true).isValid() ||
-            !moment(retour_time, format, true).isValid()) {
-          throw new Error("Dates invalides");
-        }
+      // Mise à jour des dates et du statut si retour_time existe
+      const updateSql = dateRetour
+        ? `UPDATE bande_sortie SET sortie_time = ?, retour_time = ?, statut = 7 WHERE id_bande_sortie = ?`
+        : `UPDATE bande_sortie SET sortie_time = ? WHERE id_bande_sortie = ?`;
 
-        const datePrevue = moment(sortie_time, format).format(format);
-        const dateRetour = moment(retour_time, format).format(format);
+      const params = dateRetour ? [datePrevue, dateRetour, id_bon] : [datePrevue, id_bon];
+      const result = await queryPromise(conn, updateSql, params);
 
-        // Mise à jour des dates
-        const updateSql = `
-          UPDATE bande_sortie
-          SET sortie_time = ?, retour_time = ?
-          WHERE id_bande_sortie = ?
-        `;
-        const result = await queryPromise(conn, updateSql, [datePrevue, dateRetour, id_bon]);
-        if (result.affectedRows === 0) {
-          throw new Error("Bon de sortie non trouvé");
-        }
+      if (result.affectedRows === 0) throw new Error("Bon de sortie non trouvé");
 
-        // Insère notification en base
-        const notifMsg = `La date du bon de sortie n°${id_bon} a été modifiée.`;
-        await queryPromise(conn, `INSERT INTO notifications (user_id, message) VALUES (?, ?)`, [user_cr, notifMsg]);
+      // Insère notification
+      const notifMsg = `La date du bon de sortie n°${id_bon} a été modifiée.`;
+      await queryPromise(conn, `INSERT INTO notifications (user_id, message) VALUES (?, ?)`, [user_cr, notifMsg]);
 
-        // Récupérer prénom, nom et email utilisateur modificateur
-        const userRows = await queryPromise(conn,
-          `SELECT prenom, nom, email FROM utilisateur WHERE id_utilisateur = ?`, [user_cr]);
-        const user = userRows[0][0] || {};
-        const modifierName = user.prenom && user.nom ? `${user.prenom} ${user.nom}` : 'Un utilisateur';
-        const userEmail = user.email;
+      // Récupère informations utilisateur
+      const [userRow] = (await queryPromise(conn,
+        `SELECT prenom, nom, email FROM utilisateur WHERE id_utilisateur = ?`, [user_cr]))[0] || [{}];
+      const modifierName = userRow.prenom && userRow.nom ? `${userRow.prenom} ${userRow.nom}` : "Un utilisateur";
+      const userEmail = userRow.email;
 
-        // Envoi d'e-mails aux utilisateurs autorisés
-        const perRows = await queryPromise(conn, `
-          SELECT u.email FROM permission p
-          INNER JOIN utilisateur u ON p.user_id = u.id_utilisateur
-          INNER JOIN submenus sub ON p.submenu_id = sub.id
-          WHERE sub.id = 50 AND p.can_read = 1
-          GROUP BY p.user_id
-        `);
+      // Récupère emails utilisateurs autorisés
+      const perRows = (await queryPromise(conn, `
+        SELECT u.email FROM permission p
+        INNER JOIN utilisateur u ON p.user_id = u.id_utilisateur
+        INNER JOIN submenus sub ON p.submenu_id = sub.id
+        WHERE sub.id = 50 AND p.can_read = 1
+        GROUP BY p.user_id
+      `))[0];
 
-        const message = `
+      // Prépare message email
+      const message = `
 Bonjour,
 
 Le bon de sortie n° ${id_bon} a été modifié avec succès par ${modifierName}.
 
 • Date de départ mise à jour : ${datePrevue}
-• Date de retour mise à jour : ${dateRetour}
+${dateRetour ? `• Date de retour mise à jour : ${dateRetour}` : ""}
 
 Merci de prendre note de ces modifications.
 
-Cordialement,  
+Cordialement,
 L'équipe Dlog
-`;
+      `;
 
-        perRows[0]
-          .filter(row => row.email !== userEmail)
-          .forEach(row => {
-            sendEmail({
-              email: row.email,
-              subject: '📌 Modification de date du bon de sortie',
-              message
-            });
-          });
+      // Envoie emails sauf à l'utilisateur qui a modifié
+      perRows
+        .filter(row => row.email !== userEmail)
+        .forEach(row => sendEmail({ email: row.email, subject: '📌 Modification de date du bon de sortie', message }));
 
-        conn.commit(commitErr => {
-          conn.release();
-          if (commitErr) {
-            console.error("Erreur commit :", commitErr);
-            return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
-          }
-          return res.json({ message: "Mise à jour effectuée et notifications envoyées." });
-        });
+      // Commit transaction
+      await conn.commit();
+      conn.release();
 
-      } catch (error) {
-        conn.rollback(() => {
-          conn.release();
-          console.error("Erreur transactionnelle :", error);
-          return res.status(500).json({ error: error.message });
-        });
-      }
-    });
+      return res.json({ message: "Mise à jour effectuée et notifications envoyées." });
+
+    } catch (error) {
+      await conn.rollback();
+      conn.release();
+      console.error("Erreur transactionnelle :", error);
+      return res.status(500).json({ error: error.message });
+    }
   });
 };
+
 
 //Bon de sortie du personnel
 exports.getBonSortiePerso = (req, res) => {
