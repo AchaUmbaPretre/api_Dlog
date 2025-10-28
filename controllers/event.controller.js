@@ -1451,7 +1451,8 @@ exports.getDeviceDetails = (req, res) => {
       status,
       last_connection,
       downtime_minutes,
-      check_time
+      check_time,
+      created_at
     FROM tracker_connectivity
     WHERE device_id = ?
       AND check_time BETWEEN ${start} AND ${end}
