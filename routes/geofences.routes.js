@@ -6,5 +6,4 @@ router.get('/', geofencesController.getGeofences)
 router.post('/', geofencesController.postGeofences)
 router.put('/', geofencesController.updateGeofences)
 
-
 module.exports = router;
