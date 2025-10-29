@@ -1404,145 +1404,6 @@ exports.getRapportPerformanceDelais = async (req, res) => {
 //Kiosque
 /* exports.getRapportKiosque = async (req, res) => {
   try {
-    const AnomaliesDuJour = `
-      SELECT 
-        SUM(CASE WHEN v.id_validation_demande IS NULL THEN 1 ELSE 0 END) AS nb_depart_non_valide,
-        SUM(CASE WHEN b.retour_time IS NOT NULL AND b.retour_time > b.date_retour THEN 1 ELSE 0 END) AS nb_retour_en_retard
-      FROM bande_sortie b
-      LEFT JOIN validation_demande v 
-          ON b.id_bande_sortie = v.id_bande_sortie
-      WHERE b.est_supprime = 0;
-    `;
-
-    const evenementLive = `
-      SELECT bs.id_bande_sortie, 
-        d.nom_destination, 
-        v.immatriculation, 
-        bs.sortie_time, 
-        stbs.nom_statut_bs 
-      FROM bande_sortie bs
-        INNER JOIN destination d ON bs.id_destination = d.id_destination
-        INNER JOIN vehicules v ON bs.id_vehicule = v.id_vehicule
-        INNER JOIN statut_bs stbs ON bs.statut = stbs.id_statut_bs
-      WHERE bs.sortie_time IS NOT NULL AND bs.statut = 5
-    `;
-
-    const departHorsTiming = `
-        SELECT 
-          b.id_bande_sortie,
-          v.immatriculation,
-          c.nom AS nom_chauffeur,
-          sd.nom_service,
-          d.nom_destination,
-          b.date_prevue,
-          b.sortie_time,
-          b.retour_time,
-          CASE
-              WHEN b.sortie_time IS NULL AND b.date_prevue < NOW() THEN 'Départ non effectué à temps'
-              WHEN b.sortie_time > b.date_prevue THEN 'Départ en retard'
-              ELSE 'OK'
-          END AS statut_sortie
-        FROM bande_sortie b
-        INNER JOIN vehicules v ON b.id_vehicule = v.id_vehicule
-        INNER JOIN chauffeurs c ON b.id_chauffeur = c.id_chauffeur
-        INNER JOIN service_demandeur sd ON b.id_demandeur = sd.id_service_demandeur
-        INNER JOIN destination d ON b.id_destination = d.id_destination
-        WHERE b.est_supprime = 0
-          AND (
-              b.sortie_time IS NULL AND b.date_prevue < NOW()
-              OR b.sortie_time > b.date_prevue
-          );
-    `;
-
-    const ponctualiteSql = `
-      SELECT
-        ROUND(
-            100 * SUM(CASE WHEN b.sortie_time IS NOT NULL AND b.sortie_time <= b.date_prevue THEN 1 ELSE 0 END) /
-            NULLIF(COUNT(b.id_bande_sortie), 0), 2
-        ) AS ponctualite_depart,
-        ROUND(
-            100 * SUM(CASE WHEN b.retour_time IS NOT NULL AND b.retour_time <= b.date_retour THEN 1 ELSE 0 END) /
-            NULLIF(COUNT(b.id_bande_sortie), 0), 2
-        ) AS ponctualite_retour,
-        ROUND(
-            100 * SUM(CASE WHEN b.sortie_time IS NOT NULL THEN 1 ELSE 0 END) /
-            NULLIF(COUNT(DISTINCT b.id_vehicule), 0), 2
-        ) AS utilisation_parc
-      FROM bande_sortie b
-      WHERE b.est_supprime = 0;
-    `;
-
-    const courseVehiculeSql = `
-      SELECT COUNT(id_vehicule) AS nbre_course, c.nom, c.prenom 
-      FROM bande_sortie bs 
-      INNER JOIN chauffeurs c ON bs.id_chauffeur = c.id_chauffeur
-      GROUP BY bs.id_vehicule
-      ORDER BY nbre_course DESC
-    `;
-
-    const courseServiceSql = `
-      SELECT sd.nom_service, COUNT(DISTINCT bs.id_bande_sortie) AS nbre_service 
-      FROM bande_sortie bs
-      INNER JOIN service_demandeur sd ON bs.id_demandeur = sd.id_service_demandeur
-      GROUP BY bs.id_demandeur
-      ORDER BY nbre_service DESC
-    `;
-
-    const miniTendanceSql = `
-      SELECT
-        ROUND(
-            100 * SUM(CASE WHEN b.sortie_time IS NOT NULL AND b.sortie_time <= b.date_prevue THEN 1 ELSE 0 END) 
-            / NULLIF(COUNT(b.id_bande_sortie), 0), 2
-        ) AS ponctualite_depart,
-        ROUND(
-            100 * SUM(CASE WHEN b.retour_time IS NOT NULL AND b.retour_time <= b.date_retour THEN 1 ELSE 0 END) 
-            / NULLIF(COUNT(b.id_bande_sortie), 0), 2
-        ) AS ponctualite_retour,
-        ROUND(
-            100 * COUNT(DISTINCT CASE WHEN b.sortie_time IS NOT NULL THEN b.id_vehicule END) 
-            / NULLIF(COUNT(DISTINCT b.id_vehicule), 0), 2
-        ) AS utilisation_parc
-      FROM bande_sortie b
-      WHERE b.est_supprime = 0;
-    `;
-
-    // Exécution en parallèle
-    const [
-      [anomalies],
-      evenementLiveRows,
-      departHorsTimingRows,
-      [ponctualite],
-      courseVehiculeRows,
-      courseServiceRows,
-      [miniTendances]
-    ] = await Promise.all([
-      query(AnomaliesDuJour),
-      query(evenementLive),
-      query(departHorsTiming),
-      query(ponctualiteSql),
-      query(courseVehiculeSql),
-      query(courseServiceSql),
-      query(miniTendanceSql)
-    ]);
-
-    res.json({
-      anomalies,
-      evenementLive: evenementLiveRows,
-      departHorsTiming: departHorsTimingRows,
-      ponctualite,
-      courseVehicule: courseVehiculeRows,
-      courseService: courseServiceRows,
-      miniTendances
-    });
-
-  } catch (error) {
-    console.error("Erreur serveur:", error);
-    res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
-  }
-}; */
-
-exports.getRapportKiosque = async (req, res) => {
-  try {
     // 1️⃣ Anomalies du jour
     const anomaliesSql = `
     SELECT 
@@ -1763,6 +1624,300 @@ GROUP BY
     b.id_bande_sortie, v.immatriculation, c.nom, sd.nom_service, d.nom_destination,
     b.date_prevue, b.sortie_time, b.date_retour, b.retour_time
 ORDER BY b.created_at DESC;
+    `;
+
+    //8. MOTIF
+    const motifSql = `
+      SELECT 
+    md.nom_motif_demande, 
+    COUNT(b.id_bande_sortie) AS nbre_course
+FROM bande_sortie b
+INNER JOIN motif_demande md 
+    ON b.id_motif_demande = md.id_motif_demande
+WHERE b.sortie_time IS NOT NULL
+GROUP BY md.id_motif_demande
+ORDER BY nbre_course DESC;
+
+    `
+
+    // ✅ Exécution parallèle
+    const [
+      [anomalies],
+      evenementLiveRows,
+      departHorsTimingRows,
+      [total],
+      courseChauffeurRows,
+      courseServiceRows,
+      departHorsTimingCompletRows,
+      motifRows
+    ] = await Promise.all([
+      query(anomaliesSql),
+      query(evenementLiveSql),
+      query(departHorsTimingSql),
+      query(totalSql),
+      query(courseChauffeurSql),
+      query(courseServiceSql),
+      query(départsHorsTimingCompletSql),
+      query(motifSql)
+    ]);
+
+    // 7️⃣ Fonction pour badge selon seuil
+    const getBadge = (value) => {
+      if (value >= 90) return "✔";
+      if (value >= 80) return "!";
+      return "✖";
+    };
+
+    // Ajout des badges aux courses chauffeurs
+    const courseChauffeurWithBadge = courseChauffeurRows.map(chauffeur => ({
+      ...chauffeur,
+      badge: chauffeur.courses >= 4 ? "Surcharge" : null
+    }));
+
+    res.json({
+      anomalies,
+      evenementLive: evenementLiveRows,
+      departHorsTiming: departHorsTimingRows,
+      total,
+      courseChauffeur: courseChauffeurWithBadge,
+      courseService: courseServiceRows,
+      departHorsTimingCompletRows,
+      motifRows,
+      lastUpdated: new Date()
+    });
+
+  } catch (error) {
+    console.error("Erreur serveur:", error);
+    res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+  }
+}; */
+
+exports.getRapportKiosque = async (req, res) => {
+  try {
+    // 1️⃣ Anomalies du jour
+    const anomaliesSql = `
+    SELECT 
+      COALESCE(SUM(CASE WHEN v.id_validation_demande IS NULL THEN 1 ELSE 0 END), 0) AS depart_non_valide,
+      COALESCE(SUM(CASE WHEN b.sortie_time > b.date_prevue THEN 1 ELSE 0 END), 0) AS depart_en_retard,
+      COALESCE(SUM(CASE WHEN b.retour_time IS NOT NULL AND b.retour_time > b.date_retour THEN 1 ELSE 0 END), 0) AS retour_en_retard,
+      COALESCE(SUM(CASE WHEN b.retour_time IS NULL AND b.sortie_time IS NOT NULL AND b.date_retour < NOW() THEN 1 ELSE 0 END), 0) AS retour_non_apparie
+    FROM bande_sortie b
+    LEFT JOIN validation_demande v ON b.id_bande_sortie = v.id_bande_sortie
+    WHERE b.est_supprime = 0
+      AND DATE(b.date_prevue) = CURDATE();
+    `;
+
+    // 2️⃣ Événements live (véhicules dehors ou réservés)
+    const evenementLiveSql = `
+      SELECT 
+        bs.id_bande_sortie,
+        d.nom_destination,
+        v.immatriculation,
+        bs.sortie_time,
+        stbs.nom_statut_bs
+      FROM bande_sortie bs
+      INNER JOIN destination d ON bs.id_destination = d.id_destination
+      INNER JOIN vehicules v ON bs.id_vehicule = v.id_vehicule
+      INNER JOIN statut_bs stbs ON bs.statut = stbs.id_statut_bs
+      WHERE bs.sortie_time IS NOT NULL AND bs.statut = 5
+      ORDER BY bs.sortie_time DESC
+    `;
+
+    // 3️⃣ Départs hors timing
+    const departHorsTimingSql = `
+      SELECT 
+        b.id_bande_sortie,
+        v.immatriculation,
+        c.nom AS nom_chauffeur,
+        sd.nom_service,
+        d.nom_destination,
+        b.date_prevue,
+        b.sortie_time,
+        b.retour_time,
+        CASE
+          WHEN b.sortie_time IS NULL AND b.date_prevue < NOW() THEN 'Départ non effectué à temps'
+          WHEN b.sortie_time > b.date_prevue THEN 'Départ en retard'
+          ELSE 'OK'
+        END AS statut_sortie
+      FROM bande_sortie b
+      INNER JOIN vehicules v ON b.id_vehicule = v.id_vehicule
+      INNER JOIN chauffeurs c ON b.id_chauffeur = c.id_chauffeur
+      INNER JOIN service_demandeur sd ON b.id_demandeur = sd.id_service_demandeur
+      INNER JOIN destination d ON b.id_destination = d.id_destination
+      WHERE b.est_supprime = 0
+        AND (
+          b.sortie_time IS NULL AND b.date_prevue < NOW()
+          OR b.sortie_time > b.date_prevue
+        )
+        AND DATE(b.date_prevue) = CURDATE()
+      ORDER BY b.created_at DESC;
+    `;
+
+    // 4️⃣ total nbre_départ, nbre_attente et nbre_dispo
+    const totalSql = `
+  SELECT
+      CURRENT.nbre_depart AS depart_actuel,
+      PREV.nbre_depart AS depart_precedent,
+      CURRENT.nbre_attente AS attente_actuel,
+      PREV.nbre_attente AS attente_precedent,
+      CURRENT.nbre_course AS course_actuel,
+      PREV.nbre_course AS course_precedent,
+      (
+          SELECT COUNT(*) 
+          FROM vehicules v 
+          WHERE v.IsDispo = 1 
+            AND v.est_supprime = 0
+      ) AS vehicule_dispo
+  FROM
+      (
+          SELECT 
+              -- Départs = véhicules sortis aujourd'hui
+              SUM(CASE 
+                      WHEN sortie_time IS NOT NULL
+                      AND DATE(sortie_time) = CURRENT_DATE()
+                      THEN 1 ELSE 0 END
+              ) AS nbre_depart,
+
+              -- Attente = statut 4 aujourd'hui
+              SUM(CASE 
+                      WHEN statut = 4 
+                      AND DATE(date_prevue) = CURRENT_DATE()
+                      THEN 1 ELSE 0 END
+              ) AS nbre_attente,
+
+              -- Courses = statut 5 aujourd'hui
+              SUM(CASE 
+                      WHEN statut = 5 
+                      THEN 1 ELSE 0 END
+              ) AS nbre_course
+
+          FROM bande_sortie
+          WHERE est_supprime = 0
+      ) AS CURRENT
+  JOIN
+      (
+          SELECT 
+              -- Départs hier
+              SUM(CASE 
+                      WHEN sortie_time IS NOT NULL
+                      AND DATE(sortie_time) = CURRENT_DATE() - INTERVAL 1 DAY
+                      THEN 1 ELSE 0 END
+              ) AS nbre_depart,
+
+              -- Attente hier
+              SUM(CASE 
+                      WHEN statut = 4 
+                      AND DATE(date_prevue) = CURRENT_DATE() - INTERVAL 1 DAY
+                      THEN 1 ELSE 0 END
+              ) AS nbre_attente,
+
+              -- Courses hier
+              SUM(CASE 
+                      WHEN statut = 5 
+                      AND DATE(date_prevue) = CURRENT_DATE() - INTERVAL 1 DAY
+                      THEN 1 ELSE 0 END
+              ) AS nbre_course
+
+          FROM bande_sortie
+          WHERE est_supprime = 0
+      ) AS PREV;
+      `;
+
+    // 5️⃣ Courses par chauffeur (aujourd’hui)
+    const courseChauffeurSql = `
+      SELECT 
+        c.id_chauffeur,
+        CONCAT(c.nom, ' ', c.prenom) AS chauffeur,
+        COUNT(bs.id_bande_sortie) AS courses
+      FROM bande_sortie bs
+      INNER JOIN chauffeurs c ON bs.id_chauffeur = c.id_chauffeur
+      WHERE DATE(bs.sortie_time) = CURDATE()
+      GROUP BY c.id_chauffeur
+      ORDER BY courses DESC;
+    `;
+
+    // 6️⃣ Leaderboard par service
+    const courseServiceSql = `
+      SELECT 
+          sd.nom_service,
+          ROUND(
+              COUNT(DISTINCT bs.id_bande_sortie) * 100.0 / 
+              (SELECT COUNT(DISTINCT id_bande_sortie) 
+              FROM bande_sortie 
+              WHERE est_supprime = 0),
+              2
+          ) AS nbre_service
+      FROM bande_sortie bs
+      INNER JOIN service_demandeur sd 
+          ON bs.id_demandeur = sd.id_service_demandeur
+      WHERE bs.est_supprime = 0
+      GROUP BY sd.nom_service
+      ORDER BY nbre_service DESC;
+    `;
+
+    //7 HORS TIME
+    const départsHorsTimingCompletSql = `
+      SELECT 
+          b.id_bande_sortie,
+          v.immatriculation AS vehicule,
+          c.nom AS chauffeur,
+          sd.nom_service AS service,
+          d.nom_destination AS destination,
+          b.date_prevue AS depart_prevu,
+          b.sortie_time AS depart_reel,
+          b.date_retour AS retour_prevu,
+          b.retour_time AS retour_reel,
+
+          -- Statut global
+          CASE
+              WHEN b.sortie_time IS NULL AND b.date_prevue < NOW() THEN 'En attente'
+              WHEN b.sortie_time IS NOT NULL 
+                  AND TIMESTAMPDIFF(MINUTE, b.date_prevue, b.sortie_time) > 60 THEN 'Départ hors timing'
+              WHEN b.retour_time IS NOT NULL 
+                  AND TIMESTAMPDIFF(MINUTE, b.date_retour, b.retour_time) > 60 THEN 'Retour hors timing'
+              ELSE 'Validé'
+          END AS statut,
+
+          -- Détails du retard
+          CASE
+              WHEN b.sortie_time IS NOT NULL 
+                  AND TIMESTAMPDIFF(MINUTE, b.date_prevue, b.sortie_time) > 60
+              THEN CONCAT('Départ hors timing (+', TIMESTAMPDIFF(MINUTE, b.date_prevue, b.sortie_time), ' min)')
+              
+              WHEN b.retour_time IS NOT NULL 
+                  AND TIMESTAMPDIFF(MINUTE, b.date_retour, b.retour_time) > 60
+              THEN CONCAT('Retour hors timing (+', TIMESTAMPDIFF(MINUTE, b.date_retour, b.retour_time), ' min)')
+              
+              ELSE NULL
+          END AS retard_info,
+
+          -- Validations (agrégées par rôle)
+          MAX(CASE WHEN u.role = 'RS' THEN '✔' ELSE '' END) AS resp_validation,
+          MAX(CASE WHEN u.role = 'Admin' THEN '✔' ELSE '' END) AS dirlog_validation,
+          MAX(CASE WHEN u.role = 'RH' THEN '✔' ELSE '' END) AS rh_validation
+
+      FROM bande_sortie b
+      INNER JOIN vehicules v ON b.id_vehicule = v.id_vehicule
+      INNER JOIN chauffeurs c ON b.id_chauffeur = c.id_chauffeur
+      INNER JOIN service_demandeur sd ON b.id_demandeur = sd.id_service_demandeur
+      INNER JOIN destination d ON b.id_destination = d.id_destination
+
+      LEFT JOIN validation_demande vd ON b.id_bande_sortie = vd.id_bande_sortie
+      LEFT JOIN utilisateur u ON vd.validateur_id = u.id_utilisateur
+
+      WHERE b.est_supprime = 0
+        AND (
+            (b.sortie_time IS NULL AND b.date_prevue < NOW()) -- départ non effectué
+            OR (b.sortie_time IS NOT NULL AND TIMESTAMPDIFF(MINUTE, b.date_prevue, b.sortie_time) > 60) -- départ hors timing
+            OR (b.retour_time IS NOT NULL AND TIMESTAMPDIFF(MINUTE, b.date_retour, b.retour_time) > 60) -- retour hors timing
+        )
+        AND DATE(b.date_prevue) = CURDATE()
+
+      GROUP BY 
+          b.id_bande_sortie, v.immatriculation, c.nom, sd.nom_service, d.nom_destination,
+          b.date_prevue, b.sortie_time, b.date_retour, b.retour_time
+
+      ORDER BY b.created_at DESC;
     `;
 
     //8. MOTIF
