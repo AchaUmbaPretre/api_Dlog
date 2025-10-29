@@ -1451,8 +1451,8 @@ exports.getDeviceDetails = (req, res) => {
       status,
       last_connection,
       downtime_minutes,
-      check_time,
-      created_at
+      CONVERT_TZ(check_time, '+00:00', '+02:00') AS check_time,
+      CONVERT_TZ(created_at, '+00:00', '+02:00') AS created_at
     FROM tracker_connectivity
     WHERE device_id = ?
       AND check_time BETWEEN ${start} AND ${end}

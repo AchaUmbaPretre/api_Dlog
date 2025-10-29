@@ -1831,7 +1831,6 @@ ORDER BY nbre_course DESC;
   }
 };
 
-
 exports.getRapportCharroiVehicule = async(req, res) => {
   
   try {
@@ -1967,7 +1966,7 @@ exports.getRapportCharroiVehicule = async(req, res) => {
               LEFT JOIN service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
               LEFT JOIN destination l ON ad.id_destination = l.id_destination
               INNER JOIN statut_bs bs ON ad.statut = bs.id_statut_bs
-          WHERE DATE(ad.date_prevue) = CURDATE() AND ad.est_supprime = 0
+          WHERE DATE(ad.sortie_time) = CURDATE() AND ad.est_supprime = 0
           ORDER BY ad.created_at DESC;
           `;
 
