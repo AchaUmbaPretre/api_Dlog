@@ -79,7 +79,6 @@ exports.updateGeofences = async (req, res) => {
       description = null,
       latitude,
       longitude,
-      rayon_metre,
       actif = 0,
     } = req.body;
 
@@ -106,7 +105,6 @@ exports.updateGeofences = async (req, res) => {
           description = ?, 
           latitude = ?,
           longitude = ?,
-          rayon_metre = ?,
           actif = ?, 
           update_at = CURRENT_TIMESTAMP
       WHERE id_geo_dlog = ?
@@ -122,7 +120,6 @@ exports.updateGeofences = async (req, res) => {
       description,
       latitude,
       longitude,
-      rayon_metre,
       actif,
       id_geo_dlog,
     ];
