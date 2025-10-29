@@ -11,81 +11,54 @@ exports.getGeofences = (req, res) => {
 };
 
 exports.postGeofences = async (req, res) => {
-  const {
-    falcon_id,
-    nom_falcon,
-    nom,
-    type_geofence,
-    client_id,
-    zone_parent_id,
-    description,
-    actif,
-  } = req.body;
-
   try {
-    // 1. Validation des champs requis
-    if (!falcon_id || !nom_falcon || !type_geofence) {
-      return res.status(400).json({
-        error: "Les champs 'falcon_id', 'nom_falcon' et 'type_geofence' sont obligatoires.",
-      });
+    const {
+      falcon_id,
+      nom_falcon,
+      nom,
+      type_geofence,
+      client_id = null,
+      zone_parent_id = null,
+      description = null,
+      actif = 0,
+    } = req.body;
+
+    // Validation de base
+    if (!falcon_id || !nom_falcon || !nom || !type_geofence) {
+      return res
+        .status(400)
+        .json({ error: "Les champs obligatoires sont manquants." });
     }
 
-    //2. Vérifier si cette geofence Falcon existe déjà
-    const [existing] = await db.query(
-      "SELECT id FROM geofences_dlog WHERE falcon_id = ? LIMIT 1",
-      [falcon_id]
-    );
-
-    if (existing.length > 0) {
-      return res.status(409).json({
-        error: "Cette geofence existe déjà dans la base DLOG.",
-      });
-    }
-
-    //3. Insertion dans la base
-    const q = `
-      INSERT INTO geofences_dlog (
-        falcon_id,
-        nom_falcon,
-        nom,
-        type_geofence,
-        client_id,
-        zone_parent_id,
-        description,
-        actif,
-        date_sync
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    const query = `
+      INSERT INTO geofences_dlog
+      (falcon_id, nom_falcon, nom, type_geofence, client_id, zone_parent_id, description, actif)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const values = [
       falcon_id,
       nom_falcon,
-      nom || nom_falcon,
+      nom,
       type_geofence,
-      client_id || null,
-      zone_parent_id || null,
-      description || null,
-      actif ?? 1,
+      client_id,
+      zone_parent_id,
+      description,
+      actif,
     ];
 
-    await db.query(q, values);
+    await db.query(query, values);
 
-    //4. Réponse claire
     return res.status(201).json({
-      message: "✅ Geofence ajoutée avec succès dans DLOG.",
-      data: {
-        falcon_id,
-        nom_falcon,
-        nom_personnalise: nom || nom_falcon,
-        type_geofence,
-      },
+      message: "Geofence ajouté avec succès",
+      data: { falcon_id, nom_falcon, nom, type_geofence, client_id, zone_parent_id, actif },
     });
   } catch (error) {
-    console.error("❌ Erreur lors de l’ajout de la geofence:", error);
+    console.error("❌ Erreur lors de l'ajout du geofence:", error);
     return res.status(500).json({
-      error: "Une erreur s'est produite lors de l'ajout de la geofence.",
+      error: "Une erreur s'est produite lors de l'ajout du geofence.",
       details: error.message,
     });
   }
 };
+
