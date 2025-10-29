@@ -26,6 +26,7 @@ const rapportRoutes = require('./routes/rapport.routes');
 const charroiRoutes = require('./routes/charroi.routes');
 const transporteurRoutes = require('./routes/transporteur.routes');
 const eventRoutes = require('./routes/event.routes');
+const geofencesRoutes = require('./routes/geofences.routes');
 const webhookRoutes = require('./routes/webhook.routes');
 
 const https = require('https');
@@ -90,6 +91,7 @@ app.use('/api/template', templateRoutes)
 app.use('/api/rapport', rapportRoutes)
 app.use('/api/charroi', charroiRoutes)
 app.use('/api/event', eventRoutes)
+app.use('/api/geofences', geofencesRoutes)
 app.use('/api/transporteur', transporteurRoutes)
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 /* app.get("/api/falcon", (req, res) => {
