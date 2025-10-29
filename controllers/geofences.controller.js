@@ -146,6 +146,9 @@ exports.updateGeofences = async (req, res) => {
         client_id,
         zone_parent_id,
         description,
+        latitude,
+        longitude,
+        rayon_metre,
         actif,
       },
     });
