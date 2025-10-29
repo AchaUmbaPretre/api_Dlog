@@ -28,9 +28,9 @@ exports.postGeofences = async (req, res) => {
         ];
 
         await db.query(q, values);
-        return res.status(201).json({ message: 'Projet ajouté avec succès'});
+        return res.status(201).json({ message: 'Geofences ajouté avec succès'});
     } catch (error) {
-        console.error('Erreur lors de l\'ajout du nouveau projet:', error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tâche." });
+        console.error('Erreur lors de l\'ajout du nouveau geofences:', error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de geofences." });
     }
 };
