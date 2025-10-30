@@ -427,8 +427,8 @@ const generateDailySnapshot = async () => {
       );
 
       if (existingSnapshot.length > 0) {
-        console.log(`⏩ ${d.name}: snapshot déjà enregistré pour ${checkTime}`);
-        continue;
+/*         console.log(`⏩ ${d.name}: snapshot déjà enregistré pour ${checkTime}`);
+ */        continue;
       }
 
       // Insertion de la ligne historique
@@ -712,8 +712,8 @@ exports.postEvent = async (req, res) => {
       [external_id, device_id, formattedEventTime]
     );
     if (existsEvent.length) {
-      console.log(`⏩ Événement déjà présent pour ${device_id} à ${formattedEventTime}, ignoré.`);
-      return res ? res.status(200).json({ message: "Événement déjà existant, ignoré." }) : null;
+/*       console.log(`⏩ Événement déjà présent pour ${device_id} à ${formattedEventTime}, ignoré.`);
+ */      return res ? res.status(200).json({ message: "Événement déjà existant, ignoré." }) : null;
     }
 
     // 💾 Insertion dans vehicle_events

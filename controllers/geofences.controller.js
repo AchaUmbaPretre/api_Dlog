@@ -150,7 +150,7 @@ exports.postGeofences = async (req, res) => {
 
     const query = `
       INSERT INTO geofences_dlog
-      (falcon_id, nom_falcon, nom, type_geofence, client_id, zone_parent_id, latitude, longitude, description, actif)
+      (falcon_id, nom_falcon, nom, type_geofence, client_id, zone_parent_id, description, actif)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
@@ -162,9 +162,7 @@ exports.postGeofences = async (req, res) => {
       client_id,
       zone_parent_id,
       description,
-      latitude,
-      longitude,
-      actif,
+      actif
     ];
 
     await db.query(query, values);
