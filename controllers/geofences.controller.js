@@ -117,14 +117,66 @@ exports.getGeofencesFalcon = (req, res) => {
     });
 };
 
+
 exports.getGeofencesDlog = (req, res) => {
     
-    let q = `SELECT * FROM geofences_dlog`;
+    let q = `SELECT 
+                gd.id_geo_dlog,
+                gd.nom_falcon, 
+                cat.nom_catGeofence,
+                c.nom AS nom_client,
+                d.nom_destination
+                FROM geofences_dlog gd
+                INNER JOIN catgeofence cat ON cat.id_catGeofence = gd.type_geofence
+                LEFT JOIN client c ON c.id_client = gd.client_id
+                LEFT JOIN destination d ON d.id_destination = gd.destination_id
+            `;
      
     db.query(q, (error, data) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
+};
+
+exports.getGeofencesDlogOne = async (req, res) => {
+  try {
+    const { id_geo_dlog } = req.query;
+
+    // ✅ Validation des paramètres
+    if (!id_geo_dlog) {
+      return res.status(400).json({
+        error: "Le paramètre 'id_geo_dlog' est obligatoire.",
+      });
+    }
+
+    const query = `
+      SELECT *
+      FROM geofences_dlog AS gd
+      WHERE gd.id_geo_dlog = ?
+      LIMIT 1
+    `;
+
+    // 🔹 Exécution de la requête avec promise
+    const [data] = await db.promise().query(query, [id_geo_dlog]);
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({
+        error: `Aucun geofence trouvé avec l'id_geo_dlog = ${id_geo_dlog}.`,
+      });
+    }
+
+    // ✅ Réponse réussie
+    return res.status(200).json({
+      message: "Geofence récupéré avec succès.",
+      data: data[0],
+    });
+  } catch (error) {
+    console.error("❌ Erreur getGeofencesDlogOne:", error);
+    return res.status(500).json({
+      error: "Une erreur est survenue lors de la récupération du geofence.",
+      details: error.message,
+    });
+  }
 };
 
 exports.postGeofences = async (req, res) => {
@@ -188,7 +240,6 @@ exports.postGeofences = async (req, res) => {
   }
 };
 
-
 exports.updateGeofences = async (req, res) => {
   try {
     const { id_geo_dlog } = req.query;
@@ -198,10 +249,8 @@ exports.updateGeofences = async (req, res) => {
       nom,
       type_geofence,
       client_id = null,
-      zone_parent_id = null,
+      destination_id = null,
       description = null,
-      latitude,
-      longitude,
       actif = 0,
     } = req.body;
 
@@ -224,10 +273,8 @@ exports.updateGeofences = async (req, res) => {
           nom = ?, 
           type_geofence = ?, 
           client_id = ?, 
-          zone_parent_id = ?, 
-          description = ?, 
-          latitude = ?,
-          longitude = ?,
+          destination_id = ?, 
+          description = ?,
           actif = ?, 
           update_at = CURRENT_TIMESTAMP
       WHERE id_geo_dlog = ?
@@ -239,12 +286,10 @@ exports.updateGeofences = async (req, res) => {
       nom,
       type_geofence,
       client_id,
-      zone_parent_id,
+      destination_id,
       description,
-      latitude,
-      longitude,
       actif,
-      id_geo_dlog,
+      id_geo_dlog
     ];
 
     const [result] = await db.query(query, values);
@@ -262,11 +307,7 @@ exports.updateGeofences = async (req, res) => {
         nom,
         type_geofence,
         client_id,
-        zone_parent_id,
         description,
-        latitude,
-        longitude,
-        rayon_metre,
         actif,
       },
     });
