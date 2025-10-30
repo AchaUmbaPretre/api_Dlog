@@ -128,7 +128,8 @@ exports.getGeofencesDlog = (req, res) => {
 };
 
 exports.postGeofences = async (req, res) => {
-    console.log(req.body)
+  console.log(req.body);
+
   try {
     const {
       falcon_id,
@@ -136,7 +137,7 @@ exports.postGeofences = async (req, res) => {
       nom,
       type_geofence,
       client_id = null,
-      zone_parent_id = null,
+      destination_id = null,
       description = null,
       actif = 0,
     } = req.body;
@@ -150,8 +151,8 @@ exports.postGeofences = async (req, res) => {
 
     const query = `
       INSERT INTO geofences_dlog
-      (falcon_id, nom_falcon, nom, type_geofence, client_id, zone_parent_id, description, actif)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (falcon_id, nom_falcon, nom, type_geofence, client_id, destination_id, description, actif)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const values = [
@@ -160,16 +161,24 @@ exports.postGeofences = async (req, res) => {
       nom,
       type_geofence,
       client_id,
-      zone_parent_id,
+      destination_id,
       description,
-      actif
+      actif,
     ];
 
     await db.query(query, values);
 
     return res.status(201).json({
-      message: "Geofence ajouté avec succès",
-      data: { falcon_id, nom_falcon, nom, type_geofence, client_id, zone_parent_id, actif },
+      message: "✅ Geofence ajouté avec succès",
+      data: {
+        falcon_id,
+        nom_falcon,
+        nom,
+        type_geofence,
+        client_id,
+        description,
+        actif,
+      },
     });
   } catch (error) {
     console.error("❌ Erreur lors de l'ajout du geofence:", error);
@@ -179,6 +188,7 @@ exports.postGeofences = async (req, res) => {
     });
   }
 };
+
 
 exports.updateGeofences = async (req, res) => {
   try {
