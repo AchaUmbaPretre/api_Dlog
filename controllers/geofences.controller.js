@@ -1,90 +1,101 @@
-const { db } = require("./../config/database");
+const util = require('util');
+const http = require('http');
+const { db } = require('./../config/database');
+const query = util.promisify(db.query).bind(db);
+const dotenv = require('dotenv');
+dotenv.config();
+const ONE_DAY_MS = 24 * 60 * 60 * 1000; // Exécution chaque jour à minuit (24h)
+const INTERVAL_MS = 1 * 60 * 1000; // toutes les 5 minutes
 
-exports.getGeofenceFalcon = (req, res) => {
-  const options = {
-    hostname: "falconeyesolutions.com",
-    port: 80,
-    path: `/api/get_geofences?lang=fr&user_api_hash=${process.env.api_hash}`,
-    method: "GET",
-  };
+const fetchAndSyncGeofences = () => {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "falconeyesolutions.com",
+      port: 80,
+      path: `/api/get_geofences?lang=fr&user_api_hash=${process.env.api_hash}`,
+      method: "GET",
+    };
 
-  const proxyReq = http.request(options, (proxyRes) => {
-    let data = "";
+    const proxyReq = http.request(options, (proxyRes) => {
+      let data = "";
 
-    proxyRes.on("data", (chunk) => {
-      data += chunk;
-    });
+      proxyRes.on("data", (chunk) => {
+        data += chunk;
+      });
 
-    proxyRes.on("end", () => {
-      try {
-        const parsed = JSON.parse(data);
-        if (!parsed.items || !parsed.items.geofences) {
-          return res.status(400).json({ error: "Format de données invalide" });
-        }
-
-        const geofences = parsed.items.geofences;
-
-        const insertQuery = `
-          INSERT INTO geofences (
-            id_geofence, name, coordinates, polygon_color, type, speed_limit, created_at, updated_at
-          )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE
-            name = VALUES(name),
-            coordinates = VALUES(coordinates),
-            polygon_color = VALUES(polygon_color),
-            type = VALUES(type),
-            speed_limit = VALUES(speed_limit),
-            created_at = VALUES(created_at),
-            updated_at = VALUES(updated_at)
-        `;
-
-        let count = 0;
-
-        geofences.forEach((g) => {
-          let coords;
-          try {
-            coords = JSON.parse(g.coordinates);
-          } catch {
-            coords = [];
+      proxyRes.on("end", () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (!parsed.items || !parsed.items.geofences) {
+            return reject(new Error("Format de données invalide"));
           }
 
-          db.query(
-            insertQuery,
-            [
-              g.id,
-              g.name,
-              JSON.stringify(coords),
-              g.polygon_color || null,
-              g.type || null,
-              g.speed_limit || null,
-              g.created_at || null,
-              g.updated_at || null,
-            ],
-            (err) => {
-              if (err) console.error("Erreur insertion/màj:", err);
-              else count++;
+          const geofences = parsed.items.geofences;
+          const insertQuery = `
+            INSERT INTO geofences (
+              id_geofence, name, coordinates, polygon_color, type, speed_limit, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+              name = VALUES(name),
+              coordinates = VALUES(coordinates),
+              polygon_color = VALUES(polygon_color),
+              type = VALUES(type),
+              speed_limit = VALUES(speed_limit),
+              created_at = VALUES(created_at),
+              updated_at = VALUES(updated_at)
+          `;
+
+          let count = 0;
+          geofences.forEach((g) => {
+            let coords;
+            try {
+              coords = JSON.parse(g.coordinates);
+            } catch {
+              coords = [];
             }
-          );
-        });
 
-        res.json({
-          message: `✅ Synchronisation terminée (${count} geofences mises à jour ou ajoutées).`,
-        });
-      } catch (e) {
-        console.error("Erreur parsing JSON:", e.message);
-        res.status(500).json({ error: "Erreur parsing JSON Falcon" });
-      }
+            db.query(
+              insertQuery,
+              [
+                g.id,
+                g.name,
+                JSON.stringify(coords),
+                g.polygon_color || null,
+                g.type || null,
+                g.speed_limit || null,
+                g.created_at || null,
+                g.updated_at || null,
+              ],
+              (err) => {
+                if (err) console.error("Erreur insertion/màj:", err);
+                else count++;
+              }
+            );
+          });
+
+          resolve(`✅ ${count} geofences synchronisées.`);
+        } catch (e) {
+          reject(e);
+        }
+      });
     });
-  });
 
-  proxyReq.on("error", (err) => {
-    console.error("Erreur proxy Falcon:", err.message);
-    res.status(500).json({ error: "Erreur proxy Falcon" });
+    proxyReq.on("error", (err) => reject(err));
+    proxyReq.end();
   });
-
-  proxyReq.end();
 };
+
+setInterval(() => {
+  fetchAndSyncGeofences()
+    .then((msg) => console.log("[AutoSync]", msg))
+    .catch((err) => console.error("[AutoSync] Erreur:", err.message));
+}, INTERVAL_MS);
+
+// Lancer une première synchro au démarrage
+fetchAndSyncGeofences()
+  .then((msg) => console.log("[InitSync]", msg))
+  .catch((err) => console.error("[InitSync] Erreur:", err.message));
 
 exports.getCatGeofences = (req, res) => {
     
