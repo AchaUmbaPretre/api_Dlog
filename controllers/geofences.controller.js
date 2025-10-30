@@ -107,7 +107,17 @@ exports.getCatGeofences = (req, res) => {
     });
 };
 
-exports.getGeofences = (req, res) => {
+exports.getGeofencesFalcon = (req, res) => {
+    
+    let q = `SELECT * FROM geofences`;
+     
+    db.query(q, (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+};
+
+exports.getGeofencesDlog = (req, res) => {
     
     let q = `SELECT * FROM geofences_dlog`;
      
@@ -118,6 +128,7 @@ exports.getGeofences = (req, res) => {
 };
 
 exports.postGeofences = async (req, res) => {
+    console.log(req.body)
   try {
     const {
       falcon_id,
@@ -127,8 +138,6 @@ exports.postGeofences = async (req, res) => {
       client_id = null,
       zone_parent_id = null,
       description = null,
-      latitude,
-      longitude,
       actif = 0,
     } = req.body;
 
