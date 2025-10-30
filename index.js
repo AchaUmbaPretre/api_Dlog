@@ -94,38 +94,6 @@ app.use('/api/event', eventRoutes)
 app.use('/api/geofences', geofencesRoutes)
 app.use('/api/transporteur', transporteurRoutes)
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
-/* app.get("/api/falcon", (req, res) => {
-  const options = {
-    hostname: "31.207.34.171",
-    port: 80,
-    path: "/api/get_devices?&lang=fr&user_api_hash=$2y$10$FbpbQMzKNaJVnv0H2RbAfel1NMjXRUoCy8pZUogiA/bvNNj1kdcY.",
-    method: "GET",
-  };
-
-  const proxyReq = http.request(options, (proxyRes) => {
-    let data = "";
-
-    proxyRes.on("data", (chunk) => {
-      data += chunk;
-    });
-
-    proxyRes.on("end", () => {
-      try {
-        const jsonData = JSON.parse(data);
-        res.json(jsonData);
-      } catch (e) {
-        res.status(500).send("Erreur lors du parsing JSON");
-      }
-    });
-  });
-
-  proxyReq.on("error", (err) => {
-    console.error("Erreur proxy falcon:", err.message);
-    res.status(500).send("Erreur proxy falcon");
-  });
-
-  proxyReq.end();
-}); */
 app.use('/api/event', eventRoutes)
 app.get("/api/falcon", (req, res) => {
   const options = {
@@ -239,6 +207,41 @@ app.get("/api/point_in_geofences", (req, res) => {
     hostname: "falconeyesolutions.com",
     port: 80,
     path: `/api/point_in_geofences?${query}`,
+    method: "GET",
+  };
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    let data = "";
+
+    proxyRes.on("data", (chunk) => {
+      data += chunk;
+    });
+
+    proxyRes.on("end", () => {
+      try {
+        res.json(JSON.parse(data));
+      } catch (e) {
+        console.error("Erreur parsing JSON:", e.message);
+        res.status(500).send(data);
+      }
+    });
+  });
+
+  proxyReq.on("error", (err) => {
+    console.error("Erreur proxy falcon:", err.message);
+    res.status(500).send("Erreur proxy falcon: " + err.message);
+  });
+
+  proxyReq.end();
+});
+
+app.get("/api/get_geofences", (req, res) => {
+  const query = new URLSearchParams(req.query).toString();
+
+  const options = {
+    hostname: "falconeyesolutions.com",
+    port: 80,
+    path: `/api/get_geofences?${query}`,
     method: "GET",
   };
 
