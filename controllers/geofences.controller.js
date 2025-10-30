@@ -1,5 +1,15 @@
 const { db } = require("./../config/database");
 
+exports.getCatGeofences = (req, res) => {
+    
+    let q = `SELECT * FROM catgeofence`;
+     
+    db.query(q, (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+};
+
 exports.getGeofences = (req, res) => {
     
     let q = `SELECT * FROM geofences_dlog`;
