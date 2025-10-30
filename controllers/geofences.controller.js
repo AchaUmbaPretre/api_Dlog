@@ -128,7 +128,6 @@ exports.getGeofencesDlog = (req, res) => {
 };
 
 exports.postGeofences = async (req, res) => {
-  console.log(req.body);
 
   try {
     const {
