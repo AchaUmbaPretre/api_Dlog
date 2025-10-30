@@ -473,9 +473,9 @@ const generateDailySnapshot = async () => {
         );
       }
 
-      console.log(
+ /*      console.log(
         `✅ ${d.name}: ${status} (${alertType}) → score du jour = ${newScore}%`
-      );
+      ); */
     }
 
 /*     console.log(
