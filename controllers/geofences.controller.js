@@ -121,8 +121,7 @@ exports.getGeofencesFalcon = (req, res) => {
 exports.getGeofencesDlog = (req, res) => {
     
     let q = `SELECT 
-                gd.id_geo_dlog,
-                gd.nom_falcon, 
+                gd.*,
                 cat.nom_catGeofence,
                 c.nom AS nom_client,
                 d.nom_destination
@@ -242,7 +241,6 @@ exports.postGeofences = async (req, res) => {
 
 exports.updateGeofences = async (req, res) => {
   try {
-    const { id_geo_dlog } = req.query;
     const {
       falcon_id,
       nom_falcon,
@@ -254,22 +252,21 @@ exports.updateGeofences = async (req, res) => {
       actif = 0,
     } = req.body;
 
-    // Vérification de l'ID
-    if (!id_geo_dlog) {
-      return res.status(400).json({ error: "L'identifiant du geofence est requis." });
+    // Vérification du falcon_id
+    if (!falcon_id) {
+      return res.status(400).json({ error: "Le falcon_id est obligatoire." });
     }
 
     // Validation des champs obligatoires
-    if (!falcon_id || !nom_falcon || !nom || !type_geofence) {
+    if (!nom_falcon || !nom || !type_geofence) {
       return res.status(400).json({
-        error: "Les champs falcon_id, nom_falcon, nom et type_geofence sont obligatoires.",
+        error: "Les champs nom_falcon, nom et type_geofence sont obligatoires.",
       });
     }
 
-    const query = `
+    const updateQuery = `
       UPDATE geofences_dlog
-      SET falcon_id = ?, 
-          nom_falcon = ?, 
+      SET nom_falcon = ?, 
           nom = ?, 
           type_geofence = ?, 
           client_id = ?, 
@@ -277,11 +274,10 @@ exports.updateGeofences = async (req, res) => {
           description = ?,
           actif = ?, 
           update_at = CURRENT_TIMESTAMP
-      WHERE id_geo_dlog = ?
+      WHERE falcon_id = ?
     `;
 
     const values = [
-      falcon_id,
       nom_falcon,
       nom,
       type_geofence,
@@ -289,24 +285,25 @@ exports.updateGeofences = async (req, res) => {
       destination_id,
       description,
       actif,
-      id_geo_dlog
+      falcon_id
     ];
 
-    const [result] = await db.query(query, values);
+    const query = util.promisify(db.query).bind(db);
+    const result = await query(updateQuery, values);
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Aucun geofence trouvé avec cet identifiant." });
+      return res.status(404).json({ error: "Aucun geofence trouvé avec ce falcon_id." });
     }
 
     return res.status(200).json({
       message: "Geofence mis à jour avec succès.",
       data: {
-        id_geo_dlog,
         falcon_id,
         nom_falcon,
         nom,
         type_geofence,
         client_id,
+        destination_id,
         description,
         actif,
       },
@@ -319,3 +316,4 @@ exports.updateGeofences = async (req, res) => {
     });
   }
 };
+
