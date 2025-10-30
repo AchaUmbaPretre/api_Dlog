@@ -3,6 +3,8 @@ const moment = require('moment');
 const http = require('http');
 const { db } = require('./../config/database');
 const query = util.promisify(db.query).bind(db);
+const dotenv = require('dotenv');
+dotenv.config();
 
 const FETCH_INTERVAL_MINUTES = 10;
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000
@@ -73,7 +75,7 @@ const fetchFalconDevices = () => {
     const options = {
       hostname: "31.207.34.171",
       port: 80,
-      path: "/api/get_devices?&lang=fr&user_api_hash=$2y$10$FbpbQMzKNaJVnv0H2RbAfel1NMjXRUoCy8pZUogiA/bvNNj1kdcY.",
+      path: `/api/get_devices?lang=fr&user_api_hash=${process.env.api_hash}`,
       method: "GET",
     };
 

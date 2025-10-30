@@ -1,5 +1,91 @@
 const { db } = require("./../config/database");
 
+exports.getGeofenceFalcon = (req, res) => {
+  const options = {
+    hostname: "falconeyesolutions.com",
+    port: 80,
+    path: `/api/get_geofences?lang=fr&user_api_hash=${process.env.api_hash}`,
+    method: "GET",
+  };
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    let data = "";
+
+    proxyRes.on("data", (chunk) => {
+      data += chunk;
+    });
+
+    proxyRes.on("end", () => {
+      try {
+        const parsed = JSON.parse(data);
+        if (!parsed.items || !parsed.items.geofences) {
+          return res.status(400).json({ error: "Format de données invalide" });
+        }
+
+        const geofences = parsed.items.geofences;
+
+        const insertQuery = `
+          INSERT INTO geofences (
+            id_geofence, name, coordinates, polygon_color, type, speed_limit, created_at, updated_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            name = VALUES(name),
+            coordinates = VALUES(coordinates),
+            polygon_color = VALUES(polygon_color),
+            type = VALUES(type),
+            speed_limit = VALUES(speed_limit),
+            created_at = VALUES(created_at),
+            updated_at = VALUES(updated_at)
+        `;
+
+        let count = 0;
+
+        geofences.forEach((g) => {
+          let coords;
+          try {
+            coords = JSON.parse(g.coordinates);
+          } catch {
+            coords = [];
+          }
+
+          db.query(
+            insertQuery,
+            [
+              g.id,
+              g.name,
+              JSON.stringify(coords),
+              g.polygon_color || null,
+              g.type || null,
+              g.speed_limit || null,
+              g.created_at || null,
+              g.updated_at || null,
+            ],
+            (err) => {
+              if (err) console.error("Erreur insertion/màj:", err);
+              else count++;
+            }
+          );
+        });
+
+        res.json({
+          message: `✅ Synchronisation terminée (${count} geofences mises à jour ou ajoutées).`,
+        });
+      } catch (e) {
+        console.error("Erreur parsing JSON:", e.message);
+        res.status(500).json({ error: "Erreur parsing JSON Falcon" });
+      }
+    });
+  });
+
+  proxyReq.on("error", (err) => {
+    console.error("Erreur proxy Falcon:", err.message);
+    res.status(500).json({ error: "Erreur proxy Falcon" });
+  });
+
+  proxyReq.end();
+};
+
 exports.getCatGeofences = (req, res) => {
     
     let q = `SELECT * FROM catgeofence`;

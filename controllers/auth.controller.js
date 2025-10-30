@@ -8,7 +8,6 @@ dotenv.config();
 
 exports.registerController = async (req, res) => {
     const { username, email, password, role, telephone } = req.body;
-    console.log(req.body)
   
     try {
       const query = 'SELECT * FROM utilisateur WHERE email = ?';
