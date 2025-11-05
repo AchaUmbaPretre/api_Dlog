@@ -45,6 +45,67 @@ exports.getFournisseurActivite = (req, res) => {
     });
 };
 
+exports.getFournisseurActiviteOne = async (req, res) => {
+  try {
+    const { id_activite } = req.query;
+
+    // Validation d’entrée
+    if (!id_activite) {
+      return res.status(400).json({
+        success: false,
+        message: "Le paramètre 'id_activite' est requis."
+      });
+    }
+
+    const query = `
+      SELECT 
+        f.id_fournisseur, 
+        a.nom_activite, 
+        f.nom_fournisseur, 
+        f.telephone, 
+        f.email, 
+        f.adresse, 
+        f.pays
+      FROM activite_fournisseur AS af
+      LEFT JOIN fournisseur AS f 
+        ON af.id_fournisseur = f.id_fournisseur
+      LEFT JOIN provinces AS p 
+        ON f.ville = p.id
+      LEFT JOIN activite AS a 
+        ON af.id_activite = a.id_activite
+      WHERE af.id_activite = ?
+    `;
+
+    db.query(query, [id_activite], (err, data) => {
+      if (err) {
+        console.error("Erreur SQL :", err);
+        return res.status(500).json({
+          success: false,
+          message: "Erreur lors de la récupération des fournisseurs.",
+          error: err.message
+        });
+      }
+
+      if (data.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Aucun fournisseur trouvé pour cette activité."
+        });
+      }
+
+      return res.status(200).json(data);
+    });
+
+  } catch (error) {
+    console.error("Erreur serveur :", error);
+    return res.status(500).json({
+      success: false,
+      message: "Une erreur interne est survenue.",
+      error: error.message
+    });
+  }
+};
+
 exports.postFournisseur = async (req, res) => {
     const { nom_activite } = req.body;
 
