@@ -26,27 +26,60 @@ exports.getCarburantOne = (req, res) => {
 };
 
 exports.postCarburant = async (req, res) => {
-    const { num_pc, num_facture, date_operation, id_vehicule, id_chauffeur, quantite_litres, prix_unitaire, montant_total, id_fournisseur, compteur_km } = req.body;
-    try {
-        const q = 'INSERT INTO carburant(`num_pc`, `num_facture`, `date_operation`, `id_vehicule`, `id_chauffeur`, `quantite_litres`, `prix_unitaire`, `montant_total`, `id_fournisseur`, `compteur_km`)VALUES(?,?)';
+  const {
+    num_pc,
+    num_facture,
+    date_operation,
+    id_vehicule,
+    id_chauffeur,
+    quantite_litres,
+    prix_unitaire,
+    montant_total,
+    id_fournisseur,
+    compteur_km,
+    distance,
+    consommation
+  } = req.body;
 
-        const values = [
-            num_pc, 
-            num_facture, 
-            date_operation, 
-            id_vehicule, 
-            id_chauffeur, 
-            quantite_litres, 
-            prix_unitaire, 
-            montant_total, 
-            id_fournisseur, 
-            compteur_km
-        ];
+  try {
+    const q = `
+      INSERT INTO carburant (
+        num_pc,
+        num_facture,
+        date_operation,
+        id_vehicule,
+        id_chauffeur,
+        quantite_litres,
+        prix_unitaire,
+        montant_total,
+        id_fournisseur,
+        compteur_km,
+        distance,
+        consommation
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
 
-        await db.query(q, values);
-        return res.status(201).json({ message: 'Carburant ajouté avec succès'});
-    } catch (error) {
-        console.error('Erreur lors de l\'ajout de carburant :', error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de carburant." });
-    }
+    const values = [
+      num_pc,
+      num_facture,
+      date_operation,
+      id_vehicule,
+      id_chauffeur,
+      quantite_litres,
+      prix_unitaire,
+      montant_total,
+      id_fournisseur,
+      compteur_km,
+      distance,
+      consommation
+    ];
+
+    await db.query(q, values);
+
+    return res.status(201).json({ message: 'Carburant ajouté avec succès' });
+  } catch (error) {
+    console.error("Erreur lors de l'ajout de carburant :", error);
+    return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de carburant." });
+  }
 };
