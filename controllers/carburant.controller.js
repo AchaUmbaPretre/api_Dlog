@@ -15,11 +15,12 @@ exports.getCarburant = (req, res) => {
                 v.id_vehicule,
                 v.immatriculation,
                 ch.nom AS nom_chauffeur,
-                ch.prenom AS prenom
-            FROM carburant c
-            INNER JOIN vehicules v ON c.id_vehicule = v.id_vehicule
-            INNER JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
-            LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
+                ch.prenom AS prenom,
+                f.nom_fournisseur
+                FROM carburant c
+                INNER JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+                INNER JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
+                LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
             `;
 
     db.query(q, (error, data) => {
