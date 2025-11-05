@@ -2,7 +2,25 @@ const { db } = require("./../config/database");
 
 exports.getCarburant = (req, res) => {
 
-    const q = `SELECT * FROM carburant`;
+    const q = `SELECT c.id_carburant, 
+                c.num_pc, 
+                c.num_facture, 
+                c.date_operation, 
+                c.quantite_litres, 
+                c.prix_unitaire, 
+                c.montant_total, 
+                c.compteur_km, 
+                c.distance, 
+                c.consommation,
+                v.id_vehicule,
+                v.immatriculation,
+                ch.nom AS nom_chauffeur,
+                ch.prenom AS prenom
+            FROM carburant c
+            INNER JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            INNER JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
+            LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
+            `;
 
     db.query(q, (error, data) => {
         if (error) {
