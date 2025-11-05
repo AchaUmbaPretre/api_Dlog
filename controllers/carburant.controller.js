@@ -1,6 +1,5 @@
 const { db } = require("./../config/database");
 
-
 exports.getCarburant = (req, res) => {
 
     const q = `SELECT * FROM carburant`;
