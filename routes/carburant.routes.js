@@ -32,5 +32,4 @@ router.post('/carburant_vehicule_excel', upload.array('chemin_document', 10), ca
 //Carburant excel
 router.post('/carburant_excel', upload.array('chemin_document', 10), carburantController.postCarburantExcel);
 
-
 module.exports = router;
