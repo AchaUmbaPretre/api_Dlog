@@ -26,6 +26,7 @@ exports.getCarburant = (req, res) => {
                 LEFT JOIN vehicule_carburant v ON c.id_vehicule = v.id_enregistrement
                 LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
                 LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
+                ORDER BY c.date_operation DESC
             `;
 
     db.query(q, (error, data) => {
