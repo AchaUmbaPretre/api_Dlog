@@ -63,7 +63,7 @@ exports.getCarburantLimitTen = (req, res) => {
         LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
         LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
         ORDER BY c.id_carburant DESC
-        LIMIT 10
+        LIMIT 5
     `;
 
     db.query(q, (error, data) => {
