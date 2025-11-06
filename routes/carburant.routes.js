@@ -22,6 +22,7 @@ const upload = multer({ storage });
 
 
 router.get('/', carburantController.getCarburant);
+router.get('/limit_ten', carburantController.getCarburantLimitTen);
 router.get('/one', carburantController.getCarburantOne)
 router.post('/', carburantController.postCarburant);
 
