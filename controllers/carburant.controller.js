@@ -63,7 +63,7 @@ exports.getCarburantLimitTen = (req, res) => {
         LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
         LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
         ORDER BY c.id_carburant DESC
-        LIMIT 5
+        LIMIT 10
     `;
 
     db.query(q, (error, data) => {
@@ -290,4 +290,42 @@ exports.postCarburantExcel = async (req, res) => {
   }
 };
 
+//Prix carburant
+exports.getCarburantPrice = async (req, res) => {
 
+    const q = `SELECT * FROM prix_carburant`;
+
+    db.query(q, (error, data) => {
+        if(error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data)
+    })
+};
+
+exports.postCarburantPrice = async (req, res) => {
+    const {
+        date_effective,
+        prix_cdf,
+        taux_usd
+    } = req.body;
+
+    try {
+        const q = `INSERT INTO prix_carburant (
+                    date_effective,
+                    prix_cdf,
+                    taux_usd
+                ) VALUES (?, ?, ?)`;
+
+                const values = [
+                    date_effective,
+                    prix_cdf,
+                    taux_usd
+                ]
+            await db.query(q, values);
+            return res.status(201).json({ message: 'Le prix du carburant ajouté avec succès' });
+    } catch (error) {
+        console.error("Erreur lors de l'ajout du prix du carburant :", error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du prix carburant." });
+    }
+};
