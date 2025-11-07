@@ -9,11 +9,13 @@ exports.getCarburant = (req, res) => {
                 c.num_facture, 
                 c.date_operation, 
                 c.quantite_litres, 
-                c.prix_unitaire, 
-                c.montant_total, 
                 c.compteur_km, 
                 c.distance, 
                 c.consommation,
+                c.prix_cdf,
+                c.prix_usd,
+                c.montant_total_cdf,
+                c.montant_total_usd,
                 c.commentaire,
                 v.id_enregistrement,
                 v.nom_marque,
@@ -44,12 +46,14 @@ exports.getCarburantLimitTen = (req, res) => {
             c.num_pc, 
             c.num_facture, 
             c.date_operation, 
-            c.quantite_litres, 
-            c.prix_unitaire, 
-            c.montant_total, 
+            c.quantite_litres,
             c.compteur_km, 
             c.distance, 
             c.consommation,
+            c.prix_cdf,
+            c.prix_usd,
+            c.montant_total_cdf,
+            c.montant_total_usd,
             c.commentaire,
             v.id_enregistrement,
             v.nom_marque,
@@ -97,45 +101,77 @@ exports.postCarburant = async (req, res) => {
     quantite_litres,
     id_fournisseur,
     compteur_km,
-    commentaire
+    commentaire,
   } = req.body;
 
   try {
-    // 1️⃣ Récupérer le dernier prix du carburant et le taux USD
-    const [lastPrice] = await db.query(`
-      SELECT prix_cdf, taux_usd 
-      FROM prix_carburant 
-      ORDER BY date_effective DESC, id DESC 
-      LIMIT 1
-    `);
-
-    if (!lastPrice || lastPrice.length === 0) {
-      return res.status(400).json({ error: "Aucun prix carburant trouvé. Veuillez en définir un dans le panneau admin." });
+    if (!id_vehicule || !compteur_km || !quantite_litres) {
+      return res.status(400).json({
+        error: "Les champs 'id_vehicule', 'quantite_litres' et 'compteur_km' sont obligatoires.",
+      });
     }
 
-    const prix_cdf = parseFloat(lastPrice.prix_cdf);
-    const taux_usd = parseFloat(lastPrice.taux_usd);
+    // 1️⃣ Récupérer le dernier prix carburant
+    const priceQuery = `
+      SELECT prix_cdf, taux_usd
+      FROM prix_carburant
+      ORDER BY date_effective DESC, id_prix_carburant DESC
+      LIMIT 1
+    `;
+    const priceResult = await new Promise((resolve, reject) => {
+      db.query(priceQuery, (err, result) => {
+        if (err) return reject(err);
+        resolve(result);
+      });
+    });
+
+    if (!priceResult || priceResult.length === 0) {
+      return res.status(400).json({
+        error: "Aucun prix carburant trouvé. Veuillez le définir dans le panneau admin.",
+      });
+    }
+
+    let { prix_cdf, taux_usd } = priceResult[0];
+
+    // 2️⃣ Vérifier et corriger le taux USD
+    if (!taux_usd || taux_usd <= 1) {
+      console.warn(
+        "⚠️ Taux USD incorrect détecté, application d'un taux par défaut 2200"
+      );
+      taux_usd = 2200; // ici tu peux mettre le taux réel actuel ou une valeur configurable
+    }
+
+    // Calcul USD correct
     const prix_usd = prix_cdf / taux_usd;
 
-    // 2️⃣ Récupérer le dernier compteur du même véhicule
-    const [lastRecord] = await db.query(
-      `SELECT compteur_km FROM carburant 
-       WHERE id_vehicule = ? 
-       ORDER BY date_operation DESC, id_carburant DESC 
-       LIMIT 1`,
-      [id_vehicule]
-    );
+    // 3️⃣ Dernier compteur du véhicule
+    const compteurQuery = `
+      SELECT compteur_km 
+      FROM carburant 
+      WHERE id_vehicule = ? 
+      ORDER BY date_operation DESC, id_carburant DESC 
+      LIMIT 1
+    `;
+    const compteurResult = await new Promise((resolve, reject) => {
+      db.query(compteurQuery, [id_vehicule], (err, result) => {
+        if (err) return reject(err);
+        resolve(result);
+      });
+    });
 
-    const compteur_precedent = lastRecord?.compteur_km || 0;
+    const compteur_precedent =
+      compteurResult && compteurResult.length > 0
+        ? compteurResult[0].compteur_km
+        : 0;
 
-    // 3️⃣ Calculs automatiques
+    // 4️⃣ Calculs automatiques
     const distance = compteur_km - compteur_precedent;
     const consommation = distance > 0 ? (quantite_litres * 100) / distance : 0;
     const montant_total_cdf = quantite_litres * prix_cdf;
     const montant_total_usd = montant_total_cdf / taux_usd;
 
-    // 4️⃣ Insertion dans la base
-    const q = `
+    // 5️⃣ Insertion dans la table carburant
+    const insertQuery = `
       INSERT INTO carburant (
         num_pc,
         num_facture,
@@ -152,44 +188,50 @@ exports.postCarburant = async (req, res) => {
         distance,
         consommation,
         commentaire
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
-
-    const values = [
-      num_pc,
-      num_facture,
-      date_operation,
+    const insertValues = [
+      num_pc || null,
+      num_facture || null,
+      date_operation || new Date(),
       id_vehicule,
-      id_chauffeur,
+      id_chauffeur || null,
       quantite_litres,
       prix_cdf,
       prix_usd,
       montant_total_cdf,
       montant_total_usd,
-      id_fournisseur,
+      id_fournisseur || null,
       compteur_km,
       distance,
       consommation,
-      commentaire || null
+      commentaire || null,
     ];
 
-    await db.query(q, values);
+    await new Promise((resolve, reject) => {
+      db.query(insertQuery, insertValues, (err, result) => {
+        if (err) return reject(err);
+        resolve(result);
+      });
+    });
 
     return res.status(201).json({
-      message: "✅ Plein carburant enregistré avec succès",
+      message: "✅ Plein carburant enregistré avec succès.",
       data: {
-        distance,
-        consommation,
         prix_cdf,
         prix_usd,
+        taux_usd,
+        distance,
+        consommation,
         montant_total_cdf,
         montant_total_usd,
       },
     });
   } catch (error) {
     console.error("❌ Erreur lors de l'ajout de carburant :", error);
-    return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de carburant." });
+    return res.status(500).json({
+      error: "Une erreur s'est produite lors de l'enregistrement du plein de carburant.",
+    });
   }
 };
 
