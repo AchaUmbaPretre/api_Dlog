@@ -33,7 +33,8 @@ router.post('/carburant_vehicule_excel', upload.array('chemin_document', 10), ca
 router.post('/carburant_excel', upload.array('chemin_document', 10), carburantController.postCarburantExcel);
 
 //Prix carburant
-router.get('/carburant_prix', carburantController.getCarburantPrice)
-router.post('/carburant_prix', carburantController.postCarburantPrice)
+router.get('/carburant_prix', carburantController.getCarburantPrice);
+router.get('/carburant_prix_limit', carburantController.getCarburantPriceLimit);
+router.post('/carburant_prix', carburantController.postCarburantPrice);
 
 module.exports = router;

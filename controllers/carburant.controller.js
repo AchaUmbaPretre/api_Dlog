@@ -303,6 +303,24 @@ exports.getCarburantPrice = async (req, res) => {
     })
 };
 
+exports.getCarburantPriceLimit = async (req, res) => {
+
+    const q = `
+        SELECT 
+        * 
+        FROM 
+            prix_carburant
+        ORDER BY date_effective DESC LIMIT 1
+    `;
+
+    db.query(q, (error, data) => {
+        if(error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data)
+    })
+};
+
 exports.postCarburantPrice = async (req, res) => {
     const {
         date_effective,
