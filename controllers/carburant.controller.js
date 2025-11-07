@@ -95,15 +95,46 @@ exports.postCarburant = async (req, res) => {
     id_vehicule,
     id_chauffeur,
     quantite_litres,
-    prix_unitaire,
-    montant_total,
     id_fournisseur,
     compteur_km,
-    distance,
-    consommation
+    commentaire
   } = req.body;
 
   try {
+    // 1️⃣ Récupérer le dernier prix du carburant et le taux USD
+    const [lastPrice] = await db.query(`
+      SELECT prix_cdf, taux_usd 
+      FROM prix_carburant 
+      ORDER BY date_effective DESC, id DESC 
+      LIMIT 1
+    `);
+
+    if (!lastPrice || lastPrice.length === 0) {
+      return res.status(400).json({ error: "Aucun prix carburant trouvé. Veuillez en définir un dans le panneau admin." });
+    }
+
+    const prix_cdf = parseFloat(lastPrice.prix_cdf);
+    const taux_usd = parseFloat(lastPrice.taux_usd);
+    const prix_usd = prix_cdf / taux_usd;
+
+    // 2️⃣ Récupérer le dernier compteur du même véhicule
+    const [lastRecord] = await db.query(
+      `SELECT compteur_km FROM carburant 
+       WHERE id_vehicule = ? 
+       ORDER BY date_operation DESC, id_carburant DESC 
+       LIMIT 1`,
+      [id_vehicule]
+    );
+
+    const compteur_precedent = lastRecord?.compteur_km || 0;
+
+    // 3️⃣ Calculs automatiques
+    const distance = compteur_km - compteur_precedent;
+    const consommation = distance > 0 ? (quantite_litres * 100) / distance : 0;
+    const montant_total_cdf = quantite_litres * prix_cdf;
+    const montant_total_usd = montant_total_cdf / taux_usd;
+
+    // 4️⃣ Insertion dans la base
     const q = `
       INSERT INTO carburant (
         num_pc,
@@ -112,14 +143,17 @@ exports.postCarburant = async (req, res) => {
         id_vehicule,
         id_chauffeur,
         quantite_litres,
-        prix_unitaire,
-        montant_total,
+        prix_cdf,
+        prix_usd,
+        montant_total_cdf,
+        montant_total_usd,
         id_fournisseur,
         compteur_km,
         distance,
-        consommation
+        consommation,
+        commentaire
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const values = [
@@ -129,19 +163,32 @@ exports.postCarburant = async (req, res) => {
       id_vehicule,
       id_chauffeur,
       quantite_litres,
-      prix_unitaire,
-      montant_total,
+      prix_cdf,
+      prix_usd,
+      montant_total_cdf,
+      montant_total_usd,
       id_fournisseur,
       compteur_km,
       distance,
-      consommation
+      consommation,
+      commentaire || null
     ];
 
     await db.query(q, values);
 
-    return res.status(201).json({ message: 'Carburant ajouté avec succès' });
+    return res.status(201).json({
+      message: "✅ Plein carburant enregistré avec succès",
+      data: {
+        distance,
+        consommation,
+        prix_cdf,
+        prix_usd,
+        montant_total_cdf,
+        montant_total_usd,
+      },
+    });
   } catch (error) {
-    console.error("Erreur lors de l'ajout de carburant :", error);
+    console.error("❌ Erreur lors de l'ajout de carburant :", error);
     return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de carburant." });
   }
 };
