@@ -20,7 +20,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-
+router.get('/vehicule_carburant', carburantController.getVehiculeCarburant);
 router.get('/', carburantController.getCarburant);
 router.get('/limit_ten', carburantController.getCarburantLimitTen);
 router.get('/one', carburantController.getCarburantOne)

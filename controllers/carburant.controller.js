@@ -2,6 +2,21 @@ const { db } = require("./../config/database");
 const xlsx = require("xlsx");
 const fs = require("fs");
 
+exports.getVehiculeCarburant = (req, res) => {
+
+    const q = `SELECT 
+                *
+                FROM vehicule_carburant
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getCarburant = (req, res) => {
 
     const q = `SELECT c.id_carburant, 
