@@ -1,6 +1,7 @@
 const { db } = require("./../config/database");
 const xlsx = require("xlsx");
 const fs = require("fs");
+const { resolve } = require("path");
 
 //Vehicule carburant
 exports.getVehiculeCarburant = (req, res) => {
@@ -18,12 +19,65 @@ exports.getVehiculeCarburant = (req, res) => {
     });
 };
 
+exports.postVehiculeCarburant = async (req, res) => {
+  const { nom_marque, nom_modele, num_serie, immatriculation } = req.body;
+
+  if (!nom_marque) {
+    return res.status(400).json({ message: "Paramètres manquants." });
+  }
+
+  try {
+    // Étape 1 : Récupérer le dernier id_enregistrement
+    const getLastId = () => {
+      return new Promise((resolve, reject) => {
+        const query = "SELECT MAX(id_enregistrement) AS lastId FROM vehicule_carburant";
+        db.query(query, (err, result) => {
+          if (err) return reject(err);
+          const lastId = result[0]?.lastId || 0;
+          resolve(lastId);
+        });
+      });
+    };
+
+    const lastId = await getLastId();
+    const nextId = lastId + 1;
+
+    // Étape 2 : Insertion du nouveau véhicule
+    const insertVehicule = () => {
+      return new Promise((resolve, reject) => {
+        const query = `
+          INSERT INTO vehicule_carburant 
+          (id_enregistrement, nom_marque, nom_modele, num_serie, immatriculation)
+          VALUES (?, ?, ?, ?, ?)
+        `;
+        const values = [nextId, nom_marque, nom_modele, num_serie, immatriculation];
+
+        db.query(query, values, (err, result) => {
+          if (err) return reject(err);
+          resolve(result);
+        });
+      });
+    };
+
+    await insertVehicule();
+
+    return res.status(201).json({
+      message: "L'opération a réussi avec succès.",
+      id_enregistrement: nextId,
+    });
+  } catch (error) {
+    console.error("Erreur lors de l'insertion :", error);
+    return res.status(500).json({
+      message: "Erreur serveur lors de l'enregistrement du véhicule.",
+    });
+  }
+};
+
 exports.putRelierVehiculeCarburant = async (req, res) => {
   try {
     const { id_vehicule } = req.query;
     const { id_enregistrement } = req.body;
 
-    console.log(id_vehicule, id_enregistrement)
     if (!id_vehicule || !id_enregistrement) {
       return res.status(400).json({ message: "Paramètres manquants (id_vehicule ou id_capteur)." });
     }
