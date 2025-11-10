@@ -2,6 +2,7 @@ const { db } = require("./../config/database");
 const xlsx = require("xlsx");
 const fs = require("fs");
 
+//Vehicule carburant
 exports.getVehiculeCarburant = (req, res) => {
 
     const q = `SELECT 
@@ -17,6 +18,41 @@ exports.getVehiculeCarburant = (req, res) => {
     });
 };
 
+exports.putRelierVehiculeCarburant = async (req, res) => {
+  try {
+    const { id_vehicule } = req.query;
+    const { id_enregistrement } = req.body;
+
+    if (!id_vehicule || !id_enregistrement) {
+      return res.status(400).json({ message: "Paramètres manquants (id_vehicule ou id_capteur)." });
+    }
+
+    // 1️⃣ Supprimer l'ancien lien avec ce capteur
+    const q1 = "UPDATE vehicules SET id_carburant_vehicule = NULL WHERE id_carburant_vehicule = ?";
+    await new Promise((resolve, reject) => {
+      db.query(q1, [id_enregistrement], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    // 2️⃣ Lier le nouveau véhicule
+    const q2 = "UPDATE vehicules SET id_carburant_vehicule = ? WHERE id_vehicule = ?";
+    await new Promise((resolve, reject) => {
+      db.query(q2, [id_enregistrement, id_vehicule], (err, result) => {
+        if (err) reject(err);
+        else resolve(result);
+      });
+    });
+
+    return res.status(200).json({ message: "Véhicule relié/mis à jour avec succès." });
+  } catch (error) {
+    console.error("Erreur inattendue:", error);
+    return res.status(500).json({ message: "Erreur inattendue côté serveur." });
+  }
+};
+
+//Carburant 
 exports.getCarburant = (req, res) => {
 
     const q = `SELECT c.id_carburant, 
