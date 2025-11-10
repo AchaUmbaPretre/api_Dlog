@@ -23,6 +23,7 @@ exports.putRelierVehiculeCarburant = async (req, res) => {
     const { id_vehicule } = req.query;
     const { id_enregistrement } = req.body;
 
+    console.log(id_vehicule, id_enregistrement)
     if (!id_vehicule || !id_enregistrement) {
       return res.status(400).json({ message: "Paramètres manquants (id_vehicule ou id_capteur)." });
     }
