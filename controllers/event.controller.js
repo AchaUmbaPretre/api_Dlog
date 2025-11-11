@@ -1197,9 +1197,8 @@ const fetchEvents = (fromTime, toTime) => {
 };
 
 // Fonction principale pour fetch et stocker les events
-const fetchAndStoreEvents = async () => {
+/* const fetchAndStoreEvents = async () => {
     try {
-        // Déterminer le dernier event_time pour fetch uniquement les nouveaux
         const [lastEventRow] = await query(`SELECT MAX(event_time) AS last_time FROM vehicle_events`);
         const fromTime = lastEventRow?.last_time
             ? moment.utc(lastEventRow.last_time)
@@ -1214,8 +1213,6 @@ const fetchAndStoreEvents = async () => {
         }
 
         const events = response.items.data;
-/*         console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] ${events.length} événements reçus.`);
- */
         // Traiter les événements séquentiellement
         for (const e of events) {
             try {
@@ -1239,12 +1236,67 @@ const fetchAndStoreEvents = async () => {
   } catch (err) {
         console.error(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] Erreur fetchAndStoreEvents:`, err.message);
     }
+}; */
+
+let isFetching = false;
+
+const fetchAndStoreEvents = async () => {
+  if (isFetching) {
+    console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] ⚠️ fetchAndStoreEvents déjà en cours, ignoré.`);
+    return;
+  }
+
+  isFetching = true;
+  console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] 🔄 Début de fetchAndStoreEvents`);
+
+  try {
+    const [lastEventRow] = await query(`SELECT MAX(event_time) AS last_time FROM vehicle_events`);
+    const fromTime = lastEventRow?.last_time
+      ? moment.utc(lastEventRow.last_time)
+      : moment.utc().subtract(FETCH_INTERVAL_MINUTES, 'minutes');
+    const toTime = moment.utc();
+
+    const response = await fetchEvents(fromTime, toTime);
+    if (!response?.items?.data?.length) {
+      console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] Aucun nouvel événement à stocker.`);
+      return;
+    }
+
+    const events = response.items.data;
+    console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] ${events.length} événements reçus.`);
+
+    for (const e of events) {
+      try {
+        await exports.postEvent({
+          body: {
+            external_id: e.id,
+            device_id: e.device_id,
+            device_name: e.device_name,
+            type: e.type,
+            message: e.message || e.name,
+            speed: e.speed || 0,
+            latitude: e.latitude,
+            longitude: e.longitude,
+            event_time: e.time
+          }
+        }, null);
+      } catch (err) {
+        console.error(`Erreur postEvent pour device ${e.device_id}:`, err.message);
+      }
+    }
+
+    console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] ✅ Tous les événements ont été traités.`);
+  } catch (err) {
+    console.error(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] ❌ Erreur fetchAndStoreEvents:`, err.message);
+  } finally {
+    isFetching = false;
+  }
 };
 
-// Lancer la récupération automatique toutes les 5 minutes
+// 🔁 Lancer la récupération automatique toutes les 10 minutes
 setInterval(fetchAndStoreEvents, FETCH_INTERVAL_MINUTES * 60 * 1000);
 
-// Lancer immédiatement au démarrage
+// 🚀 Exécuter une fois au démarrage
 fetchAndStoreEvents();
 
 exports.getRawReport = (req, res) => {

@@ -2,6 +2,8 @@ const { db } = require("./../config/database");
 const xlsx = require("xlsx");
 const fs = require("fs");
 const { resolve } = require("path");
+const { promisify } = require("util");
+
 
 //Vehicule carburant
 exports.getVehiculeCarburant = (req, res) => {
@@ -211,25 +213,24 @@ exports.postCarburant = async (req, res) => {
   } = req.body;
 
   try {
+    // ✅ Vérification des champs obligatoires
     if (!id_vehicule || !compteur_km || !quantite_litres) {
       return res.status(400).json({
-        error: "Les champs 'id_vehicule', 'quantite_litres' et 'compteur_km' sont obligatoires.",
+        error:
+          "Les champs 'id_vehicule', 'quantite_litres' et 'compteur_km' sont obligatoires.",
       });
     }
 
-    // 1️⃣ Récupérer le dernier prix carburant
-    const priceQuery = `
+    // Utilisation de promisify pour async/await
+    const query = promisify(db.query).bind(db);
+
+    // 1️⃣ Récupération du dernier prix carburant
+    const priceResult = await query(`
       SELECT prix_cdf, taux_usd
       FROM prix_carburant
       ORDER BY date_effective DESC, id_prix_carburant DESC
       LIMIT 1
-    `;
-    const priceResult = await new Promise((resolve, reject) => {
-      db.query(priceQuery, (err, result) => {
-        if (err) return reject(err);
-        resolve(result);
-      });
-    });
+    `);
 
     if (!priceResult || priceResult.length === 0) {
       return res.status(400).json({
@@ -239,44 +240,37 @@ exports.postCarburant = async (req, res) => {
 
     let { prix_cdf, taux_usd } = priceResult[0];
 
-    // 2️⃣ Vérifier et corriger le taux USD
+    // 2️⃣ Si taux_usd est invalide, récupérer le dernier taux valide
     if (!taux_usd || taux_usd <= 1) {
-      console.warn(
-        "⚠️ Taux USD incorrect détecté, application d'un taux par défaut 2200"
-      );
-      taux_usd = 2200; // ici tu peux mettre le taux réel actuel ou une valeur configurable
+      const tauxResult = await query(`
+        SELECT taux_usd
+        FROM prix_carburant
+        WHERE taux_usd > 1
+        ORDER BY date_effective DESC, id_prix_carburant DESC
+        LIMIT 1
+      `);
+      taux_usd = tauxResult?.[0]?.taux_usd || 2200; // fallback ultime
     }
 
-    // Calcul USD correct
-    const prix_usd = prix_cdf / taux_usd;
-
     // 3️⃣ Dernier compteur du véhicule
-    const compteurQuery = `
-      SELECT compteur_km 
-      FROM carburant 
-      WHERE id_vehicule = ? 
-      ORDER BY date_operation DESC, id_carburant DESC 
-      LIMIT 1
-    `;
-    const compteurResult = await new Promise((resolve, reject) => {
-      db.query(compteurQuery, [id_vehicule], (err, result) => {
-        if (err) return reject(err);
-        resolve(result);
-      });
-    });
-
-    const compteur_precedent =
-      compteurResult && compteurResult.length > 0
-        ? compteurResult[0].compteur_km
-        : 0;
+    const compteurResult = await query(
+      `SELECT compteur_km FROM carburant WHERE id_vehicule = ? ORDER BY date_operation DESC, id_carburant DESC LIMIT 1`,
+      [id_vehicule]
+    );
+    const compteur_precedent = compteurResult?.[0]?.compteur_km || 0;
 
     // 4️⃣ Calculs automatiques
-    const distance = compteur_km - compteur_precedent;
-    const consommation = distance > 0 ? (quantite_litres * 100) / distance : 0;
-    const montant_total_cdf = quantite_litres * prix_cdf;
-    const montant_total_usd = montant_total_cdf / taux_usd;
+    const distance_parcourue = compteur_km - compteur_precedent;
+    const consommation_100km =
+      distance_parcourue > 0
+        ? parseFloat(((quantite_litres * 100) / distance_parcourue).toFixed(2))
+        : 0;
 
-    // 5️⃣ Insertion dans la table carburant
+    const montant_total_cdf = parseFloat((quantite_litres * prix_cdf).toFixed(2));
+    const montant_total_usd = parseFloat((montant_total_cdf / taux_usd).toFixed(2));
+    const prix_usd = parseFloat((prix_cdf / taux_usd).toFixed(2));
+
+    // 5️⃣ Insertion dans la base
     const insertQuery = `
       INSERT INTO carburant (
         num_pc,
@@ -293,9 +287,11 @@ exports.postCarburant = async (req, res) => {
         compteur_km,
         distance,
         consommation,
-        commentaire
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        commentaire,
+        created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `;
+
     const insertValues = [
       num_pc || null,
       num_facture || null,
@@ -309,26 +305,23 @@ exports.postCarburant = async (req, res) => {
       montant_total_usd,
       id_fournisseur || null,
       compteur_km,
-      distance,
-      consommation,
+      distance_parcourue,
+      consommation_100km,
       commentaire || null,
     ];
 
-    await new Promise((resolve, reject) => {
-      db.query(insertQuery, insertValues, (err, result) => {
-        if (err) return reject(err);
-        resolve(result);
-      });
-    });
+    const insertResult = await query(insertQuery, insertValues);
 
+    // 6️⃣ Réponse API
     return res.status(201).json({
       message: "✅ Plein carburant enregistré avec succès.",
       data: {
+        id: insertResult.insertId,
         prix_cdf,
         prix_usd,
         taux_usd,
-        distance,
-        consommation,
+        distance_parcourue,
+        consommation_100km,
         montant_total_cdf,
         montant_total_usd,
       },
