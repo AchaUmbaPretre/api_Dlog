@@ -41,4 +41,8 @@ router.get('/carburant_prix', carburantController.getCarburantPrice);
 router.get('/carburant_prix_limit', carburantController.getCarburantPriceLimit);
 router.post('/carburant_prix', carburantController.postCarburantPrice);
 
+//Alert 
+router.get('/alert_carburant', carburantController.getAlertCarburant);
+router.put('/alert_carburant', carburantController.putAlertCarburantIsRead)
+
 module.exports = router;
