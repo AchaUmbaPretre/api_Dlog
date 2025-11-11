@@ -213,34 +213,25 @@ exports.postCarburant = async (req, res) => {
   } = req.body;
 
   try {
-    // ✅ Vérification des champs obligatoires
     if (!id_vehicule || !compteur_km || !quantite_litres) {
       return res.status(400).json({
-        error:
-          "Les champs 'id_vehicule', 'quantite_litres' et 'compteur_km' sont obligatoires.",
+        error: "Les champs 'id_vehicule', 'quantite_litres' et 'compteur_km' sont obligatoires.",
       });
     }
 
-    // Utilisation de promisify pour async/await
     const query = promisify(db.query).bind(db);
 
-    // 1️⃣ Récupération du dernier prix carburant
+    // 1️⃣ Prix carburant le plus récent
     const priceResult = await query(`
       SELECT prix_cdf, taux_usd
       FROM prix_carburant
       ORDER BY date_effective DESC, id_prix_carburant DESC
       LIMIT 1
     `);
-
-    if (!priceResult || priceResult.length === 0) {
-      return res.status(400).json({
-        error: "Aucun prix carburant trouvé. Veuillez le définir dans le panneau admin.",
-      });
-    }
+    if (!priceResult?.length)
+      return res.status(400).json({ error: "Aucun prix carburant défini." });
 
     let { prix_cdf, taux_usd } = priceResult[0];
-
-    // 2️⃣ Si taux_usd est invalide, récupérer le dernier taux valide
     if (!taux_usd || taux_usd <= 1) {
       const tauxResult = await query(`
         SELECT taux_usd
@@ -249,17 +240,33 @@ exports.postCarburant = async (req, res) => {
         ORDER BY date_effective DESC, id_prix_carburant DESC
         LIMIT 1
       `);
-      taux_usd = tauxResult?.[0]?.taux_usd || 2200; // fallback ultime
+      taux_usd = tauxResult?.[0]?.taux_usd || 2200;
     }
 
-    // 3️⃣ Dernier compteur du véhicule
-    const compteurResult = await query(
-      `SELECT compteur_km FROM carburant WHERE id_vehicule = ? ORDER BY date_operation DESC, id_carburant DESC LIMIT 1`,
+    // 2️⃣ Dernier compteur du véhicule
+    const [lastCarburant] = await query(
+      `SELECT compteur_km, date_operation
+       FROM carburant
+       WHERE id_vehicule = ?
+       ORDER BY date_operation DESC, id_carburant DESC
+       LIMIT 1`,
       [id_vehicule]
     );
-    const compteur_precedent = compteurResult?.[0]?.compteur_km || 0;
+    const compteur_precedent = lastCarburant?.compteur_km || 0;
 
-    // 4️⃣ Calculs automatiques
+    // 3️⃣ Infos du véhicule + catégorie
+    const [vehicule] = await query(
+      `SELECT v.capacite_reservoir, v.id_cat_vehicule, c.nom_cat, c.abreviation
+       FROM vehicules v
+       LEFT JOIN cat_vehicule c ON v.id_cat_vehicule = c.id_cat_vehicule
+       WHERE v.id_vehicule = ?`,
+      [id_vehicule]
+    );
+    const capacite_max = vehicule?.capacite_reservoir || 0;
+    const cat_nom = vehicule?.nom_cat || "Inconnu";
+    const cat_abrev = vehicule?.abreviation || "N/A";
+
+    // 4️⃣ Calculs
     const distance_parcourue = compteur_km - compteur_precedent;
     const consommation_100km =
       distance_parcourue > 0
@@ -270,49 +277,127 @@ exports.postCarburant = async (req, res) => {
     const montant_total_usd = parseFloat((montant_total_cdf / taux_usd).toFixed(2));
     const prix_usd = parseFloat((prix_cdf / taux_usd).toFixed(2));
 
-    // 5️⃣ Insertion dans la base
-    const insertQuery = `
-      INSERT INTO carburant (
-        num_pc,
-        num_facture,
-        date_operation,
+    // 5️⃣ Alertes dynamiques
+    const alertes = [];
+
+    if (compteur_precedent > 0 && compteur_km < compteur_precedent) {
+      alertes.push({
+        type_alerte: "KM incohérent",
+        message: `Le kilométrage actuel (${compteur_km}) est inférieur au précédent (${compteur_precedent}).`,
+        niveau: "Critical",
+      });
+    }
+
+    if (quantite_litres > capacite_max && capacite_max > 0) {
+      alertes.push({
+        type_alerte: "Capacité dépassée",
+        message: `Quantité (${quantite_litres} L) supérieure à la capacité du réservoir (${capacite_max} L).`,
+        niveau: "Critical",
+      });
+    }
+
+    if (lastCarburant && new Date(date_operation) < new Date(lastCarburant.date_operation)) {
+      alertes.push({
+        type_alerte: "Date incohérente",
+        message: `La date du plein (${date_operation}) est antérieure au dernier plein (${lastCarburant.date_operation}).`,
+        niveau: "Warning",
+      });
+    }
+
+    if (distance_parcourue <= 0) {
+      alertes.push({
+        type_alerte: "Distance nulle ou négative",
+        message: `Distance calculée (${distance_parcourue} km) incohérente.`,
+        niveau: "Critical",
+      });
+    }
+
+    if (distance_parcourue > 1000) {
+      alertes.push({
+        type_alerte: "Distance excessive",
+        message: `Distance inhabituelle (${distance_parcourue} km) entre deux pleins.`,
+        niveau: "Warning",
+      });
+    }
+
+    // 6️⃣ Seuils de consommation par catégorie
+    let minConso = 5, maxConso = 80;
+    switch (cat_abrev) {
+      case "SUV": // Voitures
+        [minConso, maxConso] = [5, 15];
+        break;
+      case "< 7,5 T":
+      case "> 7,5 T":
+      case "> 20T":
+        [minConso, maxConso] = [20, 45];
+        break;
+      case "Bus":
+        [minConso, maxConso] = [25, 60];
+        break;
+      case "2Roues":
+        [minConso, maxConso] = [2, 8];
+        break;
+      case "Agri":
+      case "Engin":
+        [minConso, maxConso] = [10, 80];
+        break;
+      default:
+        [minConso, maxConso] = [5, 50];
+    }
+
+    if (consommation_100km < minConso || consommation_100km > maxConso) {
+      alertes.push({
+        type_alerte: "Consommation anormale",
+        message: `Consommation ${consommation_100km} L/100km hors norme pour catégorie ${cat_nom} (${minConso}-${maxConso}).`,
+        niveau: "Warning",
+      });
+    }
+
+    // 7️⃣ Si alerte critique → option : bloquer l’enregistrement
+    const alerteCritique = alertes.find((a) => a.niveau === "Critical");
+    if (alerteCritique) {
+      return res.status(400).json({
+        error: "Données incohérentes détectées.",
+        alertes: alertes,
+      });
+    }
+
+    // 8️⃣ Enregistrement du plein
+    const insertResult = await query(
+      `INSERT INTO carburant (
+        num_pc, num_facture, date_operation, id_vehicule, id_chauffeur,
+        quantite_litres, prix_cdf, prix_usd, montant_total_cdf, montant_total_usd,
+        id_fournisseur, compteur_km, distance, consommation, commentaire, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        num_pc || null,
+        num_facture || null,
+        date_operation || new Date(),
         id_vehicule,
-        id_chauffeur,
+        id_chauffeur || null,
         quantite_litres,
         prix_cdf,
         prix_usd,
         montant_total_cdf,
         montant_total_usd,
-        id_fournisseur,
+        id_fournisseur || null,
         compteur_km,
-        distance,
-        consommation,
-        commentaire,
-        created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-    `;
+        distance_parcourue,
+        consommation_100km,
+        commentaire || null,
+      ]
+    );
 
-    const insertValues = [
-      num_pc || null,
-      num_facture || null,
-      date_operation || new Date(),
-      id_vehicule,
-      id_chauffeur || null,
-      quantite_litres,
-      prix_cdf,
-      prix_usd,
-      montant_total_cdf,
-      montant_total_usd,
-      id_fournisseur || null,
-      compteur_km,
-      distance_parcourue,
-      consommation_100km,
-      commentaire || null,
-    ];
+    // 9️⃣ Journalisation des alertes
+    for (const a of alertes) {
+      await query(
+        `INSERT INTO alertes_charroi (vehicule_id, type_alerte, message, niveau, status, created_at)
+         VALUES (?, ?, ?, ?, 'Ouverte', NOW())`,
+        [id_vehicule, a.type_alerte, a.message, a.niveau]
+      );
+    }
 
-    const insertResult = await query(insertQuery, insertValues);
-
-    // 6️⃣ Réponse API
+    // 🔟 Réponse
     return res.status(201).json({
       message: "✅ Plein carburant enregistré avec succès.",
       data: {
@@ -324,6 +409,9 @@ exports.postCarburant = async (req, res) => {
         consommation_100km,
         montant_total_cdf,
         montant_total_usd,
+        categorie: cat_nom,
+        alertes_detectees: alertes.length,
+        details_alertes: alertes,
       },
     });
   } catch (error) {
@@ -534,4 +622,36 @@ exports.postCarburantPrice = async (req, res) => {
         console.error("Erreur lors de l'ajout du prix du carburant :", error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du prix carburant." });
     }
+};
+
+//ALERT
+exports.getAlertCarburant = (req, res) => {
+
+    const q = `SELECT 
+                *
+                FROM alertes_charroi WHERE status = 'Ouverte'
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.putAlertCarburantIsRead = (req, res) => {
+    const { id_alerte } = req.query;
+    if(!id_alerte) {
+      return res.status(400).json({ error: 'Invalid ALERT ID provided' });
+    }
+    const q = `UPDATE SET status = 'Fermée' WHERE id_alerte = ?
+            `;
+
+    db.query(q, [id_alerte], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
 };
