@@ -655,3 +655,95 @@ exports.putAlertCarburantIsRead = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+
+// Rapport global carburant
+exports.rapportCarburantAll = async (req, res) => {
+  try {
+    const { date_debut, date_fin } = req.query;
+    if (!date_debut || !date_fin) {
+      return res.status(400).json({ message: "Période requise" });
+    }
+
+    const resume = await query(`
+      SELECT 
+        COUNT(*) AS total_pleins,
+        SUM(quantite_litres) AS total_litres,
+        SUM(montant_total_cdf) AS total_cdf,
+        SUM(montant_total_usd) AS total_usd,
+        ROUND(AVG(consommation), 2) AS conso_moyenne
+      FROM carburant
+      WHERE date_operation BETWEEN ? AND ?
+    `, [date_debut, date_fin]);
+
+    const parVehicule = await query(`
+      SELECT 
+        v.id_vehicule,
+        v.nom_vehicule,
+        SUM(c.quantite_litres) AS total_litres,
+        SUM(c.montant_total_cdf) AS total_cdf,
+        SUM(c.montant_total_usd) AS total_usd,
+        ROUND(AVG(c.consommation), 2) AS conso_moyenne
+      FROM carburant c
+      JOIN vehicule v ON v.id_vehicule = c.id_vehicule
+      WHERE c.date_operation BETWEEN ? AND ?
+      GROUP BY v.id_vehicule
+      ORDER BY total_litres DESC
+    `, [date_debut, date_fin]);
+
+    const coutHebdo = await query(`
+      SELECT 
+        YEARWEEK(date_operation, 1) AS semaine,
+        SUM(montant_total_cdf) AS total_cdf,
+        SUM(montant_total_usd) AS total_usd
+      FROM carburant
+      WHERE date_operation BETWEEN ? AND ?
+      GROUP BY YEARWEEK(date_operation, 1)
+      ORDER BY semaine ASC
+    `, [date_debut, date_fin]);
+
+    const repartition = await query(`
+      SELECT 
+        cat.abreviation,
+        SUM(c.quantite_litres) AS total_litres
+      FROM carburant c
+      JOIN vehicule_carburant vc ON vc.id_enregistrement = c.id_vehicule
+      JOIN vehicules v ON v.id_carburant_vehicule = vc.id_enregistrement
+      JOIN cat_vehicule cat ON cat.id_cat_vehicule = v.id_cat_vehicule
+      WHERE c.date_operation BETWEEN ? AND ?
+      GROUP BY cat.id_cat_vehicule
+    `, [date_debut, date_fin]);
+
+    const alertes = await query(`
+      SELECT 
+        c.id_carburant,
+        vc.immatriculation,
+        c.consommation,
+        c.quantite_litres,
+        c.date_operation,
+        CASE 
+          WHEN c.consommation > 35 THEN 'Surconsommation'
+          WHEN c.consommation < 5 THEN 'Sous consommation'
+          ELSE NULL
+        END AS type_alerte
+      FROM carburant c
+      JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement
+      WHERE c.date_operation BETWEEN ? AND ?
+      HAVING type_alerte IS NOT NULL
+      ORDER BY c.date_operation DESC
+      LIMIT 10
+    `, [date_debut, date_fin]);
+
+    return res.status(200).json({
+      periode: { date_debut, date_fin },
+      resume: resume[0],
+      graphiques: { parVehicule, coutHebdo, repartition },
+      detailVehicules: parVehicule,
+      alertes
+    });
+
+  } catch (error) {
+    console.error("Erreur rapportCarburantAll :", error);
+    res.status(500).json({ message: "Erreur interne du serveur" });
+  }
+};
