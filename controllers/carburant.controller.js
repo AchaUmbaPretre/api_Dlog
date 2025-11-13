@@ -3,6 +3,7 @@ const xlsx = require("xlsx");
 const fs = require("fs");
 const { resolve } = require("path");
 const { promisify } = require("util");
+const query = promisify(db.query).bind(db);
 
 
 //Vehicule carburant
@@ -417,7 +418,7 @@ exports.postCarburant = async (req, res) => {
   } catch (error) {
     console.error("❌ Erreur lors de l'ajout de carburant :", error);
     return res.status(500).json({
-      error: "Une erreur s'est produite lors de l'enregistrement du plein de carburant.",
+      error: `"Une erreur s'est produite lors de l'enregistrement du plein de carburant." ${error}`,
     });
   }
 };
@@ -665,6 +666,7 @@ exports.rapportCarburantAll = async (req, res) => {
       return res.status(400).json({ message: "Période requise" });
     }
 
+    // === 1️⃣ Résumé global ===
     const resume = await query(`
       SELECT 
         COUNT(*) AS total_pleins,
@@ -676,32 +678,36 @@ exports.rapportCarburantAll = async (req, res) => {
       WHERE date_operation BETWEEN ? AND ?
     `, [date_debut, date_fin]);
 
+    // === 2️⃣ Détails par véhicule ===
     const parVehicule = await query(`
       SELECT 
-        v.id_vehicule,
-        v.nom_vehicule,
+        vc.immatriculation,
+        vc.nom_marque,
         SUM(c.quantite_litres) AS total_litres,
         SUM(c.montant_total_cdf) AS total_cdf,
         SUM(c.montant_total_usd) AS total_usd,
         ROUND(AVG(c.consommation), 2) AS conso_moyenne
       FROM carburant c
-      JOIN vehicule v ON v.id_vehicule = c.id_vehicule
+      JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement
       WHERE c.date_operation BETWEEN ? AND ?
-      GROUP BY v.id_vehicule
+      GROUP BY vc.id_enregistrement
       ORDER BY total_litres DESC
     `, [date_debut, date_fin]);
 
+    // === 3️⃣ Coût hebdomadaire ===
     const coutHebdo = await query(`
       SELECT 
-        YEARWEEK(date_operation, 1) AS semaine,
-        SUM(montant_total_cdf) AS total_cdf,
-        SUM(montant_total_usd) AS total_usd
+          YEARWEEK(date_operation, 1) AS semaine,
+          COALESCE(SUM(montant_total_cdf), 0) AS total_cdf,
+          COALESCE(SUM(montant_total_usd), 0) AS total_usd
       FROM carburant
       WHERE date_operation BETWEEN ? AND ?
       GROUP BY YEARWEEK(date_operation, 1)
       ORDER BY semaine ASC
+
     `, [date_debut, date_fin]);
 
+    // === 4️⃣ Répartition par catégorie de véhicule ===
     const repartition = await query(`
       SELECT 
         cat.abreviation,
@@ -710,30 +716,27 @@ exports.rapportCarburantAll = async (req, res) => {
       JOIN vehicule_carburant vc ON vc.id_enregistrement = c.id_vehicule
       JOIN vehicules v ON v.id_carburant_vehicule = vc.id_enregistrement
       JOIN cat_vehicule cat ON cat.id_cat_vehicule = v.id_cat_vehicule
-      WHERE c.date_operation BETWEEN ? AND ?
       GROUP BY cat.id_cat_vehicule
     `, [date_debut, date_fin]);
 
+    // === 5️⃣ Alertes depuis alertes_charroi ===
     const alertes = await query(`
       SELECT 
-        c.id_carburant,
+        a.id_alerte,
         vc.immatriculation,
-        c.consommation,
-        c.quantite_litres,
-        c.date_operation,
-        CASE 
-          WHEN c.consommation > 35 THEN 'Surconsommation'
-          WHEN c.consommation < 5 THEN 'Sous consommation'
-          ELSE NULL
-        END AS type_alerte
-      FROM carburant c
-      JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement
-      WHERE c.date_operation BETWEEN ? AND ?
-      HAVING type_alerte IS NOT NULL
-      ORDER BY c.date_operation DESC
+        a.type_alerte,
+        a.message,
+        a.niveau,
+        a.status,
+        a.created_at
+      FROM alertes_charroi a
+      JOIN vehicule_carburant vc ON vc.id_enregistrement = a.vehicule_id
+      WHERE a.created_at BETWEEN ? AND ?
+      ORDER BY a.created_at DESC
       LIMIT 10
     `, [date_debut, date_fin]);
 
+    // === 6️⃣ Retour JSON complet ===
     return res.status(200).json({
       periode: { date_debut, date_fin },
       resume: resume[0],
