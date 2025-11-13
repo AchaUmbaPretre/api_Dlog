@@ -747,6 +747,6 @@ exports.rapportCarburantAll = async (req, res) => {
 
   } catch (error) {
     console.error("Erreur rapportCarburantAll :", error);
-    res.status(500).json({ message: "Erreur interne du serveur" });
+    res.status(500).json(error);
   }
 };
