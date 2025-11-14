@@ -657,7 +657,6 @@ exports.putAlertCarburantIsRead = (req, res) => {
     });
 };
 
-
 // Rapport global carburant
 exports.rapportCarburantAll = async (req, res) => {
   try {
