@@ -765,6 +765,7 @@ exports.rapportCarburantConsomGen = async(req, res) => {
           ch.prenom AS chauffeur_prenom, 
           s.nom_site, 
           s.id_site, 
+          COUNT(DISTINCT vc.id_enregistrement) nbre_vehicule,
           COUNT(DISTINCT c.id_carburant) AS total_pleins,
           SUM(DISTINCT c.compteur_km) AS total_kilometrage, 
           SUM(DISTINCT c.quantite_litres) AS total_litres 
@@ -788,6 +789,7 @@ exports.rapportCarburantConsomGen = async(req, res) => {
             ch.prenom AS chauffeur_prenom, 
             s.nom_site, 
             s.id_site, 
+            COUNT(DISTINCT vc.id_enregistrement) nbre_vehicule,
             COUNT(DISTINCT c.id_carburant) AS total_pleins,
             SUM(DISTINCT c.compteur_km) AS total_kilometrage, 
             SUM(DISTINCT c.quantite_litres) AS total_litres 
@@ -800,9 +802,38 @@ exports.rapportCarburantConsomGen = async(req, res) => {
             GROUP BY s.id_site
         `)
 
+      const sqlSitesAll = await query(`
+          SELECT 
+            c.id_carburant,
+            vc.immatriculation, 
+            vc.id_enregistrement, 
+            vc.nom_marque, 
+            vc.nom_modele, 
+            ch.nom AS  nom_chauffeur, 
+            ch.prenom AS prenom_chauffeur, 
+            s.nom_site, 
+            s.id_site,
+            p.name AS province,
+            z.NomZone AS zone,
+            COUNT(DISTINCT vc.id_enregistrement) nbre_vehicule,
+            COUNT(DISTINCT c.id_carburant) AS total_pleins,
+            SUM(DISTINCT c.compteur_km) AS total_kilometrage, 
+            SUM(DISTINCT c.quantite_litres) AS total_litres 
+          FROM carburant c 
+            LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement 
+            LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur 
+            LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
+            LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
+            INNER JOIN sites s ON sv.id_site = s.id_site 
+            LEFT JOIN zones z ON s.IdZone = z.id
+            LEFT JOIN provinces p ON s.IdVille = p.id
+            GROUP BY s.id_site
+        `)
+
       return res.status(200).json({
         sqlDetailSiegeKin,
-        sqlMesSites
+        sqlMesSites,
+        sqlSitesAll
       })
 
     } catch (error) {
