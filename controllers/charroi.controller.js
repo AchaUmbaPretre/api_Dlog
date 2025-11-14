@@ -823,6 +823,19 @@ exports.postSites = async (req, res) => {
     }
 }
 
+//Zone
+exports.getZones = (req, res) => {
+
+    const q = `SELECT * FROM zones`;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 //Affectation
 exports.getAffectation = async (req, res) => {
 

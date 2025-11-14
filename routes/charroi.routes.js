@@ -73,6 +73,9 @@ router.post('/affectation', charroiController.postAffectation)
 router.get('/site', charroiController.getSites)
 router.post('/site', charroiController.postSites)
 
+//Zones
+router.get('/zone', charroiController.getZones)
+
 //Controle technique
 router.get('/controle_technique', charroiController.getControleTechnique)
 router.post('/controle_technique', charroiController.postControlTechnique)
