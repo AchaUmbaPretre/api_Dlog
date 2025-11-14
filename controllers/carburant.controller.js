@@ -753,6 +753,7 @@ exports.rapportCarburantAll = async (req, res) => {
 exports.rapportCarburantConsomGen = async(req, res) => {
       try {
           const { period } = req.query;
+
       //Detail de siege kin
       const sqlDetailSiegeKin = await query(`
         SELECT 
