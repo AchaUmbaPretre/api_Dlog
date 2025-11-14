@@ -25,6 +25,9 @@ router.get('/vehicule_carburant', carburantController.getVehiculeCarburant);
 router.post('/vehicule_carburant', carburantController.postVehiculeCarburant);
 router.put('/relier_vehiculeCarburant', carburantController.putRelierVehiculeCarburant)
 
+//Type carburant
+router.get('/type_carburant', carburantController.getTypeCarburant);
+
 router.get('/', carburantController.getCarburant);
 router.get('/limit_ten', carburantController.getCarburantLimitTen);
 router.get('/one', carburantController.getCarburantOne)

@@ -110,6 +110,25 @@ exports.putRelierVehiculeCarburant = async (req, res) => {
   }
 };
 
+//TYPE CARBURANT
+exports.getTypeCarburant = async (req, res) => {
+
+    try {
+        const q = `SELECT * FROM type_carburant`;
+    
+        db.query(q, (error, data)=> {
+          if(error) {
+            console.error(error)
+          }
+          return res.status(200).json(data);
+        })
+    } catch (error) {
+        console.error('Erreur lors de la récupération des types de carburant:', error);
+        return res.status(500).json({
+            error: "Une erreur s'est produite lors de la récupération des types de carburant.",
+        });
+    }
+}
 //Carburant 
 exports.getCarburant = (req, res) => {
 
