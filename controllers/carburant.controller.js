@@ -749,3 +749,63 @@ exports.rapportCarburantAll = async (req, res) => {
     res.status(500).json(error);
   }
 };
+
+exports.rapportCarburantConsomGen = async(req, res) => {
+  try {
+    const { period } = req.query;
+
+    try {
+      //Detail de siege kin
+      const DetailSiegeKin = await query(`
+        SELECT 
+          c.id_carburant,
+          vc.immatriculation, 
+          vc.id_enregistrement, 
+          vc.nom_marque, 
+          vc.nom_modele, 
+          ch.nom AS chauffeur_nom, 
+          ch.prenom AS chauffeur_prenom, 
+          s.nom_site, 
+          s.id_site, 
+          COUNT(DISTINCT c.id_carburant) AS total_pleins,
+          SUM(DISTINCT c.compteur_km) AS total_kilometrage, 
+          SUM(DISTINCT c.quantite_litres) AS total_litres 
+        FROM carburant c 
+          LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement 
+          LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur 
+          LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
+          LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
+          LEFT JOIN sites s ON sv.id_site = s.id_site 
+          WHERE s.id_site = '28'
+        `)
+
+      const sqlMesSites = await query(`
+          SELECT 
+            c.id_carburant,
+            vc.immatriculation, 
+            vc.id_enregistrement, 
+            vc.nom_marque, 
+            vc.nom_modele, 
+            ch.nom AS chauffeur_nom, 
+            ch.prenom AS chauffeur_prenom, 
+            s.nom_site, 
+            s.id_site, 
+            COUNT(DISTINCT c.id_carburant) AS total_pleins,
+            SUM(DISTINCT c.compteur_km) AS total_kilometrage, 
+            SUM(DISTINCT c.quantite_litres) AS total_litres 
+          FROM carburant c 
+            LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement 
+            LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur 
+            LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
+            LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
+            INNER JOIN sites s ON sv.id_site = s.id_site 
+            GROUP BY s.id_site
+        `)
+
+    } catch (error) {
+      
+    }
+  } catch (error) {
+    
+  }
+}
