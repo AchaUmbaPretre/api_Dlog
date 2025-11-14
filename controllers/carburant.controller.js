@@ -751,12 +751,10 @@ exports.rapportCarburantAll = async (req, res) => {
 };
 
 exports.rapportCarburantConsomGen = async(req, res) => {
-  try {
-    const { period } = req.query;
-
-    try {
+      try {
+          const { period } = req.query;
       //Detail de siege kin
-      const DetailSiegeKin = await query(`
+      const sqlDetailSiegeKin = await query(`
         SELECT 
           c.id_carburant,
           vc.immatriculation, 
@@ -802,10 +800,13 @@ exports.rapportCarburantConsomGen = async(req, res) => {
             GROUP BY s.id_site
         `)
 
+      return res.status(200).json({
+        sqlDetailSiegeKin,
+        sqlMesSites
+      })
+
     } catch (error) {
-      
+        console.error("Erreur rapportCarburant :", error);
+        res.status(500).json(error);
     }
-  } catch (error) {
-    
-  }
 }

@@ -47,5 +47,5 @@ router.put('/alert_carburant', carburantController.putAlertCarburantIsRead)
 
 //Rapport carburant
 router.get('/rapport_carburant', carburantController.rapportCarburantAll);
-
+router.get('/rapport_consom_gen', carburantController.rapportCarburantConsomGen)
 module.exports = router;
