@@ -765,6 +765,7 @@ exports.rapportCarburantConsomGen = async (req, res) => {
 
     const periodFilter = `c.date_operation >= DATE_SUB(NOW(), INTERVAL ${days} DAY)`;
 
+    // 1. MES DETAILS SIEGE KIN
     const sqlDetailSiegeKin = await query(`
       SELECT 
         c.id_carburant,
@@ -791,9 +792,26 @@ exports.rapportCarburantConsomGen = async (req, res) => {
       GROUP BY s.id_site
     `);
 
-    // ===========================
+    // 2. MES SIETES KIN TYPE CARBURANT 
+    const sqlSiegeKinTypeCarburant = await query(`
+      SELECT 
+        tc.nom_type_carburant,
+        COUNT(DISTINCT vc.id_enregistrement) AS nbre_vehicule,
+        COUNT(c.id_carburant) AS total_pleins,
+        SUM(c.compteur_km) AS total_kilometrage, 
+        SUM(c.quantite_litres) AS total_litres 
+      FROM carburant c 
+        LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement 
+        LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur 
+        LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
+        LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
+        LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
+        LEFT JOIN sites s ON sv.id_site = s.id_site 
+      WHERE s.id_site = 28 AND ${periodFilter}
+      GROUP BY s.id_site, v.id_type_carburant
+    `);
+
     // 🔵 2. MES SITES (GROUP BY SITE)
-    // ===========================
     const sqlMesSites = await query(`
       SELECT 
         c.id_carburant,
@@ -819,9 +837,6 @@ exports.rapportCarburantConsomGen = async (req, res) => {
       GROUP BY s.id_site
     `);
 
-    // ===========================
-    // 🔵 3. TOUTES LES DONNÉES (SITES + PROVINCES + ZONES)
-    // ===========================
     const sqlSitesAll = await query(`
       SELECT 
         c.id_carburant,
@@ -858,6 +873,7 @@ exports.rapportCarburantConsomGen = async (req, res) => {
       sqlDetailSiegeKin,
       sqlMesSites,
       sqlSitesAll,
+      sqlSiegeKinTypeCarburant
     });
 
   } catch (error) {
