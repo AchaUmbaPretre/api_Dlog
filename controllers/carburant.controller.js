@@ -866,7 +866,7 @@ exports.rapportCarburantConsomGen = async (req, res) => {
       GROUP BY s.id_site
     `);
 
-    const sqlConsomTypeCarburant = `
+    const sqlConsomTypeCarburant = await query(`
       SELECT
         YEAR(c.date_operation) AS annee,
         MONTH(c.date_operation) AS mois,
@@ -886,13 +886,35 @@ exports.rapportCarburantConsomGen = async (req, res) => {
           tc.nom_type_carburant
         ORDER BY
           annee DESC, mois DESC
-      `
+      `);
+
+    const sqlConsomYearTypeCarburant = await query(`
+      SELECT
+          YEAR(c.date_operation) AS annee,
+          SUM(c.quantite_litres) AS total_conso,
+          tc.nom_type_carburant
+        FROM
+            carburant c
+            LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement
+            LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule
+            INNER JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
+          WHERE
+            YEAR(c.date_operation) = YEAR(CURDATE()) AND ${periodFilter}  -- Filtre pour l'année en cours
+          GROUP BY
+            YEAR(c.date_operation),
+            v.id_type_carburant,
+            tc.nom_type_carburant
+          ORDER BY
+            annee DESC
+    `);
+
     return res.status(200).json({
       sqlDetailSiegeKin,
       sqlMesSites,
       sqlSitesAll,
       sqlSiegeKinTypeCarburant,
-      sqlConsomTypeCarburant
+      sqlConsomTypeCarburant,
+      sqlConsomYearTypeCarburant
     });
 
   } catch (error) {
