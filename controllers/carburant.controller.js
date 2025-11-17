@@ -866,9 +866,27 @@ exports.rapportCarburantConsomGen = async (req, res) => {
       GROUP BY s.id_site
     `);
 
-    // ===========================
-    // 🔵 RÉPONSE FINALE
-    // ===========================
+      const sqlConsomTypeCarburant = `
+        SELECT
+          YEAR(c.date_operation) AS annee,
+          MONTH(c.date_operation) AS mois,
+          SUM(c.quantite_litres) AS total_conso,
+          tc.nom_type_carburant
+        FROM
+          carburant c
+          LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement
+          LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule
+          INNER JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
+        WHERE
+          YEAR(c.date_operation) = YEAR(CURDATE())  -- Filtre pour l'année en cours
+        GROUP BY
+          YEAR(c.date_operation),
+          MONTH(c.date_operation),
+          v.id_type_carburant,
+          tc.nom_type_carburant
+        ORDER BY
+          annee DESC, mois DESC
+      `
     return res.status(200).json({
       sqlDetailSiegeKin,
       sqlMesSites,
