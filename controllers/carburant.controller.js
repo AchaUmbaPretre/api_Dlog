@@ -777,6 +777,7 @@ exports.rapportCarburantConsomGen = async (req, res) => {
         ch.prenom AS chauffeur_prenom, 
         s.nom_site, 
         s.id_site, 
+        tc.nom_type_carburant,
         COUNT(DISTINCT vc.id_enregistrement) AS nbre_vehicule,
         COUNT(c.id_carburant) AS total_pleins,
         SUM(c.compteur_km) AS total_kilometrage, 
@@ -787,8 +788,9 @@ exports.rapportCarburantConsomGen = async (req, res) => {
         LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
         LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
         LEFT JOIN sites s ON sv.id_site = s.id_site 
+        LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
       WHERE s.id_site = 28
-        AND ${periodFilter}
+      AND ${periodFilter}
       GROUP BY s.id_site
     `);
 
