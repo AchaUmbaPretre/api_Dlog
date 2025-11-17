@@ -690,7 +690,7 @@ exports.rapportCarburantAll = async (req, res) => {
       JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement
       WHERE c.date_operation BETWEEN ? AND ?
       GROUP BY vc.id_enregistrement
-      ORDER BY total_litres DESC
+      ORDER BY c.date_operation DESC
     `, [date_debut, date_fin]);
 
     // === 3️⃣ Coût hebdomadaire ===

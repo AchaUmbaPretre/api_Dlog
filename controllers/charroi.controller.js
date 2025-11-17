@@ -588,36 +588,48 @@ exports.putRelierVehiculeFalcon = async (req, res) => {
 
 //Site vehicule
 exports.postSiteVehicule = (req, res) => {
-    const { id_vehicule, id_site } = req.body;
+    const { id_site, vehicules } = req.body;
 
-    if (!id_vehicule || !id_site) {
-        return res.status(400).json({ error: "Les champs 'id_vehicule' et 'id_site' sont requis." });
+    if (!id_site || !vehicules || !Array.isArray(vehicules) || vehicules.length === 0) {
+        return res.status(400).json({ error: "Les champs 'id_site' et 'vehicules' sont requis." });
     }
 
-    const checkQuery = 'SELECT * FROM sites_vehicule WHERE id_vehicule = ? AND id_site = ?';
-    db.query(checkQuery, [id_vehicule, id_site], (err, existing) => {
-        if (err) {
-            console.error("Erreur lors de la vérification :", err);
-            return res.status(500).json({ error: "Erreur lors de la vérification du véhicule." });
+    const results = [];
+
+    const processVehicle = (index) => {
+        if (index >= vehicules.length) {
+            return res.status(201).json({ results });
         }
 
-        if (existing.length > 0) {
-            return res.status(409).json({ message: 'Ce véhicule est déjà affecté à ce site.' });
-        }
+        const id_vehicule = vehicules[index];
 
-        const insertQuery = 'INSERT INTO sites_vehicule(`id_vehicule`, `id_site`) VALUES (?, ?)';
-        db.query(insertQuery, [id_vehicule, id_site], (err2) => {
-            if (err2) {
-                console.error("Erreur lors de l’insertion :", err2);
-                return res.status(500).json({ error: "Une erreur s'est produite lors de l'affectation du véhicule au site." });
+        const checkQuery = 'SELECT * FROM sites_vehicule WHERE id_vehicule = ? AND id_site = ?';
+        db.query(checkQuery, [id_vehicule, id_site], (err, existing) => {
+            if (err) {
+                results.push({ id_vehicule, status: 'error', message: 'Erreur de vérification' });
+                return processVehicle(index + 1);
             }
 
-            return res.status(201).json({
-                message: 'Le véhicule a été affecté au site avec succès.'
+            if (existing.length > 0) {
+                results.push({ id_vehicule, status: 'exists', message: 'Déjà affecté' });
+                return processVehicle(index + 1);
+            }
+
+            const insertQuery = 'INSERT INTO sites_vehicule(`id_vehicule`, `id_site`) VALUES (?, ?)';
+            db.query(insertQuery, [id_vehicule, id_site], (err2) => {
+                if (err2) {
+                    results.push({ id_vehicule, status: 'error', message: 'Erreur d’insertion' });
+                } else {
+                    results.push({ id_vehicule, status: 'success', message: 'Affecté avec succès' });
+                }
+                processVehicle(index + 1);
             });
         });
-    });
+    };
+
+    processVehicle(0);
 };
+
 
 //Chauffeur
 exports.getChauffeurCount = async(req, res) => {
