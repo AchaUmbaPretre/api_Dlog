@@ -801,7 +801,35 @@ exports.rapportCarburantConsomGen = async (req, res) => {
       GROUP BY s.id_site
     `);
 
-    // 2. MES SIETES KIN TYPE CARBURANT 
+    //2. VEHICULE INFO
+      const sqlVehiculeInfo = await query(`
+      SELECT 
+        c.id_carburant,
+        vc.immatriculation, 
+        vc.id_enregistrement, 
+        vc.nom_marque, 
+        vc.nom_modele, 
+        ch.nom AS chauffeur_nom, 
+        ch.prenom AS chauffeur_prenom, 
+        s.nom_site, 
+        s.id_site, 
+        tc.nom_type_carburant,
+        COUNT(DISTINCT vc.id_enregistrement) AS nbre_vehicule,
+        COUNT(c.id_carburant) AS total_pleins,
+        SUM(c.compteur_km) AS total_kilometrage, 
+        SUM(c.quantite_litres) AS total_litres 
+      FROM carburant c 
+        LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement 
+        LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur 
+        LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
+        LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
+        LEFT JOIN sites s ON sv.id_site = s.id_site 
+        LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
+        WHERE ${periodFilter}
+      GROUP BY c.id_chauffeur
+    `);
+
+    // 3. MES SIETES KIN TYPE CARBURANT 
     const sqlSiegeKinTypeCarburant = await query(`
       SELECT 
         tc.nom_type_carburant,
@@ -820,7 +848,7 @@ exports.rapportCarburantConsomGen = async (req, res) => {
       GROUP BY s.id_site, v.id_type_carburant
     `);
 
-    // 🔵 2. MES SITES (GROUP BY SITE)
+    // 4. MES SITES (GROUP BY SITE)
     const sqlMesSites = await query(`
       SELECT 
         c.id_carburant,
@@ -919,6 +947,7 @@ exports.rapportCarburantConsomGen = async (req, res) => {
 
     return res.status(200).json({
       sqlDetailSiegeKin,
+      sqlVehiculeInfo,
       sqlMesSites,
       sqlSitesAll,
       sqlSiegeKinTypeCarburant,
