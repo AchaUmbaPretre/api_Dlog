@@ -211,6 +211,7 @@ exports.postCarburant = async (req, res) => {
     id_fournisseur,
     compteur_km,
     commentaire,
+    force
   } = req.body;
 
   try {
@@ -281,13 +282,13 @@ exports.postCarburant = async (req, res) => {
     // 5️⃣ Alertes dynamiques
     const alertes = [];
 
-    if (compteur_precedent > 0 && compteur_km < compteur_precedent) {
-      alertes.push({
-        type_alerte: "KM incohérent",
-        message: `Le kilométrage actuel (${compteur_km}) est inférieur au précédent (${compteur_precedent}).`,
-        niveau: "Critical",
+    if (compteur_precedent > 0 && compteur_km < compteur_precedent && !force) {
+      return res.status(409).json({
+        askConfirmation: true,
+        message: `Le nouveau kilométrage (${compteur_km}) est inférieur au dernier (${compteur_precedent}). Voulez-vous enregistrer quand même ?`,
       });
     }
+
 
     if (quantite_litres > capacite_max && capacite_max > 0) {
       alertes.push({
@@ -354,16 +355,22 @@ exports.postCarburant = async (req, res) => {
       });
     }
 
-    // 7️⃣ Si alerte critique → option : bloquer l’enregistrement
+    // 7. Si alerte critique → option : bloquer l’enregistrement
     const alerteCritique = alertes.find((a) => a.niveau === "Critical");
-    if (alerteCritique) {
-      return res.status(400).json({
-        error: "Données incohérentes détectées.",
-        alertes: alertes,
-      });
-    }
 
-    // 8️⃣ Enregistrement du plein
+      // Seules les autres alertes critiques bloquent — pas KM incohérent si force=1
+      if (
+        alerteCritique &&
+        !(compteur_precedent > 0 && compteur_km < compteur_precedent && force)
+      ) {
+        return res.status(400).json({
+          error: "Données incohérentes détectées.",
+          alertes: alertes,
+        });
+      }
+
+
+    // 8️. Enregistrement du plein
     const insertResult = await query(
       `INSERT INTO carburant (
         num_pc, num_facture, date_operation, id_vehicule, id_chauffeur,
