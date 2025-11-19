@@ -826,7 +826,7 @@ exports.rapportCarburantConsomGen = async (req, res) => {
         LEFT JOIN sites s ON sv.id_site = s.id_site 
         LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
         WHERE ${periodFilter}
-      GROUP BY c.id_chauffeur
+      GROUP BY vc.id_enregistrement
     `);
 
     // 3. MES SIETES KIN TYPE CARBURANT 
