@@ -796,9 +796,9 @@ exports.rapportCarburantConsomGen = async (req, res) => {
         LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
         LEFT JOIN sites s ON sv.id_site = s.id_site 
         LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
-      WHERE s.id_site = 28
+      WHERE s.id_site = 1
       AND ${periodFilter}
-      GROUP BY s.id_enregistrement
+      GROUP BY vc.id_enregistrement
     `);
 
     //2. VEHICULE INFO
@@ -844,20 +844,13 @@ exports.rapportCarburantConsomGen = async (req, res) => {
         LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
         LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
         LEFT JOIN sites s ON sv.id_site = s.id_site 
-      WHERE s.id_site = 28 AND ${periodFilter}
+      WHERE s.id_site = 1 AND ${periodFilter}
       GROUP BY s.id_site, v.id_type_carburant
     `);
 
     // 4. MES SITES (GROUP BY SITE)
     const sqlMesSites = await query(`
       SELECT 
-        c.id_carburant,
-        vc.immatriculation, 
-        vc.id_enregistrement, 
-        vc.nom_marque, 
-        vc.nom_modele, 
-        ch.nom AS chauffeur_nom, 
-        ch.prenom AS chauffeur_prenom, 
         s.nom_site, 
         s.id_site, 
         COUNT(DISTINCT vc.id_enregistrement) AS nbre_vehicule,
@@ -876,13 +869,6 @@ exports.rapportCarburantConsomGen = async (req, res) => {
 
     const sqlSitesAll = await query(`
       SELECT 
-        c.id_carburant,
-        vc.immatriculation, 
-        vc.id_enregistrement, 
-        vc.nom_marque, 
-        vc.nom_modele, 
-        ch.nom AS nom_chauffeur, 
-        ch.prenom AS prenom_chauffeur, 
         s.nom_site, 
         s.id_site,
         p.name AS province,
@@ -893,7 +879,6 @@ exports.rapportCarburantConsomGen = async (req, res) => {
         SUM(c.quantite_litres) AS total_litres 
       FROM carburant c 
         LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement 
-        LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur 
         LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
         LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
         INNER JOIN sites s ON sv.id_site = s.id_site 
