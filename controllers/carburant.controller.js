@@ -1019,3 +1019,76 @@ exports.getRapportCatPeriode = (req, res) => {
     return res.status(200).json(data);
   });
 };
+
+exports.getRapportVehiculePeriode = (req, res) => {
+  const { month, id_vehicule, id_site, date_start, date_end } = req.query;
+
+  // Le paramètre month reste obligatoire
+  if (!month) {
+    return res.status(400).json({
+      message: "Le paramètre 'month' est requis au format YYYY-MM",
+    });
+  }
+
+  // Début du WHERE
+  let where = "WHERE DATE_FORMAT(c.date_operation, '%Y-%m') = ?";
+  const params = [month];
+
+  // ✔ Si date_start et date_end sont fournis → remplace complètement le filtre du mois
+  if (date_start && date_end) {
+    where = "WHERE DATE(c.date_operation) BETWEEN ? AND ?";
+    params.length = 0; // reset params
+    params.push(date_start, date_end);
+  }
+
+  // ✔ Filtre optionnel par véhicule
+  if (id_vehicule) {
+    where += " AND c.id_vehicule = ?";
+    params.push(id_vehicule);
+  }
+
+  // ✔ Filtre optionnel par site
+  if (id_site) {
+    where += " AND s.id_site = ?";
+    params.push(id_site);
+  }
+
+  const q = `
+        SELECT 
+      vc.nom_marque,
+      vc.immatriculation,
+      COUNT(c.id_carburant) AS total_pleins, 
+      SUM(c.compteur_km) AS total_kilometrage, 
+      SUM(c.quantite_litres) AS total_litres, 
+      SUM(c.consommation) AS total_consom, 
+      SUM(c.distance) AS total_distance, 
+      SUM(c.montant_total_cdf) AS total_total_cdf, 
+      SUM(c.montant_total_usd) AS total_total_usd 
+    FROM carburant c 
+      LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement 
+      LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
+      LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
+      LEFT JOIN sites s ON sv.id_site = s.id_site 
+      LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant 
+    ${where}
+  `;
+
+  db.query(q, params, (error, data) => {
+    if (error) {
+      console.error("Erreur SQL", error);
+      return res.status(500).json({
+        message: "Erreur lors de la récupération",
+        error: error.sqlMessage,
+      });
+    }
+
+    if (!data.length) {
+      return res.status(404).json({
+        message: "Aucune donnée trouvée pour les paramètres fournis.",
+      });
+    }
+
+    return res.status(200).json(data);
+  });
+};
+
