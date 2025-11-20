@@ -1071,6 +1071,7 @@ exports.getRapportVehiculePeriode = (req, res) => {
       LEFT JOIN sites s ON sv.id_site = s.id_site 
       LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant 
     ${where}
+    GROUP BY vc.id_enregistrement 
   `;
 
   db.query(q, params, (error, data) => {
