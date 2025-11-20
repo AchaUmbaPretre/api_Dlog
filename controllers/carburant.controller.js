@@ -950,6 +950,7 @@ exports.rapportCarburantConsomGen = async (req, res) => {
 exports.getRapportCatPeriode = (req, res) => {
   const { month, id_vehicule, id_site, date_start, date_end } = req.query;
 
+  // Le paramètre month reste obligatoire
   if (!month) {
     return res.status(400).json({
       message: "Le paramètre 'month' est requis au format YYYY-MM",
