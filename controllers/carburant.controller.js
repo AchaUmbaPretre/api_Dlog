@@ -968,13 +968,11 @@ exports.getRapportCatPeriode = (req, res) => {
     params.push(date_start, date_end);
   }
 
-  // ✔ Filtre optionnel par véhicule
   if (id_vehicule) {
     where += " AND c.id_vehicule = ?";
     params.push(id_vehicule);
   }
 
-  // ✔ Filtre optionnel par site
   if (id_site) {
     where += " AND s.id_site = ?";
     params.push(id_site);
@@ -1034,20 +1032,17 @@ exports.getRapportVehiculePeriode = (req, res) => {
   let where = "WHERE DATE_FORMAT(c.date_operation, '%Y-%m') = ?";
   const params = [month];
 
-  // ✔ Si date_start et date_end sont fournis → remplace complètement le filtre du mois
   if (date_start && date_end) {
     where = "WHERE DATE(c.date_operation) BETWEEN ? AND ?";
     params.length = 0; // reset params
     params.push(date_start, date_end);
   }
 
-  // ✔ Filtre optionnel par véhicule
   if (id_vehicule) {
     where += " AND c.id_vehicule = ?";
     params.push(id_vehicule);
   }
 
-  // ✔ Filtre optionnel par site
   if (id_site) {
     where += " AND s.id_site = ?";
     params.push(id_site);
