@@ -49,4 +49,7 @@ router.put('/alert_carburant', carburantController.putAlertCarburantIsRead)
 router.get('/rapport_carburant', carburantController.rapportCarburantAll);
 router.get('/rapport_consom_gen', carburantController.rapportCarburantConsomGen);
 
+//Rapport par periode cat
+router.get('/rapport_periode_cat', carburantController.getRapportCatPeriode);
+
 module.exports = router;
