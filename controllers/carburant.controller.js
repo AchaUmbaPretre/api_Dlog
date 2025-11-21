@@ -1058,7 +1058,7 @@ exports.getRapportCatPeriode = (req, res) => {
 };
 
 exports.getRapportVehiculePeriode = (req, res) => {
-  let { period, id_vehicule, id_site, id_cat_vehicule } = req.query;
+  let { period, vehicule, site, cat } = req.body;
 
   try {
     if (typeof period === "string") {
@@ -1083,17 +1083,16 @@ exports.getRapportVehiculePeriode = (req, res) => {
   let where = "WHERE 1=1";
   let params = [];
 
-  if (id_vehicule && Array.isArray(id_vehicule) && id_vehicule.length > 0 ) {
-    const escapedVehicules = id_vehicule.map(c => db.escape(c)).join(',');
-    where += `AND c.id_vehicule IN (${escapedVehicules})`;
-    params.push(id_vehicule);
+  if (vehicule && Array.isArray(vehicule) && vehicule.length > 0 ) {
+    const escapedVehicules = vehicule.map(c => db.escape(c)).join(',');
+    where += ` AND c.id_vehicule IN (${escapedVehicules})`;
+    params.push(escapedVehicules);
   }
 
-  if (id_site) {
-    const escapedSite = id_site.map(s => db.escape(s)).join(',');
-    where += `AND s.id_site IN ${escapedSite}`;
-    params.push(id_site);
-  }
+if (site && Array.isArray(site) && site.length > 0) {
+    const escapedSites = site.map(s => db.escape(s)).join(',');
+    where += ` AND s.id_site IN (${escapedSites})`;
+}
 
   // Filtres mois
   if (Array.isArray(months) && months.length > 0) {
