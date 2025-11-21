@@ -1060,7 +1060,6 @@ exports.getRapportCatPeriode = (req, res) => {
 exports.getRapportVehiculePeriode = (req, res) => {
   let { period, id_vehicule, id_site } = req.query;
 
-  // Parse period (arrive en string depuis req.query)
   try {
     if (typeof period === "string") {
       period = JSON.parse(period);
