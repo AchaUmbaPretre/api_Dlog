@@ -946,6 +946,45 @@ exports.rapportCarburantConsomGen = async (req, res) => {
   }
 };
 
+//ANNEE ET MOIS
+exports.getCarburantMois = (req, res) => {
+    const { annee } = req.query;
+
+    const q = `
+        SELECT 
+            MONTH(c.date_operation) AS mois
+        FROM carburant c
+        WHERE YEAR(c.date_operation) = ?
+        GROUP BY MONTH(c.date_operation)
+        ORDER BY MONTH(c.date_operation) DESC
+    `;
+
+    db.query(q, [annee], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.getCarburantAnnee = (req, res) => {
+
+    const q = `
+            SELECT 
+                YEAR(c.date_operation) AS annee
+                FROM carburant c
+            GROUP BY YEAR(c.date_operation)
+            ORDER BY YEAR(c.date_operation) DESC
+            `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+}
+
 //Rapport par periode cat
 exports.getRapportCatPeriode = (req, res) => {
   const { month, id_vehicule, id_site, date_start, date_end } = req.query;
@@ -1019,24 +1058,31 @@ exports.getRapportCatPeriode = (req, res) => {
 };
 
 exports.getRapportVehiculePeriode = (req, res) => {
-  const { month, id_vehicule, id_site, date_start, date_end } = req.query;
+  let { period, id_vehicule, id_site } = req.query;
 
-  // Le paramètre month reste obligatoire
-  if (!month) {
-    return res.status(400).json({
-      message: "Le paramètre 'month' est requis au format YYYY-MM",
-    });
+  // Parse period (arrive en string depuis req.query)
+  try {
+    if (typeof period === "string") {
+      period = JSON.parse(period);
+    }
+  } catch (e) {
+    return res.status(400).json({ message: "Format 'period' invalide" });
   }
 
-  // Début du WHERE
-  let where = "WHERE DATE_FORMAT(c.date_operation, '%Y-%m') = ?";
-  const params = [month];
+  let months = [];
+  let years = [];
 
-  if (date_start && date_end) {
-    where = "WHERE DATE(c.date_operation) BETWEEN ? AND ?";
-    params.length = 0; // reset params
-    params.push(date_start, date_end);
+  if (period?.mois?.length) {
+    months = period.mois.map(Number);
   }
+
+  if (period?.annees?.length) {
+    years = period.annees.map(Number);
+  }
+
+  // Base WHERE
+  let where = "WHERE 1=1";
+  let params = [];
 
   if (id_vehicule) {
     where += " AND c.id_vehicule = ?";
@@ -1048,26 +1094,43 @@ exports.getRapportVehiculePeriode = (req, res) => {
     params.push(id_site);
   }
 
+  // Filtres mois
+  if (Array.isArray(months) && months.length > 0) {
+    const escapedMonths = months.map(m => db.escape(m)).join(",");
+    where += ` AND MONTH(c.date_operation) IN (${escapedMonths})`;
+  }
+
+  // Filtres années
+  if (Array.isArray(years) && years.length > 0) {
+    const escapedYears = years.map(y => db.escape(y)).join(",");
+    where += ` AND YEAR(c.date_operation) IN (${escapedYears})`;
+  }
+
+  // Requête finale
   const q = `
-        SELECT 
-      vc.nom_marque,
-      vc.immatriculation,
-      COUNT(c.id_carburant) AS total_pleins, 
-      SUM(c.compteur_km) AS total_kilometrage, 
-      SUM(c.quantite_litres) AS total_litres, 
-      SUM(c.consommation) AS total_consom, 
-      SUM(c.distance) AS total_distance, 
-      SUM(c.montant_total_cdf) AS total_total_cdf, 
-      SUM(c.montant_total_usd) AS total_total_usd 
-    FROM carburant c 
-      LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement 
-      LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
-      LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
-      LEFT JOIN sites s ON sv.id_site = s.id_site 
-      LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant 
-    ${where}
-    GROUP BY vc.id_enregistrement 
-  `;
+      SELECT 
+        vc.nom_marque,
+        vc.immatriculation,
+        c.id_vehicule,
+        MONTH(c.date_operation) AS Mois,
+        YEAR(c.date_operation) AS Année,
+        COUNT(c.id_carburant) AS total_pleins, 
+        SUM(c.compteur_km) AS total_kilometrage, 
+        SUM(c.quantite_litres) AS total_litres, 
+        SUM(c.consommation) AS total_consom, 
+        SUM(c.distance) AS total_distance, 
+        SUM(c.montant_total_cdf) AS total_total_cdf, 
+        SUM(c.montant_total_usd) AS total_total_usd 
+      FROM carburant c 
+        LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement 
+        LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
+        LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
+        LEFT JOIN sites s ON sv.id_site = s.id_site 
+        LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant 
+        ${where}
+      GROUP BY c.id_vehicule, MONTH(c.date_operation), YEAR(c.date_operation)
+      ORDER BY MONTH(c.date_operation)
+    `;
 
   db.query(q, params, (error, data) => {
     if (error) {
@@ -1087,4 +1150,3 @@ exports.getRapportVehiculePeriode = (req, res) => {
     return res.status(200).json(data);
   });
 };
-
