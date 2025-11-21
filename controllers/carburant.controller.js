@@ -1058,7 +1058,7 @@ exports.getRapportCatPeriode = (req, res) => {
 };
 
 exports.getRapportVehiculePeriode = (req, res) => {
-  let { period, id_vehicule, id_site } = req.query;
+  let { period, id_vehicule, id_site, id_cat_vehicule } = req.query;
 
   try {
     if (typeof period === "string") {
@@ -1083,13 +1083,15 @@ exports.getRapportVehiculePeriode = (req, res) => {
   let where = "WHERE 1=1";
   let params = [];
 
-  if (id_vehicule) {
-    where += " AND c.id_vehicule = ?";
+  if (id_vehicule && Array.isArray(id_vehicule) && id_vehicule.length > 0 ) {
+    const escapedVehicules = id_vehicule.map(c => db.escape(c)).join(',');
+    where += `AND c.id_vehicule IN (${escapedVehicules})`;
     params.push(id_vehicule);
   }
 
   if (id_site) {
-    where += " AND s.id_site = ?";
+    const escapedSite = id_site.map(s => db.escape(s)).join(',');
+    where += `AND s.id_site IN ${escapedSite}`;
     params.push(id_site);
   }
 
