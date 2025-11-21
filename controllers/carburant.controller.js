@@ -1089,10 +1089,15 @@ exports.getRapportVehiculePeriode = (req, res) => {
     params.push(escapedVehicules);
   }
 
-if (site && Array.isArray(site) && site.length > 0) {
-    const escapedSites = site.map(s => db.escape(s)).join(',');
-    where += ` AND s.id_site IN (${escapedSites})`;
-}
+  if (site && Array.isArray(site) && site.length > 0) {
+      const escapedSites = site.map(s => db.escape(s)).join(',');
+      where += ` AND s.id_site IN (${escapedSites})`;
+  }
+
+  if (cat && Array.isArray(cat) && cat.length > 0) {
+      const escapedSites = cat.map(s => db.escape(s)).join(',');
+      where += ` AND cat.id_cat_vehicule IN (${escapedSites})`;
+  }
 
   // Filtres mois
   if (Array.isArray(months) && months.length > 0) {
@@ -1108,10 +1113,11 @@ if (site && Array.isArray(site) && site.length > 0) {
 
   // Requête finale
   const q = `
-      SELECT 
+SELECT 
         vc.nom_marque,
         vc.immatriculation,
         c.id_vehicule,
+        cat.nom_cat,
         MONTH(c.date_operation) AS Mois,
         YEAR(c.date_operation) AS Année,
         COUNT(c.id_carburant) AS total_pleins, 
@@ -1124,12 +1130,13 @@ if (site && Array.isArray(site) && site.length > 0) {
       FROM carburant c 
         LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement 
         LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
+        LEFT JOIN cat_vehicule cat ON v.id_cat_vehicule = cat.id_cat_vehicule
         LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
         LEFT JOIN sites s ON sv.id_site = s.id_site 
         LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant 
         ${where}
-      GROUP BY c.id_vehicule, MONTH(c.date_operation), YEAR(c.date_operation)
-      ORDER BY MONTH(c.date_operation)
+      GROUP BY c.id_vehicule, cat.id_cat_vehicule, MONTH(c.date_operation), YEAR(c.date_operation)
+      ORDER BY MONTH(c.date_operation);
     `;
 
   db.query(q, params, (error, data) => {
