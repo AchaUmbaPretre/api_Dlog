@@ -203,17 +203,40 @@ exports.getCarburantLimitTen = (req, res) => {
 };
 
 exports.getCarburantOne = (req, res) => {
-    const { id_vehicule } = req.query;
+    const { id_vehicule, id_carburant } = req.query;
 
-    const q = `SELECT * FROM carburant WHERE id_vehicule = ?`;
+    const where = [];
+    const params = [];
 
-    db.query(q, [id_vehicule], (error, data) => {
+    if (id_vehicule) {
+        where.push("id_vehicule = ?");
+        params.push(id_vehicule);
+    }
+
+    if (id_carburant) {
+        where.push("id_carburant = ?");
+        params.push(id_carburant);
+    }
+
+    if (where.length === 0) {
+        return res.status(400).json({ message: "Vous devez fournir 'id_vehicule' ou 'id_carburant'." });
+    }
+
+    const whereClause = "WHERE " + where.join(" AND ");
+
+    const q = `SELECT * FROM carburant ${whereClause}`;
+
+    db.query(q, params, (error, data) => {
         if (error) {
-            return res.status(500).send(error);
+            return res.status(500).json({ message: "Erreur SQL", error: error.sqlMessage });
+        }
+        if (!data.length) {
+            return res.status(404).json({ message: "Aucune donnée trouvée." });
         }
         return res.status(200).json(data);
     });
 };
+
 
 exports.postCarburant = async (req, res) => {
   const {
