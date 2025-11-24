@@ -988,6 +988,7 @@ exports.getCarburantAnnee = (req, res) => {
 //Rapport par periode cat
 exports.getRapportCatPeriode = (req, res) => {
   const { month, id_vehicule, id_site, date_start, date_end, cat } = req.query;
+
   // Validation
   if (!month && !(date_start && date_end)) {
     return res.status(400).json({
@@ -1031,10 +1032,10 @@ exports.getRapportCatPeriode = (req, res) => {
 
   const whereClause = where.length ? "WHERE " + where.join(" AND ") : "";
 
-  // 🔥 Requête SQL ultra propre
+  // 🔥 Requête SQL corrigée
   const q = `
     SELECT 
-      DATE_FORMAT(c.date_operation, '%d') AS jour,
+      DATE(c.date_operation) AS date_jour,
       COUNT(c.id_carburant) AS total_pleins,
       SUM(c.compteur_km) AS total_kilometrage,
       SUM(c.quantite_litres) AS total_litres,
@@ -1050,8 +1051,8 @@ exports.getRapportCatPeriode = (req, res) => {
       LEFT JOIN sites s ON s.id_site = sv.id_site
       LEFT JOIN type_carburant tc ON tc.id_type_carburant = v.id_type_carburant
     ${whereClause}
-    GROUP BY jour
-    ORDER BY CAST(jour AS UNSIGNED)
+    GROUP BY date_jour
+    ORDER BY date_jour
   `;
 
   db.query(q, params, (error, data) => {
@@ -1071,6 +1072,7 @@ exports.getRapportCatPeriode = (req, res) => {
     res.status(200).json(data);
   });
 };
+
 
 
 exports.getRapportVehiculePeriode = (req, res) => {
