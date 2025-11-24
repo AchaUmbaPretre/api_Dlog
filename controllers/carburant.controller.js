@@ -988,74 +988,90 @@ exports.getCarburantAnnee = (req, res) => {
 //Rapport par periode cat
 exports.getRapportCatPeriode = (req, res) => {
   const { month, id_vehicule, id_site, date_start, date_end, cat } = req.query;
-
-  // Le paramètre month reste obligatoire
-  if (!month) {
+  // Validation
+  if (!month && !(date_start && date_end)) {
     return res.status(400).json({
-      message: "Le paramètre 'month' est requis au format YYYY-MM",
+      message: "Vous devez fournir 'month' ou bien 'date_start' et 'date_end'.",
     });
   }
 
-  // Début du WHERE
-  let where = "WHERE DATE_FORMAT(c.date_operation, '%Y-%m') = ?";
-  const params = [month];
+  // Construction dynamique du WHERE
+  const where = [];
+  const params = [];
 
-  // ✔ Si date_start et date_end sont fournis → remplace complètement le filtre du mois
+  // Filtre mensuel si pas de période
+  if (month && !(date_start && date_end)) {
+    where.push("DATE_FORMAT(c.date_operation, '%Y-%m') = ?");
+    params.push(month);
+  }
+
+  // Filtre période
   if (date_start && date_end) {
-    where = "WHERE DATE(c.date_operation) BETWEEN ? AND ?";
-    params.length = 0; // reset params
+    where.push("DATE(c.date_operation) BETWEEN ? AND ?");
     params.push(date_start, date_end);
   }
 
+  // Catégorie
+  if (cat) {
+    where.push("cat.id_cat_vehicule = ?");
+    params.push(cat);
+  }
+
+  // Véhicule
   if (id_vehicule) {
-    where += " AND c.id_vehicule = ?";
+    where.push("c.id_vehicule = ?");
     params.push(id_vehicule);
   }
 
+  // Site
   if (id_site) {
-    where += " AND s.id_site = ?";
+    where.push("s.id_site = ?");
     params.push(id_site);
   }
 
+  const whereClause = where.length ? "WHERE " + where.join(" AND ") : "";
+
+  // 🔥 Requête SQL ultra propre
   const q = `
     SELECT 
-      DATE_FORMAT(c.date_operation, '%d') AS jour, 
-      COUNT(c.id_carburant) AS total_pleins, 
-      SUM(c.compteur_km) AS total_kilometrage, 
-      SUM(c.quantite_litres) AS total_litres, 
-      SUM(c.consommation) AS total_consom, 
-      SUM(c.distance) AS total_distance, 
-      SUM(c.montant_total_cdf) AS total_total_cdf, 
-      SUM(c.montant_total_usd) AS total_total_usd 
-    FROM carburant c 
-      LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement 
-      LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
-      LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
-      LEFT JOIN sites s ON sv.id_site = s.id_site 
-      LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant 
-    ${where}
-    GROUP BY jour 
+      DATE_FORMAT(c.date_operation, '%d') AS jour,
+      COUNT(c.id_carburant) AS total_pleins,
+      SUM(c.compteur_km) AS total_kilometrage,
+      SUM(c.quantite_litres) AS total_litres,
+      SUM(c.consommation) AS total_consom,
+      SUM(c.distance) AS total_distance,
+      SUM(c.montant_total_cdf) AS total_total_cdf,
+      SUM(c.montant_total_usd) AS total_total_usd
+    FROM carburant c
+      LEFT JOIN vehicule_carburant vc ON vc.id_enregistrement = c.id_vehicule
+      LEFT JOIN vehicules v ON v.id_carburant_vehicule = vc.id_enregistrement
+      LEFT JOIN cat_vehicule cat ON cat.id_cat_vehicule = v.id_cat_vehicule
+      LEFT JOIN sites_vehicule sv ON sv.id_vehicule = v.id_vehicule
+      LEFT JOIN sites s ON s.id_site = sv.id_site
+      LEFT JOIN type_carburant tc ON tc.id_type_carburant = v.id_type_carburant
+    ${whereClause}
+    GROUP BY jour
     ORDER BY CAST(jour AS UNSIGNED)
   `;
 
   db.query(q, params, (error, data) => {
     if (error) {
-      console.error("Erreur SQL", error);
       return res.status(500).json({
-        message: "Erreur lors de la récupération",
+        message: "Erreur SQL lors de la récupération",
         error: error.sqlMessage,
       });
     }
 
-    if (!data.length) {
+    if (!data || !data.length) {
       return res.status(404).json({
         message: "Aucune donnée trouvée pour les paramètres fournis.",
       });
     }
 
-    return res.status(200).json(data);
+    res.status(200).json(data);
   });
 };
+
 
 exports.getRapportVehiculePeriode = (req, res) => {
   let { period, vehicule, site, cat } = req.body;
