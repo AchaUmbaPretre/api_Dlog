@@ -987,7 +987,7 @@ exports.getCarburantAnnee = (req, res) => {
 
 //Rapport par periode cat
 exports.getRapportCatPeriode = (req, res) => {
-  const { month, id_vehicule, id_site, date_start, date_end } = req.query;
+  const { month, id_vehicule, id_site, date_start, date_end, cat } = req.query;
 
   // Le paramètre month reste obligatoire
   if (!month) {
