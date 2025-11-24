@@ -149,42 +149,57 @@ exports.getCarburant = (req, res) => {
 };
 
 exports.getCarburantLimitTen = (req, res) => {
-    const q = `
-        SELECT 
-            c.id_carburant, 
-            c.num_pc, 
-            c.num_facture, 
-            c.date_operation, 
-            c.quantite_litres,
-            c.compteur_km, 
-            c.distance, 
-            c.consommation,
-            c.prix_cdf,
-            c.prix_usd,
-            c.montant_total_cdf,
-            c.montant_total_usd,
-            c.commentaire,
-            v.id_enregistrement,
-            v.nom_marque,
-            v.nom_modele,
-            v.immatriculation,
-            ch.nom AS nom_chauffeur,
-            ch.prenom AS prenom,
-            f.nom_fournisseur
-        FROM carburant c
-        LEFT JOIN vehicule_carburant v ON c.id_vehicule = v.id_enregistrement
-        LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
-        LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
-        ORDER BY c.id_carburant DESC
-        LIMIT 10
-    `;
+  const { id_vehicule } = req.query;
 
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    });
+  // Déclaration des variables pour le WHERE dynamique
+  const where = [];
+  const params = [];
+
+  if (id_vehicule) {
+    where.push("c.id_vehicule = ?");
+    params.push(id_vehicule);
+  }
+
+  const whereClause = where.length ? "WHERE " + where.join(" AND ") : "";
+
+  const q = `
+    SELECT 
+        c.id_carburant, 
+        c.num_pc, 
+        c.num_facture, 
+        c.date_operation, 
+        c.quantite_litres,
+        c.compteur_km, 
+        c.distance, 
+        c.consommation,
+        c.prix_cdf,
+        c.prix_usd,
+        c.montant_total_cdf,
+        c.montant_total_usd,
+        c.commentaire,
+        v.id_enregistrement,
+        v.nom_marque,
+        v.nom_modele,
+        v.immatriculation,
+        ch.nom AS nom_chauffeur,
+        ch.prenom AS prenom,
+        f.nom_fournisseur,
+        c.id_vehicule
+    FROM carburant c
+    LEFT JOIN vehicule_carburant v ON c.id_vehicule = v.id_enregistrement
+    LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
+    LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
+    ${whereClause}
+    ORDER BY c.id_carburant DESC
+    LIMIT 10
+  `;
+
+  db.query(q, params, (error, data) => {
+    if (error) {
+      return res.status(500).json({ message: "Erreur SQL", error: error.sqlMessage });
+    }
+    return res.status(200).json(data);
+  });
 };
 
 exports.getCarburantOne = (req, res) => {
