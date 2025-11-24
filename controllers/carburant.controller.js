@@ -132,12 +132,15 @@ exports.getCarburant = (req, res) => {
                 v.immatriculation,
                 ch.nom AS nom_chauffeur,
                 ch.prenom AS prenom,
-                f.nom_fournisseur
+                f.nom_fournisseur,
+                cv.abreviation
                 FROM carburant c
                 LEFT JOIN vehicule_carburant v ON c.id_vehicule = v.id_enregistrement
+                LEFT JOIN vehicules ve ON c.id_vehicule = ve.id_carburant_vehicule
+                LEFT JOIN cat_vehicule cv ON ve.id_cat_vehicule = cv.id_cat_vehicule
                 LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
                 LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
-                ORDER BY c.date_operation DESC
+                ORDER BY c.date_operation DESC;
             `;
 
     db.query(q, (error, data) => {
