@@ -240,7 +240,6 @@ exports.getCarburantOne = (req, res) => {
     });
 };
 
-
 exports.postCarburant = async (req, res) => {
   const {
     num_pc,
