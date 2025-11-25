@@ -267,9 +267,10 @@ exports.postCarburant = async (req, res) => {
     const priceResult = await query(`
       SELECT prix_cdf, taux_usd
       FROM prix_carburant
+      WHERE id_type_carburant = ?
       ORDER BY date_effective DESC, id_prix_carburant DESC
       LIMIT 1
-    `);
+    `, [id_type_carburant]);
     if (!priceResult?.length)
       return res.status(400).json({ error: "Aucun prix carburant défini." });
 
