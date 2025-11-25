@@ -649,6 +649,7 @@ exports.getCarburantPriceLimit = async (req, res) => {
 exports.postCarburantPrice = async (req, res) => {
     const {
         date_effective,
+        id_type_carburant,
         prix_cdf,
         taux_usd
     } = req.body;
@@ -656,12 +657,14 @@ exports.postCarburantPrice = async (req, res) => {
     try {
         const q = `INSERT INTO prix_carburant (
                     date_effective,
+                    id_type_carburant,
                     prix_cdf,
                     taux_usd
-                ) VALUES (?, ?, ?)`;
+                ) VALUES (?, ?, ?, ?)`;
 
                 const values = [
                     date_effective,
+                    id_type_carburant,
                     prix_cdf,
                     taux_usd
                 ]
