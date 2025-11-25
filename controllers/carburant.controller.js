@@ -250,6 +250,7 @@ exports.postCarburant = async (req, res) => {
     id_chauffeur,
     quantite_litres,
     id_fournisseur,
+    id_type_carburant,
     compteur_km,
     commentaire,
     force
@@ -261,8 +262,6 @@ exports.postCarburant = async (req, res) => {
         error: "Les champs 'id_vehicule', 'quantite_litres' et 'compteur_km' sont obligatoires.",
       });
     }
-
-    const query = promisify(db.query).bind(db);
 
     // 1️⃣ Prix carburant le plus récent
     const priceResult = await query(`
@@ -416,8 +415,8 @@ exports.postCarburant = async (req, res) => {
       `INSERT INTO carburant (
         num_pc, num_facture, date_operation, id_vehicule, id_chauffeur,
         quantite_litres, prix_cdf, prix_usd, montant_total_cdf, montant_total_usd,
-        id_fournisseur, compteur_km, distance, consommation, commentaire, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        id_fournisseur, id_type_carburant, compteur_km, distance, consommation, commentaire, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         num_pc || null,
         num_facture || null,
@@ -430,6 +429,7 @@ exports.postCarburant = async (req, res) => {
         montant_total_cdf,
         montant_total_usd,
         id_fournisseur || null,
+        id_type_carburant,
         compteur_km,
         distance_parcourue,
         consommation_100km,
@@ -618,7 +618,12 @@ exports.postCarburantExcel = async (req, res) => {
 //Prix carburant
 exports.getCarburantPrice = async (req, res) => {
 
-    const q = `SELECT * FROM prix_carburant`;
+    const q = `SELECT 
+                pc.*, 
+                tc.nom_type_carburant 
+              FROM prix_carburant pc
+              LEFT JOIN type_carburant tc ON pc.id_type_carburant = tc.id_type_carburant
+              `;
 
     db.query(q, (error, data) => {
         if(error) {
@@ -1116,8 +1121,6 @@ exports.getRapportCatPeriode = (req, res) => {
     res.status(200).json(data);
   });
 };
-
-
 
 exports.getRapportVehiculePeriode = (req, res) => {
   let { period, vehicule, site, cat } = req.body;
