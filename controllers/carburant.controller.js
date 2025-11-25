@@ -257,9 +257,9 @@ exports.postCarburant = async (req, res) => {
   } = req.body;
 
   try {
-    if (!id_vehicule || !compteur_km || !quantite_litres) {
+    if (!id_vehicule || !compteur_km || !quantite_litres || !id_type_carburant) {
       return res.status(400).json({
-        error: "Les champs 'id_vehicule', 'quantite_litres' et 'compteur_km' sont obligatoires.",
+        error: "Les champs 'id_vehicule', 'id_type_carburant', 'quantite_litres' et 'compteur_km' sont obligatoires.",
       });
     }
 
@@ -635,21 +635,50 @@ exports.getCarburantPrice = async (req, res) => {
 };
 
 exports.getCarburantPriceLimit = async (req, res) => {
+  const { id_type_carburant } = req.query;
+
+  try {
+    if (!id_type_carburant) {
+      return res.status(400).json({
+        error: "Le paramètre 'id_type_carburant' est obligatoire."
+      });
+    }
 
     const q = `
-        SELECT 
-        * 
-        FROM 
-            prix_carburant
-        ORDER BY date_effective DESC LIMIT 1
+      SELECT 
+        prix_cdf,
+        taux_usd,
+        date_effective,
+        id_type_carburant
+      FROM prix_carburant
+      WHERE id_type_carburant = ?
+      ORDER BY date_effective DESC, id_prix_carburant DESC
+      LIMIT 1
     `;
 
-    db.query(q, (error, data) => {
-        if(error) {
-            return res.status(500).send(error)
-        }
-        return res.status(200).json(data)
-    })
+    db.query(q, [id_type_carburant], (error, results) => {
+      if (error) {
+        return res.status(500).json({
+          error: "Erreur lors de la récupération du prix carburant.",
+          details: error
+        });
+      }
+
+      if (!results || results.length === 0) {
+        return res.status(404).json({
+          error: "Aucun prix trouvé pour ce type de carburant."
+        });
+      }
+
+      return res.status(200).json(results[0]); // retourne un seul objet
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      error: "Erreur interne du serveur.",
+      details: err
+    });
+  }
 };
 
 exports.postCarburantPrice = async (req, res) => {
