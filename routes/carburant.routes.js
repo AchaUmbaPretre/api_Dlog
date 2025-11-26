@@ -23,6 +23,7 @@ const upload = multer({ storage });
 //Carburant vehicule
 router.get('/vehicule_carburant', carburantController.getVehiculeCarburant);
 router.post('/vehicule_carburant', carburantController.postVehiculeCarburant);
+router.put('/vehicule_carburant', carburantController.putVehiculeCarburant)
 router.put('/relier_vehiculeCarburant', carburantController.putRelierVehiculeCarburant)
 
 router.get('/', carburantController.getCarburant);

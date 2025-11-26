@@ -76,6 +76,36 @@ exports.postVehiculeCarburant = async (req, res) => {
   }
 };
 
+exports.putVehiculeCarburant = async (req, res) => {
+  try {
+    const { id_vehicule_carburant } = req.query;
+    const { nom_marque, nom_modele, num_serie, immatriculation, id_type_carburant } = req.body;
+
+    if (!id_vehicule_carburant) {
+      return res.status(400).json({ message: "Paramètres manquants (id_vehicule_carburant)." });
+    }
+
+    const q = `UPDATE vehicule_carburant 
+               SET id_enregistrement = ?, nom_marque = ?, nom_modele = ?, num_serie = ?, immatriculation = ?, id_type_carburant = ? 
+               WHERE id_vehicule_carburant = ?`;
+    const values = [nom_marque, nom_modele, num_serie, immatriculation, id_type_carburant, id_vehicule_carburant];
+
+    db.query(q, values, (error, data) => {
+      if (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Erreur lors de la mise à jour du véhicule.' });
+      }
+      if (data.affectedRows === 0) {
+        return res.status(404).json({ error: 'Véhicule non trouvé.' });
+      }
+      return res.json({ message: 'Véhicule mis à jour avec succès.' });
+    });
+  } catch (error) {
+    console.error("Error updating vehicule:", error);
+    return res.status(500).json({ error: 'Échec de la mise à jour du véhicule.' });
+  }
+};
+
 exports.putRelierVehiculeCarburant = async (req, res) => {
   try {
     const { id_vehicule } = req.query;
