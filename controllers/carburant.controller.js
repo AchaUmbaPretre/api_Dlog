@@ -10,8 +10,9 @@ const query = promisify(db.query).bind(db);
 exports.getVehiculeCarburant = (req, res) => {
 
     const q = `SELECT 
-                *
-                FROM vehicule_carburant
+                vc.*, tc.nom_type_carburant
+                FROM vehicule_carburant vc
+                LEFT JOIN type_carburant tc ON vc.id_type_carburant = tc.id_type_carburant
             `;
 
     db.query(q, (error, data) => {
@@ -25,7 +26,7 @@ exports.getVehiculeCarburant = (req, res) => {
 exports.getVehiculeCarburantOne = (req, res) => {
   const { id_vehicule_carburant } = req.query;
 
-    if(id_vehicule_carburant) {
+    if(!id_vehicule_carburant) {
        return res.status(400).json({message: 'Paramètres manquants.'})
     }
     const q = `SELECT 
