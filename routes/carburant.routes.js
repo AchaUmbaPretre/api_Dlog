@@ -28,7 +28,7 @@ router.put('/relier_vehiculeCarburant', carburantController.putRelierVehiculeCar
 
 router.get('/', carburantController.getCarburant);
 router.get('/limit_ten', carburantController.getCarburantLimitTen);
-router.get('/one', carburantController.getCarburantOne)
+router.get('/one', carburantController.getCarburantOne);
 router.post('/', carburantController.postCarburant);
 
 //Carburant vehicule  excel

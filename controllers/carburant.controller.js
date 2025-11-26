@@ -22,6 +22,26 @@ exports.getVehiculeCarburant = (req, res) => {
     });
 };
 
+exports.getVehiculeCarburantOne = (req, res) => {
+  const { id_vehicule_carburant } = req.query;
+
+    if(id_vehicule_carburant) {
+       return res.status(400).json({message: 'Paramètres manquants.'})
+    }
+    const q = `SELECT 
+                *
+                FROM vehicule_carburant
+              WHERE id_vehicule_carburant = ?
+            `;
+
+    db.query(q, [id_vehicule_carburant], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.postVehiculeCarburant = async (req, res) => {
   const { nom_marque, nom_modele, num_serie, immatriculation } = req.body;
 
