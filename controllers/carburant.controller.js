@@ -44,7 +44,7 @@ exports.getVehiculeCarburantOne = (req, res) => {
 };
 
 exports.postVehiculeCarburant = async (req, res) => {
-  const { nom_marque, nom_modele, num_serie, immatriculation } = req.body;
+  const { nom_marque, nom_modele, num_serie, immatriculation, id_type_carburant } = req.body;
 
   if (!nom_marque) {
     return res.status(400).json({ message: "Paramètres manquants." });
@@ -71,10 +71,10 @@ exports.postVehiculeCarburant = async (req, res) => {
       return new Promise((resolve, reject) => {
         const query = `
           INSERT INTO vehicule_carburant 
-          (id_enregistrement, nom_marque, nom_modele, num_serie, immatriculation)
-          VALUES (?, ?, ?, ?, ?)
+          (id_enregistrement, nom_marque, nom_modele, num_serie, immatriculation, id_type_carburant)
+          VALUES (?, ?, ?, ?, ?, ?)
         `;
-        const values = [nextId, nom_marque, nom_modele, num_serie, immatriculation];
+        const values = [nextId, nom_marque, nom_modele, num_serie, immatriculation, id_type_carburant];
 
         db.query(query, values, (err, result) => {
           if (err) return reject(err);
@@ -98,6 +98,7 @@ exports.postVehiculeCarburant = async (req, res) => {
 };
 
 exports.putVehiculeCarburant = async (req, res) => {
+
   try {
     const { id_vehicule_carburant } = req.query;
     const { nom_marque, nom_modele, num_serie, immatriculation, id_type_carburant } = req.body;
@@ -107,7 +108,7 @@ exports.putVehiculeCarburant = async (req, res) => {
     }
 
     const q = `UPDATE vehicule_carburant 
-               SET id_enregistrement = ?, nom_marque = ?, nom_modele = ?, num_serie = ?, immatriculation = ?, id_type_carburant = ? 
+               SET nom_marque = ?, nom_modele = ?, num_serie = ?, immatriculation = ?, id_type_carburant = ? 
                WHERE id_vehicule_carburant = ?`;
     const values = [nom_marque, nom_modele, num_serie, immatriculation, id_type_carburant, id_vehicule_carburant];
 
