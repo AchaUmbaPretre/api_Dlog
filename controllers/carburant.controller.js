@@ -185,13 +185,15 @@ exports.getCarburant = (req, res) => {
                 ch.nom AS nom_chauffeur,
                 ch.prenom AS prenom,
                 f.nom_fournisseur,
-                cv.abreviation
+                cv.abreviation,
+                u.nom AS createur
                 FROM carburant c
                 LEFT JOIN vehicule_carburant v ON c.id_vehicule = v.id_enregistrement
                 LEFT JOIN vehicules ve ON c.id_vehicule = ve.id_carburant_vehicule
                 LEFT JOIN cat_vehicule cv ON ve.id_cat_vehicule = cv.id_cat_vehicule
                 LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
                 LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
+                LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur
                 ORDER BY c.date_operation DESC;
             `;
 
@@ -304,6 +306,7 @@ exports.postCarburant = async (req, res) => {
     id_type_carburant,
     compteur_km,
     commentaire,
+    user_cr,
     force
   } = req.body;
 
@@ -467,8 +470,8 @@ exports.postCarburant = async (req, res) => {
       `INSERT INTO carburant (
         num_pc, num_facture, date_operation, id_vehicule, id_chauffeur,
         quantite_litres, prix_cdf, prix_usd, montant_total_cdf, montant_total_usd,
-        id_fournisseur, id_type_carburant, compteur_km, distance, consommation, commentaire, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        id_fournisseur, id_type_carburant, compteur_km, distance, consommation, commentaire, user_cr, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         num_pc || null,
         num_facture || null,
@@ -486,6 +489,7 @@ exports.postCarburant = async (req, res) => {
         distance_parcourue,
         consommation_100km,
         commentaire || null,
+        user_cr
       ]
     );
 
