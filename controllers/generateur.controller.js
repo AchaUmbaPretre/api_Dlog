@@ -1,6 +1,4 @@
 const { db } = require("./../config/database");
-const { promisify } = require("util");
-const query = promisify(db.query).bind(db);
 
 exports.getGenerateur = () => {
     const q = `SELECT * FROM generateur`;
@@ -11,7 +9,7 @@ exports.getGenerateur = () => {
         }
         return res.status(200).json(data);
     })
-}
+};
 
 exports.getGenerateurOne = () => {
     const { id_generateur } = req.query;
@@ -28,7 +26,7 @@ exports.getGenerateurOne = () => {
         }
         return res.status(200).json(data);
     })
-}
+};
 
 exports.postGenerateur = async (req, res) => {
     try {
