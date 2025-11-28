@@ -37,7 +37,7 @@ exports.getVehiculeCarburantOne = (req, res) => {
 
     db.query(q, [id_vehicule_carburant], (error, data) => {
         if (error) {
-            return res.status(500).send(error);
+          return res.status(500).send(error);
         }
         return res.status(200).json(data);
     });
