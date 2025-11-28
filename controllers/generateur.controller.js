@@ -30,68 +30,122 @@ exports.getGenerateurOne = () => {
     })
 }
 
-exports.postGenerateur = () => {
-    const { code_groupe, id_type_gen, id_modele, num_serie, puissance, reservoir, valeur_acquisition, dimension, poids, longueur, largeur, annee_fabrication, annee_service, img, id_type_carburant, refroidissement, puissanc_sec, capacite_radiateur, frequence, cos_phi, nbre_cylindre, tension,type_lubrifiant, puissance_acc, pression_acc, capacite_carter, regime_moteur_vehicule, consommation_carburant, demarrage, nbr_phase, disposition_cylindre, user_cr  } = req.body;
-
-    if(!id_modele) {
-        res.status(400).send({message : 'Il y a des champs manquants.'})
-    }
-
+exports.postGenerateur = async (req, res) => {
     try {
-        let img = null;
-        if (req.files && req.files.length > 0) {
-            img = req.files.map((file) => file.path.replace(/\\/g, '/')).join(',');
+        const {
+            code_groupe,
+            id_type_gen,
+            id_modele,
+            num_serie,
+            puissance,
+            reservoir,
+            valeur_acquisition,
+            dimension,
+            longueur,
+            largeur,
+            hauteur,
+            poids,
+            annee_fabrication,
+            annee_service,
+            id_type_carburant,
+            refroidissement,
+            puissance_sec,
+            capacite_radiateur,
+            frequence,
+            cos_phi,
+            nbre_cylindre,
+            tension,
+            type_lubrifiant,
+            puissance_acc,
+            pression_acc,
+            capacite_carter,
+            regime_moteur,
+            consommation_carburant,
+            demarrage,
+            nbr_phase,
+            disposition_cylindre,
+            user_cr
+        } = req.body;
+
+        // Vérification des champs obligatoires
+        if (!id_modele || !puissance || !id_type_gen ) {
+            return res.status(400).json({
+                message: "Veuillez remplir tous les champs obligatoires pour la logistique."
+            });
         }
 
-        const values =  [
-            code_groupe, 
-            id_type_gen, 
-            id_modele, 
-            num_serie, 
-            puissance, 
-            reservoir, 
-            valeur_acquisition, 
-            dimension, 
-            poids, 
-            longueur, 
-            largeur, 
-            annee_fabrication, 
-            annee_service, 
-            img, 
-            id_type_carburant, 
+        // Calcul automatique du volume (m3)
+        const volume = parseFloat(longueur) * parseFloat(largeur) * parseFloat(hauteur);
+
+        let img = null;
+        if (req.files && req.files.length > 0) {
+            img = req.files.map(file => file.path.replace(/\\/g, "/")).join(",");
+        }
+
+        const values = [
+            code_groupe,
+            id_type_gen,
+            id_modele,
+            num_serie,
+            puissance,
+            reservoir,
+            valeur_acquisition,
+            dimension,
+            longueur,
+            largeur,
+            hauteur,
+            poids,
+            volume,
+            annee_fabrication,
+            annee_service,
+            img,
+            id_type_carburant,
             refroidissement,
-             puissanc_sec, 
-             capacite_radiateur, 
-             frequence, 
-             cos_phi, 
-             nbre_cylindre, 
-             tension,
-             type_lubrifiant, 
-             puissance_acc, 
-             pression_acc, 
-             capacite_carter, 
-             regime_moteur_vehicule, 
-             consommation_carburant, 
-             demarrage, 
-             nbr_phase, 
-             disposition_cylindre, 
-             user_cr
+            puissance_sec,
+            capacite_radiateur,
+            frequence,
+            cos_phi,
+            nbre_cylindre,
+            tension,
+            type_lubrifiant,
+            puissance_acc,
+            pression_acc,
+            capacite_carter,
+            regime_moteur,
+            consommation_carburant,
+            demarrage,
+            nbr_phase,
+            disposition_cylindre,
+            id_carburant_vehicule,
+            user_cr
         ];
 
-        const q = `INSERT INTO generateur (code_groupe, id_type_gen, id_modele, num_serie, puissance, reservoir, valeur_acquisition, dimension, poids, longueur, largeur, annee_fabrication, annee_service, img, id_type_carburant, refroidissement, puissanc_sec, capacite_radiateur, frequence, cos_phi, nbre_cylindre, tension,type_lubrifiant, puissance_acc, pression_acc, capacite_carter, regime_moteur_vehicule, consommation_carburant, demarrage, nbr_phase, disposition_cylindre, user_cr)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        `
-        
-        db.query(q, values, (error, data)=> {
-            if(error) {
-                console.error(error)
+        const q = `
+            INSERT INTO generateur (
+                code_groupe, id_type_gen, id_modele, num_serie, puissance, reservoir, valeur_acquisition,
+                dimension, longueur, largeur, hauteur, poids, volume, annee_fabrication, annee_service, img,
+                id_type_carburant, refroidissement, puissance_sec, capacite_radiateur, frequence, cos_phi,
+                nbre_cylindre, tension, type_lubrifiant, puissance_acc, pression_acc, capacite_carter,
+                regime_moteur, consommation_carburant, demarrage, nbr_phase, disposition_cylindre, user_cr
+            )
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `;
+
+        db.query(q, values, (error) => {
+            if (error) {
+                console.error(error);
+                return res.status(500).json({ message: "Erreur serveur lors de l'ajout du générateur." });
             }
-            res.status(201).json({ message: 'Le générateur ajouté avec succès' });
-        })
-        
+
+            res.status(201).json({
+                message: "Générateur ajouté avec succès dans le système logistique (volume calculé automatiquement)."
+            });
+        });
+
     } catch (error) {
-        console.error("Erreur lors de l'ajout du generateur :", error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du generateur" });
+        console.error("Erreur lors de l'ajout :", error);
+        return res.status(500).json({
+            message: "Une erreur interne s'est produite."
+        });
     }
-    
-}
+};
