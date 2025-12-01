@@ -1,5 +1,93 @@
 const { db } = require("./../config/database");
 
+//Type des Générateurs
+exports.getTypeGenerateur = () => {
+    const q = `SELECT * FROM type_generateur`;
+
+    db.query(q, (error, data) => {
+        if(error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data)
+    })
+};
+
+exports.postTypeGenerateur = (req, res) => {
+  const { nom_type_gen } = req.body;
+
+  if (!nom_type_gen || nom_type_gen.trim() === "") {
+    return res.status(400).json({ message: "Le nom du type de générateur est requis." });
+  }
+
+  const query = `INSERT INTO type_generateur (nom_type_gen) VALUES (?)`;
+  const values = [nom_type_gen];
+
+  db.query(query, values, (error, result) => {
+    if (error) {
+      console.error("Erreur lors de l’insertion du type de générateur :", error);
+      return res.status(500).json({
+        message: "Une erreur est survenue lors de l’enregistrement.",
+      });
+    }
+
+    return res.status(201).json({
+      message: "Le type de générateur a été enregistré avec succès.",
+      insertedId: result.insertId
+    });
+  });
+};
+
+//Marque generateur
+exports.getMarqueGenerateur = () => {
+    const q = `SELECT * FROM marque_generateur`;
+
+    db.query(q, (error, data) => {
+        if(error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data)
+    })
+};
+
+exports.postMarqueGenerateur = (req, res) => {
+  const { nom_marque } = req.body;
+
+  // Validation
+  if (!nom_marque || nom_marque.trim() === "") {
+    return res.status(400).json({ message: "Le nom de la marque est requis." });
+  }
+
+  const query = `INSERT INTO marque_generateur (nom_marque) VALUES (?)`;
+  const values = [nom_marque.trim()];
+
+  db.query(query, values, (error, result) => {
+    if (error) {
+      console.error("Erreur lors de l'insertion de la marque :", error);
+      return res.status(500).json({
+        message: "Une erreur est survenue lors de l’enregistrement.",
+      });
+    }
+
+    return res.status(201).json({
+      message: "La marque a été enregistrée avec succès.",
+      insertedId: result.insertId
+    });
+  });
+};
+
+//Refroidissement
+exports.getRefroidissement = () => {
+    const q = `SELECT * FROM refroidissement`;
+
+    db.query(q, (error, data) => {
+        if(error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    })
+};
+
+//Générateur
 exports.getGenerateur = () => {
     const q = `SELECT * FROM generateur`;
 

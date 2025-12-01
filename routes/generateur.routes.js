@@ -18,6 +18,18 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+//Type generateur
+router.get('/type_generateur', generateurController.getGenerateur);
+router.post('/type_generateur', generateurController.postTypeGenerateur);
+
+//Marque générateur
+router.get('/marque_generateur', generateurController.getMarqueGenerateur);
+router.post('/marque_generateur', generateurController.postMarqueGenerateur);
+
+//Refroidissement
+router.get('/refroidissement', generateurController.postGenerateur);
+
+//Generateur
 router.get('/', generateurController.getGenerateur)
 router.get('/one', generateurController.getGenerateurOne)
 router.post('/', upload.array('img', 10), generateurController.postGenerateur)
