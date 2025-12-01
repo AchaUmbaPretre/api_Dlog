@@ -212,6 +212,8 @@ exports.postGenerateur = async (req, res) => {
             user_cr
         } = req.body;
 
+        console.log(req.body)
+
         // Vérification des champs obligatoires
         if (!id_modele || !puissance || !id_type_gen ) {
             return res.status(400).json({
