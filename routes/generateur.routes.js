@@ -24,8 +24,11 @@ router.post('/type_generateur', generateurController.postTypeGenerateur);
 
 //Marque générateur
 router.get('/marque_generateur', generateurController.getMarqueGenerateur);
-router.get('/marque_generateur/one', generateurController.getMarqueGenerateurOne);
 router.post('/marque_generateur', generateurController.postMarqueGenerateur);
+
+//Modele générateur
+router.get('/modele_generateur', generateurController.getModeleGenerateur);
+router.get('/modele_generateur/one', generateurController.getModeleGenerateurOne);
 
 //Refroidissement
 router.get('/refroidissement', generateurController.getRefroidissement);

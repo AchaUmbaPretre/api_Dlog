@@ -53,23 +53,6 @@ exports.getMarqueGenerateur = (req,res) => {
     })
 };
 
-exports.getMarqueGenerateurOne = (req,res) => {
-    const {id_marque_generateur} = req.query;
-
-    if(!id_marque_generateur) {
-        res.status(400).json({message: "Veuillez entrer l'id marque"})
-    }
-
-    const q = `SELECT * FROM marque_generateur`;
-
-    db.query(q, [id_marque_generateur], (error, data) => {
-        if(error) {
-            return res.status(500).send(error)
-        }
-        return res.status(200).json(data)
-    })
-};
-
 exports.postMarqueGenerateur = (req, res) => {
   const { nom_marque } = req.body;
 
@@ -91,6 +74,61 @@ exports.postMarqueGenerateur = (req, res) => {
 
     return res.status(201).json({
       message: "La marque a été enregistrée avec succès.",
+      insertedId: result.insertId
+    });
+  });
+};
+
+//Modele generateur
+exports.getModeleGenerateur = (req,res) => {
+    const q = `SELECT * FROM modele_generateur`;
+
+    db.query(q, (error, data) => {
+        if(error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data)
+    })
+};
+
+exports.getModeleGenerateurOne = (req,res) => {
+    const {id_marque_generateur} = req.query;
+
+    if(!id_marque_generateur) {
+        res.status(400).json({message: "Veuillez entrer l'id marque"})
+    }
+
+    const q = `SELECT * FROM modele_generateur`;
+
+    db.query(q, [id_marque_generateur], (error, data) => {
+        if(error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data)
+    })
+};
+
+exports.postModeleGenerateur = (req, res) => {
+  const { nom_modele, id_marque_generateur } = req.body;
+
+  // Validation
+  if (!nom_modele || nom_modele() === "") {
+    return res.status(400).json({ message: "Le nom du modèle est requis." });
+  }
+
+  const query = `INSERT INTO modele_generateur (nom_modele, id_marque_generateur) VALUES (?,?)`;
+  const values = [nom_modele.trim(), id_marque_generateur];
+
+  db.query(query, values, (error, result) => {
+    if (error) {
+      console.error("Erreur lors de l'insertion de la marque :", error);
+      return res.status(500).json({
+        message: "Une erreur est survenue lors de l’enregistrement.",
+      });
+    }
+
+    return res.status(201).json({
+      message: "Le modèle a été enregistré avec succès.",
       insertedId: result.insertId
     });
   });
