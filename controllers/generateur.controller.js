@@ -16,7 +16,6 @@ exports.getTypeGenerateur = (req, res) => {
   });
 };
 
-
 exports.postTypeGenerateur = (req, res) => {
   const { nom_type_gen } = req.body;
 

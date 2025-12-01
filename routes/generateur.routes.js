@@ -27,7 +27,7 @@ router.get('/marque_generateur', generateurController.getMarqueGenerateur);
 router.post('/marque_generateur', generateurController.postMarqueGenerateur);
 
 //Refroidissement
-router.get('/refroidissement', generateurController.postGenerateur);
+router.get('/refroidissement', generateurController.getRefroidissement);
 
 //Generateur
 router.get('/', generateurController.getGenerateur)
