@@ -53,6 +53,23 @@ exports.getMarqueGenerateur = (req,res) => {
     })
 };
 
+exports.getMarqueGenerateurOne = (req,res) => {
+    const {id_marque_generateur} = req.query;
+
+    if(!id_marque_generateur) {
+        res.status(400).json({message: "Veuillez entrer l'id marque"})
+    }
+
+    const q = `SELECT * FROM marque_generateur`;
+
+    db.query(q, [id_marque_generateur], (error, data) => {
+        if(error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data)
+    })
+};
+
 exports.postMarqueGenerateur = (req, res) => {
   const { nom_marque } = req.body;
 
