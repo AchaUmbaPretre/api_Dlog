@@ -19,7 +19,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 //Type generateur
-router.get('/type_generateur', generateurController.getGenerateur);
+router.get('/type_generateur', generateurController.getTypeGenerateur);
 router.post('/type_generateur', generateurController.postTypeGenerateur);
 
 //Marque générateur

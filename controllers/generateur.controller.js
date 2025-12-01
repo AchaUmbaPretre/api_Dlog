@@ -1,16 +1,21 @@
 const { db } = require("./../config/database");
 
 //Type des Générateurs
-exports.getTypeGenerateur = () => {
-    const q = `SELECT * FROM type_generateur`;
+exports.getTypeGenerateur = (req, res) => {
+  const query = `SELECT * FROM type_generateur`;
 
-    db.query(q, (error, data) => {
-        if(error) {
-            return res.status(500).send(error)
-        }
-        return res.status(200).json(data)
-    })
+  db.query(query, (error, results) => {
+    if (error) {
+      console.error("Erreur lors de la récupération des types de générateur :", error);
+      return res.status(500).json({
+        message: "Une erreur est survenue lors de la récupération des types de générateur."
+      });
+    }
+
+    return res.status(200).json(results);
+  });
 };
+
 
 exports.postTypeGenerateur = (req, res) => {
   const { nom_type_gen } = req.body;
@@ -38,7 +43,7 @@ exports.postTypeGenerateur = (req, res) => {
 };
 
 //Marque generateur
-exports.getMarqueGenerateur = () => {
+exports.getMarqueGenerateur = (req,res) => {
     const q = `SELECT * FROM marque_generateur`;
 
     db.query(q, (error, data) => {
@@ -76,7 +81,7 @@ exports.postMarqueGenerateur = (req, res) => {
 };
 
 //Refroidissement
-exports.getRefroidissement = () => {
+exports.getRefroidissement = (req, res) => {
     const q = `SELECT * FROM refroidissement`;
 
     db.query(q, (error, data) => {
@@ -88,7 +93,7 @@ exports.getRefroidissement = () => {
 };
 
 //Générateur
-exports.getGenerateur = () => {
+exports.getGenerateur = (req, res) => {
     const q = `SELECT * FROM generateur`;
 
     db.query(q, (error, data) => {
@@ -99,7 +104,7 @@ exports.getGenerateur = () => {
     })
 };
 
-exports.getGenerateurOne = () => {
+exports.getGenerateurOne = (req, res) => {
     const { id_generateur } = req.query;
 
     if(!id_generateur) {
