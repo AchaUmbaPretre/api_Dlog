@@ -29,6 +29,7 @@ router.post('/marque_generateur', generateurController.postMarqueGenerateur);
 //Modele générateur
 router.get('/modele_generateur', generateurController.getModeleGenerateur);
 router.get('/modele_generateur/one', generateurController.getModeleGenerateurOne);
+router.post('/modele_generateur', generateurController.postModeleGenerateur);
 
 //Refroidissement
 router.get('/refroidissement', generateurController.getRefroidissement);
