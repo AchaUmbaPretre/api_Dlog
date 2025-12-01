@@ -188,7 +188,6 @@ exports.postGenerateur = async (req, res) => {
             dimension,
             longueur,
             largeur,
-            hauteur,
             poids,
             annee_fabrication,
             annee_service,
@@ -221,9 +220,6 @@ exports.postGenerateur = async (req, res) => {
             });
         }
 
-        // Calcul automatique du volume (m3)
-        const volume = parseFloat(longueur) * parseFloat(largeur) * parseFloat(hauteur);
-
         let img = null;
         if (req.files && req.files.length > 0) {
             img = req.files.map(file => file.path.replace(/\\/g, "/")).join(",");
@@ -240,9 +236,7 @@ exports.postGenerateur = async (req, res) => {
             dimension,
             longueur,
             largeur,
-            hauteur,
             poids,
-            volume,
             annee_fabrication,
             annee_service,
             img,
@@ -263,19 +257,18 @@ exports.postGenerateur = async (req, res) => {
             demarrage,
             nbr_phase,
             disposition_cylindre,
-            id_carburant_vehicule,
             user_cr
         ];
 
         const q = `
             INSERT INTO generateur (
                 code_groupe, id_type_gen, id_modele, num_serie, puissance, reservoir, valeur_acquisition,
-                dimension, longueur, largeur, hauteur, poids, volume, annee_fabrication, annee_service, img,
+                dimension, longueur, largeur, poids,annee_fabrication, annee_service, img,
                 id_type_carburant, refroidissement, puissance_sec, capacite_radiateur, frequence, cos_phi,
                 nbre_cylindre, tension, type_lubrifiant, puissance_acc, pression_acc, capacite_carter,
                 regime_moteur, consommation_carburant, demarrage, nbr_phase, disposition_cylindre, user_cr
             )
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `;
 
         db.query(q, values, (error) => {
