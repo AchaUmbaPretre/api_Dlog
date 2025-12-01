@@ -148,7 +148,41 @@ exports.getRefroidissement = (req, res) => {
 
 //Générateur
 exports.getGenerateur = (req, res) => {
-    const q = `SELECT * FROM generateur`;
+    const q = `SELECT 
+                g.id_generateur, 
+                g.code_groupe, 
+                g.num_serie, 
+                g.puissance, 
+                g.reservoir, 
+                g.valeur_acquisition, 
+                g.dimension, 
+                g.poids, 
+                g.longueur, 
+                g.largeur, 
+                g.annee_fabrication, 
+                g.annee_service, 
+                g.img, 
+                g.capacite_radiateur, 
+                g.frequence, 
+                g.cos_phi, 
+                g.nbre_cylindre, 
+                g.tension, 
+                g.frequence, 
+                mog.nom_modele, 
+                mg.nom_marque, 
+                dc.nom_disposition, 
+                tc.nom_type_carburant, 
+                r.nom_refroidissement, 
+                tg.nom_type_gen, 
+                u.nom AS user_cr 
+            FROM generateur g 
+                LEFT JOIN modele_generateur mog ON g.id_modele = mog.id_modele_generateur
+                LEFT JOIN marque_generateur mg ON mog.id_marque_generateur = mg.id_marque_generateur
+                LEFT JOIN disposition_cylindre dc ON g.disposition_cylindre = dc.id_disposition_cylindre
+                LEFT JOIN type_carburant tc ON g.id_type_carburant = tc.id_type_carburant
+                LEFT JOIN refroidissement r ON g.refroidissement = r.id_refroidissement
+                LEFT JOIN type_generateur tg ON g.id_type_gen = tg.id_type_generateur
+                LEFT JOIN utilisateur u ON g.user_cr = u.id_utilisateur`;
 
     db.query(q, (error, data) => {
         if(error) {
