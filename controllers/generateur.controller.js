@@ -98,7 +98,7 @@ exports.getModeleGenerateurOne = (req,res) => {
         res.status(400).json({message: "Veuillez entrer l'id marque"})
     }
 
-    const q = `SELECT * FROM modele_generateur`;
+    const q = `SELECT * FROM modele_generateur WHERE id_marque_generateur = ?`;
 
     db.query(q, [id_marque_generateur], (error, data) => {
         if(error) {
