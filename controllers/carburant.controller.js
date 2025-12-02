@@ -767,6 +767,29 @@ exports.updateCarburant = async (req, res) => {
   }
 };
 
+exports.deleteCarburant = async(req, res) => {
+  try {
+    const {id_carburant} = req.query;
+    
+    if(!id_carburant) {
+      return res.status(400).json({ message: "Paramètre 'id_carburant' manquant."})
+    }
+    const q = 'UPDATE carburant SET est_supprime = 1 WHERE id_carburant= ?';
+    db.query(q, [id_carburant], (error, result) => {
+      if(error) {
+        console.error("Erreur de requête de base de données:", err)
+      }
+        
+      if (result.affectedRows === 0) {
+          return res.status(404).json({ message: "Carburant introuvable." });
+      }
+      return res.status(200).json({ message: "Carburant supprimé avec succès." });
+    })
+  } catch (error) {
+    console.error("Erreur inattendue:", error);
+    return res.status(500).json({ message: "Une erreur inattendue s'est produite." });
+  }
+};
 
 exports.postCarburantVehiculeExcel = async (req, res) => {
   try {

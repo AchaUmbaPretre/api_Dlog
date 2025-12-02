@@ -27,7 +27,6 @@ const queryAsync = (query, values = []) =>
     });
 });
 
-
 // Créer le transporteur avec les informations SMTP
 const transporter = nodemailer.createTransport({
   host: 'mail.loginsmart-cd.com',
