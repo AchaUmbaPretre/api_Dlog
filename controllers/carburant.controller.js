@@ -264,6 +264,7 @@ exports.getCarburantLimitTen = (req, res) => {
 exports.getCarburantOne = (req, res) => {
     const { id_vehicule, id_carburant } = req.query;
 
+    console.log(req.query)
     const where = [];
     const params = [];
 
