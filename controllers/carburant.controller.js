@@ -285,15 +285,15 @@ exports.getCarburantOne = (req, res) => {
     const whereClause = "WHERE " + where.join(" AND ");
 
     const q = `SELECT c.*, ch.nom AS nom_chauffeur, 
-        f.nom_fournisseur, tc.nom_type_carburant, 
-        vc.nom_marque, vc.nom_modele, 
-        u.nom AS user_cr  
-        FROM carburant c
-        LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
-        LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
-        LEFT JOIN type_carburant tc ON c.id_type_carburant = tc.id_type_carburant
-        LEFT JOIN vehicule_carburant vc ON  c.id_vehicule = vc.id_enregistrement
-        LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur ${whereClause}`;
+                f.nom_fournisseur, tc.nom_type_carburant, 
+                vc.nom_marque, vc.nom_modele, 
+                u.nom AS user_createur 
+              FROM carburant c
+                LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
+                LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
+                LEFT JOIN type_carburant tc ON c.id_type_carburant = tc.id_type_carburant
+                LEFT JOIN vehicule_carburant vc ON  c.id_vehicule = vc.id_enregistrement
+                LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur; ${whereClause}`;
 
     db.query(q, params, (error, data) => {
         if (error) {
