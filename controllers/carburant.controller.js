@@ -527,6 +527,247 @@ exports.postCarburant = async (req, res) => {
   }
 };
 
+exports.updateCarburant = async (req, res) => {
+  const {
+    id_carburant,
+    num_pc,
+    num_facture,
+    date_operation,
+    id_vehicule,
+    id_chauffeur,
+    quantite_litres,
+    id_fournisseur,
+    id_type_carburant,
+    compteur_km,
+    commentaire,
+    user_cr,
+    force
+  } = req.body;
+
+  try {
+    if (!id_carburant) {
+      return res.status(400).json({ error: "ID carburant manquant." });
+    }
+
+    if (!id_vehicule || !compteur_km || !quantite_litres || !id_type_carburant) {
+      return res.status(400).json({
+        error: "Les champs 'id_vehicule', 'id_type_carburant', 'quantite_litres' et 'compteur_km' sont obligatoires.",
+      });
+    }
+
+    //Prix carburant le plus récent
+    const priceResult = await query(`
+      SELECT prix_cdf, taux_usd
+      FROM prix_carburant
+      WHERE id_type_carburant = ?
+      ORDER BY date_effective DESC, id_prix_carburant DESC
+      LIMIT 1
+    `, [id_type_carburant]);
+
+    if (!priceResult?.length)
+      return res.status(400).json({ error: "Aucun prix carburant défini." });
+
+    let { prix_cdf, taux_usd } = priceResult[0];
+
+    if (!taux_usd || taux_usd <= 1) {
+      const tauxResult = await query(`
+        SELECT taux_usd
+        FROM prix_carburant
+        WHERE taux_usd > 1
+        ORDER BY date_effective DESC, id_prix_carburant DESC
+        LIMIT 1
+      `);
+      taux_usd = tauxResult?.[0]?.taux_usd || 2200;
+    }
+
+    //Dernier compteur (autre plein)
+    const [lastCarburant] = await query(
+      `SELECT compteur_km, date_operation
+       FROM carburant
+       WHERE id_vehicule = ? AND id_carburant != ?
+       ORDER BY date_operation DESC, id_carburant DESC
+       LIMIT 1`,
+      [id_vehicule, id_carburant]
+    );
+
+    const compteur_precedent = lastCarburant?.compteur_km || 0;
+
+    //Informations du véhicule
+    const [vehicule] = await query(
+      `SELECT v.capacite_reservoir, v.id_cat_vehicule, c.nom_cat, c.abreviation
+       FROM vehicules v
+       LEFT JOIN cat_vehicule c ON v.id_cat_vehicule = c.id_cat_vehicule
+       WHERE v.id_vehicule = ?`,
+      [id_vehicule]
+    );
+
+    const capacite_max = vehicule?.capacite_reservoir || 0;
+    const cat_nom = vehicule?.nom_cat || "Inconnu";
+    const cat_abrev = vehicule?.abreviation || "N/A";
+
+    //Calculs généraux
+    const distance_parcourue = compteur_km - compteur_precedent;
+    const consommation_100km =
+      distance_parcourue > 0
+        ? parseFloat(((quantite_litres * 100) / distance_parcourue).toFixed(2))
+        : 0;
+
+    const montant_total_cdf = parseFloat((quantite_litres * prix_cdf).toFixed(2));
+    const montant_total_usd = parseFloat((montant_total_cdf / taux_usd).toFixed(2));
+    const prix_usd = parseFloat((prix_cdf / taux_usd).toFixed(2));
+
+    // 5️⃣ Alertes
+    const alertes = [];
+
+    if (compteur_precedent > 0 && compteur_km < compteur_precedent && !force) {
+      return res.status(409).json({
+        askConfirmation: true,
+        message: `Le nouveau kilométrage (${compteur_km}) est inférieur au dernier (${compteur_precedent}). Voulez-vous enregistrer quand même ?`,
+      });
+    }
+
+    if (quantite_litres > capacite_max && capacite_max > 0) {
+      alertes.push({
+        type_alerte: "Capacité dépassée",
+        message: `Quantité (${quantite_litres} L) > capacité réservoir (${capacite_max} L)`,
+        niveau: "Critical",
+      });
+    }
+
+    if (lastCarburant && new Date(date_operation) < new Date(lastCarburant.date_operation)) {
+      alertes.push({
+        type_alerte: "Date incohérente",
+        message: `Date du plein (${date_operation}) < dernier plein (${lastCarburant.date_operation})`,
+        niveau: "Warning",
+      });
+    }
+
+    if (distance_parcourue <= 0) {
+      alertes.push({
+        type_alerte: "Distance nulle ou négative",
+        message: `Distance = ${distance_parcourue} km`,
+        niveau: "Critical",
+      });
+    }
+
+    if (distance_parcourue > 1000) {
+      alertes.push({
+        type_alerte: "Distance excessive",
+        message: `Distance inhabituelle (${distance_parcourue} km).`,
+        niveau: "Warning",
+      });
+    }
+
+    // 6️⃣ Seuils par catégorie
+    let minConso = 5, maxConso = 80;
+
+    switch (cat_abrev) {
+      case "SUV":
+        [minConso, maxConso] = [5, 15];
+        break;
+      case "< 7,5 T":
+      case "> 7,5 T":
+      case "> 20T":
+        [minConso, maxConso] = [20, 45];
+        break;
+      case "Bus":
+        [minConso, maxConso] = [25, 60];
+        break;
+      case "2Roues":
+        [minConso, maxConso] = [2, 8];
+        break;
+      case "Agri":
+      case "Engin":
+        [minConso, maxConso] = [10, 80];
+        break;
+      default:
+        [minConso, maxConso] = [5, 50];
+    }
+
+    if (consommation_100km < minConso || consommation_100km > maxConso) {
+      alertes.push({
+        type_alerte: "Consommation anormale",
+        message: `Consommation ${consommation_100km} L/100km hors norme (${minConso}-${maxConso}).`,
+        niveau: "Warning",
+      });
+    }
+
+    //Blocage si alerte critique *hors force*
+    const alerteCritique = alertes.find((a) => a.niveau === "Critical");
+
+    if (alerteCritique && !(compteur_precedent > 0 && compteur_km < compteur_precedent && force)) {
+      return res.status(400).json({
+        error: "Données incohérentes détectées.",
+        alertes,
+      });
+    }
+
+    // 8️⃣ Mise à jour
+    await query(
+      `UPDATE carburant SET
+        num_pc = ?, num_facture = ?, date_operation = ?, id_vehicule = ?, id_chauffeur = ?,
+        quantite_litres = ?, prix_cdf = ?, prix_usd = ?, montant_total_cdf = ?, montant_total_usd = ?,
+        id_fournisseur = ?, id_type_carburant = ?, compteur_km = ?, distance = ?, consommation = ?,
+        commentaire = ?, user_cr = ?, updated_at = NOW()
+      WHERE id_carburant = ?`,
+      [
+        num_pc || null,
+        num_facture || null,
+        date_operation || new Date(),
+        id_vehicule,
+        id_chauffeur || null,
+        quantite_litres,
+        prix_cdf,
+        prix_usd,
+        montant_total_cdf,
+        montant_total_usd,
+        id_fournisseur || null,
+        id_type_carburant,
+        compteur_km,
+        distance_parcourue,
+        consommation_100km,
+        commentaire || null,
+        user_cr,
+        id_carburant
+      ]
+    );
+
+    // 9️⃣ Journalisation des alertes
+    for (const a of alertes) {
+      await query(
+        `INSERT INTO alertes_charroi (vehicule_id, type_alerte, message, niveau, status, created_at)
+         VALUES (?, ?, ?, ?, 'Ouverte', NOW())`,
+        [id_vehicule, a.type_alerte, a.message, a.niveau]
+      );
+    }
+
+    // 🔟 Réponse
+    return res.status(200).json({
+      message: "✔️ Plein carburant mis à jour avec succès.",
+      data: {
+        id_carburant,
+        prix_cdf,
+        prix_usd,
+        taux_usd,
+        distance_parcourue,
+        consommation_100km,
+        montant_total_cdf,
+        montant_total_usd,
+        alertes_detectees: alertes.length,
+        details_alertes: alertes,
+      },
+    });
+
+  } catch (error) {
+    console.error("❌ Erreur lors de la mise à jour du carburant :", error);
+    return res.status(500).json({
+      error: "Erreur interne durant la mise à jour du plein.",
+      details: error.message,
+    });
+  }
+};
+
+
 exports.postCarburantVehiculeExcel = async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
