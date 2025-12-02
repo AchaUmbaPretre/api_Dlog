@@ -13,6 +13,7 @@ exports.getVehiculeCarburant = (req, res) => {
                 vc.*, tc.nom_type_carburant
                 FROM vehicule_carburant vc
                 LEFT JOIN type_carburant tc ON vc.id_type_carburant = tc.id_type_carburant
+
             `;
 
     db.query(q, (error, data) => {
@@ -194,6 +195,7 @@ exports.getCarburant = (req, res) => {
                 LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
                 LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
                 LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur
+                WHERE c.est_supprime = 0
                 ORDER BY c.date_operation DESC;
             `;
 
@@ -217,7 +219,7 @@ exports.getCarburantLimitTen = (req, res) => {
     params.push(id_vehicule);
   }
 
-  const whereClause = where.length ? "WHERE " + where.join(" AND ") : "";
+  const whereClause = where.length ? "WHERE c.est_supprime = 0 " + where.join(" AND ") : "";
 
   const q = `
     SELECT 
