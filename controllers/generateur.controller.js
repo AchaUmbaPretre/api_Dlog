@@ -323,3 +323,135 @@ exports.postGenerateur = async (req, res) => {
         });
     }
 };
+
+exports.updateGenerateur = async (req, res) => {
+    try {
+        const {
+            id_generateur,
+            code_groupe,
+            id_type_gen,
+            id_modele,
+            num_serie,
+            puissance,
+            reservoir,
+            valeur_acquisition,
+            dimension,
+            longueur,
+            largeur,
+            poids,
+            annee_fabrication,
+            annee_service,
+            id_type_carburant,
+            refroidissement,
+            puissance_sec,
+            capacite_radiateur,
+            frequence,
+            cos_phi,
+            nbre_cylindre,
+            tension,
+            type_lubrifiant,
+            puissance_acc,
+            pression_acc,
+            capacite_carter,
+            regime_moteur,
+            consommation_carburant,
+            demarrage,
+            nbr_phase,
+            disposition_cylindre,
+            user_cr
+        } = req.body;
+
+        if (!id_generateur) {
+            return res.status(400).json({ message: "ID générateur manquant." });
+        }
+
+        // Champs obligatoires
+        if (!id_modele || !puissance || !id_type_gen) {
+            return res.status(400).json({
+                message: "Veuillez remplir tous les champs obligatoires pour la logistique."
+            });
+        }
+
+        // Get OLD image
+        let oldImage = null;
+        const getImgQuery = "SELECT img FROM generateur WHERE id_generateur = ?";
+        const [rows] = await db.promise().query(getImgQuery, [id_generateur]);
+        if (rows.length > 0) {
+            oldImage = rows[0].img;
+        }
+
+        // Nouveau upload ?
+        let img = oldImage;
+        if (req.files && req.files.length > 0) {
+            img = req.files.map(file => file.path.replace(/\\/g, "/")).join(",");
+        }
+
+        const q = `
+            UPDATE generateur SET
+                code_groupe = ?, id_type_gen = ?, id_modele = ?, num_serie = ?, puissance = ?, reservoir = ?, 
+                valeur_acquisition = ?, dimension = ?, longueur = ?, largeur = ?, poids = ?, 
+                annee_fabrication = ?, annee_service = ?, img = ?, id_type_carburant = ?, 
+                refroidissement = ?, puissance_sec = ?, capacite_radiateur = ?, frequence = ?, 
+                cos_phi = ?, nbre_cylindre = ?, tension = ?, type_lubrifiant = ?, puissance_acc = ?, 
+                pression_acc = ?, capacite_carter = ?, regime_moteur = ?, consommation_carburant = ?, 
+                demarrage = ?, nbr_phase = ?, disposition_cylindre = ?, user_cr = ?
+            WHERE id_generateur = ?
+        `;
+
+        const values = [
+            code_groupe,
+            id_type_gen,
+            id_modele,
+            num_serie,
+            puissance,
+            reservoir,
+            valeur_acquisition,
+            dimension,
+            longueur,
+            largeur,
+            poids,
+            annee_fabrication,
+            annee_service,
+            img,
+            id_type_carburant,
+            refroidissement,
+            puissance_sec,
+            capacite_radiateur,
+            frequence,
+            cos_phi,
+            nbre_cylindre,
+            tension,
+            type_lubrifiant,
+            puissance_acc,
+            pression_acc,
+            capacite_carter,
+            regime_moteur,
+            consommation_carburant,
+            demarrage,
+            nbr_phase,
+            disposition_cylindre,
+            user_cr,
+            id_generateur
+        ];
+
+        db.query(q, values, (error) => {
+            if (error) {
+                console.error(error);
+                return res.status(500).json({
+                    message: "Erreur serveur lors de la mise à jour du générateur."
+                });
+            }
+
+            res.status(200).json({
+                message: "Générateur mis à jour avec succès."
+            });
+        });
+
+    } catch (error) {
+        console.error("Erreur lors de la mise à jour :", error);
+        return res.status(500).json({
+            message: "Une erreur interne s'est produite."
+        });
+    }
+};
+
