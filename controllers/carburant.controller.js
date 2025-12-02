@@ -937,6 +937,64 @@ exports.postCarburantExcel = async (req, res) => {
   }
 };
 
+exports.postCarburantCorrectionExcel = async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: "Aucun fichier téléchargé." });
+    }
+
+    const filePath = req.files[0].path;
+    const workbook = xlsx.readFile(filePath);
+    const sheetName = workbook.SheetNames[0];
+    const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+    const updateQuery = `
+      UPDATE carburant
+      SET compteur_km = ?
+      WHERE id_vehicule = ? 
+        AND DATE(date_operation) = ?
+    `;
+
+    const promises = sheetData.map(row => {
+      const km2 = row["KIM2"];
+      const idVehicule = row["ID ENREGISTREMENT"];
+
+      let dateOperation = null;
+      const rawDate = row["DATE"];
+
+      // Conversion date Excel -> MySQL
+      if (typeof rawDate === "number") {
+        const parsed = xlsx.SSF.parse_date_code(rawDate);
+        dateOperation = `${parsed.y}-${String(parsed.m).padStart(2,"0")}-${String(parsed.d).padStart(2,"0")}`;
+      } else if (typeof rawDate === "string" && /^\d{2}\/\d{2}\/\d{4}$/.test(rawDate)) {
+        const [day, month, year] = rawDate.split("/");
+        dateOperation = `${year}-${month}-${day}`;
+      }
+
+      return new Promise((resolve, reject) => {
+        db.query(updateQuery, [km2, idVehicule, dateOperation], (err) => {
+          if (err) {
+            console.error("Erreur UPDATE:", err);
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+    });
+
+    await Promise.all(promises);
+    fs.unlinkSync(filePath);
+
+    return res.json({ message: "Correction massive KM2 appliquée avec succès." });
+
+  } catch (error) {
+    console.error("Erreur correction:", error);
+    return res.status(500).json({ error: "Erreur interne du serveur." });
+  }
+};
+
+
 //Prix carburant
 exports.getCarburantPrice = async (req, res) => {
 
