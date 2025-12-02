@@ -31,6 +31,8 @@ router.get('/', carburantController.getCarburant);
 router.get('/limit_ten', carburantController.getCarburantLimitTen);
 router.get('/one', carburantController.getCarburantOne);
 router.post('/', carburantController.postCarburant);
+router.put('/', carburantController.updateCarburant)
+router.put('/delete', carburantController.deleteCarburant)
 
 //Carburant vehicule  excel
 router.post('/carburant_vehicule_excel', upload.array('chemin_document', 10), carburantController.postCarburantVehiculeExcel);
