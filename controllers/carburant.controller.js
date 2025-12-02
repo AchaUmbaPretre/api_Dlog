@@ -616,7 +616,7 @@ exports.updateCarburant = async (req, res) => {
     const montant_total_usd = parseFloat((montant_total_cdf / taux_usd).toFixed(2));
     const prix_usd = parseFloat((prix_cdf / taux_usd).toFixed(2));
 
-    // 5️⃣ Alertes
+    //Alertes
     const alertes = [];
 
     if (compteur_precedent > 0 && compteur_km < compteur_precedent && !force) {
@@ -658,7 +658,7 @@ exports.updateCarburant = async (req, res) => {
       });
     }
 
-    // 6️⃣ Seuils par catégorie
+    //Seuils par catégorie
     let minConso = 5, maxConso = 80;
 
     switch (cat_abrev) {
@@ -702,13 +702,13 @@ exports.updateCarburant = async (req, res) => {
       });
     }
 
-    // 8️⃣ Mise à jour
+    //Mise à jour
     await query(
       `UPDATE carburant SET
         num_pc = ?, num_facture = ?, date_operation = ?, id_vehicule = ?, id_chauffeur = ?,
         quantite_litres = ?, prix_cdf = ?, prix_usd = ?, montant_total_cdf = ?, montant_total_usd = ?,
         id_fournisseur = ?, id_type_carburant = ?, compteur_km = ?, distance = ?, consommation = ?,
-        commentaire = ?, user_cr = ?, updated_at = NOW()
+        commentaire = ?, user_cr = ?
       WHERE id_carburant = ?`,
       [
         num_pc || null,
