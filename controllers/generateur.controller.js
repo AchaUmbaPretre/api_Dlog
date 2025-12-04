@@ -477,7 +477,7 @@ exports.getPleinGenerateur = (req, res) => {
                     LEFT JOIN type_carburant tc ON g.id_type_carburant = tc.id_type_carburant
                     LEFT JOIN fournisseur f ON p.id_fournisseur = f.id_fournisseur
                 WHERE p.est_supprime = 0
-                ORDER BY p.created_at DESC
+                ORDER BY p.date_operation DESC
             `;
 
     db.query(q, (error, data) => {
