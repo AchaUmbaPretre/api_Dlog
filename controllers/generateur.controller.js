@@ -468,7 +468,7 @@ exports.getPleinGenerateur = (req, res) => {
         }
         return res.status(200).json(data);
     })
-}
+};
 
 exports.getPleinGenerateurOne = (req, res) => {
     const { id_plein_generateur } = req.query;
@@ -485,7 +485,7 @@ exports.getPleinGenerateurOne = (req, res) => {
         }
         return res.status(200).json(data);
     })
-}
+};
 
 exports.postPleinGenerateur = async(req, res) => {
     const { 
@@ -525,7 +525,7 @@ exports.postPleinGenerateur = async(req, res) => {
             message: "Une erreur interne s'est produite."
         });
     }
-}
+};
 
 exports.putPleinGenerateur = async(req, res) => {
     const { 
@@ -582,4 +582,4 @@ exports.putPleinGenerateur = async(req, res) => {
             message: "Une erreur interne s'est produite."
         });
     }
-}
+};
