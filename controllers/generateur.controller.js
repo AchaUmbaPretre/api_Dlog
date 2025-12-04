@@ -560,7 +560,7 @@ exports.postPleinGenerateur = async (req, res) => {
 
         // 3️⃣ Calcul des montants
         const montant_total_cdf = quantite_litres * prix_cdf;
-        const montant_total_usd = montant_total_cdf * taux_usd;
+        const montant_total_usd = parseFloat((montant_total_cdf / taux_usd).toFixed(2));
 
         // 4️⃣ Préparation des valeurs pour l’insert
         const values = [
