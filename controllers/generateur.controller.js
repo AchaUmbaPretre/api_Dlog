@@ -464,12 +464,16 @@ exports.getPleinGenerateur = (req, res) => {
                     g.code_groupe,
                     mog.nom_modele, 
                     mg.nom_marque,
-                    u.nom AS createur
+                    u.nom AS createur,
+                    tg.nom_type_gen,
+                    tc.nom_type_carburant
                 FROM plein_generateur p 
                     LEFT JOIN generateur g ON p.id_generateur = g.id_generateur
                     LEFT JOIN modele_generateur mog ON g.id_modele = mog.id_modele_generateur
                     LEFT JOIN marque_generateur mg ON mog.id_marque_generateur = mg.id_marque_generateur
                     LEFT JOIN utilisateur u ON p.user_cr = u.id_utilisateur
+                    LEFT JOIN type_generateur tg ON g.id_type_gen = tg.id_type_generateur
+                    LEFT JOIN type_carburant tc ON g.id_type_carburant = tc.id_type_carburant
                 WHERE p.est_supprime = 0
                 ORDER BY p.created_at DESC
             `;
@@ -529,6 +533,7 @@ exports.postPleinGenerateur = async (req, res) => {
         quantite_litres, 
         id_type_carburant, 
         date_operation, 
+        id_fournisseur,
         user_cr, 
         commentaire 
     } = req.body;
@@ -568,6 +573,7 @@ exports.postPleinGenerateur = async (req, res) => {
             quantite_litres,
             id_type_carburant,
             date_operation,
+            id_fournisseur,
             user_cr,
             commentaire || null,
             montant_total_cdf,
@@ -579,9 +585,9 @@ exports.postPleinGenerateur = async (req, res) => {
             INSERT INTO plein_generateur(
                 id_generateur, quantite_litres, 
                 id_type_carburant, date_operation, 
-                user_cr, commentaire, 
+                user_cr, id_fournisseur, commentaire, 
                 montant_total_cdf, montant_total_usd
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         db.query(q, values, (error) => {
