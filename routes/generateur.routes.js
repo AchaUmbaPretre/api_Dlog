@@ -46,5 +46,4 @@ router.post('/plein_generateur', generateurController.postPleinGenerateur)
 router.put('/plein_generateur', generateurController.putPleinGenerateur)
 router.put('/plein_generateur/sup', generateurController.deletePleinGen)
 
-
 module.exports = router;

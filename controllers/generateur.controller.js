@@ -588,6 +588,9 @@ exports.deletePleinGen = async(req, res) => {
     const { id_plein_generateur } = req.query;
 
     try {
+        if(!id_plein_generateur) {
+            res.status(400).json({ error: "id plein generateur est obligatoire"})
+        }
         const q = `UPDATE plein_generateur SET est_supprime = 1 WHERE id_plein_generateur = ?`;
         db.query(q, [id_plein_generateur], (error) => {
             if(error) {
