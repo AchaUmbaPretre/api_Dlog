@@ -1,4 +1,6 @@
 const { db } = require("./../config/database");
+const { promisify } = require("util");
+const query = promisify(db.query).bind(db);
 
 //Type des Générateurs
 exports.getTypeGenerateur = (req, res) => {
@@ -458,9 +460,19 @@ exports.updateGenerateur = async (req, res) => {
 
 //PLein generateur
 exports.getPleinGenerateur = (req, res) => {
-    const q = `SELECT p.* 
+    const q = `SELECT p.*, 
+                    g.code_groupe,
+                    mog.nom_modele, 
+                    mg.nom_marque,
+                    u.nom AS createur
                 FROM plein_generateur p 
-                WHERE p.est_supprime = 0`;
+                    LEFT JOIN generateur g ON p.id_generateur = g.id_generateur
+                    LEFT JOIN modele_generateur mog ON g.id_modele = mog.id_modele_generateur
+                    LEFT JOIN marque_generateur mg ON mog.id_marque_generateur = mg.id_marque_generateur
+                    LEFT JOIN utilisateur u ON p.user_cr = u.id_utilisateur
+                WHERE p.est_supprime = 0
+                ORDER BY p.created_at DESC
+            `;
 
     db.query(q, (error, data) => {
         if(error) {
@@ -471,10 +483,20 @@ exports.getPleinGenerateur = (req, res) => {
 };
 
 exports.getPleinGenerateurLimitTen = (req, res) => {
-    const q = `SELECT p.* 
+    const q = `SELECT p.*, 
+                    g.code_groupe,
+                    mog.nom_modele, 
+                    mg.nom_marque,
+                    u.nom AS createur
                 FROM plein_generateur p 
-                WHERE p.est_supprime = 0 LIMIT 10
-                ORDER BY p.created_at`;
+                    LEFT JOIN generateur g ON p.id_generateur = g.id_generateur
+                    LEFT JOIN modele_generateur mog ON g.id_modele = mog.id_modele_generateur
+                    LEFT JOIN marque_generateur mg ON mog.id_marque_generateur = mg.id_marque_generateur
+                    LEFT JOIN utilisateur u ON p.user_cr = u.id_utilisateur
+                WHERE p.est_supprime = 0
+                ORDER BY p.created_at DESC
+                LIMIT 10
+            `;
 
     db.query(q, (error, data) => {
         if(error) {
@@ -501,7 +523,7 @@ exports.getPleinGenerateurOne = (req, res) => {
     })
 };
 
-exports.postPleinGenerateur = async(req, res) => {
+exports.postPleinGenerateur = async (req, res) => {
     const { 
         id_generateur, 
         quantite_litres, 
@@ -512,26 +534,70 @@ exports.postPleinGenerateur = async(req, res) => {
     } = req.body;
 
     try {
-        if (!quantite_litres || !id_type_carburant || !id_generateur || !date_operation ) {
-            res.status(400).json({ error: "Les champs quantite_litres, type_carburant, generateur et date d'operation "})
+        // 1️⃣ Validation des champs obligatoires
+        if (!quantite_litres || !id_type_carburant || !id_generateur || !date_operation) {
+            return res.status(400).json({ 
+                error: "Les champs quantite_litres, id_type_carburant, id_generateur et date_operation sont obligatoires." 
+            });
         }
 
-        const q = `
-        INSERT INTO plein_generateur(
-            id_generateur, quantite_litres, 
-            id_type_carburant, date_operation, 
-            user_cr, commentaire
-        ) VALUES (?,?,?,?,?,?)`;
+        // 2️⃣ Récupérer le prix carburant le plus récent
+        const priceResult = await query(`
+            SELECT prix_cdf, taux_usd
+            FROM prix_carburant
+            WHERE id_type_carburant = ?
+            ORDER BY date_effective DESC, id_prix_carburant DESC
+            LIMIT 1
+        `, [id_type_carburant]);
 
-        db.query(q,values, (error) => {
-            if(error) {
-                console.error(error)
-                return res.status(500).json({ message: "Erreur serveur lors de l'ajout du plein générateur."})
-            }
-            res.status(201).json({
-                message: "Plein générateur ajouté avec succès dans le système logistique (volume calculé automatiquement)."
+        if (priceResult.length === 0) {
+            return res.status(404).json({
+                error: "Aucun prix carburant trouvé pour ce type."
             });
-        })
+        }
+
+        const { prix_cdf, taux_usd } = priceResult[0];
+
+        // 3️⃣ Calcul des montants
+        const montant_total_cdf = quantite_litres * prix_cdf;
+        const montant_total_usd = montant_total_cdf * taux_usd;
+
+        // 4️⃣ Préparation des valeurs pour l’insert
+        const values = [
+            id_generateur,
+            quantite_litres,
+            id_type_carburant,
+            date_operation,
+            user_cr,
+            commentaire || null,
+            montant_total_cdf,
+            montant_total_usd
+        ];
+
+        // 5️⃣ Insertion dans la base de données
+        const q = `
+            INSERT INTO plein_generateur(
+                id_generateur, quantite_litres, 
+                id_type_carburant, date_operation, 
+                user_cr, commentaire, 
+                montant_total_cdf, montant_total_usd
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        db.query(q, values, (error) => {
+            if (error) {
+                console.error(error);
+                return res.status(500).json({ 
+                    message: "Erreur serveur lors de l'ajout du plein générateur." 
+                });
+            }
+
+            res.status(201).json({
+                message: "Plein générateur ajouté avec succès (montant calculé automatiquement).",
+                montant_total_cdf,
+                montant_total_usd
+            });
+        });
 
     } catch (error) {
         console.error("Erreur lors de l'ajout :", error);
@@ -540,6 +606,7 @@ exports.postPleinGenerateur = async(req, res) => {
         });
     }
 };
+
 
 exports.putPleinGenerateur = async(req, res) => {
     const { 

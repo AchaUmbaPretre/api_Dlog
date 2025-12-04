@@ -167,7 +167,6 @@ exports.putRelierVehiculeCarburant = async (req, res) => {
 exports.getCarburant = (req, res) => {
   const { vehicules = [], dateRange = [] } = req.body;
 
-  console.log(req.body)
   let where = "WHERE c.est_supprime = 0";
   const params = [];
 
