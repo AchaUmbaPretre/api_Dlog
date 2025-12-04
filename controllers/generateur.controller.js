@@ -466,7 +466,8 @@ exports.getPleinGenerateur = (req, res) => {
                     mg.nom_marque,
                     u.nom AS createur,
                     tg.nom_type_gen,
-                    tc.nom_type_carburant
+                    tc.nom_type_carburant,
+                    f.nom_fournisseur
                 FROM plein_generateur p 
                     LEFT JOIN generateur g ON p.id_generateur = g.id_generateur
                     LEFT JOIN modele_generateur mog ON g.id_modele = mog.id_modele_generateur
@@ -474,6 +475,7 @@ exports.getPleinGenerateur = (req, res) => {
                     LEFT JOIN utilisateur u ON p.user_cr = u.id_utilisateur
                     LEFT JOIN type_generateur tg ON g.id_type_gen = tg.id_type_generateur
                     LEFT JOIN type_carburant tc ON g.id_type_carburant = tc.id_type_carburant
+                    LEFT JOIN fournisseur f ON p.id_fournisseur = f.id_fournisseur
                 WHERE p.est_supprime = 0
                 ORDER BY p.created_at DESC
             `;
@@ -587,7 +589,7 @@ exports.postPleinGenerateur = async (req, res) => {
                 id_type_carburant, date_operation, 
                 user_cr, id_fournisseur, commentaire, 
                 montant_total_cdf, montant_total_usd
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         db.query(q, values, (error) => {
