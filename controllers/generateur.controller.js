@@ -110,9 +110,10 @@ exports.getModeleGenerateurOne = (req,res) => {
 
 exports.postModeleGenerateur = (req, res) => {
   const { nom_modele, id_marque_generateur } = req.body;
+  console.log(req.body)
 
   // Validation
-  if (!nom_modele || nom_modele() === "") {
+  if (!nom_modele || nom_modele === "") {
     return res.status(400).json({ message: "Le nom du modèle est requis." });
   }
 
@@ -455,3 +456,71 @@ exports.updateGenerateur = async (req, res) => {
     }
 };
 
+//PLein generateur
+exports.getPleinGenerateur = (req, res) => {
+    const q = `SELECT * FROM plein_generateur`;
+
+    db.query(q, (error, data) => {
+        if(error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data);
+    })
+}
+
+exports.getPleinGenerateurOne = (req, res) => {
+    const { id_plein_generateur } = req.query;
+
+    if(id_plein_generateur) {
+        res.status(400).json({ message : 'Paramètres manquants.'})
+    }
+
+    const q = `SELECT * FROM plein_generateur WHERE id_plein_generateur = ?`;
+
+    db.query(q, [id_plein_generateur], (error, data) => {
+        if(error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data);
+    })
+}
+
+exports.postPleinGenerateur = async(req, res) => {
+    const { 
+        id_generateur, 
+        quantite_litres, 
+        id_type_carburant, 
+        date_operation, 
+        user_cr, 
+        commentaire 
+    } = req.body;
+
+    try {
+        if (!quantite_litres || !id_type_carburant || !id_generateur || !date_operation ) {
+            res.status(400).json({ error: "Les champs quantite_litres, type_carburant, generateur et date d'operation "})
+        }
+
+        const q = `
+        INSERT INTO plein_generateur(
+            id_generateur, quantite_litres, 
+            id_type_carburant, date_operation, 
+            user_cr, commentaire
+        ) VALUES (?,?,?,?,?,?)`;
+
+        db.query(q,values, (error) => {
+            if(error) {
+                console.error(error)
+                return res.status(500).json({ message: "Erreur serveur lors de l'ajout du plein générateur."})
+            }
+            res.status(201).json({
+                message: "Plein générateur ajouté avec succès dans le système logistique (volume calculé automatiquement)."
+            });
+        })
+
+    } catch (error) {
+        console.error("Erreur lors de l'ajout :", error);
+        return res.status(500).json({
+            message: "Une erreur interne s'est produite."
+        });
+    }
+}

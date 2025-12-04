@@ -165,46 +165,64 @@ exports.putRelierVehiculeCarburant = async (req, res) => {
 
 //Carburant 
 exports.getCarburant = (req, res) => {
+  const { vehicules = [], dateRange = [] } = req.body;
 
-    const q = `SELECT c.id_carburant, 
-                c.num_pc, 
-                c.num_facture, 
-                c.date_operation, 
-                c.quantite_litres, 
-                c.compteur_km, 
-                c.distance, 
-                c.consommation,
-                c.prix_cdf,
-                c.prix_usd,
-                c.montant_total_cdf,
-                c.montant_total_usd,
-                c.commentaire,
-                v.id_enregistrement,
-                v.nom_marque,
-                v.nom_modele,
-                v.immatriculation,
-                ch.nom AS nom_chauffeur,
-                ch.prenom AS prenom,
-                f.nom_fournisseur,
-                cv.abreviation,
-                u.nom AS createur
-                FROM carburant c
-                LEFT JOIN vehicule_carburant v ON c.id_vehicule = v.id_enregistrement
-                LEFT JOIN vehicules ve ON c.id_vehicule = ve.id_carburant_vehicule
-                LEFT JOIN cat_vehicule cv ON ve.id_cat_vehicule = cv.id_cat_vehicule
-                LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
-                LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
-                LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur
-                WHERE c.est_supprime = 0
-                ORDER BY c.date_operation DESC;
-            `;
+  console.log(req.body)
+  let where = "WHERE c.est_supprime = 0";
+  const params = [];
 
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    });
+  if (Array.isArray(vehicules) && vehicules.length > 0) {
+    const placeholders = vehicules.map(() => "?").join(",");
+    where += ` AND c.id_vehicule IN (${placeholders})`;
+    params.push(...vehicules);
+  }
+
+  if (Array.isArray(dateRange) && dateRange.length === 2) {
+    where += ` AND c.date_operation BETWEEN ? AND ?`;
+    params.push(dateRange[0], dateRange[1]);
+  }
+
+  const q = `
+    SELECT 
+      c.id_carburant, 
+      c.num_pc, 
+      c.num_facture, 
+      c.date_operation, 
+      c.quantite_litres, 
+      c.compteur_km, 
+      c.distance, 
+      c.consommation,
+      c.prix_cdf,
+      c.prix_usd,
+      c.montant_total_cdf,
+      c.montant_total_usd,
+      c.commentaire,
+      v.id_enregistrement,
+      v.nom_marque,
+      v.nom_modele,
+      v.immatriculation,
+      ch.nom AS nom_chauffeur,
+      ch.prenom AS prenom,
+      f.nom_fournisseur,
+      cv.abreviation,
+      u.nom AS createur
+    FROM carburant c
+    LEFT JOIN vehicule_carburant v ON c.id_vehicule = v.id_enregistrement
+    LEFT JOIN vehicules ve ON c.id_vehicule = ve.id_carburant_vehicule
+    LEFT JOIN cat_vehicule cv ON ve.id_cat_vehicule = cv.id_cat_vehicule
+    LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
+    LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
+    LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur
+    ${where}
+    ORDER BY c.date_operation DESC;
+  `;
+
+  db.query(q, params, (error, data) => {
+    if (error) {
+      return res.status(500).json(error);
+    }
+    return res.status(200).json(data);
+  });
 };
 
 exports.getCarburantLimitTen = (req, res) => {
