@@ -38,7 +38,11 @@ router.get('/refroidissement', generateurController.getRefroidissement);
 router.get('/', generateurController.getGenerateur)
 router.get('/one', generateurController.getGenerateurOne)
 router.post('/', upload.array('img', 10), generateurController.postGenerateur)
- 
+router.put('/', generateurController.updateGenerateur)
+
+//Relier générateur fichier excel
+router.put('/generateur_fichier_excel', generateurController.putRelierGenerateurFichierExcel)
+
 //Plein generateur
 router.get('/plein_generateur', generateurController.getPleinGenerateur)
 router.get('/plein_generateur_ten', generateurController.getPleinGenerateur)
