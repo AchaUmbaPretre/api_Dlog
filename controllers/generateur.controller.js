@@ -607,4 +607,4 @@ exports.deletePleinGen = async(req, res) => {
             message: "Une erreur interne s'est produite."
         });
     }
-}
+};
