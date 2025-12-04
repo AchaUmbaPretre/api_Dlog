@@ -458,6 +458,40 @@ exports.updateGenerateur = async (req, res) => {
     }
 };
 
+exports.putRelierGenerateurFichierExcel = async (req, res) => {
+  try {
+    const { id_generateur } = req.query;
+    const { id_enregistrement } = req.body;
+
+    if (!id_vehicule || !id_enregistrement) {
+      return res.status(400).json({ message: "Paramètres manquants (id_vehicule ou id_capteur)." });
+    }
+
+    // 1️. Supprimer l'ancien lien avec ce capteur
+    const q1 = "UPDATE generateur SET id_carburant_vehicule = NULL WHERE id_carburant_vehicule = ?";
+    await new Promise((resolve, reject) => {
+      db.query(q1, [id_enregistrement], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    // 2️. Lier le nouveau véhicule
+    const q2 = "UPDATE generateur SET id_carburant_vehicule = ? WHERE id_generateur = ?";
+    await new Promise((resolve, reject) => {
+      db.query(q2, [id_enregistrement, id_generateur], (err, result) => {
+        if (err) reject(err);
+        else resolve(result);
+      });
+    });
+
+    return res.status(200).json({ message: "Générateur relié/mis à jour avec succès." });
+  } catch (error) {
+    console.error("Erreur inattendue:", error);
+    return res.status(500).json({ message: "Erreur inattendue côté serveur." });
+  }
+};
+
 //PLein generateur
 exports.getPleinGenerateur = (req, res) => {
     const q = `SELECT p.*, 
@@ -614,7 +648,6 @@ exports.postPleinGenerateur = async (req, res) => {
         });
     }
 };
-
 
 exports.putPleinGenerateur = async(req, res) => {
     const { 
