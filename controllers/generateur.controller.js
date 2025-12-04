@@ -458,7 +458,9 @@ exports.updateGenerateur = async (req, res) => {
 
 //PLein generateur
 exports.getPleinGenerateur = (req, res) => {
-    const q = `SELECT * FROM plein_generateur`;
+    const q = `SELECT p.* 
+                FROM plein_generateur p 
+                WHERE p.est_supprime = 0`;
 
     db.query(q, (error, data) => {
         if(error) {
@@ -514,6 +516,63 @@ exports.postPleinGenerateur = async(req, res) => {
             }
             res.status(201).json({
                 message: "Plein générateur ajouté avec succès dans le système logistique (volume calculé automatiquement)."
+            });
+        })
+
+    } catch (error) {
+        console.error("Erreur lors de l'ajout :", error);
+        return res.status(500).json({
+            message: "Une erreur interne s'est produite."
+        });
+    }
+}
+
+exports.putPleinGenerateur = async(req, res) => {
+    const { 
+        id_generateur, 
+        quantite_litres, 
+        id_type_carburant, 
+        date_operation, 
+        user_cr, 
+        commentaire,
+        id_plein_generateur 
+    } = req.body;
+
+    try {
+
+        if (!id_plein_generateur) {
+            return res.status(400).json({ message: "ID plein manquant." });
+        }
+
+        if (!quantite_litres || !id_type_carburant || !id_generateur || !date_operation ) {
+            res.status(400).json({ error: "Les champs quantite_litres, type_carburant, generateur et date d'operation "})
+        }
+
+        const q = `
+        UPDATE plein_generateur SET 
+            id_generateur = ?, quantite_litres = ?, 
+            id_type_carburant = ?, date_operation = ?, 
+            user_cr = ?, commentaire = ?
+        WHERE id_plein_generateur  = ?
+            `;
+
+        const values = [
+            id_generateur, 
+            quantite_litres, 
+            id_type_carburant, 
+            date_operation, 
+            user_cr, 
+            commentaire,
+            id_plein_generateur 
+        ];
+
+        db.query(q,values, (error) => {
+            if(error) {
+                console.error(error)
+                return res.status(500).json({ message: "Erreur serveur lors de l'ajout du plein générateur."})
+            }
+            res.status(201).json({
+                message: "Plein générateur a été modifié avec succès dans le système logistique (volume calculé automatiquement)."
             });
         })
 
