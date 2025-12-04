@@ -583,3 +583,25 @@ exports.putPleinGenerateur = async(req, res) => {
         });
     }
 };
+
+exports.deletePleinGen = async(req, res) => {
+    const { id_plein_generateur } = req.query;
+
+    try {
+        const q = `UPDATE plein_generateur SET est_supprime = 1 WHERE id_plein_generateur = ?`;
+        db.query(q, [id_plein_generateur], (error) => {
+            if(error) {
+                console.error(error)
+                return res.status(500).json({ message: "Erreur serveur lors de suppresion du plein générateur."})
+            }
+            res.status(201).json({
+                message: "Plein générateur a été modifié avec succès dans le système logistique (volume calculé automatiquement)."
+            });
+        })
+    } catch (error) {
+        console.error("Erreur lors de modification :", error);
+        return res.status(500).json({
+            message: "Une erreur interne s'est produite."
+        });
+    }
+}
