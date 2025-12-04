@@ -39,4 +39,10 @@ router.get('/', generateurController.getGenerateur)
 router.get('/one', generateurController.getGenerateurOne)
 router.post('/', upload.array('img', 10), generateurController.postGenerateur)
  
+//Plein generateur
+router.get('/plein_generateur', generateurController.getPleinGenerateur)
+router.get('/plein_generateur/one', generateurController.getPleinGenerateurOne)
+router.post('/plein_generateur', generateurController.postPleinGenerateur)
+router.put('/plein_generateur', generateurController.putPleinGenerateur)
+
 module.exports = router;
