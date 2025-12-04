@@ -470,6 +470,20 @@ exports.getPleinGenerateur = (req, res) => {
     })
 };
 
+exports.getPleinGenerateurLimitTen = (req, res) => {
+    const q = `SELECT p.* 
+                FROM plein_generateur p 
+                WHERE p.est_supprime = 0 LIMIT 10
+                ORDER BY p.created_at`;
+
+    db.query(q, (error, data) => {
+        if(error) {
+            return res.status(500).send(error)
+        }
+        return res.status(200).json(data);
+    })
+};
+
 exports.getPleinGenerateurOne = (req, res) => {
     const { id_plein_generateur } = req.query;
 
