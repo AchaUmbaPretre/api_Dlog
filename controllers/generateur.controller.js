@@ -203,7 +203,19 @@ exports.getGenerateurOne = (req, res) => {
         res.status(400).json({message: 'Paramètres manquants.'})
     }
 
-    const q = `SELECT * FROM generateur WHERE id_generateur = ?`;
+    const q = `SELECT g.id_generateur, 
+                g.num_serie, g.puissance, 
+                g.reservoir, g.valeur_acquisition, 
+                g.dimension, g.poids, g.longueur, 
+                g.largeur, g.annee_fabrication, 
+                g.annee_service, g.img, 
+                g.puissance_sec, g.capacite_radiateur, g.frequence, g.cos_phi, g.nbre_cylindre, g.tension, g.type_lubrifiant, g.consommation_carburant, mog.nom_modele, mag.nom_marque, tg.nom_type_gen, tc.nom_type_carburant, r.nom_refroidissement FROM generateur g
+                LEFT JOIN modele_generateur mog ON g.id_modele = g.id_modele
+                LEFT JOIN marque_generateur mag ON mog.id_marque_generateur = mag.id_marque_generateur
+                LEFT JOIN type_generateur tg ON g.id_type_gen = tg.nom_type_gen
+                LEFT JOIN type_carburant tc ON g.id_type_carburant = tc.id_type_carburant
+                LEFT JOIN refroidissement r ON g.refroidissement = r.id_refroidissement 
+                WHERE id_generateur = ?`;
 
     db.query(q, [id_generateur], (error, data) => {
         if(error) {
