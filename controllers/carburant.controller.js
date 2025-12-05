@@ -265,7 +265,7 @@ exports.getCarburantLimitTen = (req, res) => {
     LEFT JOIN vehicule_carburant v ON c.id_vehicule = v.id_enregistrement
     LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
     LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
-    LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur;
+    LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur
     ${whereClause}
     ORDER BY c.id_carburant DESC
     LIMIT 5
