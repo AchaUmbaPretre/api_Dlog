@@ -4,6 +4,7 @@ const fs = require("fs");
 const { resolve } = require("path");
 const { promisify } = require("util");
 const query = promisify(db.query).bind(db);
+const moment = require('moment');
 
 
 //Vehicule carburant
@@ -279,7 +280,6 @@ exports.getCarburantLimitTen = (req, res) => {
   });
 };
 
-
 exports.getCarburantOne = (req, res) => {
     const { id_vehicule, id_carburant } = req.query;
 
@@ -328,7 +328,7 @@ exports.getCarburantOne = (req, res) => {
     });
 };
 
-exports.postCarburant = async (req, res) => {
+/* exports.postCarburant = async (req, res) => {
   const {
     num_pc,
     num_facture,
@@ -509,7 +509,7 @@ exports.postCarburant = async (req, res) => {
       [
         num_pc || null,
         num_facture || null,
-        date_operation || new Date(),
+        moment(date_operation).format('YYYY-MM-DD'),
         id_vehicule,
         id_chauffeur || null,
         quantite_litres,
@@ -559,7 +559,252 @@ exports.postCarburant = async (req, res) => {
       error: `"Une erreur s'est produite lors de l'enregistrement du plein de carburant." ${error}`,
     });
   }
+}; */
+
+exports.postCarburant = async (req, res) => {
+  const {
+    num_pc,
+    num_facture,
+    date_operation,
+    id_vehicule,
+    id_chauffeur,
+    quantite_litres,
+    id_fournisseur,
+    id_type_carburant,
+    compteur_km,
+    commentaire,
+    user_cr,
+    force
+  } = req.body;
+
+  console.log(req.body)
+
+  try {
+    // 1. VALIDATION DES CHAMPS OBLIGATOIRES
+    if (!id_vehicule || !compteur_km || !quantite_litres || !id_type_carburant) {
+      return res.status(400).json({
+        error: "Les champs 'id_vehicule', 'id_type_carburant', 'quantite_litres' et 'compteur_km' sont obligatoires."
+      });
+    }
+
+    // 2. PRIX CARBURANT
+    const priceResult = await query(
+      `SELECT prix_cdf, taux_usd
+       FROM prix_carburant
+       WHERE id_type_carburant = ?
+       ORDER BY date_effective DESC, id_prix_carburant DESC
+       LIMIT 1`,
+      [id_type_carburant]
+    );
+
+    if (!priceResult.length) {
+      return res.status(400).json({ error: "Aucun prix carburant défini." });
+    }
+
+    let { prix_cdf, taux_usd } = priceResult[0];
+
+    // Si taux non valide → récup taux général
+    if (!taux_usd || taux_usd <= 1) {
+      const tauxResult = await query(`
+        SELECT taux_usd
+        FROM prix_carburant
+        WHERE taux_usd > 1
+        ORDER BY date_effective DESC, id_prix_carburant DESC
+        LIMIT 1
+      `);
+      taux_usd = tauxResult?.[0]?.taux_usd || 2200;
+    }
+
+    // 3. DERNIER COMPTEUR
+    const [lastCarburant] = await query(
+      `SELECT compteur_km, date_operation
+       FROM carburant
+       WHERE id_vehicule = ?
+       ORDER BY date_operation DESC, id_carburant DESC
+       LIMIT 1`,
+      [id_vehicule]
+    );
+
+    const compteur_precedent = lastCarburant?.compteur_km || 0;
+
+    // 4. VEHICULE + CATEGORIE
+    const [vehicule] = await query(
+      `SELECT v.capacite_reservoir, v.id_cat_vehicule, c.nom_cat, c.abreviation
+       FROM vehicules v
+       LEFT JOIN cat_vehicule c ON v.id_cat_vehicule = c.id_cat_vehicule
+       WHERE v.id_vehicule = ?`,
+      [id_vehicule]
+    );
+
+    const capacite_max = vehicule?.capacite_reservoir || 0;
+    const cat_nom = vehicule?.nom_cat || "Inconnu";
+    const cat_abrev = vehicule?.abreviation || "N/A";
+
+    // 5. CALCULS
+    const distance_parcourue = compteur_km - compteur_precedent;
+
+    const consommation_100km =
+      distance_parcourue > 0
+        ? parseFloat(((quantite_litres * 100) / distance_parcourue).toFixed(2))
+        : 0;
+
+    const montant_total_cdf = parseFloat((quantite_litres * prix_cdf).toFixed(2));
+    const montant_total_usd = parseFloat((montant_total_cdf / taux_usd).toFixed(2));
+    const prix_usd = parseFloat((prix_cdf / taux_usd).toFixed(2));
+
+    // 6. ALERTES
+    const alertes = [];
+
+    // ⚠️ KM incohérent → Demande confirmation
+    if (compteur_precedent > 0 && compteur_km < compteur_precedent && !force) {
+      return res.status(409).json({
+        askConfirmation: true,
+        message: `Le nouveau kilométrage (${compteur_km}) est inférieur au dernier (${compteur_precedent}). Voulez-vous enregistrer quand même ?`
+      });
+    }
+
+    // Capacité réservoir dépassée
+    if (quantite_litres > capacite_max && capacite_max > 0) {
+      alertes.push({
+        type_alerte: "Capacité dépassée",
+        message: `Quantité (${quantite_litres} L) > capacité (${capacite_max} L).`,
+        niveau: "Critical"
+      });
+    }
+
+    // Date incohérente
+    if (lastCarburant && new Date(date_operation) < new Date(lastCarburant.date_operation)) {
+      alertes.push({
+        type_alerte: "Date incohérente",
+        message: `Date plein (${date_operation}) < dernier plein (${lastCarburant.date_operation}).`,
+        niveau: "Warning"
+      });
+    }
+
+    // Distance incohérente
+    if (distance_parcourue <= 0) {
+      alertes.push({
+        type_alerte: "Distance incohérente",
+        message: `Distance (${distance_parcourue} km) invalide.`,
+        niveau: "Critical"
+      });
+    }
+
+    if (distance_parcourue > 1000) {
+      alertes.push({
+        type_alerte: "Distance excessive",
+        message: `Distance inhabituelle (${distance_parcourue} km).`,
+        niveau: "Warning"
+      });
+    }
+
+    // 7. SEUILS CONSOMMATION
+    let minConso = 5, maxConso = 50;
+
+    switch (cat_abrev) {
+      case "SUV":
+        [minConso, maxConso] = [5, 15];
+        break;
+      case "< 7,5 T":
+      case "> 7,5 T":
+      case "> 20T":
+        [minConso, maxConso] = [20, 45];
+        break;
+      case "Bus":
+        [minConso, maxConso] = [25, 60];
+        break;
+      case "2Roues":
+        [minConso, maxConso] = [2, 8];
+        break;
+      case "Agri":
+      case "Engin":
+        [minConso, maxConso] = [10, 80];
+        break;
+    }
+
+    if (consommation_100km < minConso || consommation_100km > maxConso) {
+      alertes.push({
+        type_alerte: "Consommation anormale",
+        message: `Consommation ${consommation_100km} L/100km hors norme (${minConso}-${maxConso}).`,
+        niveau: "Warning"
+      });
+    }
+
+    // 8. ALERTE CRITIQUE → BLOCAGE
+    const alerteCritique = alertes.find(a => a.niveau === "Critical");
+
+    if (alerteCritique && !(compteur_precedent > 0 && compteur_km < compteur_precedent && force)) {
+      return res.status(400).json({
+        error: "Données incohérentes détectées.",
+        alertes
+      });
+    }
+
+    // 9. INSERTION EN BD
+    const insertResult = await query(
+      `INSERT INTO carburant (
+        num_pc, num_facture, date_operation, id_vehicule, id_chauffeur,
+        quantite_litres, prix_cdf, prix_usd, montant_total_cdf, montant_total_usd,
+        id_fournisseur, id_type_carburant, compteur_km, distance, consommation,
+        commentaire, user_cr, created_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        num_pc || null,
+        num_facture || null,
+        moment(date_operation).format("YYYY-MM-DD"),
+        id_vehicule,
+        id_chauffeur || null,
+        quantite_litres,
+        prix_cdf,
+        prix_usd,
+        montant_total_cdf,
+        montant_total_usd,
+        id_fournisseur || null,
+        id_type_carburant,
+        compteur_km,
+        distance_parcourue,
+        consommation_100km,
+        commentaire || null,
+        user_cr
+      ]
+    );
+
+    // 10. ENREGISTREMENT DES ALERTES
+    for (const a of alertes) {
+      await query(
+        `INSERT INTO alertes_charroi
+         (vehicule_id, type_alerte, message, niveau, status, created_at)
+         VALUES (?, ?, ?, ?, 'Ouverte', NOW())`,
+        [id_vehicule, a.type_alerte, a.message, a.niveau]
+      );
+    }
+
+    // 11. REPONSE
+    return res.status(201).json({
+      message: "Plein carburant enregistré avec succès.",
+      data: {
+        id: insertResult.insertId,
+        prix_cdf,
+        prix_usd,
+        taux_usd,
+        distance_parcourue,
+        consommation_100km,
+        montant_total_cdf,
+        montant_total_usd,
+        categorie: cat_nom,
+        alertes_detectees: alertes.length,
+        details_alertes: alertes
+      }
+    });
+  } catch (error) {
+    console.error("Erreur lors de l'ajout de carburant :", error);
+    return res.status(500).json({
+      error: `Une erreur s'est produite lors de l'enregistrement du plein de carburant.`
+    });
+  }
 };
+
 
 exports.updateCarburant = async (req, res) => {
   const {
