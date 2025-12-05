@@ -227,7 +227,6 @@ exports.getCarburant = (req, res) => {
 exports.getCarburantLimitTen = (req, res) => {
   const { id_vehicule } = req.query;
 
-  // Déclaration des variables pour le WHERE dynamique
   const where = [];
   const params = [];
 
