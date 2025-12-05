@@ -228,17 +228,12 @@ exports.getCarburant = (req, res) => {
 exports.getCarburantLimitThree = (req, res) => {
   const { id_vehicule } = req.query;
 
-  const where = ["c.est_supprime = 0"];
-  const params = [];
-
-  if (id_vehicule) {
-    where.push("c.id_vehicule = ?");
-    params.push(id_vehicule);
+  // Vérification du paramètre
+  if (!id_vehicule) {
+    return res.status(400).json({ message: "Paramètre manquant : id_vehicule." });
   }
 
-  const whereClause = "WHERE " + where.join(" AND ");
-
-  const q = `
+  const query = `
     SELECT 
         c.id_carburant, 
         c.num_pc, 
@@ -267,16 +262,19 @@ exports.getCarburantLimitThree = (req, res) => {
     LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
     LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
     LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur
-    ${whereClause}
+    WHERE c.est_supprime = 0 AND c.id_vehicule = ?
     ORDER BY c.id_carburant DESC
     LIMIT 3
   `;
 
-  db.query(q, params, (error, data) => {
-    if (error) {
-      return res.status(500).json({ message: "Erreur SQL", error: error.sqlMessage });
+  db.query(query, [id_vehicule], (err, results) => {
+    if (err) {
+      console.error("Erreur SQL:", err);
+      return res.status(500).json({ message: "Erreur lors de la récupération des carburants.", error: err.sqlMessage });
     }
-    return res.status(200).json(data);
+
+    // Retourne le résultat sous forme d'objet
+    return res.status(200).json({ success: true, data: results });
   });
 };
 

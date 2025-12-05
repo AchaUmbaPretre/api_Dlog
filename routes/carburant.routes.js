@@ -28,6 +28,7 @@ router.put('/vehicule_carburant', carburantController.putVehiculeCarburant);
 router.put('/relier_vehiculeCarburant', carburantController.putRelierVehiculeCarburant)
 
 router.post('/', carburantController.getCarburant);
+router.get('/limit_three', carburantController.getCarburantLimitThree);
 router.get('/limit_ten', carburantController.getCarburantLimitTen);
 router.get('/one', carburantController.getCarburantOne);
 router.post('/post_carburant', carburantController.postCarburant);
