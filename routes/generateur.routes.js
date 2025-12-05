@@ -41,7 +41,7 @@ router.post('/', upload.array('img', 10), generateurController.postGenerateur)
 router.put('/', generateurController.updateGenerateur)
 
 //Relier générateur fichier excel
-router.put('/generateur_fichier_excel', generateurController.putRelierGenerateurFichierExcel)
+router.put('/relier_generateur', generateurController.putRelierGenerateurFichierExcel)
 
 //Plein generateur
 router.get('/plein_generateur', generateurController.getPleinGenerateur)

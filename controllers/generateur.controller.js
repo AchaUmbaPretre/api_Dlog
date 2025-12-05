@@ -171,6 +171,7 @@ exports.getGenerateur = (req, res) => {
                 g.nbre_cylindre, 
                 g.tension, 
                 g.frequence, 
+                g.id_carburant_vehicule,
                 mog.nom_modele, 
                 mg.nom_marque, 
                 dc.nom_disposition, 
@@ -458,12 +459,13 @@ exports.updateGenerateur = async (req, res) => {
     }
 };
 
+//Relier générateur à un fichier excel
 exports.putRelierGenerateurFichierExcel = async (req, res) => {
   try {
     const { id_generateur } = req.query;
     const { id_enregistrement } = req.body;
 
-    if (!id_vehicule || !id_enregistrement) {
+    if (!id_generateur || !id_enregistrement) {
       return res.status(400).json({ message: "Paramètres manquants (id_vehicule ou id_capteur)." });
     }
 
