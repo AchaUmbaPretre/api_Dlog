@@ -225,6 +225,61 @@ exports.getCarburant = (req, res) => {
   });
 };
 
+exports.getCarburantLimitThree = (req, res) => {
+  const { id_vehicule } = req.query;
+
+  const where = ["c.est_supprime = 0"];
+  const params = [];
+
+  if (id_vehicule) {
+    where.push("c.id_vehicule = ?");
+    params.push(id_vehicule);
+  }
+
+  const whereClause = "WHERE " + where.join(" AND ");
+
+  const q = `
+    SELECT 
+        c.id_carburant, 
+        c.num_pc, 
+        c.num_facture, 
+        c.date_operation, 
+        c.quantite_litres,
+        c.compteur_km, 
+        c.distance, 
+        c.consommation,
+        c.prix_cdf,
+        c.prix_usd,
+        c.montant_total_cdf,
+        c.montant_total_usd,
+        c.commentaire,
+        v.id_enregistrement,
+        v.nom_marque,
+        v.nom_modele,
+        v.immatriculation,
+        ch.nom AS nom_chauffeur,
+        ch.prenom AS prenom,
+        f.nom_fournisseur,
+        c.id_vehicule,
+        u.nom AS createur
+    FROM carburant c
+    LEFT JOIN vehicule_carburant v ON c.id_vehicule = v.id_enregistrement
+    LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
+    LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
+    LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur
+    ${whereClause}
+    ORDER BY c.id_carburant DESC
+    LIMIT 3
+  `;
+
+  db.query(q, params, (error, data) => {
+    if (error) {
+      return res.status(500).json({ message: "Erreur SQL", error: error.sqlMessage });
+    }
+    return res.status(200).json(data);
+  });
+};
+
 exports.getCarburantLimitTen = (req, res) => {
   const { id_vehicule } = req.query;
 
@@ -804,7 +859,6 @@ exports.postCarburant = async (req, res) => {
     });
   }
 };
-
 
 exports.updateCarburant = async (req, res) => {
   const {

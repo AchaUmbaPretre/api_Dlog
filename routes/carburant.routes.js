@@ -30,7 +30,7 @@ router.put('/relier_vehiculeCarburant', carburantController.putRelierVehiculeCar
 router.post('/', carburantController.getCarburant);
 router.get('/limit_ten', carburantController.getCarburantLimitTen);
 router.get('/one', carburantController.getCarburantOne);
-router.post('/', carburantController.postCarburant);
+router.post('/post_carburant', carburantController.postCarburant);
 router.put('/', carburantController.updateCarburant)
 router.put('/delete', carburantController.deleteCarburant)
 
