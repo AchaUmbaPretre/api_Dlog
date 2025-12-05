@@ -267,7 +267,7 @@ exports.getCarburantLimitTen = (req, res) => {
     LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
     ${whereClause}
     ORDER BY c.id_carburant DESC
-    LIMIT 10
+    LIMIT 5
   `;
 
   db.query(q, params, (error, data) => {
