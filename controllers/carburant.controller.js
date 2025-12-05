@@ -227,7 +227,7 @@ exports.getCarburant = (req, res) => {
 exports.getCarburantLimitTen = (req, res) => {
   const { id_vehicule } = req.query;
 
-  const where = [];
+  const where = ["c.est_supprime = 0"]; // toujours présent
   const params = [];
 
   if (id_vehicule) {
@@ -235,7 +235,7 @@ exports.getCarburantLimitTen = (req, res) => {
     params.push(id_vehicule);
   }
 
-  const whereClause = where.length ? "WHERE c.est_supprime = 0 " + where.join(" AND ") : "";
+  const whereClause = "WHERE " + where.join(" AND ");
 
   const q = `
     SELECT 
@@ -259,11 +259,13 @@ exports.getCarburantLimitTen = (req, res) => {
         ch.nom AS nom_chauffeur,
         ch.prenom AS prenom,
         f.nom_fournisseur,
-        c.id_vehicule
+        c.id_vehicule,
+        u.nom AS createur
     FROM carburant c
     LEFT JOIN vehicule_carburant v ON c.id_vehicule = v.id_enregistrement
     LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
     LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
+    LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur;
     ${whereClause}
     ORDER BY c.id_carburant DESC
     LIMIT 5
@@ -276,6 +278,7 @@ exports.getCarburantLimitTen = (req, res) => {
     return res.status(200).json(data);
   });
 };
+
 
 exports.getCarburantOne = (req, res) => {
     const { id_vehicule, id_carburant } = req.query;
