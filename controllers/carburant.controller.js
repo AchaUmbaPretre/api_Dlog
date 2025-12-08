@@ -1983,7 +1983,7 @@ exports.getRapportCarbMonth = (req, res) => {
 
   if (site && Array.isArray(site) && site.length > 0) {
     const escapedSites = site.map(s => db.escape(s)).join(',');
-    where += ` AND s.id_site IN (${escapedSites})`;
+    where += ` AND sv.id_site IN (${escapedSites})`;
   }
 
   if (Array.isArray(cat) && cat.length > 0) {
@@ -1993,7 +1993,7 @@ exports.getRapportCarbMonth = (req, res) => {
 
   if (Array.isArray(type_carb) && type_carb.length > 0) {
     const escapedTypeCarb = type_carb.map(t => db.escape(t)).join(',');
-    where += ` AND c.id_type_carburant IN (${escapedTypeCarb})`;
+    where += ` AND vc.id_type_carburant IN (${escapedTypeCarb})`;
   }
 
   if (months.length > 0) {
@@ -2016,6 +2016,7 @@ exports.getRapportCarbMonth = (req, res) => {
     LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement
     LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule
     LEFT JOIN cat_vehicule cat ON v.id_cat_vehicule = cat.id_cat_vehicule
+    LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule
     ${where}
     GROUP BY YEAR(c.date_operation), MONTH(c.date_operation)
     ORDER BY YEAR(c.date_operation) DESC, MONTH(c.date_operation) DESC;
