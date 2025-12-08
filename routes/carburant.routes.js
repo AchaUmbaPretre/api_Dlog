@@ -60,5 +60,6 @@ router.get('/annee', carburantController.getCarburantAnnee)
 //Rapport par periode cat
 router.get('/rapport_periode_cat', carburantController.getRapportCatPeriode);
 router.post('/rapport_periode_vehicule', carburantController.getRapportVehiculePeriode);
+router.post('/rapport_Carburant_Month', carburantController.getRapportCarbMonth);
 
 module.exports = router;

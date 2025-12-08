@@ -1959,3 +1959,80 @@ SELECT
     return res.status(200).json(data);
   });
 };
+
+exports.getRapportCarbMonth = (req, res) => {
+  let { period, vehicule, cat, type_carb } = req.body;
+
+  // Parse period si c'est une string
+  if (typeof period === "string") {
+    try {
+      period = JSON.parse(period);
+    } catch (e) {
+      return res.status(400).json({ message: "Format 'period' invalide" });
+    }
+  }
+
+  const months = Array.isArray(period?.mois) ? period.mois.map(Number) : [];
+  const years = Array.isArray(period?.annees) ? period.annees.map(Number) : [];
+
+  // Base WHERE
+  let where = "WHERE 1=1";
+
+  if (Array.isArray(vehicule) && vehicule.length > 0) {
+    const escapedVehicules = vehicule.map(v => db.escape(v)).join(',');
+    where += ` AND c.id_vehicule IN (${escapedVehicules})`;
+  }
+
+  if (Array.isArray(cat) && cat.length > 0) {
+    const escapedCat = cat.map(c => db.escape(c)).join(',');
+    where += ` AND cat.id_cat_vehicule IN (${escapedCat})`;
+  }
+
+  if (Array.isArray(type_carb) && type_carb.length > 0) {
+    const escapedTypeCarb = type_carb.map(t => db.escape(t)).join(',');
+    where += ` AND c.id_type_carburant IN (${escapedTypeCarb})`;
+  }
+
+  if (months.length > 0) {
+    const escapedMonths = months.map(m => db.escape(m)).join(',');
+    where += ` AND MONTH(c.date_operation) IN (${escapedMonths})`;
+  }
+
+  if (years.length > 0) {
+    const escapedYears = years.map(y => db.escape(y)).join(',');
+    where += ` AND YEAR(c.date_operation) IN (${escapedYears})`;
+  }
+
+  const q = `
+    SELECT 
+      YEAR(c.date_operation) AS annee,
+      MONTH(c.date_operation) AS mois,
+      SUM(c.consommation) AS consommation_totale
+    FROM carburant c
+    LEFT JOIN type_carburant tc ON tc.id_type_carburant = c.id_type_carburant
+    LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement
+    LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule
+    LEFT JOIN cat_vehicule cat ON v.id_cat_vehicule = cat.id_cat_vehicule
+    ${where}
+    GROUP BY YEAR(c.date_operation), MONTH(c.date_operation)
+    ORDER BY YEAR(c.date_operation) DESC, MONTH(c.date_operation) DESC;
+  `;
+
+  db.query(q, (error, data) => {
+    if (error) {
+      console.error("Erreur SQL", error);
+      return res.status(500).json({
+        message: "Erreur lors de la récupération",
+        error: error.sqlMessage,
+      });
+    }
+
+    if (!data.length) {
+      return res.status(404).json({
+        message: "Aucune donnée trouvée pour les paramètres fournis.",
+      });
+    }
+
+    return res.status(200).json(data);
+  });
+};

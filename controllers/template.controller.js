@@ -2588,7 +2588,7 @@ exports.getRapportExterneEtInterne = (req, res) => {
                 ds.periode,
                 SUM(COALESCE(ds.total_entreposage, 0)) AS total_entreposage,
                 SUM(COALESCE(ds.total_manutation, 0)) AS total_manutation,
-                SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_facture  -- Addition des deux pour le total
+                SUM(COALESCE(ds.total_entreposage, 0) + COALESCE(ds.total_manutation, 0)) AS total_facture
             FROM declaration_super ds
             	INNER JOIN template_occupation tco ON ds.id_template = tco.id_template
                 INNER JOIN batiment b ON tco.id_batiment = b.id_batiment
