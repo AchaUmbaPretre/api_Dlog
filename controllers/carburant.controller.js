@@ -1963,7 +1963,6 @@ SELECT
 exports.getRapportCarbMonth = (req, res) => {
   let { period, vehicule, cat, type_carb } = req.body;
 
-  // Parse period si c'est une string
   if (typeof period === "string") {
     try {
       period = JSON.parse(period);
@@ -1975,7 +1974,6 @@ exports.getRapportCarbMonth = (req, res) => {
   const months = Array.isArray(period?.mois) ? period.mois.map(Number) : [];
   const years = Array.isArray(period?.annees) ? period.annees.map(Number) : [];
 
-  // Base WHERE
   let where = "WHERE 1=1";
 
   if (Array.isArray(vehicule) && vehicule.length > 0) {
