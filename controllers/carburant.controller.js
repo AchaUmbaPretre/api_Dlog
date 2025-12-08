@@ -1897,8 +1897,8 @@ exports.getRapportVehiculePeriode = (req, res) => {
   }
 
   if (cat && Array.isArray(cat) && cat.length > 0) {
-      const escapedSites = cat.map(s => db.escape(s)).join(',');
-      where += ` AND cat.id_cat_vehicule IN (${escapedSites})`;
+      const escapedCat = cat.map(s => db.escape(s)).join(',');
+      where += ` AND cat.id_cat_vehicule IN (${escapedCat})`;
   }
 
   // Filtres mois
@@ -1961,7 +1961,7 @@ SELECT
 };
 
 exports.getRapportCarbMonth = (req, res) => {
-  let { period, vehicule, cat, type_carb } = req.body;
+  let { period, vehicule, cat, type_carb, site } = req.body;
 
   if (typeof period === "string") {
     try {
@@ -1979,6 +1979,11 @@ exports.getRapportCarbMonth = (req, res) => {
   if (Array.isArray(vehicule) && vehicule.length > 0) {
     const escapedVehicules = vehicule.map(v => db.escape(v)).join(',');
     where += ` AND c.id_vehicule IN (${escapedVehicules})`;
+  }
+
+  if (site && Array.isArray(site) && site.length > 0) {
+    const escapedSites = site.map(s => db.escape(s)).join(',');
+    where += ` AND s.id_site IN (${escapedSites})`;
   }
 
   if (Array.isArray(cat) && cat.length > 0) {
