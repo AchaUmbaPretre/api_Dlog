@@ -718,7 +718,7 @@ exports.deletePleinGen = async(req, res) => {
     }
 };
 
-exports.rapportGenerateurAll = async(req, res) => {
+exports.rapportGenerateurPleinAll = async(req, res) => {
     try {
         const { date_debut, date_fin} = req.query;
         if(!date_debut || !date_fin) {
