@@ -45,7 +45,7 @@ exports.getVehiculeCarburantOne = (req, res) => {
 };
 
 exports.postVehiculeCarburant = async (req, res) => {
-  const { nom_marque, nom_modele, num_serie, immatriculation, id_type_carburant } = req.body;
+  const { nom_marque, nom_modele, num_serie, immatriculation, compteur, id_type_carburant } = req.body;
 
   if (!nom_marque) {
     return res.status(400).json({ message: "Paramètres manquants." });
@@ -72,10 +72,10 @@ exports.postVehiculeCarburant = async (req, res) => {
       return new Promise((resolve, reject) => {
         const query = `
           INSERT INTO vehicule_carburant 
-          (id_enregistrement, nom_marque, nom_modele, num_serie, immatriculation, id_type_carburant)
-          VALUES (?, ?, ?, ?, ?, ?)
+          (id_enregistrement, nom_marque, nom_modele, num_serie, immatriculation, compteur, id_type_carburant)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
-        const values = [nextId, nom_marque, nom_modele, num_serie, immatriculation, id_type_carburant];
+        const values = [nextId, nom_marque, nom_modele, num_serie, immatriculation, compteur, id_type_carburant];
 
         db.query(query, values, (err, result) => {
           if (err) return reject(err);
@@ -1488,12 +1488,12 @@ exports.rapportCarburantAll = async (req, res) => {
       SELECT 
           YEARWEEK(date_operation, 1) AS semaine,
           COALESCE(SUM(montant_total_cdf), 0) AS total_cdf,
-          COALESCE(SUM(montant_total_usd), 0) AS total_usd
+          COALESCE(SUM(montant_total_usd), 0) AS total_usd,
+          COALESCE(SUM(consommation), 0) AS total_consom
       FROM carburant
       WHERE date_operation BETWEEN ? AND ?
       GROUP BY YEARWEEK(date_operation, 1)
       ORDER BY semaine ASC
-
     `, [date_debut, date_fin]);
 
     // === 4️⃣ Répartition par catégorie de véhicule ===
