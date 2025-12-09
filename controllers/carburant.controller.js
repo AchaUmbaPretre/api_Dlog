@@ -102,16 +102,16 @@ exports.putVehiculeCarburant = async (req, res) => {
 
   try {
     const { id_vehicule_carburant } = req.query;
-    const { nom_marque, nom_modele, num_serie, immatriculation, id_type_carburant } = req.body;
+    const { nom_marque, nom_modele, num_serie, immatriculation, compteur, id_type_carburant } = req.body;
 
     if (!id_vehicule_carburant) {
       return res.status(400).json({ message: "Paramètres manquants (id_vehicule_carburant)." });
     }
 
     const q = `UPDATE vehicule_carburant 
-               SET nom_marque = ?, nom_modele = ?, num_serie = ?, immatriculation = ?, id_type_carburant = ? 
+               SET nom_marque = ?, nom_modele = ?, num_serie = ?, immatriculation = ?, compteur = ?, id_type_carburant = ? 
                WHERE id_vehicule_carburant = ?`;
-    const values = [nom_marque, nom_modele, num_serie, immatriculation, id_type_carburant, id_vehicule_carburant];
+    const values = [nom_marque, nom_modele, num_serie, immatriculation, compteur, id_type_carburant, id_vehicule_carburant];
 
     db.query(q, values, (error, data) => {
       if (error) {
