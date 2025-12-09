@@ -375,20 +375,25 @@ exports.updateGenerateur = async (req, res) => {
             return res.status(400).json({ message: "ID générateur manquant." });
         }
 
-        // Champs obligatoires
         if (!id_modele || !puissance || !id_type_gen) {
             return res.status(400).json({
                 message: "Veuillez remplir tous les champs obligatoires pour la logistique."
             });
         }
 
-        // Get OLD image
-        let oldImage = null;
+        // -------------------------
+        // 🔥 Correction principale : pas de db.promise() avec mysql
+        // -------------------------
         const getImgQuery = "SELECT img FROM generateur WHERE id_generateur = ?";
-        const [rows] = await db.promise().query(getImgQuery, [id_generateur]);
-        if (rows.length > 0) {
-            oldImage = rows[0].img;
-        }
+
+        const rows = await new Promise((resolve, reject) => {
+            db.query(getImgQuery, [id_generateur], (err, result) => {
+                if (err) reject(err);
+                else resolve(result);
+            });
+        });
+
+        let oldImage = rows.length > 0 ? rows[0].img : null;
 
         // Nouveau upload ?
         let img = oldImage;
@@ -409,39 +414,12 @@ exports.updateGenerateur = async (req, res) => {
         `;
 
         const values = [
-            code_groupe,
-            id_type_gen,
-            id_modele,
-            num_serie,
-            puissance,
-            reservoir,
-            valeur_acquisition,
-            dimension,
-            longueur,
-            largeur,
-            poids,
-            annee_fabrication,
-            annee_service,
-            img,
-            id_type_carburant,
-            refroidissement,
-            puissance_sec,
-            capacite_radiateur,
-            frequence,
-            cos_phi,
-            nbre_cylindre,
-            tension,
-            type_lubrifiant,
-            puissance_acc,
-            pression_acc,
-            capacite_carter,
-            regime_moteur,
-            consommation_carburant,
-            demarrage,
-            nbr_phase,
-            disposition_cylindre,
-            user_cr,
-            id_generateur
+            code_groupe, id_type_gen, id_modele, num_serie, puissance, reservoir,
+            valeur_acquisition, dimension, longueur, largeur, poids, annee_fabrication,
+            annee_service, img, id_type_carburant, refroidissement, puissance_sec,
+            capacite_radiateur, frequence, cos_phi, nbre_cylindre, tension, type_lubrifiant,
+            puissance_acc, pression_acc, capacite_carter, regime_moteur, consommation_carburant,
+            demarrage, nbr_phase, disposition_cylindre, user_cr, id_generateur
         ];
 
         db.query(q, values, (error) => {
@@ -464,6 +442,7 @@ exports.updateGenerateur = async (req, res) => {
         });
     }
 };
+
 
 //Relier générateur à un fichier excel
 exports.putRelierGenerateurFichierExcel = async (req, res) => {

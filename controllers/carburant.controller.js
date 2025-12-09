@@ -6,7 +6,6 @@ const { promisify } = require("util");
 const query = promisify(db.query).bind(db);
 const moment = require('moment');
 
-
 //Vehicule carburant
 exports.getVehiculeCarburant = (req, res) => {
 
@@ -629,8 +628,6 @@ exports.postCarburant = async (req, res) => {
     user_cr,
     force
   } = req.body;
-
-  console.log(req.body)
 
   try {
     // 1. VALIDATION DES CHAMPS OBLIGATOIRES
