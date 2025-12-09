@@ -717,3 +717,19 @@ exports.deletePleinGen = async(req, res) => {
         });
     }
 };
+
+exports.rapportGenerateurAll = async(req, res) => {
+    try {
+        const { data_debut, date_fin} = req.query;
+        if(!data_debut || !date_fin) {
+            return res.status(400).json({ message :'Periode requise'})
+        }
+
+        const resume = await query(`
+            
+            `)
+        
+    } catch (error) {
+        
+    }
+}
