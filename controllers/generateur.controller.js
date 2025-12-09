@@ -720,16 +720,60 @@ exports.deletePleinGen = async(req, res) => {
 
 exports.rapportGenerateurAll = async(req, res) => {
     try {
-        const { data_debut, date_fin} = req.query;
-        if(!data_debut || !date_fin) {
+        const { date_debut, date_fin} = req.query;
+        if(!date_debut || !date_fin) {
             return res.status(400).json({ message :'Periode requise'})
         }
 
         const resume = await query(`
-            
-            `)
+            SELECT 
+                COUNT(*) AS total_pleins,
+                SUM(pg.quantite_litres) AS total_litres,
+                SUM(pg.montant_total_cdf) AS total_cdf,
+                SUM(pg.montant_total_usd) AS total_usd
+            FROM plein_generateur pg
+            WHERE pg.date_operation BETWEEN ? AND ?
+            `, [date_debut, date_fin]);
+
+        const parGenerateur = await query(`
+                SELECT 
+                    g.id_generateur,
+                    g.code_groupe,
+                    mog.nom_modele,
+                    mg.nom_marque,
+                    SUM(pg.quantite_litres) AS total_litres,
+                    SUM(pg.montant_total_cdf) AS total_cdf,
+                    SUM(pg.montant_total_usd) AS total_usd
+                FROM plein_generateur pg
+                LEFT JOIN generateur g ON pg.id_generateur = g.id_generateur
+                LEFT JOIN modele_generateur mog ON g.id_modele = mog.id_modele_generateur
+                LEFT JOIN marque_generateur mg ON mog.id_marque_generateur = mg.id_marque_generateur
+                WHERE pg.date_operation BETWEEN ? AND ?
+                GROUP BY pg.id_generateur
+                ORDER BY MAX(pg.date_operation) DESC
+                `, [date_debut, date_fin]);
+
+        const coutHebdo = await query(`
+                SELECT 
+                    YEARWEEK(date_operation, 1) AS semaine,
+                    SUM(pg.quantite_litres) AS total_litres,
+                    SUM(pg.montant_total_cdf) AS total_cdf,
+                    SUM(pg.montant_total_usd) AS total_usd
+                FROM plein_generateur pg
+                WHERE pg.date_operation BETWEEN ? AND ?
+                GROUP BY YEARWEEK(pg.date_operation, 1)
+                ORDER BY semaine ASC
+                `, [date_debut, date_fin]);
+
+        return res.status(200).json({
+            periode: { date_debut, date_fin},
+            resume: resume[0],
+            graphiques : { parGenerateur, coutHebdo },
+            detailGenerateurs: parGenerateur
+        })
         
     } catch (error) {
-        
+        console.error('Erreur rapport générateur all :', error);
+        res.status(500).json(error);
     }
 }
