@@ -764,11 +764,19 @@ exports.rapportGenerateurPleinAll = async(req, res) => {
                 GROUP BY YEARWEEK(pg.date_operation, 1)
                 ORDER BY semaine ASC
                 `, [date_debut, date_fin]);
+        
+        const repartition = await query(`
+            SELECT tg.nom_type_gen, SUM(pg.quantite_litres) AS total_litres 
+        FROM plein_generateur pg
+        LEFT JOIN generateur g ON pg.id_generateur = g.id_generateur
+        LEFT JOIN type_generateur tg ON g.id_type_gen = tg.id_type_generateur
+        WHERE pg.date_operation BETWEEN ? AND ?
+            `, [date_debut, date_fin]);
 
         return res.status(200).json({
             periode: { date_debut, date_fin},
             resume: resume[0],
-            graphiques : { parGenerateur, coutHebdo },
+            graphiques : { parGenerateur, coutHebdo, repartition },
             detailGenerateurs: parGenerateur
         })
         
