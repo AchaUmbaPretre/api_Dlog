@@ -646,6 +646,8 @@ exports.postPleinGenerateur = async (req, res) => {
 exports.putPleinGenerateur = async(req, res) => {
     const { 
         id_generateur, 
+        num_pc,
+        num_facture,
         quantite_litres, 
         id_type_carburant, 
         date_operation, 
@@ -666,7 +668,7 @@ exports.putPleinGenerateur = async(req, res) => {
 
         const q = `
         UPDATE plein_generateur SET 
-            id_generateur = ?, quantite_litres = ?, 
+            id_generateur = ?, num_pc = ?, num_facture = ?, quantite_litres = ?, 
             id_type_carburant = ?, date_operation = ?, 
             user_cr = ?, commentaire = ?
         WHERE id_plein_generateur  = ?
@@ -674,6 +676,8 @@ exports.putPleinGenerateur = async(req, res) => {
 
         const values = [
             id_generateur, 
+            num_pc,
+            num_facture,
             quantite_litres, 
             id_type_carburant, 
             date_operation, 
