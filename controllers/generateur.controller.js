@@ -553,6 +553,8 @@ exports.getPleinGenerateurOne = (req, res) => {
 exports.postPleinGenerateur = async (req, res) => {
     const { 
         id_generateur, 
+        num_pc,
+        num_facture,
         quantite_litres, 
         id_type_carburant, 
         date_operation, 
@@ -589,16 +591,21 @@ exports.postPleinGenerateur = async (req, res) => {
         // 3️⃣ Calcul des montants
         const montant_total_cdf = quantite_litres * prix_cdf;
         const montant_total_usd = parseFloat((montant_total_cdf / taux_usd).toFixed(2));
+        const prix_usd = parseFloat((prix_cdf / taux_usd).toFixed(2));
 
         // 4️⃣ Préparation des valeurs pour l’insert
         const values = [
             id_generateur,
+            num_pc,
+            num_facture,
             quantite_litres,
             id_type_carburant,
             date_operation,
             id_fournisseur,
             user_cr,
             commentaire || null,
+            prix_cdf, 
+            prix_usd,
             montant_total_cdf,
             montant_total_usd
         ];
@@ -606,11 +613,11 @@ exports.postPleinGenerateur = async (req, res) => {
         // 5️⃣ Insertion dans la base de données
         const q = `
             INSERT INTO plein_generateur(
-                id_generateur, quantite_litres, 
+                id_generateur, num_pc, num_facture, quantite_litres, 
                 id_type_carburant, date_operation, 
-                user_cr, id_fournisseur, commentaire, 
+                user_cr, id_fournisseur, commentaire, prix_cdf, prix_usd, 
                 montant_total_cdf, montant_total_usd
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         db.query(q, values, (error) => {
