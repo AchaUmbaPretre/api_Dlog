@@ -545,7 +545,7 @@ exports.getPleinGenerateurLimitTen = (req, res) => {
 exports.getPleinGenerateurOne = (req, res) => {
     const { id_plein_generateur } = req.query;
 
-    if(id_plein_generateur) {
+    if(!id_plein_generateur) {
         res.status(400).json({ message : 'Paramètres manquants.'})
     }
 
@@ -664,6 +664,7 @@ exports.putPleinGenerateur = async(req, res) => {
         commentaire,
         id_plein_generateur 
     } = req.body;
+
 
     try {
 
