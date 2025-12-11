@@ -443,7 +443,6 @@ exports.updateGenerateur = async (req, res) => {
     }
 };
 
-
 //Relier générateur à un fichier excel
 exports.putRelierGenerateurFichierExcel = async (req, res) => {
   try {
@@ -481,7 +480,17 @@ exports.putRelierGenerateurFichierExcel = async (req, res) => {
 
 //PLein generateur
 exports.getPleinGenerateur = (req, res) => {
-    const q = `SELECT p.*, 
+    const q = `SELECT 
+                    p.id_plein_generateur, 
+                    p.num_pc, 
+                    p.num_facture, 
+                    p.quantite_litres,
+                    p.date_operation, 
+                    p.commentaire, 
+                    p.prix_cdf, 
+                    p.prix_usd, 
+                    p.montant_total_cdf, 
+                    p.montant_total_usd,
                     g.code_groupe,
                     mog.nom_modele, 
                     mg.nom_marque,
