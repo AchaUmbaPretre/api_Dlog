@@ -12,7 +12,7 @@ exports.getFrequenceCount = (req, res) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
-}
+};
 
 exports.getFrequence = (req, res) => {
 
@@ -43,7 +43,7 @@ exports.getFrequenceOne = (req, res) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
-}
+};
 
 exports.postFrequence = async (req, res) => {
     try {
@@ -65,7 +65,6 @@ exports.postFrequence = async (req, res) => {
     }
 };
 
-
 exports.deleteFrequence = (req, res) => {
     const id = req.params.id;
   
@@ -76,8 +75,7 @@ exports.deleteFrequence = (req, res) => {
       return res.json(data);
     });
   
-  }
-  
+};
   
 exports.putFrequence = (req, res) => {
     const {id_frequence} = req.query;
@@ -110,4 +108,4 @@ exports.putFrequence = (req, res) => {
         console.error("Error updating tache:", err);
         return res.status(500).json({ error: 'Failed to update Tache record' });
     }
-  }
+};
