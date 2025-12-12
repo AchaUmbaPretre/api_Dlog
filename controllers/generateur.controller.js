@@ -519,31 +519,63 @@ exports.getPleinGenerateur = (req, res) => {
 };
 
 exports.getPleinGenerateurV = (req, res) => {
-    const { marque = [], modele = [], type = [], dateRange = [] } = req.body;
+    const {
+        marque = [],
+        modele = [],
+        type = [],
+        dateRange = [],
+        page = 1,
+        pageSize = 20,
+        sortField = "p.date_operation",
+        sortOrder = "DESC",
+    } = req.body;
 
-    let where = "WHERE p.est_supprime = 0";
     const params = [];
+    let where = "WHERE p.est_supprime = 0";
 
-    function addFilter(field, values, whereClause, params) {
-    if (Array.isArray(values) && values.length > 0) {
-        const placeholders = values.map(() => "?").join(",");
-        whereClause += ` AND ${field} IN (${placeholders})`;
-        params.push(...values);
-    }
-    return whereClause;
-    }
+    // Utilitaire pour générer les filtres IN
+    const addFilter = (column, values) => {
+        if (Array.isArray(values) && values.length > 0) {
+            const placeholders = values.map(() => "?").join(",");
+            where += ` AND ${column} IN (${placeholders})`;
+            params.push(...values);
+        }
+    };
 
-    where = addFilter("mog.id_marque_generateur", marque, where, params);
-    where = addFilter("g.id_modele", modele, where, params);
-    where = addFilter("g.id_type_gen", type, where, params);
+    // Filtres dynamiques
+    addFilter("mog.id_marque_generateur", marque);
+    addFilter("g.id_modele", modele);
+    addFilter("g.id_type_gen", type);
 
-
+    // Filtre date
     if (Array.isArray(dateRange) && dateRange.length === 2) {
         where += ` AND p.date_operation BETWEEN ? AND ?`;
         params.push(dateRange[0], dateRange[1]);
     }
 
-    const q = `
+    // Pagination calculée
+    const offset = (page - 1) * pageSize;
+
+    // Sécurisation du tri
+    const allowedSortFields = [
+        "p.date_operation",
+        "p.quantite_litres",
+        "p.prix_cdf",
+        "p.prix_usd",
+        "p.montant_total_cdf",
+        "p.montant_total_usd",
+        "mg.nom_marque",
+        "mog.nom_modele"
+    ];
+
+    const safeSortField = allowedSortFields.includes(sortField)
+        ? sortField
+        : "p.date_operation";
+
+    const safeSortOrder = sortOrder === "ASC" ? "ASC" : "DESC";
+
+    // Requête principale
+    const query = `
         SELECT 
             p.id_plein_generateur, 
             p.num_pc, 
@@ -571,15 +603,52 @@ exports.getPleinGenerateurV = (req, res) => {
         LEFT JOIN type_carburant tc ON g.id_type_carburant = tc.id_type_carburant
         LEFT JOIN fournisseur f ON p.id_fournisseur = f.id_fournisseur
         ${where}
-        ORDER BY p.date_operation DESC
+        ORDER BY ${safeSortField} ${safeSortOrder}
+        LIMIT ? OFFSET ?
     `;
 
-    db.query(q, params, (error, data) => {
-        if (error) {
-            console.error(error);
+    // On ajoute pageSize & offset à la fin
+    params.push(pageSize, offset);
+
+    // Requête pour compter le total
+    const countQuery = `
+        SELECT COUNT(*) AS total
+        FROM plein_generateur p 
+        LEFT JOIN generateur g ON p.id_generateur = g.id_generateur
+        LEFT JOIN modele_generateur mog ON g.id_modele = mog.id_modele_generateur
+        LEFT JOIN marque_generateur mg ON mog.id_marque_generateur = mg.id_marque_generateur
+        ${where}
+    `;
+
+    // Exécution des deux requêtes
+    db.query(countQuery, params.slice(0, params.length - 2), (countError, countResult) => {
+        if (countError) {
+            console.error(countError);
             return res.status(500).json({ error: "Erreur serveur" });
         }
-        return res.status(200).json(data);
+
+        const total = countResult[0].total;
+
+        db.query(query, params, (error, rows) => {
+            if (error) {
+                console.error(error);
+                return res.status(500).json({ error: "Erreur serveur" });
+            }
+
+            return res.status(200).json({
+                data: rows,
+                pagination: {
+                    total,
+                    page,
+                    pageSize,
+                    totalPages: Math.ceil(total / pageSize),
+                },
+                sorting: {
+                    sortField: safeSortField,
+                    sortOrder: safeSortOrder,
+                },
+            });
+        });
     });
 };
 
