@@ -518,6 +518,75 @@ exports.getPleinGenerateur = (req, res) => {
     })
 };
 
+exports.getPleinGenerateurV = (req, res) => {
+    const { marque = [], modele = [], type = [], dateRange = [] } = req.body;
+
+    let where = "WHERE p.est_supprime = 0";
+    const params = [];
+
+    if (Array.isArray(marque) && marque.length > 0) {
+        const placeholders = marque.map(() => "?").join(","); // CORRECT : join au lieu de json
+        where += ` AND mog.id_marque_generateur IN (${placeholders})`;
+        params.push(...marque);
+    }
+
+    if (Array.isArray(modele) && modele.length > 0) {
+        const placeholders = modele.map(() => "?").join(",");
+        where += ` AND g.id_modele IN (${placeholders})`;
+        params.push(...modele);
+    }
+
+    if (Array.isArray(type) && type.length > 0) {
+        const placeholders = type.map(() => "?").join(",");
+        where += ` AND g.id_type_gen IN (${placeholders})`;
+        params.push(...type);
+    }
+
+    if (Array.isArray(dateRange) && dateRange.length === 2) {
+        where += ` AND p.date_operation BETWEEN ? AND ?`;
+        params.push(dateRange[0], dateRange[1]);
+    }
+
+    const q = `
+        SELECT 
+            p.id_plein_generateur, 
+            p.num_pc, 
+            p.num_facture, 
+            p.quantite_litres,
+            p.date_operation, 
+            p.commentaire, 
+            p.prix_cdf, 
+            p.prix_usd, 
+            p.montant_total_cdf, 
+            p.montant_total_usd,
+            g.code_groupe,
+            mog.nom_modele, 
+            mg.nom_marque,
+            u.nom AS createur,
+            tg.nom_type_gen,
+            tc.nom_type_carburant,
+            f.nom_fournisseur
+        FROM plein_generateur p 
+        LEFT JOIN generateur g ON p.id_generateur = g.id_generateur
+        LEFT JOIN modele_generateur mog ON g.id_modele = mog.id_modele_generateur
+        LEFT JOIN marque_generateur mg ON mog.id_marque_generateur = mg.id_marque_generateur
+        LEFT JOIN utilisateur u ON p.user_cr = u.id_utilisateur
+        LEFT JOIN type_generateur tg ON g.id_type_gen = tg.id_type_generateur
+        LEFT JOIN type_carburant tc ON g.id_type_carburant = tc.id_type_carburant
+        LEFT JOIN fournisseur f ON p.id_fournisseur = f.id_fournisseur
+        ${where}
+        ORDER BY p.date_operation DESC
+    `;
+
+    db.query(q, params, (error, data) => {
+        if (error) {
+            console.error(error);
+            return res.status(500).json({ error: "Erreur serveur" });
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getPleinGenerateurLimitTen = (req, res) => {
     const q = `SELECT p.*, 
                     g.code_groupe,

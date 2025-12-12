@@ -45,6 +45,7 @@ router.put('/relier_generateur', generateurController.putRelierGenerateurFichier
 
 //Plein generateur
 router.get('/plein_generateur', generateurController.getPleinGenerateur)
+router.post('/plein_generateurV', generateurController.getPleinGenerateurV)
 router.get('/plein_generateur_ten', generateurController.getPleinGenerateur)
 router.get('/plein_generateur/one', generateurController.getPleinGenerateurOne)
 router.post('/plein_generateur', generateurController.postPleinGenerateur)
