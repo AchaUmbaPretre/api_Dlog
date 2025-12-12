@@ -524,23 +524,19 @@ exports.getPleinGenerateurV = (req, res) => {
     let where = "WHERE p.est_supprime = 0";
     const params = [];
 
-    if (Array.isArray(marque) && marque.length > 0) {
-        const placeholders = marque.map(() => "?").join(","); // CORRECT : join au lieu de json
-        where += ` AND mog.id_marque_generateur IN (${placeholders})`;
-        params.push(...marque);
+    function addFilter(field, values, whereClause, params) {
+    if (Array.isArray(values) && values.length > 0) {
+        const placeholders = values.map(() => "?").join(",");
+        whereClause += ` AND ${field} IN (${placeholders})`;
+        params.push(...values);
+    }
+    return whereClause;
     }
 
-    if (Array.isArray(modele) && modele.length > 0) {
-        const placeholders = modele.map(() => "?").join(",");
-        where += ` AND g.id_modele IN (${placeholders})`;
-        params.push(...modele);
-    }
+    where = addFilter("mog.id_marque_generateur", marque, where, params);
+    where = addFilter("g.id_modele", modele, where, params);
+    where = addFilter("g.id_type_gen", type, where, params);
 
-    if (Array.isArray(type) && type.length > 0) {
-        const placeholders = type.map(() => "?").join(",");
-        where += ` AND g.id_type_gen IN (${placeholders})`;
-        params.push(...type);
-    }
 
     if (Array.isArray(dateRange) && dateRange.length === 2) {
         where += ` AND p.date_operation BETWEEN ? AND ?`;
