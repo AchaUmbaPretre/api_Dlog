@@ -955,11 +955,14 @@ exports.rapportGenerateurPleinAll = async(req, res) => {
 exports.getRepGenerateur = (req, res) => {
     const query = `
         SELECT 
-            rg.id_reparations_generateur,rg.id_generateur, 
-            rg.date_entree, rg.date_prevu, rg.cout,rg.commentaire, 
-            f.nom_fournisseur, g.num_serie, mg.nom_modele, mag.nom_marque, 
-            subRe.id_sub_reparations_generateur, subRe.montant, subRe.description, 
-            tr.type_rep, sv.nom_statut_vehicule, u.nom AS nom_createur, u.prenom AS prenom_cr
+            rg.id_reparations_generateur,
+            rg.id_generateur, rg.date_entree, 
+            rg.date_prevu, rg.cout, rg.commentaire, 
+            f.nom_fournisseur, g.num_serie, mg.nom_modele, 
+            mag.nom_marque, subRe.id_sub_reparations_generateur,
+            subRe.montant, subRe.description, tr.type_rep, 
+            sv.nom_statut_vehicule, u.nom AS nom_createur, 
+            u.prenom AS prenom_cr, tss.nom_type_statut
         FROM reparations_generateur rg
             LEFT JOIN sub_reparations_generateur subRe ON rg.id_reparations_generateur = subRe.id_reparations_generateur
             LEFT JOIN type_reparations tr ON subRe.id_type_reparation = tr.id_type_reparation
@@ -968,6 +971,7 @@ exports.getRepGenerateur = (req, res) => {
             LEFT JOIN generateur g ON rg.id_generateur = g.id_generateur
             LEFT JOIN modele_generateur mg ON g.id_modele = mg.id_modele_generateur
             LEFT JOIN marque_generateur mag ON mg.id_marque_generateur = mag.id_marque_generateur
+            LEFT JOIN type_statut_suivi tss ON subRe.id_statut = tss.id_type_statut_suivi
             LEFT JOIN utilisateur u ON rg.user_cr = u.id_utilisateur`;
 
     db.query(query, (error, results) => {
