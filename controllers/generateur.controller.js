@@ -986,6 +986,39 @@ exports.getRepGenerateur = (req, res) => {
     })
 }
 
+exports.getRepGenerateurOne = (req, res) => {
+    const { id_reparations_generateur } = req.query;
+
+        if(! id_reparations_generateur) {
+            return res.status(400).json({
+                message: "L'ID de la réparation du générateur est requis."
+            });
+        }
+
+    const query = `
+        SELECT 
+            rg.*
+        FROM reparations_generateur rg
+        WHERE rg.id_reparations_generateur = ?`;
+
+    db.query(query, [id_reparations_generateur], (error, results) => {
+        if(error) {
+            console.error("Erreur lors de la récupération des réparations : ", error);
+            return res.status(500).json({
+                message: 'Une erreur est servenu lors de la récupération de reparation generateur'
+            })
+        }
+
+        if (results.length === 0) {
+            return res.status(404).json({
+                message: "Aucune réparation de générateur trouvée pour cet ID."
+            });
+        }
+
+        return res.status(200).json(results)
+    })
+}
+
 exports.postRepGenerateur = (req, res) => {
     db.getConnection((connErr, connection) => {
         if (connErr) {
