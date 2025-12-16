@@ -2,6 +2,15 @@ const { db } = require("./../config/database");
 const { promisify } = require("util");
 const query = promisify(db.query).bind(db);
 
+function queryPromise(connection, sql, params) {
+    return new Promise((resolve, reject) => {
+      connection.query(sql, params, (err, results) => {
+        if (err) return reject(err);
+        resolve([results]);
+      }); 
+    });
+  }
+
 //Type des Générateurs
 exports.getTypeGenerateur = (req, res) => {
   const query = `SELECT * FROM type_generateur`;
@@ -939,4 +948,180 @@ exports.rapportGenerateurPleinAll = async(req, res) => {
         console.error('Erreur rapport générateur all :', error);
         res.status(500).json(error);
     }
+};
+
+//Reparation generateur
+exports.getRepGenerateur = (req, res) => {
+    const query = `SELECT * FROM reparations_generateur`;
+
+    db.query(query, (error, results) => {
+        if(error) {
+            console.error("Erreur lors de la récupération des réparations : ", error);
+            return res.status(500).json({
+                message: 'Une erreur est servenu lors de la récupération de reparation generateur'
+            })
+        }
+
+        return res.status(200).json(results)
+    })
 }
+
+exports.postRepGenerateur = (req, res) => {
+    db.getConnection((connErr, connection) => {
+        if (connErr) {
+            console.error("Erreur connexion DB :", connErr);
+            return res.status(500).json({
+                error: "Connexion à la base de données échouée."
+            });
+        }
+
+        connection.beginTransaction(async (trxErr) => {
+            if (trxErr) {
+                connection.release();
+                console.error("Erreur démarrage transaction :", trxErr);
+                return res.status(500).json({
+                    error: "Impossible de démarrer la transaction."
+                });
+            }
+
+            try {
+                const {
+                    id_generateur,
+                    date_entree,
+                    date_prevu,
+                    cout,
+                    id_fournisseur,
+                    commentaire,
+                    reparations,
+                    code_rep,
+                    id_statut_vehicule,
+                    user_cr
+                } = req.body;
+
+                if (!id_generateur || typeof id_generateur !== "number") {
+                    throw new Error("Générateur invalide.");
+                }
+
+                if (!Array.isArray(reparations) || reparations.length === 0) {
+                    throw new Error("Aucune réparation fournie.");
+                }
+
+                const dateEntree = moment(date_entree);
+                if (!dateEntree.isValid()) {
+                    throw new Error("Date d'entrée invalide.");
+                }
+
+                const datePrevu = date_prevu ? moment(date_prevu) : null;
+                if (datePrevu && !datePrevu.isValid()) {
+                    throw new Error("Date prévue invalide.");
+                }
+
+                reparations.forEach((rep, index) => {
+                    if (!rep.id_type_reparation || !rep.montant) {
+                        throw new Error(
+                            `Réparation invalide à la ligne ${index + 1}.`
+                        );
+                    }
+                });
+
+                const insertMainQuery = `
+                    INSERT INTO reparations_generateur (
+                        id_generateur,
+                        date_entree,
+                        date_prevu,
+                        cout,
+                        id_fournisseur,
+                        commentaire,
+                        code_rep,
+                        id_statut_vehicule,
+                        user_cr
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `;
+
+                const mainValues = [
+                    id_generateur,
+                    dateEntree.format("YYYY-MM-DD"),
+                    datePrevu ? datePrevu.format("YYYY-MM-DD") : null,
+                    cout || 0,
+                    id_fournisseur || null,
+                    commentaire || null,
+                    code_rep || null,
+                    id_statut_vehicule || null,
+                    user_cr || null
+                ];
+
+                const [mainResult] = await queryPromise(
+                    connection,
+                    insertMainQuery,
+                    mainValues
+                );
+
+                const insertedRepairId = mainResult.insertId;
+
+                const insertSubQuery = `
+                    INSERT INTO sub_reparations_generateur (
+                        id_reparations_generateur,
+                        id_type_reparation,
+                        montant,
+                        description,
+                        date_reparation,
+                        date_sortie,
+                        id_statut
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                `;
+
+                for (const rep of reparations) {
+                    const subValues = [
+                        insertedRepairId,
+                        rep.id_type_reparation,
+                        rep.montant,
+                        rep.description || null,
+                        rep.date_reparation
+                            ? moment(rep.date_reparation).format("YYYY-MM-DD")
+                            : null,
+                        rep.date_sortie
+                            ? moment(rep.date_sortie).format("YYYY-MM-DD")
+                            : null,
+                        2
+                    ];
+
+                    await queryPromise(
+                        connection,
+                        insertSubQuery,
+                        subValues
+                    );
+                }
+
+                connection.commit((commitErr) => {
+                    if (commitErr) {
+                        console.error("Erreur commit :", commitErr);
+                        return connection.rollback(() => {
+                            connection.release();
+                            res.status(500).json({
+                                error: "Erreur lors de la validation."
+                            });
+                        });
+                    }
+
+                    connection.release();
+                    return res.status(201).json({
+                        message: "Réparation enregistrée avec succès.",
+                        data: { id: insertedRepairId }
+                    });
+                });
+
+            } catch (error) {
+                console.error("Erreur transaction :", error);
+
+                connection.rollback(() => {
+                    connection.release();
+                    res.status(400).json({
+                        error: error.message || "Erreur inattendue."
+                    });
+                });
+            }
+        });
+    });
+};

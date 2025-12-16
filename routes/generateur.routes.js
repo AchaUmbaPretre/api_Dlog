@@ -55,4 +55,8 @@ router.put('/plein_generateur/sup', generateurController.deletePleinGen)
 //RAPPORT PLEIN
 router.get('/rapport_generateur_plein', generateurController.rapportGenerateurPleinAll)
 
+//Reparation Générateur
+router.get('/rep_generateur', generateurController.getRepGenerateur)
+router.post('/rep_generateur', generateurController.postRepGenerateur)
+
 module.exports = router;

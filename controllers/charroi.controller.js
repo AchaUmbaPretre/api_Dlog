@@ -1351,7 +1351,7 @@ exports.postReparation = (req, res) => {
             ];
   
             const [subResult] = await queryPromise(connection, insertSubQuery, subValues);
-            const insertedSudReparationId = subResult.insertId;  // Récupération de l'ID `id_sud_reparation`
+            const insertedSudReparationId = subResult.insertId;
 
           // Insertion dans l'historique_vehicule
           const historiqueSQL = `
