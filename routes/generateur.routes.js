@@ -60,4 +60,7 @@ router.get('/rep_generateur', generateurController.getRepGenerateur)
 router.get('/rep_generateurOne', generateurController.getRepGenerateurOne)
 router.post('/rep_generateur', generateurController.postRepGenerateur)
 
+//Sous Reparation generateur
+router.get('/sous_rep_genById', generateurController.getSubRepGenerateurById)
+
 module.exports = router;
