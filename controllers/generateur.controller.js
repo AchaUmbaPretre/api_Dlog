@@ -1286,3 +1286,117 @@ exports.postRepGenerateur = (req, res) => {
         });
     });
 };
+
+//Sous réparation générateur
+exports.getSubRepGenerateurById = (req, res) => {
+    const { id_sub_reparations_generateur } = req.query;
+
+    if (!id_sub_reparations_generateur) {
+        return res.status(400).json({
+            message: "id_sub_reparations_generateur est requis"
+        });
+    }
+
+    const query = `
+        SELECT 
+            subRe.*,
+            rg.id_generateur, rg.date_entree, rg.date_prevu, rg.cout, rg.commentaire,
+            f.nom_fournisseur, g.num_serie, mg.nom_modele,
+            mag.nom_marque, tr.type_rep,
+            sv.nom_statut_vehicule,
+            u.nom AS nom_createur, u.prenom AS prenom_cr,
+            tss.nom_type_statut,
+            eva.nom_evaluation
+        FROM reparations_generateur rg
+        LEFT JOIN sub_reparations_generateur subRe 
+            ON rg.id_reparations_generateur = subRe.id_reparations_generateur
+        LEFT JOIN type_reparations tr 
+            ON subRe.id_type_reparation = tr.id_type_reparation
+        LEFT JOIN statut_vehicule sv 
+            ON rg.id_statut_vehicule = sv.id_statut_vehicule
+        LEFT JOIN fournisseur f 
+            ON rg.id_fournisseur = f.id_fournisseur
+        LEFT JOIN generateur g 
+            ON rg.id_generateur = g.id_generateur
+        LEFT JOIN modele_generateur mg 
+            ON g.id_modele = mg.id_modele_generateur
+        LEFT JOIN marque_generateur mag 
+            ON mg.id_marque_generateur = mag.id_marque_generateur
+        LEFT JOIN type_statut_suivi tss 
+            ON subRe.id_statut = tss.id_type_statut_suivi
+        LEFT JOIN evaluation eva 
+            ON subRe.id_evaluation = eva.id_evaluation
+        LEFT JOIN utilisateur u 
+            ON rg.user_cr = u.id_utilisateur
+        WHERE subRe.id_sub_reparations_generateur = ?
+    `;
+
+    db.query(query, [id_sub_reparations_generateur], (error, rows) => {
+        if (error) {
+            console.error("Erreur SQL getSubRepGenerateurById:", error);
+            return res.status(500).json({
+                message: "Erreur interne du serveur"
+            });
+        }
+
+        if (!rows || rows.length === 0) {
+            return res.status(404).json({
+                message: "Sous-réparation non trouvée"
+            });
+        }
+
+        return res.status(200).json(rows[0]);
+    });
+};
+
+//Tracking reparation générateur
+exports.postSuiviReparationGenerateur = async(req, res) => {
+    let connection;
+
+    try {
+        const { id_evaluation, id_statut_vehicule, id_sub_reparations_generateur, user_cr, info } = req.body;
+          
+        if (!id_evaluation || !id_sub_reparations_generateur || !user_cr || !info || !Array.isArray(info)) {
+            return res.status(400).json({ error: 'Champs requis manquants ou invalides.' });
+        }
+
+        connection = await new Promise((resolve, reject) => {
+            db.getConnection((err, conn) => {
+                if(err) return reject(err);
+                resolve(conn);
+            });
+        });
+
+        const beginTransaction = promisify(connection.beginTransaction);
+        const commit = promisify(connection.commit);
+        const connQuery = promisify(connection.query);
+
+        await beginTransaction();
+
+        const insertQuery = `
+            INSERT INTO suivi_reparation_generateur (
+                  id_sub_reparations_generateur,
+                  id_tache_rep,
+                  id_piece,
+                  budget,
+                  commentaire,
+                  user_cr
+              ) VALUES (?, ?, ?, ?, ?, ?)
+        `;
+
+        for (const rep of info) {
+            const repValues = [
+                id_sub_reparations_generateur,
+                rep.id_tache_rep,
+                rep.id_piece,
+                rep.budget,
+                rep.commentaire,
+                user_cr
+            ];
+            await connQuery(insertQuery, repValues);
+        }
+
+    } catch (error) {
+        
+    }
+}
