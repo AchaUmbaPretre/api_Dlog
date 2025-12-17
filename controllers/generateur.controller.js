@@ -1039,9 +1039,24 @@ exports.getRepGenerateurOne = async(req, res) => {
                 LEFT JOIN utilisateur u ON rg.user_cr = u.id_utilisateur
             WHERE rg.id_reparations_generateur = ${id_reparations_generateur}`);
 
+        const sqlDesc = await query(`
+                SELECT 
+                    svg.id_suivi_reparation_generateur, 
+                    svg.budget, svg.commentaire, 
+                    p.nom, ev.nom_evaluation,
+                    tr.nom_tache_rep
+                FROM suivi_reparation_generateur svg 
+                    LEFT JOIN pieces p ON svg.id_piece = p.id
+                    LEFT JOIN evaluation ev ON svg.id_evaluation = ev.id_evaluation
+                    LEFT JOIN tache_rep tr ON svg.id_tache_rep = tr.id_tache_rep
+                    LEFT JOIN sub_reparations_generateur subGen ON svg.id_sub_reparations_generateur = subGen.id_sub_reparations_generateur
+                    WHERE subGen.id_reparations_generateur = ${id_reparations_generateur}
+            `)
+
         return res.status(200).json({
             sqlDetail,
-            sqlInfo
+            sqlInfo,
+            sqlDesc
         })
     } catch (error) {
         console.error("Erreur générateur :", error);
