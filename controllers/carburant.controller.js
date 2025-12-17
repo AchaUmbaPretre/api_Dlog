@@ -1318,6 +1318,7 @@ exports.rapportCarburantConsomGen = async (req, res) => {
       "180jours": 180,
       "360jours": 360,
     };
+    
     const days = daysMap[period] || 360;
 
     const periodFilter = `c.date_operation >= DATE_SUB(NOW(), INTERVAL ${days} DAY)`;
@@ -1813,31 +1814,32 @@ exports.getCarburantByMonthYear = (req, res) => {
   }
 
   const q = `
-      SELECT c.id_carburant, 
-c.quantite_litres, 
-c.date_operation, 
-c.distance, 
-c.consommation, 
-c.montant_total_cdf, 
-c.montant_total_usd,
-chau.nom AS nom_chauffeur,
-u.nom AS createur,
-vc.nom_marque,
-vc.immatriculation,
-tc.nom_type_carburant,
-cat.abreviation
+      SELECT 
+          c.id_carburant, 
+          c.quantite_litres, 
+          c.date_operation, 
+          c.distance, 
+          c.consommation, 
+          c.montant_total_cdf, 
+          c.montant_total_usd,
+          chau.nom AS nom_chauffeur,
+          u.nom AS createur,
+          vc.nom_marque,
+          vc.immatriculation,
+          tc.nom_type_carburant,
+          cat.abreviation
       FROM carburant c
-LEFT JOIN chauffeurs chau ON c.id_chauffeur = chau.id_chauffeur
-LEFT JOIN  utilisateur u ON c.user_cr = u.id_utilisateur
-LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement
-LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_vehicule
-LEFT JOIN cat_vehicule cat ON v.id_cat_vehicule = cat.id_cat_vehicule
-LEFT JOIN type_carburant tc ON vc.id_type_carburant = tc.id_type_carburant
- WHERE MONTH(c.date_operation) = ?
-      AND YEAR(c.date_operation) = ?
-      AND c.est_supprime = 0
-      ORDER BY c.date_operation ASC
-  `;
+          LEFT JOIN chauffeurs chau ON c.id_chauffeur = chau.id_chauffeur
+          LEFT JOIN  utilisateur u ON c.user_cr = u.id_utilisateur
+          LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement
+          LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_vehicule
+          LEFT JOIN cat_vehicule cat ON v.id_cat_vehicule = cat.id_cat_vehicule
+          LEFT JOIN type_carburant tc ON vc.id_type_carburant = tc.id_type_carburant
+      WHERE MONTH(c.date_operation) = ?
+          AND YEAR(c.date_operation) = ?
+          AND c.est_supprime = 0
+          ORDER BY c.date_operation ASC
+    `;
 
   db.query(q, [mois, annee], (err, result) => {
     if (err) return res.status(500).json({ message: err.message });

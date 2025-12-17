@@ -986,55 +986,66 @@ exports.getRepGenerateur = (req, res) => {
     })
 }
 
-exports.getRepGenerateurOne = (req, res) => {
-    const { id_reparations_generateur } = req.query;
+exports.getRepGenerateurOne = async(req, res) => {
+    try {
+        const { id_reparations_generateur } = req.query;
 
-        if(! id_reparations_generateur) {
+        if(!id_reparations_generateur) {
             return res.status(400).json({
                 message: "L'ID de la réparation du générateur est requis."
             });
         }
 
-    const query = `
-        SELECT 
-            rg.id_reparations_generateur,
-            subRe.id_sub_reparations_generateur,
-            rg.id_generateur, rg.date_entree, 
-            rg.date_prevu, rg.cout, rg.commentaire, 
-            f.nom_fournisseur, g.num_serie, mg.nom_modele, 
-            mag.nom_marque, subRe.id_sub_reparations_generateur,
-            subRe.montant, subRe.description, tr.type_rep, 
-            sv.nom_statut_vehicule, u.nom AS nom_createur, 
-            u.prenom AS prenom_cr, tss.nom_type_statut
-        FROM reparations_generateur rg
-            LEFT JOIN sub_reparations_generateur subRe ON rg.id_reparations_generateur = subRe.id_reparations_generateur
-            LEFT JOIN type_reparations tr ON subRe.id_type_reparation = tr.id_type_reparation
-            LEFT JOIN statut_vehicule sv ON rg.id_statut_vehicule = sv.id_statut_vehicule
-            LEFT JOIN fournisseur f ON rg.id_fournisseur = f.id_fournisseur
-            LEFT JOIN generateur g ON rg.id_generateur = g.id_generateur
-            LEFT JOIN modele_generateur mg ON g.id_modele = mg.id_modele_generateur
-            LEFT JOIN marque_generateur mag ON mg.id_marque_generateur = mag.id_marque_generateur
-            LEFT JOIN type_statut_suivi tss ON subRe.id_statut = tss.id_type_statut_suivi
-            LEFT JOIN utilisateur u ON rg.user_cr = u.id_utilisateur
-        WHERE rg.id_reparations_generateur = ?`;
+        const sqlDetail = await query (`
+            SELECT 
+                rg.id_reparations_generateur,
+                subRe.id_sub_reparations_generateur,
+                rg.id_generateur, rg.date_entree, 
+                rg.date_prevu, rg.cout, rg.commentaire, 
+                f.nom_fournisseur, g.num_serie, mg.nom_modele, 
+                mag.nom_marque, subRe.id_sub_reparations_generateur,
+                subRe.montant, subRe.description, tr.type_rep, 
+                sv.nom_statut_vehicule, u.nom AS nom_createur, 
+                u.prenom AS prenom_cr, tss.nom_type_statut
+            FROM reparations_generateur rg
+                LEFT JOIN sub_reparations_generateur subRe ON rg.id_reparations_generateur = subRe.id_reparations_generateur
+                LEFT JOIN type_reparations tr ON subRe.id_type_reparation = tr.id_type_reparation
+                LEFT JOIN statut_vehicule sv ON rg.id_statut_vehicule = sv.id_statut_vehicule
+                LEFT JOIN fournisseur f ON rg.id_fournisseur = f.id_fournisseur
+                LEFT JOIN generateur g ON rg.id_generateur = g.id_generateur
+                LEFT JOIN modele_generateur mg ON g.id_modele = mg.id_modele_generateur
+                LEFT JOIN marque_generateur mag ON mg.id_marque_generateur = mag.id_marque_generateur
+                LEFT JOIN type_statut_suivi tss ON subRe.id_statut = tss.id_type_statut_suivi
+                LEFT JOIN utilisateur u ON rg.user_cr = u.id_utilisateur
+            WHERE rg.id_reparations_generateur = ${id_reparations_generateur}`);
+    
+        const sqlInfo = await query(`
+            SELECT 
+                rg.id_reparations_generateur,
+                rg.id_generateur, rg.date_entree, 
+                rg.date_prevu, rg.cout, rg.commentaire, 
+                f.nom_fournisseur, g.num_serie, mg.nom_modele, 
+                mag.nom_marque,
+                sv.nom_statut_vehicule, u.nom AS nom_createur, 
+                u.prenom AS prenom_cr
+            FROM reparations_generateur rg
+                LEFT JOIN statut_vehicule sv ON rg.id_statut_vehicule = sv.id_statut_vehicule
+                LEFT JOIN fournisseur f ON rg.id_fournisseur = f.id_fournisseur
+                LEFT JOIN generateur g ON rg.id_generateur = g.id_generateur
+                LEFT JOIN modele_generateur mg ON g.id_modele = mg.id_modele_generateur
+                LEFT JOIN marque_generateur mag ON mg.id_marque_generateur = mag.id_marque_generateur
+                LEFT JOIN utilisateur u ON rg.user_cr = u.id_utilisateur
+            WHERE rg.id_reparations_generateur = ${id_reparations_generateur}`);
 
-    db.query(query, [id_reparations_generateur], (error, results) => {
-        if(error) {
-            console.error("Erreur lors de la récupération des réparations : ", error);
-            return res.status(500).json({
-                message: 'Une erreur est servenu lors de la récupération de reparation generateur'
-            })
-        }
-
-        if (results.length === 0) {
-            return res.status(404).json({
-                message: "Aucune réparation de générateur trouvée pour cet ID."
-            });
-        }
-
-        return res.status(200).json(results)
-    })
-}
+        return res.status(200).json({
+            sqlDetail,
+            sqlInfo
+        })
+    } catch (error) {
+        console.error("Erreur générateur :", error);
+        res.status(500).json(error);
+    }
+};
 
 exports.postRepGenerateur = (req, res) => {
     db.getConnection((connErr, connection) => {
