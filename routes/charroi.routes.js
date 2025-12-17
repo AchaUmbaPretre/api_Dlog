@@ -125,8 +125,6 @@ router.post('/inspection_validation', charroiController.postValidationInspection
 router.get('/suivi_inspections', charroiController.getSuiviInspection)
 router.post('/suivi_inspections', charroiController.postSuiviInspection)
 
-
-//Suivi reparation
 //Suivi réparation
 router.get('/suivi_reparation', charroiController.getSuiviReparation)
 router.get('/suivi_reparationOne', charroiController.getSuiviReparationOne)

@@ -1006,7 +1006,8 @@ exports.getRepGenerateurOne = async(req, res) => {
                 mag.nom_marque, subRe.id_sub_reparations_generateur,
                 subRe.montant, subRe.description, tr.type_rep, 
                 sv.nom_statut_vehicule, u.nom AS nom_createur, 
-                u.prenom AS prenom_cr, tss.nom_type_statut
+                u.prenom AS prenom_cr, tss.nom_type_statut,
+                eva.nom_evaluation
             FROM reparations_generateur rg
                 LEFT JOIN sub_reparations_generateur subRe ON rg.id_reparations_generateur = subRe.id_reparations_generateur
                 LEFT JOIN type_reparations tr ON subRe.id_type_reparation = tr.id_type_reparation
@@ -1016,8 +1017,9 @@ exports.getRepGenerateurOne = async(req, res) => {
                 LEFT JOIN modele_generateur mg ON g.id_modele = mg.id_modele_generateur
                 LEFT JOIN marque_generateur mag ON mg.id_marque_generateur = mag.id_marque_generateur
                 LEFT JOIN type_statut_suivi tss ON subRe.id_statut = tss.id_type_statut_suivi
+                LEFT JOIN evaluation eva ON subRe.id_evaluation = eva.id_evaluation
                 LEFT JOIN utilisateur u ON rg.user_cr = u.id_utilisateur
-            WHERE rg.id_reparations_generateur = ${id_reparations_generateur}`);
+                WHERE rg.id_reparations_generateur = ${id_reparations_generateur}`);
     
         const sqlInfo = await query(`
             SELECT 
@@ -1148,9 +1150,10 @@ exports.postRepGenerateur = (req, res) => {
                         description,
                         date_reparation,
                         date_sortie,
-                        id_statut
+                        id_statut,
+                        id_evaluation
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 `;
 
                 for (const rep of reparations) {
@@ -1165,7 +1168,8 @@ exports.postRepGenerateur = (req, res) => {
                         rep.date_sortie
                             ? moment(rep.date_sortie).format("YYYY-MM-DD")
                             : null,
-                        2
+                        2,
+                        3
                     ];
 
                     await queryPromise(
