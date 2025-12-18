@@ -57,6 +57,7 @@ router.get('/rapport_generateur_plein', generateurController.rapportGenerateurPl
 
 //INspection des generateurs
 router.get('/inspect_generateur', generateurController.getInspeGenerateur)
+router.post('/inspect_generateur', generateurController.postRepGenerateur)
 
 //Reparation Générateur
 router.get('/rep_generateur', generateurController.getRepGenerateur)

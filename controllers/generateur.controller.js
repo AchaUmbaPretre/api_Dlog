@@ -984,6 +984,124 @@ exports.getInspeGenerateur = (req, res) => {
     })
 }
 
+exports.postInspeGenerateur = (req, res) => {
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error("DB connection error:", connErr);
+      return res.status(500).json({ error: "Connexion DB échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        return res.status(500).json({ error: "Démarrage transaction échoué." });
+      }
+
+      try {
+        const {
+          id_generateur,
+          id_statut_vehicule,
+          user_cr,
+          reparations = [],
+          date_inspection,
+          date_prevu
+        } = req.body;
+
+        if (!id_generateur || !id_statut_vehicule || !user_cr) {
+          throw new Error("Champs obligatoires manquants.");
+        }
+
+        const inspectionDate = moment(date_inspection).format("YYYY-MM-DD");
+        const prevuDate = moment(date_prevu).format("YYYY-MM-DD");
+
+        const insertInspectionSql = `
+          INSERT INTO inspection_generateur (
+            id_generateur,
+            date_prevu,
+            date_inspection,
+            id_statut_vehicule,
+            user_cr
+          ) VALUES (?, ?, ?, ?, ?)
+        `;
+
+        const [inspectionResult] = await queryPromise(
+          connection,
+          insertInspectionSql,
+          [
+            id_generateur,
+            prevuDate,
+            inspectionDate,
+            id_statut_vehicule,
+            user_cr
+          ]
+        );
+
+        const inspectionId = inspectionResult.insertId;
+
+        const parsedReparations = Array.isArray(reparations)
+          ? reparations
+          : JSON.parse(reparations);
+
+        if (!Array.isArray(parsedReparations)) {
+          throw new Error("Le champ réparations doit être un tableau.");
+        }
+
+        const insertReparationSql = `
+          INSERT INTO sub_inspection_generateur (
+            id_inspection_generateur,
+            id_type_reparation,
+            id_cat_inspection,
+            montant,
+            commentaire,
+            avis,
+            statut,
+            date_reparation,
+            date_validation
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        for (const rep of parsedReparations) {
+          await queryPromise(connection, insertReparationSql, [
+            inspectionId,
+            rep.id_type_reparation,
+            rep.id_cat_inspection,
+            rep.montant || 0,
+            rep.commentaire || null,
+            rep.avis || null,
+            1,
+            rep.date_reparation
+              ? moment(rep.date_reparation).format("YYYY-MM-DD")
+              : null,
+            null
+          ]);
+        }
+
+        connection.commit((commitErr) => {
+          connection.release();
+
+          if (commitErr) {
+            return res
+              .status(500)
+              .json({ error: "Erreur lors du commit." });
+          }
+
+          return res.status(201).json({
+            message: "Inspection enregistrée avec succès",
+            data: { id_inspection: inspectionId }
+          });
+        });
+      } catch (error) {
+        console.error("Transaction error:", error);
+        connection.rollback(() => {
+          connection.release();
+          res.status(500).json({ error: error.message });
+        });
+      }
+    });
+  });
+};
+
+
 //Reparation generateur
 exports.getRepGenerateur = (req, res) => {
     const query = `
