@@ -1396,6 +1396,10 @@ exports.postSuiviReparationGenerateur = async(req, res) => {
             await connQuery(insertQuery, repValues);
         }
 
+        const getSubQsl = `
+            SELECT
+        `
+
     } catch (error) {
         
     }
