@@ -951,6 +951,39 @@ exports.rapportGenerateurPleinAll = async(req, res) => {
     }
 };
 
+//Inspection générateur
+exports.getInspeGenerateur = (req, res) => {
+    const query = `
+        SELECT 
+            ig.id_inspection_generateur, 
+            subIns.id_sub_inspection_generateur, 
+            subIns.commentaire,
+            subIns.avis,
+            subIns.montant,
+            g.num_serie, mog.nom_modele, 
+            mag.nom_marque,
+            tg.nom_type_gen,
+            cat.nom_cat_inspection
+        FROM inspection_generateur ig
+            LEFT JOIN generateur g ON ig.id_generateur = g.id_generateur
+            LEFT JOIN modele_generateur mog ON g.id_modele = mog.id_modele_generateur
+            LEFT JOIN marque_generateur mag ON mog.id_marque_generateur = mag.id_marque_generateur
+            LEFT JOIN sub_inspection_generateur subIns ON ig.id_inspection_generateur = subIns.id_inspection_generateur
+            LEFT JOIN type_generateur tg ON subIns.id_type_reparation = tg.id_type_generateur
+            LEFT JOIN cat_inspection cat ON subIns.id_cat_inspection = cat.id_cat_inspection;`;
+
+    db.query(query, (error, results) => {
+        if(error) {
+            console.error("Erreur lors de la récupération des réparations : ", error);
+            return res.status(500).json({
+                message: 'Une erreur est servenu lors de la récupération de reparation generateur'
+            })
+        }
+
+        return res.status(200).json(results)
+    })
+}
+
 //Reparation generateur
 exports.getRepGenerateur = (req, res) => {
     const query = `
