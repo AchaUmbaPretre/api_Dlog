@@ -956,21 +956,31 @@ exports.getInspeGenerateur = (req, res) => {
     const query = `
         SELECT 
             ig.id_inspection_generateur, 
+            ig.date_inspection,
             subIns.id_sub_inspection_generateur, 
+            subIns.date_reparation,
+            subIns.date_validation,
             subIns.commentaire,
             subIns.avis,
             subIns.montant,
             g.num_serie, mog.nom_modele, 
             mag.nom_marque,
             tg.nom_type_gen,
-            cat.nom_cat_inspection
+            cat.nom_cat_inspection,
+            tr.type_rep, 
+            tss.nom_type_statut,
+            sv.nom_statut_vehicule
         FROM inspection_generateur ig
             LEFT JOIN generateur g ON ig.id_generateur = g.id_generateur
             LEFT JOIN modele_generateur mog ON g.id_modele = mog.id_modele_generateur
             LEFT JOIN marque_generateur mag ON mog.id_marque_generateur = mag.id_marque_generateur
             LEFT JOIN sub_inspection_generateur subIns ON ig.id_inspection_generateur = subIns.id_inspection_generateur
+            LEFT JOIN type_reparations tr ON subIns.id_cat_inspection = tr.id_type_reparation
             LEFT JOIN type_generateur tg ON subIns.id_type_reparation = tg.id_type_generateur
-            LEFT JOIN cat_inspection cat ON subIns.id_cat_inspection = cat.id_cat_inspection;`;
+            LEFT JOIN cat_inspection cat ON subIns.id_cat_inspection = cat.id_cat_inspection
+            LEFT JOIN type_statut_suivi tss ON subIns.statut = tss.id_type_statut_suivi
+            LEFT JOIN statut_vehicule sv ON ig.id_statut_vehicule = sv.id_statut_vehicule
+`;
 
     db.query(query, (error, results) => {
         if(error) {
