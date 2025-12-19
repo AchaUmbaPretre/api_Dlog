@@ -980,7 +980,7 @@ exports.getInspeGenerateur = (req, res) => {
             LEFT JOIN cat_inspection cat ON subIns.id_cat_inspection = cat.id_cat_inspection
             LEFT JOIN type_statut_suivi tss ON subIns.statut = tss.id_type_statut_suivi
             LEFT JOIN statut_vehicule sv ON ig.id_statut_vehicule = sv.id_statut_vehicule
-`;
+        `;
 
     db.query(query, (error, results) => {
         if(error) {
