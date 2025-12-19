@@ -994,6 +994,55 @@ exports.getInspeGenerateur = (req, res) => {
     })
 }
 
+exports.getInspeGenerateurById = (req, res) => {
+    const { id_inspection_generateur } = req.query;
+
+    if(!id_inspection_generateur) {
+        return res.status(400).json({
+            message: "L'ID de l'inspection du générateur est requis."
+        });
+    }
+    const query = `
+        SELECT 
+            ig.*, 
+            subIns.id_sub_inspection_generateur, 
+            subIns.date_reparation,
+            subIns.date_validation,
+            subIns.commentaire,
+            subIns.avis,
+            subIns.montant,
+            g.num_serie, mog.nom_modele, 
+            mag.nom_marque,
+            tg.nom_type_gen,
+            cat.nom_cat_inspection,
+            tr.type_rep, 
+            tss.nom_type_statut,
+            sv.nom_statut_vehicule
+        FROM inspection_generateur ig
+            LEFT JOIN generateur g ON ig.id_generateur = g.id_generateur
+            LEFT JOIN modele_generateur mog ON g.id_modele = mog.id_modele_generateur
+            LEFT JOIN marque_generateur mag ON mog.id_marque_generateur = mag.id_marque_generateur
+            LEFT JOIN sub_inspection_generateur subIns ON ig.id_inspection_generateur = subIns.id_inspection_generateur
+            LEFT JOIN type_reparations tr ON subIns.id_cat_inspection = tr.id_type_reparation
+            LEFT JOIN type_generateur tg ON subIns.id_type_reparation = tg.id_type_generateur
+            LEFT JOIN cat_inspection cat ON subIns.id_cat_inspection = cat.id_cat_inspection
+            LEFT JOIN type_statut_suivi tss ON subIns.statut = tss.id_type_statut_suivi
+            LEFT JOIN statut_vehicule sv ON ig.id_statut_vehicule = sv.id_statut_vehicule
+            WHERE subIns.id_inspection_generateur = ${id_inspection_generateur}
+        `;
+
+    db.query(query, (error, results) => {
+        if(error) {
+            console.error("Erreur lors de la récupération des réparations : ", error);
+            return res.status(500).json({
+                message: 'Une erreur est servenu lors de la récupération de reparation generateur'
+            })
+        }
+
+        return res.status(200).json(results)
+    })
+}
+
 exports.postInspeGenerateur = (req, res) => {
   db.getConnection((connErr, connection) => {
     if (connErr) {
