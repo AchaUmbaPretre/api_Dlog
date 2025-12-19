@@ -12,6 +12,17 @@ function queryPromise(connection, sql, params) {
     });
   }
 
+const queryAsync = (query, values = []) =>
+    new Promise((resolve, reject) => {
+        db.query(query, values, (error, results) => {
+            if (error) {
+                return reject(error);
+        }
+        resolve(results);
+    });
+});
+
+
 //Type des Générateurs
 exports.getTypeGenerateur = (req, res) => {
   const query = `SELECT * FROM type_generateur`;
@@ -969,7 +980,9 @@ exports.getInspeGenerateur = (req, res) => {
             cat.nom_cat_inspection,
             tr.type_rep, 
             tss.nom_type_statut,
-            sv.nom_statut_vehicule
+            sv.nom_statut_vehicule,
+            iv.budget_valide,
+            iv.manoeuvre
         FROM inspection_generateur ig
             LEFT JOIN generateur g ON ig.id_generateur = g.id_generateur
             LEFT JOIN modele_generateur mog ON g.id_modele = mog.id_modele_generateur
@@ -980,6 +993,9 @@ exports.getInspeGenerateur = (req, res) => {
             LEFT JOIN cat_inspection cat ON subIns.id_cat_inspection = cat.id_cat_inspection
             LEFT JOIN type_statut_suivi tss ON subIns.statut = tss.id_type_statut_suivi
             LEFT JOIN statut_vehicule sv ON ig.id_statut_vehicule = sv.id_statut_vehicule
+            LEFT JOIN inspection_generateur_valide iv ON subIns.id_sub_inspection_generateur = iv.id_sub_inspection_generateur
+            GROUP BY subIns.id_sub_inspection_generateur
+            ORDER BY ig.created_at DESC
         `;
 
     db.query(query, (error, results) => {
@@ -1130,6 +1146,8 @@ exports.getInspeSousGenerateurById = (req, res) => {
             subIns.commentaire,
             subIns.avis,
             subIns.montant,
+            subIns.id_type_reparation,
+            subIns.id_cat_inspection,
             g.num_serie, mog.nom_modele, 
             mag.nom_marque,
             tg.nom_type_gen,
@@ -1147,7 +1165,7 @@ exports.getInspeSousGenerateurById = (req, res) => {
             LEFT JOIN cat_inspection cat ON subIns.id_cat_inspection = cat.id_cat_inspection
             LEFT JOIN type_statut_suivi tss ON subIns.statut = tss.id_type_statut_suivi
             LEFT JOIN statut_vehicule sv ON ig.id_statut_vehicule = sv.id_statut_vehicule
-            WHERE subIns.id_inspection_generateur = ${id_inspection_generateur}
+        WHERE subIns.id_inspection_generateur = ${id_inspection_generateur}
         `;
 
     db.query(query, (error, results) => {
@@ -1194,6 +1212,82 @@ exports.getValidationInspectionGenerateur = (req, res) => {
 
         return res.status(200).json(results);
     });
+};
+
+exports.postValidationInspectionGenerateur = async (req, res) => {
+    try {
+        const inspections = req.body;
+
+        if (!Array.isArray(inspections) || inspections.length === 0) {
+            return res.status(400).json({ error: 'Aucune donnée reçue.' });
+        }
+
+        for (const inspection of inspections) {
+            const {
+                id_sub_inspection_generateur,
+                id_type_reparation,
+                id_cat_inspection,
+                montant,
+                budget_valide,
+                manoeuvre,
+                user_cr
+            } = inspection;
+
+            const cout = montant;
+
+            // Vérifie si cette réparation a déjà été validée pour cette sous-inspection
+            const checkQuery = `
+                SELECT COUNT(*) AS count 
+                FROM inspection_generateur_valide 
+                WHERE id_sub_inspection_generateur = ? AND id_type_reparation = ?
+            `;
+            const [checkResult] = await queryAsync(checkQuery, [id_sub_inspection_generateur, id_type_reparation]);
+
+            if (checkResult.count > 0) {
+                // On ignore ou on peut aussi renvoyer une erreur
+                return res.status(400).json({
+                    error: `Le type de réparation a déjà été validé pour la sous-inspection).`
+                });
+            }
+
+            // Si pas encore validé, on insère
+            const insertQuery = `
+                INSERT INTO inspection_generateur_valide 
+                (id_sub_inspection_generateur, id_type_reparation, id_cat_inspection, cout, budget_valide, manoeuvre, user_cr)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `;
+
+            const insertValues = [
+                id_sub_inspection_generateur,
+                id_type_reparation,
+                id_cat_inspection,
+                cout,
+                budget_valide,
+                manoeuvre,
+                user_cr
+            ];
+
+            await queryAsync(insertQuery, insertValues);
+
+            const updateQuery = `
+                UPDATE sub_inspection_generateur 
+                SET date_validation = ?, statut = ?
+                WHERE id_sub_inspection_generateur = ?
+            `;
+
+            const updateValues = [moment().format('YYYY-MM-DD'), 8, id_sub_inspection_generateur];
+
+            await queryAsync(updateQuery, updateValues);
+        }
+
+        return res.status(201).json({ message: 'Les inspections ont été validées avec succès.' });
+
+    } catch (error) {
+        console.error('Erreur lors de la validation des inspections :', error);
+        return res.status(500).json({
+            error: "Une erreur s'est produite lors de la validation des inspections.",
+        });
+    }
 };
 
 //Reparation generateur

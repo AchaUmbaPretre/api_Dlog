@@ -62,6 +62,9 @@ router.post('/inspect_generateur', generateurController.postInspeGenerateur)
 //Sous inspection des générateurs
 router.get('/sous_inspect_generateurById', generateurController.getInspeSousGenerateurById)
 
+//Validation d'inspection générateur
+router.get('/inspection_validation', generateurController.getValidationInspectionGenerateur)
+router.post('/inspection_validation', generateurController.postValidationInspectionGenerateur)
 
 //Reparation Générateur
 router.get('/rep_generateur', generateurController.getRepGenerateur)
