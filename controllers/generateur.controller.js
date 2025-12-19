@@ -1004,7 +1004,8 @@ exports.getInspeGenerateurById = (req, res) => {
     }
     const query = `
         SELECT 
-            ig.*, 
+            ig.id_inspection_generateur, 
+            ig.date_inspection,
             subIns.id_sub_inspection_generateur, 
             subIns.date_reparation,
             subIns.date_validation,
