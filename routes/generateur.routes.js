@@ -55,9 +55,13 @@ router.put('/plein_generateur/sup', generateurController.deletePleinGen)
 //RAPPORT PLEIN
 router.get('/rapport_generateur_plein', generateurController.rapportGenerateurPleinAll)
 
-//INspection des generateurs
+//Inspection des generateurs
 router.get('/inspect_generateur', generateurController.getInspeGenerateur)
 router.post('/inspect_generateur', generateurController.postInspeGenerateur)
+
+//Sous inspection des générateurs
+router.get('/sous_inspect_generateurById', generateurController.getInspeSousGenerateurById)
+
 
 //Reparation Générateur
 router.get('/rep_generateur', generateurController.getRepGenerateur)
