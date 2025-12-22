@@ -39,7 +39,7 @@ router.put('/delete', carburantController.deleteCarburant)
 router.post('/carburant_vehicule_excel', upload.array('chemin_document', 10), carburantController.postCarburantVehiculeExcel);
 
 //Carburant excel
-router.post('/carburant_excel', upload.array('chemin_document', 10), carburantController.postCarburantExcel);
+router.post('/carburant_excel', upload.array('chemin_document', 10), carburantController.postEamExcel);
 
 //Prix carburant
 router.get('/carburant_prix', carburantController.getCarburantPrice);

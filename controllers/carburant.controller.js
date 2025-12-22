@@ -945,7 +945,7 @@ exports.postCarburantVehiculeExcel = async (req, res) => {
   }
 };
 
-exports.postCarburantExcel = async (req, res) => {
+/* exports.postCarburantExcel = async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: "Aucun fichier téléchargé." });
@@ -1028,7 +1028,132 @@ exports.postCarburantExcel = async (req, res) => {
     console.error("Erreur lors de l'importation :", error);
     return res.status(500).json({ error: "Erreur interne du serveur." });
   }
+}; */
+
+exports.postEamExcel = async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: "Aucun fichier téléchargé." });
+    }
+
+    const filePath = req.files[0].path;
+    const workbook = xlsx.readFile(filePath);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rawData = xlsx.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: false });
+
+    if (rawData.length < 4) {
+      return res.status(400).json({ error: "Fichier trop court" });
+    }
+
+    const headers = rawData[2]; // ligne des headers
+    const headerMap = {};
+    headers.forEach((h, idx) => { if(h) headerMap[h] = idx; });
+
+    // Trouver la colonne Transaction Quantity
+    let transactionQuantityIndex = -1;
+    for (const [header, index] of Object.entries(headerMap)) {
+      if (header.includes("Transaction Quantity")) {
+        transactionQuantityIndex = index;
+        break;
+      }
+    }
+
+    const processedRows = [];
+
+    for (let i = 3; i < rawData.length; i++) {
+      const row = rawData[i];
+      if (!row || row.length < 10) continue;
+
+      const dateRaw = row[headerMap["Transaction Date"]];
+      if (!dateRaw) continue;
+
+      // Conversion date
+      let transactionDate;
+      try {
+        const parts = dateRaw.toString().split('/');
+        if(parts.length === 3) {
+          let year = parseInt(parts[2], 10);
+          if(year < 100) year = 2000 + year;
+          transactionDate = new Date(year, parseInt(parts[0],10)-1, parseInt(parts[1],10));
+        } else {
+          transactionDate = new Date(dateRaw);
+        }
+        if(isNaN(transactionDate.getTime())) continue;
+      } catch(e) { continue; }
+
+      const parseNum = (val) => {
+        if(val === null || val === undefined || val === '') return 0;
+        const n = parseFloat(val.toString().replace(/,/g, '.'));
+        return isNaN(n) ? 0 : n;
+      }
+
+      // On mappe les colonnes Excel vers les colonnes SQL
+      processedRows.push([
+        transactionDate.toISOString().split('T')[0],           // transanction_date
+        parseInt(row[headerMap["MOIS"]] || (transactionDate.getMonth()+1)), // mois
+        row[headerMap["Transaction Number"]] || 0,           // transanction_num
+        row[headerMap["Store Description"]] || '',           // store_description
+        row[headerMap["Part"]] || '',                        // part
+        row[headerMap["Part Description"]] || '',            // part_description
+        row[headerMap["Stock Type"]] || '',                  // stock_type
+        row[headerMap["Requisition"]] || null,              // requisition
+        row[headerMap["Purchase Order"]] || null,           // purchase
+        parseInt(row[headerMap["Transaction Line"]] || 0),  // transaction
+        parseNum(row[headerMap["OUT"]]),                     // out
+        parseNum(row[headerMap["IN"]]),                      // in
+        0,  // part_description12 (aucune donnée Excel, mettre 0 ou NULL)
+        row[headerMap["Purchase Order"]] || null,           // purchase_order17
+        row[headerMap["Requisition"]] || null,              // requisition17
+        parseNum(transactionQuantityIndex !== -1 ? row[transactionQuantityIndex] : 0), // scrapped_qty18
+        row[headerMap["Store"]] || '',                       // store19
+        transactionDate.toISOString().split('T')[0],         // transaction_date22
+        parseNum(transactionQuantityIndex !== -1 ? row[transactionQuantityIndex] : 0), // transaction_qty24
+        row[headerMap["Transaction Status"]] || '',          // transaction_status25
+        row[headerMap["Transaction Type"]] || '',            // transaction_type26
+        row[headerMap["Bulk issue"]] || '',                  // bulk_issue
+        row[headerMap["site"]] || null,                      // site
+        row[headerMap["SMR REF"]] || null                    // smr_ref
+      ]);
+    }
+
+    if(processedRows.length === 0) {
+      return res.status(400).json({ error: "Aucune donnée valide trouvée dans le fichier" });
+    }
+
+    // Batch insert pour éviter ECONNRESET
+    const batchSize = 500;
+    const insertSQL = `
+      INSERT INTO sortie_eam 
+      (transanction_date, mois, transanction_num, store_description, part, part_description,
+       stock_type, requisition, purchase, transaction, quantite_out, quantite_in,
+       part_description12, purchase_order17, requisition17, scrapped_qty18, store19,
+       transaction_date22, transaction_qty24, transaction_status25, transaction_type26,
+       bulk_issue, site, smr_ref)
+      VALUES ?
+    `;
+
+    for(let i=0; i<processedRows.length; i+=batchSize) {
+      const batch = processedRows.slice(i, i+batchSize);
+      await new Promise((resolve, reject) => {
+        db.query(insertSQL, [batch], (err, result) => {
+          if(err) return reject(err);
+          resolve(result);
+        });
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `${processedRows.length} lignes insérées avec succès.`,
+      sample: processedRows.slice(0,5)
+    });
+
+  } catch (err) {
+    console.error("Erreur postEamExcel:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
 };
+
 
 exports.postCarburantCorrectionExcel = async (req, res) => {
   try {
@@ -1318,7 +1443,7 @@ exports.rapportCarburantConsomGen = async (req, res) => {
       "180jours": 180,
       "360jours": 360,
     };
-    
+
     const days = daysMap[period] || 360;
 
     const periodFilter = `c.date_operation >= DATE_SUB(NOW(), INTERVAL ${days} DAY)`;
