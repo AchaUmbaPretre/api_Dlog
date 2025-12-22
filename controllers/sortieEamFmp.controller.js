@@ -4,8 +4,13 @@ const query = promisify(db.query).bind(db);
 
 exports.getSortieEam = (req, res) => {
     const q = `
-        SELECT * FROM sortie_eam s
-        ORDER BY s.transanction_date desc
+        SELECT 
+            s.*,
+            COUNT(*) AS total_sorties,
+            MAX(s.transanction_date) AS last_transaction_date
+        FROM sortie_eam s
+        GROUP BY s.part, s.smr_ref
+        ORDER BY last_transaction_date DESC
     `;
 
     db.query(q, (error, data) => {
