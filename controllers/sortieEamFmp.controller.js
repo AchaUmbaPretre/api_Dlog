@@ -4,7 +4,8 @@ const query = promisify(db.query).bind(db);
 
 exports.getSortieEam = (req, res) => {
     const q = `
-        SELECT * FROM sortie_eam
+        SELECT * FROM sortie_eam s
+        ORDER BY s.transanction_date desc
     `;
 
     db.query(q, (error, data) => {
