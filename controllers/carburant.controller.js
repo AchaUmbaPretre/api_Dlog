@@ -945,7 +945,7 @@ exports.postCarburantVehiculeExcel = async (req, res) => {
   }
 };
 
-/* exports.postCarburantExcel = async (req, res) => {
+exports.postCarburantExcel = async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: "Aucun fichier téléchargé." });
@@ -992,7 +992,6 @@ exports.postCarburantVehiculeExcel = async (req, res) => {
         date_operation = `${year}-${month}-${day} 00:00:00`;
       }
 
-      console.log("DATE ORIGINE:", rawDate, "→ CONVERTIE:", date_operation);
 
       const values = [
         row["N° PIECE DE CAISSE"] || null,
@@ -1028,9 +1027,81 @@ exports.postCarburantVehiculeExcel = async (req, res) => {
     console.error("Erreur lors de l'importation :", error);
     return res.status(500).json({ error: "Erreur interne du serveur." });
   }
-}; */
+};
 
-exports.postEamExcel = async (req, res) => {
+exports.postSortiefmpExcel = async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: "Aucun fichier téléchargé" });
+    }
+
+    const filePath = req.files[0].path;
+    const workbook = xlsx.readFile(filePath);
+    const sheetName = workbook.SheetNames[0];
+    const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], {
+      defval: null
+    });
+
+    const insertQuery = `
+      INSERT INTO sortie_fmp (
+        produit_pd_code,
+        sortie_gsm_num,
+        sortie_gsm_num_gtm,
+        sortie_gsm_num_site,
+        item_code,
+        designation,
+        nbre_colis,
+        unite,
+        sortie_gsm_num_be,
+        smr,
+        difference,
+        colonne1,
+        commentaire
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    for (const row of sheetData) {
+      // Ignorer les lignes sans PD Code ou N° ID
+      if (!row["Produits::PD Code"] || !row["Dossiers Sorties GSM::N° ID"]) {
+        continue;
+      }
+
+      const values = [
+        row["Produits::PD Code"],
+        row["Dossiers Sorties GSM::N° ID"],
+        row["Dossiers Sorties GSM::N° Log. GTM"] || "",
+        row["Dossiers Sorties GSM::Site"],
+        row["Produits::ITEM CODE"],
+        row["Produits::Designation"],
+        row["Nombre de colis"] || 0,
+        row["Produits::Unité"] || "",
+        row["Dossiers Sorties GSM::N° BE"],
+        row["SMR"],
+        row["difference"] || null,
+        row["Colonne1"] || null,
+        row["COMMENTAIRES"] || null
+      ];
+
+      db.query(insertQuery, values, (err) => {
+        if (err) {
+          console.error("Erreur INSERT sortie_fmp :", err.sqlMessage);
+        }
+      });
+    }
+
+    fs.unlinkSync(filePath);
+
+    return res.status(201).json({
+      message: "Importation sortie_fmp terminée avec succès"
+    });
+
+  } catch (error) {
+    console.error("Erreur import sortie_fmp :", error);
+    return res.status(500).json({ error: "Erreur interne du serveur" });
+  }
+};
+
+/* exports.postEamExcel = async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: "Aucun fichier téléchargé." });
@@ -1152,7 +1223,7 @@ exports.postEamExcel = async (req, res) => {
     console.error("Erreur postEamExcel:", err);
     res.status(500).json({ success: false, error: err.message });
   }
-};
+}; */
 
 
 exports.postCarburantCorrectionExcel = async (req, res) => {

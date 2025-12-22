@@ -21,3 +21,19 @@ exports.getSortieEam = (req, res) => {
     })
 
 }
+
+exports.getSortieFmp = (req, res) => {
+    const q = `
+        SELECT 
+            s.*
+        FROM sortie_fmp s
+    `;
+
+    db.query(q, (error, data) => {
+        if(error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    })
+
+}
