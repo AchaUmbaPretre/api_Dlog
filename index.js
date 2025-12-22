@@ -30,11 +30,11 @@ const geofencesRoutes = require('./routes/geofences.routes');
 const webhookRoutes = require('./routes/webhook.routes');
 const carburantRoutes = require('./routes/carburant.routes');
 const generateurRoutes = require('./routes/generateur.routes');
+const sortieEamFmpRoutes = require('./routes/sortieEamFmp.routes');
 
 const https = require('https');
 const http = require('http');
 const { URL } = require('url');
-
 
 const app = express();
 
@@ -99,6 +99,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 app.use('/api/event', eventRoutes)
 app.use('/api/carburant', carburantRoutes)
 app.use('/api/generateur', generateurRoutes)
+app.use('/api/sortieEamFmp', sortieEamFmpRoutes)
 app.get("/api/falcon", (req, res) => {
   const options = {
     hostname: "31.207.34.171",
