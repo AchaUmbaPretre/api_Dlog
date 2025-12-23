@@ -57,7 +57,7 @@ exports.getSMR = (req, res) => {
         SELECT 
             s.smr
         FROM sortie_fmp s
-        GROUP BY s.sortie_gsm_num_be, s.item_code;
+        GROUP BY s.smr
     `;
 
     db.query(q, (error, data) => {
@@ -67,10 +67,10 @@ exports.getSMR = (req, res) => {
         return res.status(200).json(data);
     })
 
-}
+};
 
 exports.getReconciliation = (req, res) => {
-    const { smr } = req.body;
+    const { smr } = req.query;
 
     // Sécurité minimale
     if (!Array.isArray(smr) || smr.length === 0) {
