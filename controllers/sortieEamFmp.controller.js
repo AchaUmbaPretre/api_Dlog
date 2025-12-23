@@ -25,8 +25,22 @@ exports.getSortieEam = (req, res) => {
 exports.getSortieFmp = (req, res) => {
     const q = `
         SELECT 
-            s.*
+            s.id_sortie_fmp,
+            s.produit_pd_code,
+            s.sortie_gsm_num,
+            s.sortie_gsm_num_gtm,
+            s.sortie_gsm_num_site,
+            s.item_code,
+            s.designation,
+           	SUM(s.nbre_colis) AS nbre_colis,
+            s.unite,
+            s.sortie_gsm_num_be,
+            s.smr,
+            s.difference,
+            s.colonne1,
+            s.commentaire
         FROM sortie_fmp s
+        GROUP BY s.sortie_gsm_num_be, s.item_code;
     `;
 
     db.query(q, (error, data) => {
