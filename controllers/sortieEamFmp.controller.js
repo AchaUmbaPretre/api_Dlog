@@ -77,8 +77,16 @@ exports.getSortieFmp = (req, res) => {
             s.smr,
             s.difference,
             s.colonne1,
-            s.commentaire
+            s.commentaire,
+            fmp.doc_physique_ok,
+            fmp.qte_doc_physique,
+            CASE	
+            	WHEN fmp.qte_doc_physique IS NOT NULL
+                THEN  SUM(s.nbre_colis) - SUM(fmp.qte_doc_physique)
+                ELSE NULL
+            END AS ecart_doc_fmp
         FROM sortie_fmp s
+        LEFT JOIN fmp_doc_physique fmp ON s.item_code = fmp.item_code AND s.sortie_gsm_num_be = fmp.sortie_gsm_num_be
         GROUP BY s.sortie_gsm_num_be, s.item_code;
     `;
 
