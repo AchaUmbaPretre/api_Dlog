@@ -5,12 +5,37 @@ const query = promisify(db.query).bind(db);
 exports.getSortieEam = (req, res) => {
     const q = `
         SELECT 
-            s.*,
+            s.transanction_date,
+            s.mois,
+            s.transanction_num,
+            s.store_description,
+            s.part,
+            s.part_description,
+            s.stock_type,
+            s.requisition,
+            s.purchase,
+            s.transaction,
+            s.quantite_out,
+            s.quantite_in,
+            s.part_description12,
+            s.purchase_order17,
+            s.requisition17,
+            s.scrapped_qty18,
+            s.store19,
+            s.transaction_date22,
+            s.transaction_qty24,
+            s.transaction_status25,
+            s.transaction_type26,
+            s.bulk_issue,
+            s.site,
+            s.smr_ref,
+            SUM(s.quantite_out) AS total_quantite_out,
+            SUM(s.quantite_in) AS total_quantite_in,
             COUNT(*) AS total_sorties,
             MAX(s.transanction_date) AS last_transaction_date
         FROM sortie_eam s
         GROUP BY s.part, s.smr_ref
-        ORDER BY s.transanction_date DESC
+        ORDER BY last_transaction_date DESC;
     `;
 
     db.query(q, (error, data) => {
