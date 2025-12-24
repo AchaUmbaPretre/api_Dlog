@@ -41,8 +41,10 @@ exports.getSortieEam = (req, res) => {
             SUM(s.quantite_out) AS total_quantite_out,
             SUM(s.quantite_in) AS total_quantite_in,
             COUNT(*) AS total_sorties,
-            MAX(s.transanction_date) AS last_transaction_date
+            MAX(s.transanction_date) AS last_transaction_date,
+            edp.doc_physique_ok
         FROM sortie_eam s
+        LEFT JOIN eam_doc_physique edp ON s.smr_ref = edp.smr_ref
         GROUP BY s.part, s.smr_ref
         ORDER BY last_transaction_date DESC;
     `;
