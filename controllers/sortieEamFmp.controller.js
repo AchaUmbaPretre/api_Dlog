@@ -55,7 +55,6 @@ exports.getSortieEam = (req, res) => {
         }
         return res.status(200).json(data);
     })
-
 };
 
 exports.getSortieFmp = (req, res) => {
