@@ -24,8 +24,6 @@ exports.getSortieEam = (req, res) => {
             s.requisition,
             s.purchase,
             s.transaction,
-            s.quantite_out,
-            s.quantite_in,
             s.part_description12,
             s.purchase_order17,
             s.requisition17,
