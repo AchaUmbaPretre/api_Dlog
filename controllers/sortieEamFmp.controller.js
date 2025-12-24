@@ -183,7 +183,7 @@ exports.getReconciliation = (req, res) => {
 
     // Convertir en tableau si nécessaire
     if (smr && !Array.isArray(smr)) {
-        smr = smr.split(','); // supposer que l'API reçoit "123,124,125"
+        smr = smr.split(',');
     }
 
     // Base de la requête
