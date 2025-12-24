@@ -8,4 +8,7 @@ router.get('/fmp', sortieEamFmpController.getSortieFmp);
 router.get('/smr', sortieEamFmpController.getSMR);
 router.get('/reconciliation', sortieEamFmpController.getReconciliation);
 
+router.post('/eam_post', sortieEamFmpController.postEamDocPhysique);
+router.post('/fmp_post', sortieEamFmpController.postFmpDocPhysique);
+
 module.exports = router;

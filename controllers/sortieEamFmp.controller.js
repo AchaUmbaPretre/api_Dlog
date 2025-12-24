@@ -2,6 +2,15 @@ const { db } = require("./../config/database");
 const { promisify } = require('util');
 const query = promisify(db.query).bind(db);
 
+function queryPromise(connection, sql, params) {
+    return new Promise((resolve, reject) => {
+      connection.query(sql, params, (err, results) => {
+        if (err) return reject(err);
+        resolve([results]);
+      });
+    });
+  }
+
 exports.getSortieEam = (req, res) => {
     const q = `
         SELECT 
@@ -262,3 +271,146 @@ exports.getReconciliation = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+exports.postEamDocPhysique = (req, res) => {
+    db.getConnection((connErr, connection) => {
+        if (connErr) {
+            console.error("Erreur de connexion DB : ", connErr);
+            return res.status(500).json({ error: "Connexion à la base de données échouée." });
+        }
+
+        connection.beginTransaction(async (trxErr) => {
+            if(trxErr) {
+                connection.release();
+                console.error('Erreur transaction : ', trxErr)
+            }
+
+            try {
+                const {
+                    smr_ref,
+                    part,
+                    doc_physique_ok,
+                    qte_doc_physique
+                } = req.body;
+
+                if(!smr_ref || !part) {
+                    throw new Error("Champs obligatoires manquants (smr ou part).");
+                }
+
+                const insertSql = `
+                    INSERT INTO eam_doc_physique (
+                        smr_ref,
+                        part,
+                        doc_physique_ok,
+                        qte_doc_physique
+                    ) VALUES (?, ?, ?, ?)
+                `;
+
+                const values = [
+                    smr_ref,
+                    part,
+                    doc_physique_ok,
+                    qte_doc_physique
+                ]
+
+                const [insertResult] = await queryPromise(connection, insertSql, values);
+                const insertId = insertResult.insertId;
+
+                connection.commit((commitErr) => {
+                    connection.release();
+                    if (commitErr) {
+                        console.error("Erreur commit :", commitErr);
+                        return res.status(500).json({ error: "Erreur lors de la validation d'Eam doc physique." });
+                    }
+
+                    return res.status(201).json({
+                        message: "Eam doc physique enregistré avec succès.",
+                        data: { id: insertId }
+                    });
+                });
+
+            } catch (error) {
+                connection.rollback(() => {
+                    connection.release();
+                    console.error("Erreur pendant la transaction :", error);
+                    return res.status(500).json({
+                        error: error.message || "Une erreur est survenue lors de l'enregistrement.",
+                    });
+                });
+            }
+        })
+    })
+};
+
+exports.postFmpDocPhysique = (req, res) => {
+    db.getConnection((connErr, connection) => {
+        if (connErr) {
+            console.error("Erreur de connexion DB : ", connErr);
+            return res.status(500).json({ error: "Connexion à la base de données échouée." });
+        }
+
+        connection.beginTransaction(async (trxErr) => {
+            if(trxErr) {
+                connection.release();
+                console.error('Erreur transaction : ', trxErr)
+            }
+
+            try {
+                const {
+                    smr,
+                    sortie_gsm_num_be,
+                    item_code,
+                    doc_physique_ok,
+                    qte_doc_physique
+                } = req.body;
+
+                if(!smr || !item_code) {
+                    throw new Error("Champs obligatoires manquants (smr ou item code).");
+                }
+
+                const insertSql = `
+                    INSERT INTO fmp_doc_physique (
+                        smr,
+                        sortie_gsm_num_be,
+                        item_code,
+                        doc_physique_ok,
+                        qte_doc_physique
+                    ) VALUES (?, ?, ?, ?, ?)
+                `;
+
+                const values = [
+                    smr,
+                    sortie_gsm_num_be,
+                    item_code,
+                    doc_physique_ok,
+                    qte_doc_physique
+                ]
+
+                const [insertResult] = await queryPromise(connection, insertSql, values);
+                const insertId = insertResult.insertId;
+
+                connection.commit((commitErr) => {
+                    connection.release();
+                    if (commitErr) {
+                        console.error("Erreur commit :", commitErr);
+                        return res.status(500).json({ error: "Erreur lors de la validation d'Eam doc physique." });
+                    }
+
+                    return res.status(201).json({
+                        message: "Eam doc physique enregistré avec succès.",
+                        data: { id: insertId }
+                    });
+                });
+
+            } catch (error) {
+                connection.rollback(() => {
+                    connection.release();
+                    console.error("Erreur pendant la transaction :", error);
+                    return res.status(500).json({
+                        error: error.message || "Une erreur est survenue lors de l'enregistrement.",
+                    });
+                });
+            }
+        })
+    })
+}
