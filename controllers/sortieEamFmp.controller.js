@@ -38,7 +38,7 @@ exports.getSortieEam = (req, res) => {
             s.bulk_issue,
             s.site,
             s.smr_ref,
-            ABS(SUM(s.quantite_out)) AS total_quantite_out,
+            SUM(s.quantite_out) AS total_quantite_out,
             SUM(s.quantite_in) AS total_quantite_in,
             COUNT(*) AS total_sorties,
             MAX(s.transanction_date) AS last_transaction_date,
@@ -46,13 +46,13 @@ exports.getSortieEam = (req, res) => {
             edp.qte_doc_physique,
             CASE
                 WHEN edp.qte_doc_physique IS NOT NULL
-                THEN edp.qte_doc_physique - ABS(SUM(s.quantite_out))
+                THEN edp.qte_doc_physique - SUM(s.quantite_out)
                 ELSE NULL
             END AS ecart_doc_eam
         FROM sortie_eam s
         LEFT JOIN eam_doc_physique edp ON s.smr_ref = edp.smr_ref
         GROUP BY s.part, s.smr_ref, s.part_description, edp.doc_physique_ok, edp.qte_doc_physique
-        ORDER BY last_transaction_date DESC
+        ORDER BY last_transaction_date DESC;
     `;
 
     db.query(q, (error, data) => {
