@@ -273,7 +273,6 @@ exports.getReconciliation = (req, res) => {
         ON eam.part = fmp.item_code
     `;
 
-    // Définir les paramètres seulement si filtre smr existe
     const params = smr && smr.length ? [smr, smr, smr, smr] : [];
 
     db.query(query, params, (error, data) => {
@@ -426,4 +425,4 @@ exports.postFmpDocPhysique = (req, res) => {
             }
         })
     })
-}
+};
