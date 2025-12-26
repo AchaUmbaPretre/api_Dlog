@@ -146,7 +146,7 @@ exports.putSortieEam = (req, res) => {
     } catch (error) {
         
     }
-}
+};
 
 exports.getSortieFmp = (req, res) => {
     const q = `
