@@ -106,6 +106,48 @@ exports.getSortieEamBySmr = (req, res) => {
     });
 };
 
+exports.putSortieEam = (req, res) => {
+    try {
+        const {
+            id_sortie_eam,
+            quantite_out,
+            quantite_in
+        } = req.body;
+
+        if(!id_sortie_eam) {
+            return res.status(400).json({ message : 'ID sortie eam'})
+        }
+
+        const q = `
+            UPDATE sortie_eam SET
+                quantite_out = ?,
+                quantite_in = ?
+                WHERE id_sortie_eam = ?
+        `;
+
+        const values = [
+            quantite_out,
+            quantite_in,
+            id_sortie_eam
+        ]
+        db.query(q, [values], (error, data) => {
+            if(error) {
+                console.error(error);
+                return res.status(500).json({
+                    message: "Erreur serveur lors de la mise à jour."
+                })
+            }
+
+            res.status(200).json({
+                message: "Sortie EAM mis à jour avec succès."
+            });
+        })
+
+    } catch (error) {
+        
+    }
+}
+
 exports.getSortieFmp = (req, res) => {
     const q = `
         SELECT 
