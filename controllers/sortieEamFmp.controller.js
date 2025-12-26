@@ -1,6 +1,7 @@
 const { db } = require("./../config/database");
 const { promisify } = require('util');
 const query = promisify(db.query).bind(db);
+const moment = require("moment");
 
 function queryPromise(connection, sql, params) {
     return new Promise((resolve, reject) => {
@@ -12,6 +13,38 @@ function queryPromise(connection, sql, params) {
   }
 
 exports.getSortieEam = (req, res) => {
+    const {
+        smr = [],
+        part = [],
+        dateRange = []
+    } = req.query.data || {};
+
+
+    let where = "WHERE 1=1";
+    const params = [];
+
+    /* ===== FILTRE SMR ===== */
+    if (Array.isArray(smr) && smr.length > 0) {
+        where += ` AND s.smr_ref IN (${smr.map(() => "?").join(",")})`;
+        params.push(...smr);
+    }
+
+    /* ===== FILTRE PART ===== */
+    if (Array.isArray(part) && part.length > 0) {
+        where += ` AND s.part IN (${part.map(() => "?").join(",")})`;
+        params.push(...part);
+    }
+
+    /* ===== FILTRE DATE ===== */
+    if (Array.isArray(dateRange) && dateRange.length === 2) {
+        where += ` AND s.transanction_date BETWEEN ? AND ?`;
+        params.push(
+            moment(dateRange[0]).startOf("day").format("YYYY-MM-DD HH:mm:ss"),
+            moment(dateRange[1]).endOf("day").format("YYYY-MM-DD HH:mm:ss")
+        );
+    }
+
+
     const q = `
         SELECT 
             s.transanction_date,
@@ -36,29 +69,46 @@ exports.getSortieEam = (req, res) => {
             s.bulk_issue,
             s.site,
             s.smr_ref,
+
             SUM(s.quantite_out) AS total_quantite_out,
             SUM(s.quantite_in) AS total_quantite_in,
             COUNT(*) AS total_sorties,
             MAX(s.transanction_date) AS last_transaction_date,
+
             COALESCE(edp.doc_physique_ok, 0) AS doc_physique_ok,
             edp.qte_doc_physique,
+
             CASE
                 WHEN edp.qte_doc_physique IS NOT NULL
                 THEN edp.qte_doc_physique - SUM(s.quantite_out)
                 ELSE NULL
             END AS ecart_doc_eam
+
         FROM sortie_eam s
-        LEFT JOIN eam_doc_physique edp ON s.smr_ref = edp.smr_ref
-        GROUP BY s.part, s.smr_ref, s.part_description, edp.doc_physique_ok, edp.qte_doc_physique
-        ORDER BY last_transaction_date DESC;
+        LEFT JOIN eam_doc_physique edp 
+            ON s.smr_ref = edp.smr_ref
+
+        ${where}
+
+        GROUP BY 
+            s.part,
+            s.smr_ref,
+            s.part_description,
+            edp.doc_physique_ok,
+            edp.qte_doc_physique
+
+        ORDER BY last_transaction_date DESC
     `;
 
-    db.query(q, (error, data) => {
-        if(error) {
-            return res.status(500).send(error);
+    db.query(q, params, (error, data) => {
+        if (error) {
+            return res.status(500).json({
+                message: "Erreur lors de la récupération des sorties EAM",
+                error
+            });
         }
         return res.status(200).json(data);
-    })
+    });
 };
 
 exports.getSortieEamBySmr = (req, res) => {
@@ -149,42 +199,60 @@ exports.putSortieEam = (req, res) => {
 };
 
 exports.getSortieFmp = (req, res) => {
+    const { smr = [], item_code = [] } = req.query.data || {};
+
+    let where = "WHERE 1=1";
+    const params = [];
+
+    if (Array.isArray(smr) && smr.length > 0) {
+        where += ` AND s.smr IN (${smr.map(() => "?").join(",")})`;
+        params.push(...smr);
+    }
+
+    if (Array.isArray(item_code) && item_code.length > 0) {
+        where += ` AND s.item_code IN (${item_code.map(() => "?").join(",")})`;
+        params.push(...item_code);
+    }
+
     const q = `
         SELECT 
-            s.id_sortie_fmp,
-            s.produit_pd_code,
-            s.sortie_gsm_num,
-            s.sortie_gsm_num_gtm,
-            s.sortie_gsm_num_site,
+            MAX(s.id_sortie_fmp) AS id_sortie_fmp,
+            MAX(s.produit_pd_code) AS produit_pd_code,
+            MAX(s.sortie_gsm_num) AS sortie_gsm_num,
+            MAX(s.sortie_gsm_num_gtm) AS sortie_gsm_num_gtm,
+            MAX(s.sortie_gsm_num_site) AS sortie_gsm_num_site,
             s.item_code,
-            s.designation,
-           	SUM(s.nbre_colis) AS nbre_colis,
-            s.unite,
-            s.sortie_gsm_num_be,
             s.smr,
-            s.difference,
-            s.colonne1,
-            s.commentaire,
+            MAX(s.designation) AS designation,
+            SUM(s.nbre_colis) AS nbre_colis,
+            MAX(s.unite) AS unite,
+            s.sortie_gsm_num_be,
+            MAX(s.difference) AS difference,
+            MAX(s.colonne1) AS colonne1,
+            MAX(s.commentaire) AS commentaire,
             fmp.doc_physique_ok,
-            fmp.qte_doc_physique,
-            CASE	
-            	WHEN fmp.qte_doc_physique IS NOT NULL
-                THEN  SUM(s.nbre_colis) - SUM(fmp.qte_doc_physique)
+            fmp.total_doc_physique AS qte_doc_physique,
+            CASE
+                WHEN fmp.total_doc_physique IS NOT NULL
+                THEN SUM(s.nbre_colis) - fmp.total_doc_physique
                 ELSE NULL
             END AS ecart_doc_fmp
         FROM sortie_fmp s
-        LEFT JOIN fmp_doc_physique fmp ON s.item_code = fmp.item_code AND s.sortie_gsm_num_be = fmp.sortie_gsm_num_be
-        GROUP BY s.sortie_gsm_num_be, s.item_code, s.smr, designation;
+        LEFT JOIN (
+            SELECT item_code, SUM(qte_doc_physique) AS total_doc_physique, MAX(doc_physique_ok) AS doc_physique_ok
+            FROM fmp_doc_physique
+            GROUP BY item_code
+        ) fmp ON s.item_code = fmp.item_code
+            ${where}
+        GROUP BY s.sortie_gsm_num_be, s.item_code, s.smr;
     `;
 
-    db.query(q, (error, data) => {
-        if(error) {
-            return res.status(500).send(error);
-        }
+    db.query(q, params, (error, data) => {
+        if (error) return res.status(500).send(error);
         return res.status(200).json(data);
-    })
-
+    });
 };
+
 
 exports.getSortieFmpBySmr = (req, res) => {
     const { smr, sortie_gsm_num_be } = req.query;
