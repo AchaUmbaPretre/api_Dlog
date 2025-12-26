@@ -61,6 +61,54 @@ exports.getSortieEam = (req, res) => {
     })
 };
 
+exports.getSortieEamBySmr = (req, res) => {
+    const { smr_ref, part } = req.query;
+
+    // Validation stricte des paramètres
+    if (!smr_ref && !part) {
+        return res.status(400).json({
+            error: "Au moins un paramètre est requis : smr_ref ou part."
+        });
+    }
+
+    // Construction dynamique de la requête
+    let whereClauses = [];
+    let params = [];
+
+    if (smr_ref) {
+        whereClauses.push("s.smr_ref = ?");
+        params.push(smr_ref);
+    }
+
+    if (part) {
+        whereClauses.push("s.part = ?");
+        params.push(part);
+    }
+
+    const query = `
+        SELECT 
+            s.*
+        FROM sortie_eam s
+        WHERE ${whereClauses.join(" OR ")}
+        ORDER BY s.transanction_date DESC
+    `;
+
+    db.query(query, params, (error, results) => {
+        if (error) {
+            console.error("Erreur getSortieEamBySmr :", error);
+            return res.status(500).json({
+                error: "Erreur interne du serveur"
+            });
+        }
+
+        return res.status(200).json({
+            count: results.length,
+            data: results
+        });
+    });
+};
+
+
 exports.getSortieFmp = (req, res) => {
     const q = `
         SELECT 
@@ -101,20 +149,26 @@ exports.getSortieFmp = (req, res) => {
 
 exports.getSMR = (req, res) => {
     const q = `
-        SELECT 
-            s.smr
-        FROM sortie_fmp s
-        GROUP BY s.smr
+        SELECT smr AS smr
+        FROM sortie_fmp
+        WHERE smr IS NOT NULL
+
+        UNION
+
+        SELECT smr_ref AS smr
+        FROM sortie_eam
+        WHERE smr_ref IS NOT NULL
+        ORDER BY smr ASC
     `;
 
     db.query(q, (error, data) => {
-        if(error) {
-            return res.status(500).send(error);
+        if (error) {
+            return res.status(500).json(error);
         }
         return res.status(200).json(data);
-    })
-
+    });
 };
+
 
 /* exports.getReconciliation = (req, res) => {
     const { smr } = req.query;
