@@ -186,6 +186,90 @@ exports.getSortieFmp = (req, res) => {
 
 };
 
+exports.getSortieFmpBySmr = (req, res) => {
+    const { smr, sortie_gsm_num_be } = req.query;
+
+    if (!smr && !sortie_gsm_num_be) {
+        return res.status(400).json({
+            error: "Au moins un paramètre est requis : smr ou N° Be."
+        });
+    }
+
+    let whereClauses = [];
+    let params = [];
+
+    if (smr) {
+        whereClauses.push("s.smr = ?");
+        params.push(smr);
+    }
+
+    if (sortie_gsm_num_be) {
+        whereClauses.push("s.sortie_gsm_num_be = ?");
+        params.push(sortie_gsm_num_be);
+    }
+
+    const query = `
+        SELECT 
+            s.*
+        FROM sortie_fmp s
+        WHERE ${whereClauses.join(" OR ")}
+
+    `;
+
+    db.query(query, params, (error, results) => {
+        if (error) {
+            console.error("Erreur getSortieFmpBySmr :", error);
+            return res.status(500).json({
+                error: "Erreur interne du serveur"
+            });
+        }
+
+        return res.status(200).json({
+            count: results.length,
+            data: results
+        });
+    });
+};
+
+exports.putSortieFMP = (req, res) => {
+    try {
+        const {
+            id_sortie_fmp,
+            nbre_colis
+        } = req.body;
+
+        if(!id_sortie_fmp) {
+            return res.status(400).json({ message : 'ID sortie eam'})
+        }
+
+        const q = `
+            UPDATE sortie_fmp SET
+                nbre_colis = ?
+                WHERE id_sortie_fmp  = ?
+        `;
+
+        const values = [
+            nbre_colis,
+            id_sortie_fmp
+        ]
+        db.query(q, values, (error, data) => {
+            if(error) {
+                console.error(error);
+                return res.status(500).json({
+                    message: "Erreur serveur lors de la mise à jour."
+                })
+            }
+
+            res.status(200).json({
+                message: "Sortie FMP mis à jour avec succès."
+            });
+        })
+
+    } catch (error) {
+        res.status(500).json({ message: 'Erreur inattendue' });
+    }
+};
+
 exports.getSMR = (req, res) => {
     const q = `
         SELECT smr AS smr

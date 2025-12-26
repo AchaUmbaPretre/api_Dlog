@@ -7,6 +7,8 @@ router.get('/eam', sortieEamFmpController.getSortieEam);
 router.get('/by_smr_eam', sortieEamFmpController.getSortieEamBySmr);
 router.put('/put_eam', sortieEamFmpController.putSortieEam);
 router.get('/fmp', sortieEamFmpController.getSortieFmp);
+router.get('/by_smr_fmp', sortieEamFmpController.getSortieFmpBySmr);
+router.put('/put_fmp', sortieEamFmpController.putSortieFMP);
 router.get('/smr', sortieEamFmpController.getSMR);
 router.get('/reconciliation', sortieEamFmpController.getReconciliation);
 
