@@ -106,7 +106,6 @@ exports.getSortieEamBySmr = (req, res) => {
     });
 };
 
-
 exports.getSortieFmp = (req, res) => {
     const q = `
         SELECT 
@@ -166,7 +165,6 @@ exports.getSMR = (req, res) => {
         return res.status(200).json(data);
     });
 };
-
 
 /* exports.getReconciliation = (req, res) => {
     const { smr } = req.query;
