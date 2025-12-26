@@ -64,14 +64,12 @@ exports.getSortieEam = (req, res) => {
 exports.getSortieEamBySmr = (req, res) => {
     const { smr_ref, part } = req.query;
 
-    // Validation stricte des paramètres
     if (!smr_ref && !part) {
         return res.status(400).json({
             error: "Au moins un paramètre est requis : smr_ref ou part."
         });
     }
 
-    // Construction dynamique de la requête
     let whereClauses = [];
     let params = [];
 
