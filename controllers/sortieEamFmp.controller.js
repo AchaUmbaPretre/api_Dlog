@@ -130,7 +130,7 @@ exports.putSortieEam = (req, res) => {
             quantite_in,
             id_sortie_eam
         ]
-        db.query(q, [values], (error, data) => {
+        db.query(q, values, (error, data) => {
             if(error) {
                 console.error(error);
                 return res.status(500).json({
