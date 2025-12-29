@@ -379,7 +379,7 @@ exports.getPartItem = (req, res) => {
         }
         return res.status(200).json(data);
     });
-}
+};
 
 /* exports.getReconciliation = (req, res) => {
     const { smr } = req.query;

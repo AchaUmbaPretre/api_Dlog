@@ -10,6 +10,7 @@ router.get('/fmp', sortieEamFmpController.getSortieFmp);
 router.get('/by_smr_fmp', sortieEamFmpController.getSortieFmpBySmr);
 router.put('/put_fmp', sortieEamFmpController.putSortieFMP);
 router.get('/smr', sortieEamFmpController.getSMR);
+router.get('/part_item', sortieEamFmpController.getPartItem);
 router.get('/reconciliation', sortieEamFmpController.getReconciliation);
 
 router.post('/eam_post', sortieEamFmpController.postEamDocPhysique);
