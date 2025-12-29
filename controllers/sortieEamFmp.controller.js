@@ -215,36 +215,40 @@ exports.getSortieFmp = (req, res) => {
     }
 
     const q = `
-        SELECT 
-            MAX(s.id_sortie_fmp) AS id_sortie_fmp,
-            MAX(s.produit_pd_code) AS produit_pd_code,
-            MAX(s.sortie_gsm_num) AS sortie_gsm_num,
-            MAX(s.sortie_gsm_num_gtm) AS sortie_gsm_num_gtm,
-            MAX(s.sortie_gsm_num_site) AS sortie_gsm_num_site,
+        WITH last_sortie AS (
+            SELECT *,
+                ROW_NUMBER() OVER (PARTITION BY sortie_gsm_num_be, item_code, smr ORDER BY date_sortie DESC) AS rn
+            FROM sortie_fmp
+        )
+        SELECT
+            s.id_sortie_fmp,
+            s.produit_pd_code,
+            s.sortie_gsm_num,
+            s.sortie_gsm_num_gtm,
+            s.sortie_gsm_num_site,
             s.item_code,
             s.smr,
-            MAX(s.designation) AS designation,
-            SUM(s.nbre_colis) AS nbre_colis,
-            MAX(s.unite) AS unite,
+            s.date_sortie AS last_date,
+            s.designation,
+            SUM(s2.nbre_colis) AS nbre_colis,
+            s.unite,
             s.sortie_gsm_num_be,
-            MAX(s.difference) AS difference,
-            MAX(s.colonne1) AS colonne1,
-            MAX(s.commentaire) AS commentaire,
+            SUM(s2.nbre_colis) - COALESCE(fmp.total_doc_physique,0) AS ecart_doc_fmp,
             fmp.doc_physique_ok,
-            fmp.total_doc_physique AS qte_doc_physique,
-            CASE
-                WHEN fmp.total_doc_physique IS NOT NULL
-                THEN SUM(s.nbre_colis) - fmp.total_doc_physique
-                ELSE NULL
-            END AS ecart_doc_fmp
-        FROM sortie_fmp s
+            fmp.total_doc_physique AS qte_doc_physique
+        FROM last_sortie s
+        JOIN sortie_fmp s2 
+            ON s.item_code = s2.item_code
+        AND s.smr = s2.smr
+        AND s.sortie_gsm_num_be = s2.sortie_gsm_num_be
         LEFT JOIN (
             SELECT item_code, SUM(qte_doc_physique) AS total_doc_physique, MAX(doc_physique_ok) AS doc_physique_ok
             FROM fmp_doc_physique
             GROUP BY item_code
         ) fmp ON s.item_code = fmp.item_code
-            ${where}
-        GROUP BY s.sortie_gsm_num_be, s.item_code, s.smr;
+        ${where}
+        GROUP BY s.sortie_gsm_num_be, s.item_code, s.smr, s.id_sortie_fmp, s.produit_pd_code, s.sortie_gsm_num, s.sortie_gsm_num_gtm, s.sortie_gsm_num_site, s.date_sortie, s.designation, s.unite, fmp.doc_physique_ok, fmp.total_doc_physique
+        ORDER BY last_date DESC;
     `;
 
     db.query(q, params, (error, data) => {

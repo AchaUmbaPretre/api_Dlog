@@ -1038,12 +1038,16 @@ exports.postSortiefmpExcel = async (req, res) => {
     const filePath = req.files[0].path;
     const workbook = xlsx.readFile(filePath);
     const sheetName = workbook.SheetNames[0];
-    const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], {
-      defval: null
-    });
+    const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null });
+
+    if (!sheetData.length) {
+      fs.unlinkSync(filePath);
+      return res.status(400).json({ error: "Fichier Excel vide" });
+    }
 
     const insertQuery = `
       INSERT INTO sortie_fmp (
+        Date_sortie,
         produit_pd_code,
         sortie_gsm_num,
         sortie_gsm_num_gtm,
@@ -1057,49 +1061,84 @@ exports.postSortiefmpExcel = async (req, res) => {
         difference,
         colonne1,
         commentaire
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     for (const row of sheetData) {
-      // Ignorer les lignes sans PD Code ou N° ID
-      if (!row["Produits::PD Code"] || !row["Dossiers Sorties GSM::N° ID"]) {
-        continue;
+      if (!row["Produits::PD Code"] || !row["Dossiers Sorties GSM::N° ID"]) continue;
+
+      // =============================
+      // Gestion de la date
+      // =============================
+      let date_operation = null;
+      const rawDate = row["Dossiers Sorties GSM::Date de sortie"];
+
+      // Cas 1 : Excel stocke une vraie date (nombre)
+      if (typeof rawDate === "number") {
+        const parsed = xlsx.SSF.parse_date_code(rawDate);
+        if (parsed) {
+          const year = parsed.y;
+          const month = String(parsed.m).padStart(2, "0");
+          const day = String(parsed.d).padStart(2, "0");
+          date_operation = `${year}-${month}-${day} 00:00:00`;
+        }
+      } 
+      // Cas 2 : format texte "DD/MM/YYYY"
+      else if (typeof rawDate === "string" && /^\d{2}\/\d{2}\/\d{4}$/.test(rawDate)) {
+        const [day, month, year] = rawDate.split("/");
+        date_operation = `${year}-${month}-${day} 00:00:00`;
+      } 
+      // Fallback : autre format
+      else {
+        const d = new Date(rawDate);
+        if (!isNaN(d.getTime())) {
+          date_operation = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} 00:00:00`;
+        }
+      }
+
+      if (!date_operation) {
+        fs.unlinkSync(filePath);
+        return res.status(400).json({ error: "Date de sortie invalide" });
       }
 
       const values = [
+        date_operation,
         row["Produits::PD Code"],
         row["Dossiers Sorties GSM::N° ID"],
-        row["Dossiers Sorties GSM::N° Log. GTM"] || "",
-        row["Dossiers Sorties GSM::Site"],
-        row["Produits::ITEM CODE"],
-        row["Produits::Designation"],
-        row["Nombre de colis"] || 0,
-        row["Produits::Unité"] || "",
-        row["Dossiers Sorties GSM::N° BE"],
-        row["SMR"],
-        row["difference"] || null,
-        row["Colonne1"] || null,
-        row["COMMENTAIRES"] || null
+        row["Dossiers Sorties GSM::N° Log. GTM"] || null,
+        row["Dossiers Sorties GSM::Site"] || null,
+        row["Produits::ITEM CODE"] || null,
+        row["Produits::Designation"] || null,
+        Number(row["Nombre de colis"]) || 0,
+        row["Produits::Unité"] || null,
+        row["Dossiers Sorties GSM::N° BE"] || null,
+        row["SMR"] || null,
+        row["difference"] ?? null,
+        row["Colonne1"] ?? null,
+        row["COMMENTAIRES"] ?? null
       ];
 
-      db.query(insertQuery, values, (err) => {
-        if (err) {
-          console.error("Erreur INSERT sortie_fmp :", err.sqlMessage);
-        }
+      await new Promise((resolve, reject) => {
+        db.query(insertQuery, values, (err) => {
+          if (err) {
+            console.error("Erreur INSERT sortie_fmp :", err.sqlMessage);
+            return reject(err);
+          }
+          resolve();
+        });
       });
     }
 
     fs.unlinkSync(filePath);
-
-    return res.status(201).json({
-      message: "Importation sortie_fmp terminée avec succès"
-    });
+    return res.status(201).json({ message: "Importation sortie_fmp réussie" });
 
   } catch (error) {
     console.error("Erreur import sortie_fmp :", error);
-    return res.status(500).json({ error: "Erreur interne du serveur" });
+    return res.status(500).json({ error: "Erreur interne serveur" });
   }
 };
+
+
 
 /* exports.postEamExcel = async (req, res) => {
   try {
