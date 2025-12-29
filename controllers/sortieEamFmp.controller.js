@@ -451,12 +451,12 @@ exports.getReconciliation = (req, res) => {
     }
 
     const filterEam = smr?.length
-    ? 'WHERE (smr_ref IN (?) OR smr_ref IS NULL OR smr_ref = "")'
-    : '';
+        ? 'WHERE (smr_ref IN (?) OR smr_ref IS NULL OR smr_ref = "")'
+        : '';
 
     const filterFmp = smr?.length
-    ? 'WHERE (smr IN (?) OR smr IS NULL OR smr = "")'
-    : '';
+        ? 'WHERE (smr IN (?) OR smr IS NULL OR smr = "")'
+        : '';
 
     const query = `
         WITH
@@ -486,18 +486,30 @@ exports.getReconciliation = (req, res) => {
             COALESCE(e.description, f.description) AS description,
             IFNULL(e.qte_eam, 0) AS qte_eam,
             IFNULL(f.qte_fmp, 0) AS qte_fmp,
-            (IFNULL(f.qte_fmp, 0) - IFNULL(e.qte_eam, 0)) AS ecart
+            (IFNULL(f.qte_fmp, 0) - IFNULL(e.qte_eam, 0)) AS ecart,
+            CASE
+                WHEN COALESCE(e.smr_ref, f.smr) IS NULL
+                     OR COALESCE(e.smr_ref, f.smr) = ''
+                THEN 'SANS_SMR'
+                ELSE 'AVEC_SMR'
+            END AS type_smr
         FROM eam e
         LEFT JOIN fmp f ON e.code_article = f.code_article
 
         UNION ALL
 
         SELECT
-            COALESCE(e.code_article, f.code_article),
-            COALESCE(e.description, f.description),
-            IFNULL(e.qte_eam, 0),
-            IFNULL(f.qte_fmp, 0),
-            (IFNULL(f.qte_fmp, 0) - IFNULL(e.qte_eam, 0))
+            COALESCE(e.code_article, f.code_article) AS code_article,
+            COALESCE(e.description, f.description) AS description,
+            IFNULL(e.qte_eam, 0) AS qte_eam,
+            IFNULL(f.qte_fmp, 0) AS qte_fmp,
+            (IFNULL(f.qte_fmp, 0) - IFNULL(e.qte_eam, 0)) AS ecart,
+            CASE
+                WHEN COALESCE(e.smr_ref, f.smr) IS NULL
+                     OR COALESCE(e.smr_ref, f.smr) = ''
+                THEN 'SANS_SMR'
+                ELSE 'AVEC_SMR'
+            END AS type_smr
         FROM eam e
         RIGHT JOIN fmp f ON e.code_article = f.code_article
         WHERE e.code_article IS NULL
@@ -513,6 +525,7 @@ exports.getReconciliation = (req, res) => {
         res.status(200).json(rows);
     });
 };
+
 
 exports.postEamDocPhysique = (req, res) => {
     db.getConnection((connErr, connection) => {
