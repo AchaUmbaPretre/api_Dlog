@@ -450,8 +450,13 @@ exports.getReconciliation = (req, res) => {
         smr = smr.split(',');
     }
 
-    const filterEam = smr?.length ? 'WHERE smr_ref IN (?)' : '';
-    const filterFmp = smr?.length ? 'WHERE smr IN (?)' : '';
+    const filterEam = smr?.length
+    ? 'WHERE (smr_ref IN (?) OR smr_ref IS NULL OR smr_ref = "")'
+    : '';
+
+    const filterFmp = smr?.length
+    ? 'WHERE (smr IN (?) OR smr IS NULL OR smr = "")'
+    : '';
 
     const query = `
         WITH
@@ -508,7 +513,6 @@ exports.getReconciliation = (req, res) => {
         res.status(200).json(rows);
     });
 };
-
 
 exports.postEamDocPhysique = (req, res) => {
     db.getConnection((connErr, connection) => {
