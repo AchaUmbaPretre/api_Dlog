@@ -359,6 +359,28 @@ exports.getSMR = (req, res) => {
     });
 };
 
+exports.getPartItem = (req, res) => {
+    const q = `
+        SELECT part AS item
+        FROM sortie_eam
+        WHERE part IS NOT NULL
+
+        UNION
+
+        SELECT item_code AS item
+        FROM sortie_fmp
+        WHERE item_code IS NOT NULL
+        ORDER BY item ASC
+    `;
+
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).json(error);
+        }
+        return res.status(200).json(data);
+    });
+}
+
 /* exports.getReconciliation = (req, res) => {
     const { smr } = req.query;
 
@@ -444,7 +466,7 @@ exports.getSMR = (req, res) => {
  */
 
 exports.getReconciliation = (req, res) => {
-    let { smr } = req.query;
+    let { smr = [], item_code= [], dateRange = []  } = req.query;
 
     if (smr && !Array.isArray(smr)) {
         smr = smr.split(',');
