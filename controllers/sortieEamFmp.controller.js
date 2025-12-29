@@ -465,11 +465,23 @@ exports.getPartItem = (req, res) => {
 };
  */
 
-exports.getReconciliation = (req, res) => {
-    let { smr = [], item_code= [], dateRange = []  } = req.query;
+/* exports.getReconciliation = (req, res) => {
+    let { smr = [], item_code= [], dateRange = []  } = req.query.data || {};
+
+    console.log(req.query.data)
 
     if (smr && !Array.isArray(smr)) {
         smr = smr.split(',');
+    }
+
+    let where = "WHERE 1=1";
+
+        if (Array.isArray(dateRange) && dateRange.length === 2) {
+        where += ` AND sortie_eam.transanction_date BETWEEN ? AND ?`;
+        params.push(
+            moment(dateRange[0]).startOf("day").format("YYYY-MM-DD HH:mm:ss"),
+            moment(dateRange[1]).endOf("day").format("YYYY-MM-DD HH:mm:ss")
+        );
     }
 
     const filterEam = smr?.length
@@ -546,8 +558,112 @@ exports.getReconciliation = (req, res) => {
         }
         res.status(200).json(rows);
     });
-};
+}; */
 
+
+exports.getReconciliation = (req, res) => {
+    let { smr = [], item_code = [], dateRange = [] } = req.query.data || {};
+
+    if (!Array.isArray(smr)) smr = smr.split(",");
+    if (!Array.isArray(item_code)) item_code = item_code.split(",");
+
+    const params = [];
+    let filterEam = "WHERE 1=1";
+    let filterFmp = "WHERE 1=1";
+
+    // ===== Filtre SMR =====
+    if (smr.length) {
+        filterEam += " AND (smr_ref IN (?) OR smr_ref IS NULL)";
+        filterFmp += " AND (smr IN (?) OR smr IS NULL)";
+        params.push(smr, smr);
+    }
+
+    // ===== Filtre article =====
+    if (item_code.length) {
+        filterEam += " AND part IN (?)";
+        filterFmp += " AND item_code IN (?)";
+        params.push(item_code, item_code);
+    }
+
+    // ===== Filtre date =====
+    if (Array.isArray(dateRange) && dateRange.length === 2) {
+        const start = moment(dateRange[0])
+            .startOf("day")
+            .format("YYYY-MM-DD HH:mm:ss");
+        const end = moment(dateRange[1])
+            .endOf("day")
+            .format("YYYY-MM-DD HH:mm:ss");
+
+        filterEam += " AND transanction_date BETWEEN ? AND ?";
+        filterFmp += " AND created_at BETWEEN ? AND ?";
+
+        params.push(start, end, start, end);
+    }
+
+    const query = `
+        WITH eam AS (
+            SELECT
+                smr_ref,
+                part AS code_article,
+                part_description AS description,
+                ABS(SUM(quantite_out)) AS qte_eam
+            FROM sortie_eam
+            ${filterEam}
+            GROUP BY smr_ref, part, part_description
+        ),
+        fmp AS (
+            SELECT
+                smr,
+                item_code AS code_article,
+                designation AS description,
+                SUM(nbre_colis) AS qte_fmp
+            FROM sortie_fmp
+            ${filterFmp}
+            GROUP BY smr, item_code, designation
+        )
+
+        -- EAM -> FMP
+        SELECT
+            COALESCE(e.code_article, f.code_article) AS code_article,
+            COALESCE(e.description, f.description) AS description,
+            IFNULL(e.qte_eam, 0) AS qte_eam,
+            IFNULL(f.qte_fmp, 0) AS qte_fmp,
+            (IFNULL(f.qte_fmp, 0) - IFNULL(e.qte_eam, 0)) AS ecart,
+            CASE
+                WHEN COALESCE(e.smr_ref, f.smr) IS NULL
+                THEN 'SANS_SMR'
+                ELSE 'AVEC_SMR'
+            END AS type_smr
+        FROM eam e
+        LEFT JOIN fmp f ON e.code_article = f.code_article
+
+        UNION ALL
+
+        -- FMP sans EAM
+        SELECT
+            COALESCE(e.code_article, f.code_article) AS code_article,
+            COALESCE(e.description, f.description) AS description,
+            IFNULL(e.qte_eam, 0) AS qte_eam,
+            IFNULL(f.qte_fmp, 0) AS qte_fmp,
+            (IFNULL(f.qte_fmp, 0) - IFNULL(e.qte_eam, 0)) AS ecart,
+            CASE
+                WHEN COALESCE(e.smr_ref, f.smr) IS NULL
+                THEN 'SANS_SMR'
+                ELSE 'AVEC_SMR'
+            END AS type_smr
+        FROM eam e
+        RIGHT JOIN fmp f ON e.code_article = f.code_article
+        WHERE e.code_article IS NULL
+    `;
+
+    db.query(query, params, (err, rows) => {
+        if (err) {
+            console.error("Reconciliation error:", err);
+            return res.status(500).json({ error: "Erreur serveur" });
+        }
+        res.status(200).json(rows);
+    });
+};
 
 exports.postEamDocPhysique = (req, res) => {
     db.getConnection((connErr, connection) => {
