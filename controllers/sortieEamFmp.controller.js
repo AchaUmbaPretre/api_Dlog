@@ -575,14 +575,12 @@ exports.getReconciliation = (req, res) => {
     let filterEam = "WHERE 1=1";
     let filterFmp = "WHERE 1=1";
 
-    // ===== Filtre SMR =====
     if (smr.length) {
         filterEam += " AND (smr_ref IN (?) OR smr_ref IS NULL)";
         filterFmp += " AND (smr IN (?) OR smr IS NULL)";
         params.push(smr, smr);
     }
 
-    // ===== Filtre article =====
     if (item_code.length) {
         filterEam += " AND part IN (?)";
         filterFmp += " AND item_code IN (?)";
@@ -599,7 +597,7 @@ exports.getReconciliation = (req, res) => {
             .format("YYYY-MM-DD HH:mm:ss");
 
         filterEam += " AND transanction_date BETWEEN ? AND ?";
-        filterFmp += " AND created_at BETWEEN ? AND ?";
+        filterFmp += " AND date_sortie BETWEEN ? AND ?";
 
         params.push(start, end, start, end);
     }
