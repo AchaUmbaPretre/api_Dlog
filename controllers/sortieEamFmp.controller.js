@@ -186,7 +186,7 @@ exports.putSortieEam = (req, res) => {
 };
 
 exports.getSortieFmp = (req, res) => {
-    const { smr = [], item_code = [] } = req.query.data || {};
+    const { smr = [], item_code = [], dateRange = []  } = req.query.data || {};
 
     let where = "WHERE 1=1";
     const params = [];
@@ -201,6 +201,13 @@ exports.getSortieFmp = (req, res) => {
         params.push(...item_code);
     }
 
+        if (Array.isArray(dateRange) && dateRange.length === 2) {
+        where += ` AND s.date_sortie BETWEEN ? AND ?`;
+        params.push(
+            moment(dateRange[0]).startOf("day").format("YYYY-MM-DD HH:mm:ss"),
+            moment(dateRange[1]).endOf("day").format("YYYY-MM-DD HH:mm:ss")
+        );
+    }
     const query = `
         WITH last_sortie AS (
             SELECT *,
