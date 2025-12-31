@@ -168,7 +168,8 @@ exports.putSortieEam = (req, res) => {
         const {
             id_sortie_eam,
             quantite_out,
-            quantite_in
+            quantite_in,
+            smr_ref
         } = req.body;
 
         if(!id_sortie_eam) {
@@ -178,13 +179,15 @@ exports.putSortieEam = (req, res) => {
         const q = `
             UPDATE sortie_eam SET
                 quantite_out = ?,
-                quantite_in = ?
+                quantite_in = ?,
+                smr_ref = ?
                 WHERE id_sortie_eam = ?
         `;
 
         const values = [
             quantite_out,
             quantite_in,
+            smr_ref,
             id_sortie_eam
         ]
         db.query(q, values, (error, data) => {
@@ -201,7 +204,9 @@ exports.putSortieEam = (req, res) => {
         })
 
     } catch (error) {
-        
+        return res.status(500).json({
+            error: error.message || "Une erreur est survenue lors de l'enregistrement.",
+        });
     }
 };
 
@@ -404,7 +409,8 @@ exports.putSortieFMP = (req, res) => {
     try { 
         const {
             id_sortie_fmp,
-            nbre_colis
+            nbre_colis,
+            smr
         } = req.body;
 
         if(!id_sortie_fmp) {
@@ -413,14 +419,17 @@ exports.putSortieFMP = (req, res) => {
 
         const q = `
             UPDATE sortie_fmp SET
-                nbre_colis = ?
-                WHERE id_sortie_fmp  = ?
+                nbre_colis = ?,
+                smr = ?
+                WHERE id_sortie_fmp = ?
         `;
 
         const values = [
             nbre_colis,
+            smr,
             id_sortie_fmp
         ]
+
         db.query(q, values, (error, data) => {
             if(error) {
                 console.error(error);
