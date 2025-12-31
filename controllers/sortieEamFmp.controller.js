@@ -91,6 +91,26 @@ exports.getSortieEam = (req, res) => {
     });
 };
 
+exports.getSortieEamById = (req, res) => {
+    const { id_sortie_eam } = req.query;
+
+    if(!id_sortie_eam) {
+        return res.status(400).json({
+            error: 'ID sortie eam est requis.'
+        })
+    }
+
+    const q = `SELECT * FROM sortie_eam WHERE id_sortie_eam = ?`
+
+    db.query(q, [id_sortie_eam], (err, data) => {
+        if (err) {
+            console.error("getSortieFmpOne error:", err);
+            return res.status(500).json({ error: "Erreur serveur" });
+        }
+        res.status(200).json(data)
+    })
+}
+
 exports.getSortieEamBySmr = (req, res) => {
     const { smr_ref, part } = req.query;
 
@@ -316,6 +336,25 @@ exports.getSortieFmp = (req, res) => {
     });
 };
 
+exports.getSortieFmpById = (req, res) => {
+    const { id_sortie_fmp } = req.query;
+
+    if(!id_sortie_fmp) {
+        return res.status(400).json({
+            error: 'ID sortie fmp est requis.'
+        })
+    }
+
+    const q = `SELECT * FROM sortie_fmp WHERE id_sortie_fmp = ?`
+
+    db.query(q, [id_sortie_fmp], (err, data) => {
+        if (err) {
+            console.error("getSortieFmpOne error:", err);
+            return res.status(500).json({ error: "Erreur serveur" });
+        }
+        res.status(200).json(data)
+    })
+}
 
 exports.getSortieFmpBySmr = (req, res) => {
     const { smr, item_code } = req.query;
@@ -348,7 +387,7 @@ exports.getSortieFmpBySmr = (req, res) => {
 
     db.query(query, params, (error, results) => {
         if (error) {
-            console.error("Erreur getSortieFmpBySmr :", error);
+           console.error("Erreur getSortieFmpBySmr :", error);
             return res.status(500).json({
                 error: "Erreur interne du serveur"
             });
@@ -362,7 +401,7 @@ exports.getSortieFmpBySmr = (req, res) => {
 };
 
 exports.putSortieFMP = (req, res) => {
-    try {
+    try { 
         const {
             id_sortie_fmp,
             nbre_colis
