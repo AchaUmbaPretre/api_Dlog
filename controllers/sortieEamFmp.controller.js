@@ -10,7 +10,7 @@ function queryPromise(connection, sql, params) {
         resolve([results]);
       });
     });
-  }
+    }
 
 exports.getSortieEam = (req, res) => {
     const { smr = [], part = [], dateRange = [] } = req.query.data || {};
@@ -109,7 +109,7 @@ exports.getSortieEamById = (req, res) => {
         }
         res.status(200).json(data)
     })
-}
+};
 
 exports.getSortieEamBySmr = (req, res) => {
     const { smr_ref, part } = req.query;
@@ -135,6 +135,7 @@ exports.getSortieEamBySmr = (req, res) => {
 
     const query = `
         SELECT
+            s.id_sortie_eam,
             s.smr_ref,
             s.part,
             s.transanction_date,
