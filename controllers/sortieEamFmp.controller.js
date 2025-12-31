@@ -185,6 +185,47 @@ exports.putSortieEam = (req, res) => {
     }
 };
 
+exports.putSortieEamSmr = (req, res) => {
+    try {
+        const {
+            id_sortie_eam,
+            smr_ref
+        } = req.body;
+
+        if(!id_sortie_eam) {
+            return res.status(400).json({ message : 'ID sortie eam'})
+        }
+
+        const q = `
+            UPDATE sortie_eam SET
+                smr_ref = ?
+                WHERE id_sortie_eam = ?
+        `;
+
+        const values = [
+            smr_ref,
+            id_sortie_eam
+        ]
+        db.query(q, values, (error, data) => {
+            if(error) {
+                console.error(error);
+                return res.status(500).json({
+                    message: "Erreur serveur lors de la mise à jour."
+                })
+            }
+
+            res.status(200).json({
+                message: "Sortie EAM SMR mis à jour avec succès."
+            });
+        })
+
+    } catch (error) {
+        return res.status(500).json({
+            error: error.message || "Une erreur est survenue lors de l'enregistrement.",
+        });
+    }
+};
+
 exports.getSortieFmp = (req, res) => {
     const { smr = [], item_code = [], dateRange = []  } = req.query.data || {};
 
@@ -320,7 +361,6 @@ exports.getSortieFmpBySmr = (req, res) => {
     });
 };
 
-
 exports.putSortieFMP = (req, res) => {
     try {
         const {
@@ -352,6 +392,45 @@ exports.putSortieFMP = (req, res) => {
 
             res.status(200).json({
                 message: "Sortie FMP mis à jour avec succès."
+            });
+        })
+
+    } catch (error) {
+        res.status(500).json({ message: 'Erreur inattendue' });
+    }
+};
+
+exports.putSortieFMPSmr = (req, res) => {
+    try {
+        const {
+            id_sortie_fmp,
+            smr
+        } = req.body;
+
+        if(!id_sortie_fmp) {
+            return res.status(400).json({ message : 'ID sortie eam smr'})
+        }
+
+        const q = `
+            UPDATE sortie_fmp SET
+                smr = ?
+                WHERE id_sortie_fmp  = ?
+        `;
+
+        const values = [
+            smr,
+            id_sortie_fmp
+        ]
+        db.query(q, values, (error, data) => {
+            if(error) {
+                console.error(error);
+                return res.status(500).json({
+                    message: "Erreur serveur lors de la mise à jour."
+                })
+            }
+
+            res.status(200).json({
+                message: "Sortie FMP SMR mis à jour avec succès."
             });
         })
 
