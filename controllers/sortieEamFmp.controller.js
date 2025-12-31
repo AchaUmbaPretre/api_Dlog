@@ -718,7 +718,7 @@ exports.getPartItem = (req, res) => {
     });
 }; */
 
-exports.getReconciliation = (req, res) => {
+/* exports.getReconciliation = (req, res) => {
     try {
         let { smr = [], item_code = [], dateRange = [] } = req.query.data || {};
 
@@ -836,8 +836,171 @@ exports.getReconciliation = (req, res) => {
             message: "Erreur interne",
         });
     }
-};
+}; */
 
+exports.getReconciliation = (req, res) => {
+    try {
+        let { smr = [], item_code = [], dateRange = [] } = req.query.data || {};
+
+        if (!Array.isArray(smr) && smr) smr = smr.split(",");
+        if (!Array.isArray(item_code) && item_code) item_code = item_code.split(",");
+
+        const params = [];
+
+        let filterEam = "WHERE 1=1";
+        let filterFmp = "WHERE 1=1";
+
+        if (smr.length) {
+            filterEam += " AND smr_ref IN (?)";
+            filterFmp += " AND smr IN (?)";
+            params.push(smr, smr);
+        }
+
+        if (item_code.length) {
+            filterEam += " AND part IN (?)";
+            filterFmp += " AND item_code IN (?)";
+            params.push(item_code, item_code);
+        }
+
+        if (Array.isArray(dateRange) && dateRange.length === 2) {
+            const start = moment(dateRange[0])
+                .startOf("day")
+                .format("YYYY-MM-DD HH:mm:ss");
+
+            const end = moment(dateRange[1])
+                .endOf("day")
+                .format("YYYY-MM-DD HH:mm:ss");
+
+            filterEam += " AND transanction_date BETWEEN ? AND ?";
+            filterFmp += " AND date_sortie BETWEEN ? AND ?";
+
+            params.push(start, end, start, end);
+        }
+
+       const query = `
+        WITH eam_agg AS (
+            SELECT
+                smr_ref,
+                part AS code_article,
+                SUM(ABS(quantite_out)) AS qte_eam
+            FROM sortie_eam
+            ${filterEam}
+            GROUP BY smr_ref, part
+        ),
+        fmp_agg AS (
+            SELECT
+                smr,
+                item_code AS code_article,
+                SUM(nbre_colis) AS qte_fmp
+            FROM sortie_fmp
+            ${filterFmp}
+            GROUP BY smr, item_code
+        ),
+        eam_physique AS (
+            SELECT
+                smr_ref,
+                part AS code_article,
+                SUM(qte_doc_physique) AS qte_physique_eam
+            FROM eam_doc_physique
+            GROUP BY smr_ref, part
+        ),
+        fmp_physique AS (
+            SELECT
+                smr,
+                item_code AS code_article,
+                SUM(qte_doc_physique) AS qte_physique_fmp
+            FROM fmp_doc_physique
+            GROUP BY smr, item_code
+        )
+
+        -- 1️⃣ Lignes EAM (avec ou sans FMP)
+        SELECT
+            e.smr_ref AS smr,
+            e.code_article,
+
+            e.qte_eam,
+            IFNULL(f.qte_fmp, 0) AS qte_fmp,
+            (IFNULL(f.qte_fmp, 0) - e.qte_eam) AS ecart_logique,
+
+            IFNULL(ep.qte_physique_eam, 0) AS qte_physique_eam,
+            (IFNULL(ep.qte_physique_eam, 0) - e.qte_eam) AS ecart_physique_eam,
+
+            IFNULL(fp.qte_physique_fmp, 0) AS qte_physique_fmp,
+            (IFNULL(fp.qte_physique_fmp, 0) - IFNULL(f.qte_fmp, 0)) AS ecart_physique_fmp,
+
+            CASE
+                WHEN IFNULL(f.qte_fmp, 0) = e.qte_eam THEN 'OK'
+                WHEN IFNULL(f.qte_fmp, 0) > e.qte_eam THEN 'SURPLUS_FMP'
+                ELSE 'MANQUE_FMP'
+            END AS statut_logique
+
+        FROM eam_agg e
+        LEFT JOIN fmp_agg f
+            ON f.smr = e.smr_ref
+            AND f.code_article = e.code_article
+        LEFT JOIN eam_physique ep
+            ON ep.smr_ref = e.smr_ref
+            AND ep.code_article = e.code_article
+        LEFT JOIN fmp_physique fp
+            ON fp.smr = f.smr
+            AND fp.code_article = f.code_article
+
+        UNION ALL
+
+        -- 2️⃣ Lignes FMP sans EAM
+        SELECT
+            f.smr,
+            f.code_article,
+
+            0 AS qte_eam,
+            f.qte_fmp,
+            f.qte_fmp AS ecart_logique,
+
+            0 AS qte_physique_eam,
+            0 AS ecart_physique_eam,
+
+            IFNULL(fp.qte_physique_fmp, 0) AS qte_physique_fmp,
+            (IFNULL(fp.qte_physique_fmp, 0) - f.qte_fmp) AS ecart_physique_fmp,
+
+            'ABSENT_EAM' AS statut_logique
+
+        FROM fmp_agg f
+        LEFT JOIN eam_agg e
+            ON e.smr_ref = f.smr
+            AND e.code_article = f.code_article
+        LEFT JOIN fmp_physique fp
+            ON fp.smr = f.smr
+            AND fp.code_article = f.code_article
+        WHERE e.code_article IS NULL
+
+        ORDER BY smr, code_article
+        `;
+
+
+        db.query(query, params, (err, rows) => {
+            if (err) {
+                console.error("Reconciliation error:", err);
+                return res.status(500).json({
+                    success: false,
+                    message: "Erreur serveur lors de la réconciliation",
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                total: rows.length,
+                data: rows,
+            });
+        });
+
+    } catch (error) {
+        console.error("Reconciliation controller error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Erreur interne",
+        });
+    }
+};
 
 exports.postEamDocPhysique = (req, res) => {
     db.getConnection((connErr, connection) => {
