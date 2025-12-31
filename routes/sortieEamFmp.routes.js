@@ -5,9 +5,11 @@ const sortieEamFmpController = require('./../controllers/sortieEamFmp.controller
 router.get('/eam', sortieEamFmpController.getSortieEam);
 router.get('/by_smr_eam', sortieEamFmpController.getSortieEamBySmr);
 router.put('/put_eam', sortieEamFmpController.putSortieEam);
+router.put('/put_eam_smr', sortieEamFmpController.putSortieEamSmr);
 router.get('/fmp', sortieEamFmpController.getSortieFmp);
 router.get('/by_smr_fmp', sortieEamFmpController.getSortieFmpBySmr);
 router.put('/put_fmp', sortieEamFmpController.putSortieFMP);
+router.put('/put_fmp_smr', sortieEamFmpController.putSortieFMPSmr);
 router.get('/smr', sortieEamFmpController.getSMR);
 router.get('/part_item', sortieEamFmpController.getPartItem);
 router.get('/reconciliation', sortieEamFmpController.getReconciliation);
