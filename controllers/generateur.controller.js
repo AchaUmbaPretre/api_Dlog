@@ -22,7 +22,6 @@ const queryAsync = (query, values = []) =>
     });
 });
 
-
 //Type des Générateurs
 exports.getTypeGenerateur = (req, res) => {
   const query = `SELECT * FROM type_generateur`;
