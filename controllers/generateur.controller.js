@@ -501,67 +501,91 @@ exports.putRelierGenerateurFichierExcel = async (req, res) => {
 
 //PLein generateur
 exports.getPleinGenerateur = (req, res) => {
-    const { marque = [], modele = [],type = [ ]} = req.body;
-    let where = "WHERE p.est_supprime = 0 ";
-    const params = [];
+    try {
+        const {
+            marque = [],
+            modele = [],
+            dateRange = [],
+            type = []
+        } = req.query || {};
 
-    if (Array.isArray(marque) && marque.length > 0) {
-        where +=` AND mg.id_marque_generateur IN (${marque.map(() => "?").join(",")})`;
-        params.push(...marque);
-    }
+        let where = "WHERE p.est_supprime = 0";
+        const params = [];
 
-    if (Array.isArray(modele) && type.length > 0) {
-        where +=` AND mog.id_modele_generateur IN (${modele.map(() => "?").join(",")})`;
-        params.push(...modele);
-    }
-
-    if (Array.isArray(dateRange) && dateRange.length === 2) {
-        where += ` AND p.date_operation BETWEEN ? AND ?`;
-        params.push(
-            moment(dateRange[0]).startOf("day").format("YYYY-MM-DD HH:mm:ss"),
-            moment(dateRange[1]).endOf("day").format("YYYY-MM-DD HH:mm:ss")
-        );
-    }
-
-    const q = `SELECT 
-                    p.id_plein_generateur, 
-                    p.num_pc, 
-                    p.num_facture, 
-                    p.quantite_litres,
-                    p.date_operation, 
-                    p.commentaire, 
-                    p.prix_cdf, 
-                    p.prix_usd, 
-                    p.montant_total_cdf, 
-                    p.montant_total_usd,
-                    g.code_groupe,
-                    mog.nom_modele, 
-                    mog.id_modele_generateur,
-                    mg.nom_marque,
-                    mg.id_marque_generateur,
-                    u.nom AS createur,
-                    tg.nom_type_gen,
-                    tc.nom_type_carburant,
-                    f.nom_fournisseur
-                FROM plein_generateur p 
-                    LEFT JOIN generateur g ON p.id_generateur = g.id_generateur
-                    LEFT JOIN modele_generateur mog ON g.id_modele = mog.id_modele_generateur
-                    LEFT JOIN marque_generateur mg ON mog.id_marque_generateur = mg.id_marque_generateur
-                    LEFT JOIN utilisateur u ON p.user_cr = u.id_utilisateur
-                    LEFT JOIN type_generateur tg ON g.id_type_gen = tg.id_type_generateur
-                    LEFT JOIN type_carburant tc ON g.id_type_carburant = tc.id_type_carburant
-                    LEFT JOIN fournisseur f ON p.id_fournisseur = f.id_fournisseur
-                ${where}
-                ORDER BY p.date_operation DESC
-            `;
-
-    db.query(q, (error, data) => {
-        if(error) {
-            return res.status(500).send(error)
+        // Filtre marque
+        if (Array.isArray(marque) && marque.length > 0) {
+            where += ` AND mg.id_marque_generateur IN (${marque.map(() => "?").join(",")})`;
+            params.push(...marque);
         }
-        return res.status(200).json(data);
-    })
+
+        // Filtre modèle
+        if (Array.isArray(modele) && modele.length > 0) {
+            where += ` AND mog.id_modele_generateur IN (${modele.map(() => "?").join(",")})`;
+            params.push(...modele);
+        }
+
+        // Filtre Type
+        if (Array.isArray(type) && type.length > 0) {
+            where += ` AND tg.id_type_generateur IN (${type.map(() => "?").join(",")})`;
+            params.push(...type);
+        }
+
+        // Filtre période
+        if (Array.isArray(dateRange) && dateRange.length === 2) {
+            where += ` AND p.date_operation BETWEEN ? AND ?`;
+            params.push(
+                moment(dateRange[0]).startOf("day").format("YYYY-MM-DD HH:mm:ss"),
+                moment(dateRange[1]).endOf("day").format("YYYY-MM-DD HH:mm:ss")
+            );
+        }
+
+        const query = `
+            SELECT 
+                p.id_plein_generateur,
+                p.num_pc,
+                p.num_facture,
+                p.quantite_litres,
+                p.date_operation,
+                p.commentaire,
+                p.prix_cdf,
+                p.prix_usd,
+                p.montant_total_cdf,
+                p.montant_total_usd,
+                g.code_groupe,
+                mog.nom_modele,
+                mog.id_modele_generateur,
+                mg.nom_marque,
+                mg.id_marque_generateur,
+                u.nom AS createur,
+                tg.nom_type_gen,
+                tc.nom_type_carburant,
+                f.nom_fournisseur
+            FROM plein_generateur p
+                LEFT JOIN generateur g ON p.id_generateur = g.id_generateur
+                LEFT JOIN modele_generateur mog ON g.id_modele = mog.id_modele_generateur
+                LEFT JOIN marque_generateur mg ON mog.id_marque_generateur = mg.id_marque_generateur
+                LEFT JOIN utilisateur u ON p.user_cr = u.id_utilisateur
+                LEFT JOIN type_generateur tg ON g.id_type_gen = tg.id_type_generateur
+                LEFT JOIN type_carburant tc ON g.id_type_carburant = tc.id_type_carburant
+                LEFT JOIN fournisseur f ON p.id_fournisseur = f.id_fournisseur
+            ${where}
+            ORDER BY p.date_operation DESC
+        `;
+
+        db.query(query, params, (error, data) => {
+            if (error) {
+                console.error("Erreur getPleinGenerateur:", error);
+                return res.status(500).json({ message: "Erreur serveur" });
+            }
+            return res.status(200).json(data);
+        });
+
+    } catch (err) {
+        console.error("Exception getPleinGenerateur:", err);
+        return res.status(500).json({ message: "Erreur interne" });
+    }
 };
+
 
 exports.getPleinGenerateurV = (req, res) => {
     const {
