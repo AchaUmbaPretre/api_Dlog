@@ -501,6 +501,28 @@ exports.putRelierGenerateurFichierExcel = async (req, res) => {
 
 //PLein generateur
 exports.getPleinGenerateur = (req, res) => {
+    const { marque = [], modele = [],type = [ ]} = req.body;
+    let where = "WHERE p.est_supprime = 0 ";
+    const params = [];
+
+    if (Array.isArray(marque) && marque.length > 0) {
+        where +=` AND mg.id_marque_generateur IN (${marque.map(() => "?").join(",")})`;
+        params.push(...marque);
+    }
+
+    if (Array.isArray(modele) && type.length > 0) {
+        where +=` AND mog.id_modele_generateur IN (${modele.map(() => "?").join(",")})`;
+        params.push(...modele);
+    }
+
+    if (Array.isArray(dateRange) && dateRange.length === 2) {
+        where += ` AND p.date_operation BETWEEN ? AND ?`;
+        params.push(
+            moment(dateRange[0]).startOf("day").format("YYYY-MM-DD HH:mm:ss"),
+            moment(dateRange[1]).endOf("day").format("YYYY-MM-DD HH:mm:ss")
+        );
+    }
+
     const q = `SELECT 
                     p.id_plein_generateur, 
                     p.num_pc, 
@@ -514,7 +536,9 @@ exports.getPleinGenerateur = (req, res) => {
                     p.montant_total_usd,
                     g.code_groupe,
                     mog.nom_modele, 
+                    mog.id_modele_generateur,
                     mg.nom_marque,
+                    mg.id_marque_generateur,
                     u.nom AS createur,
                     tg.nom_type_gen,
                     tc.nom_type_carburant,
@@ -527,7 +551,7 @@ exports.getPleinGenerateur = (req, res) => {
                     LEFT JOIN type_generateur tg ON g.id_type_gen = tg.id_type_generateur
                     LEFT JOIN type_carburant tc ON g.id_type_carburant = tc.id_type_carburant
                     LEFT JOIN fournisseur f ON p.id_fournisseur = f.id_fournisseur
-                WHERE p.est_supprime = 0
+                ${where}
                 ORDER BY p.date_operation DESC
             `;
 
