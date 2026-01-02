@@ -586,7 +586,6 @@ exports.getPleinGenerateur = (req, res) => {
     }
 };
 
-
 exports.getPleinGenerateurV = (req, res) => {
     const {
         marque = [],
@@ -1371,7 +1370,7 @@ exports.getRepGenerateur = (req, res) => {
 
         return res.status(200).json(results)
     })
-}
+};
 
 exports.getRepGenerateurOne = async(req, res) => {
     try {
@@ -1790,4 +1789,4 @@ exports.postSuiviReparationGenerateur = async(req, res) => {
     } catch (error) {
         
     }
-}
+};
