@@ -13,6 +13,8 @@ router.put('/put_fmp_smr', sortieEamFmpController.putSortieFMPSmr);
 router.get('/smr', sortieEamFmpController.getSMR);
 router.get('/part_item', sortieEamFmpController.getPartItem);
 router.get('/reconciliation', sortieEamFmpController.getReconciliation);
+router.get('/itemCode', sortieEamFmpController.getItemCodeTotals);
+router.get('/global_item', sortieEamFmpController.getGlobalItemsReconciliation);
 
 router.post('/eam_post', sortieEamFmpController.postEamDocPhysique);
 router.post('/fmp_post', sortieEamFmpController.postFmpDocPhysique);

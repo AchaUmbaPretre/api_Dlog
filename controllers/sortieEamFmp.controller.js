@@ -1002,6 +1002,102 @@ exports.getReconciliation = (req, res) => {
     }
 };
 
+exports.getItemCodeTotals = (req, res) => {
+    const { item_code } = req.query;
+
+    if (!item_code) {
+        return res.status(400).json({
+            success: false,
+            message: "item_code requis"
+        });
+    }
+
+    const query = `
+        SELECT
+            ? AS item_code,
+            IFNULL(e.total_qte_eam, 0) AS total_qte_eam,
+            IFNULL(f.total_qte_fmp, 0) AS total_qte_fmp,
+            (IFNULL(f.total_qte_fmp, 0) - IFNULL(e.total_qte_eam, 0)) AS ecart
+        FROM (SELECT 1) x
+        LEFT JOIN (
+            SELECT part AS item_code,
+                   SUM(ABS(quantite_out)) AS total_qte_eam
+            FROM sortie_eam
+            WHERE part = ?
+        ) e ON 1 = 1
+        LEFT JOIN (
+            SELECT item_code,
+                   SUM(nbre_colis) AS total_qte_fmp
+            FROM sortie_fmp
+            WHERE item_code = ?
+        ) f ON 1 = 1
+    `;
+
+    db.query(query, [item_code, item_code, item_code], (err, rows) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({ success: false });
+        }
+
+        res.json({
+            success: true,
+            data: rows[0]
+        });
+    });
+};
+
+exports.getGlobalItemsReconciliation = (req, res) => {
+    const query = `
+        SELECT
+            COALESCE(e.item_code, f.item_code) AS item_code,
+            IFNULL(e.total_qte_eam, 0) AS total_qte_eam,
+            IFNULL(f.total_qte_fmp, 0) AS total_qte_fmp,
+            (IFNULL(f.total_qte_fmp, 0) - IFNULL(e.total_qte_eam, 0)) AS ecart
+        FROM (
+            SELECT part AS item_code, SUM(ABS(quantite_out)) AS total_qte_eam
+            FROM sortie_eam
+            GROUP BY part
+        ) e
+        LEFT JOIN (
+            SELECT item_code, SUM(nbre_colis) AS total_qte_fmp
+            FROM sortie_fmp
+            GROUP BY item_code
+        ) f ON f.item_code = e.item_code
+
+        UNION ALL
+
+        SELECT
+            f.item_code,
+            0,
+            f.total_qte_fmp,
+            f.total_qte_fmp
+        FROM (
+            SELECT item_code, SUM(nbre_colis) AS total_qte_fmp
+            FROM sortie_fmp
+            GROUP BY item_code
+        ) f
+        LEFT JOIN (
+            SELECT part AS item_code FROM sortie_eam GROUP BY part
+        ) e ON e.item_code = f.item_code
+        WHERE e.item_code IS NULL
+        ORDER BY item_code
+    `;
+
+    db.query(query, (err, rows) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({ success: false });
+        }
+
+        res.json({
+            success: true,
+            total: rows.length,
+            data: rows
+        });
+    });
+};
+
+
 exports.postEamDocPhysique = (req, res) => {
     db.getConnection((connErr, connection) => {
         if (connErr) {
