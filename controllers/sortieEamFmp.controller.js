@@ -871,24 +871,29 @@ exports.getItemCodeTotals = (req, res) => {
         return res.status(400).json({ success: false, message: "item_code requis" });
     }
 
-    // Préparer les filtres de date
-    let dateFilterEam = "";
-    let dateFilterFmp = "";
-    let params = [item_code, item_code, item_code, item_code, item_code];
-
+    // Dates formatées avec Moment.js
+    let startDate, endDate;
     if (Array.isArray(dateRange) && dateRange.length === 2) {
-        dateFilterEam = " AND date_operation BETWEEN ? AND ? ";
-        dateFilterFmp = " AND date_sortie BETWEEN ? AND ? ";
-        params = [
-            item_code,
-            dateRange[0], dateRange[1],
-            item_code,
-            dateRange[0], dateRange[1],
-            item_code,
-            dateRange[0], dateRange[1],
-            item_code,
-            dateRange[0], dateRange[1]
-        ];
+        startDate = moment(dateRange[0]).format('YYYY-MM-DD');
+        endDate = moment(dateRange[1]).format('YYYY-MM-DD');
+    }
+
+    // Filtre de date pour les sous-requêtes
+    const dateFilterEam = startDate && endDate ? " AND transanction_date BETWEEN ? AND ? " : "";
+    const dateFilterFmp = startDate && endDate ? " AND date_sortie BETWEEN ? AND ? " : "";
+
+    // Paramètres pour db.query
+    let params = [item_code]; // pour AS item_code
+    if (startDate && endDate) {
+        params.push(item_code, startDate, endDate); // total_qte_eam
+        params.push(item_code, startDate, endDate); // total_qte_fmp
+        params.push(item_code, startDate, endDate); // ecart FMP
+        params.push(item_code, startDate, endDate); // ecart EAM
+    } else {
+        params.push(item_code); // total_qte_eam
+        params.push(item_code); // total_qte_fmp
+        params.push(item_code); // ecart FMP
+        params.push(item_code); // ecart EAM
     }
 
     const query = `
@@ -911,14 +916,13 @@ exports.getItemCodeTotals = (req, res) => {
     db.query(query, params, (err, rows) => {
         if (err) {
             console.error(err);
-            return res.status(500).json({ success: false });
+            return res.status(500).json({ success: false, message: "Erreur serveur" });
         }
         res.json({ success: true, data: rows[0] });
     });
 };
 
-
-exports.getGlobalItemsReconciliation = (req, res) => {
+/* exports.getGlobalItemsReconciliation = (req, res) => {
     const query = `
         SELECT
             COALESCE(e.item_code, f.item_code) AS item_code,
@@ -967,8 +971,111 @@ exports.getGlobalItemsReconciliation = (req, res) => {
             data: rows
         });
     });
-};
+}; */
 
+exports.getGlobalItemsReconciliation = (req, res) => {
+    try {
+        let { smr = [], item_code = [], dateRange = [] } = req.query.filters || {};
+
+        // 🔹 Normalisation des filtres en chaîne
+        if (!Array.isArray(smr) && smr) smr = [smr];
+        smr = smr.map(v => String(v).trim()).filter(v => v); // convertir en string et retirer vides
+
+        if (!Array.isArray(item_code) && item_code) item_code = [item_code];
+        item_code = item_code.map(v => String(v).trim()).filter(v => v);
+
+        // 🔹 Dates
+        let startDate = null, endDate = null;
+        if (Array.isArray(dateRange) && dateRange.length === 2) {
+            startDate = moment(dateRange[0]).startOf("day").format("YYYY-MM-DD HH:mm:ss");
+            endDate = moment(dateRange[1]).endOf("day").format("YYYY-MM-DD HH:mm:ss");
+        }
+
+        // 🔹 Filtres SQL
+        let whereEam = "WHERE 1=1";
+        const paramsEam = [];
+        if (smr.length) { whereEam += " AND smr_ref IN (?)"; paramsEam.push(smr); }
+        if (item_code.length) { whereEam += " AND part IN (?)"; paramsEam.push(item_code); }
+        if (startDate && endDate) { whereEam += " AND transanction_date BETWEEN ? AND ?"; paramsEam.push(startDate, endDate); }
+
+        let whereFmp = "WHERE 1=1";
+        const paramsFmp = [];
+        if (smr.length) { whereFmp += " AND smr IN (?)"; paramsFmp.push(smr); }
+        if (item_code.length) { whereFmp += " AND item_code IN (?)"; paramsFmp.push(item_code); }
+        if (startDate && endDate) { whereFmp += " AND date_sortie BETWEEN ? AND ?"; paramsFmp.push(startDate, endDate); }
+
+        // 🔹 Requête SQL
+        const query = `
+            -- Lignes EAM avec ou sans FMP
+            SELECT
+                e.item_code,
+                e.total_qte_eam,
+                IFNULL(f.total_qte_fmp, 0) AS total_qte_fmp,
+                (IFNULL(f.total_qte_fmp, 0) - e.total_qte_eam) AS ecart
+            FROM (
+                SELECT part AS item_code, SUM(ABS(quantite_out)) AS total_qte_eam
+                FROM sortie_eam
+                ${whereEam}
+                GROUP BY part
+            ) e
+            LEFT JOIN (
+                SELECT item_code, SUM(nbre_colis) AS total_qte_fmp
+                FROM sortie_fmp
+                ${whereFmp}
+                GROUP BY item_code
+            ) f ON f.item_code = e.item_code
+
+            UNION ALL
+
+            -- Lignes FMP sans EAM
+            SELECT
+                f.item_code,
+                0 AS total_qte_eam,
+                f.total_qte_fmp,
+                f.total_qte_fmp AS ecart
+            FROM (
+                SELECT item_code, SUM(nbre_colis) AS total_qte_fmp
+                FROM sortie_fmp
+                ${whereFmp}
+                GROUP BY item_code
+            ) f
+            LEFT JOIN (
+                SELECT part AS item_code
+                FROM sortie_eam
+                GROUP BY part
+            ) e ON e.item_code = f.item_code
+            WHERE e.item_code IS NULL
+
+            ORDER BY item_code
+        `;
+
+        // 🔹 Paramètres pour la requête
+        const params = [...paramsEam, ...paramsFmp, ...paramsFmp];
+
+        db.query(query, params, (err, rows) => {
+            if (err) {
+                console.error("Global reconciliation error:", err);
+                return res.status(500).json({ success: false, message: "Erreur serveur" });
+            }
+
+            const totalEam = rows.reduce((sum, r) => sum + Number(r.total_qte_eam), 0);
+            const totalFmp = rows.reduce((sum, r) => sum + Number(r.total_qte_fmp), 0);
+
+            res.json({
+                success: true,
+                totalItems: rows.length,
+                totalEam,
+                totalFmp,
+                totalEcart: totalFmp - totalEam,
+                data: rows
+            });
+        });
+
+    } catch (error) {
+        console.error("Global reconciliation controller error:", error);
+        res.status(500).json({ success: false, message: "Erreur interne" });
+    }
+};
 
 exports.postEamDocPhysique = (req, res) => {
     db.getConnection((connErr, connection) => {

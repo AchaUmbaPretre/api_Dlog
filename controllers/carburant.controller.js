@@ -1067,9 +1067,6 @@ exports.postSortiefmpExcel = async (req, res) => {
     for (const row of sheetData) {
       if (!row["Produits::PD Code"] || !row["Dossiers Sorties GSM::N° ID"]) continue;
 
-      // =============================
-      // Gestion de la date
-      // =============================
       let date_operation = null;
       const rawDate = row["Dossiers Sorties GSM::Date de sortie"];
 
