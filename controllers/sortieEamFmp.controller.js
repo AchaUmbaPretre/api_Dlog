@@ -881,13 +881,13 @@ exports.getItemCodeTotals = (req, res) => {
         dateFilterFmp = " AND date_sortie BETWEEN ? AND ? ";
         params = [
             item_code,
-            dateRange[0], dateRange[1], // pour total_qte_eam
+            dateRange[0], dateRange[1],
             item_code,
-            dateRange[0], dateRange[1], // pour total_qte_fmp
+            dateRange[0], dateRange[1],
             item_code,
-            dateRange[0], dateRange[1], // pour ecart FMP
+            dateRange[0], dateRange[1],
             item_code,
-            dateRange[0], dateRange[1]  // pour ecart EAM
+            dateRange[0], dateRange[1]
         ];
     }
 
