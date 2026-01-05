@@ -533,192 +533,6 @@ exports.getPartItem = (req, res) => {
 };
 
 /* exports.getReconciliation = (req, res) => {
-    const { smr } = req.query;
-
-    // Sécurité minimale
-    if (!Array.isArray(smr) || smr.length === 0) {
-        return res.status(400).json({ error: "SMR requis" });
-    }
-
-    const query = `
-        SELECT
-            COALESCE(eam.part, fmp.item_code) AS code_article,
-            COALESCE(eam.part_description, fmp.designation) AS description,
-            IFNULL(eam.qte_eam, 0) AS qte_eam,
-            IFNULL(fmp.qte_fmp, 0) AS qte_fmp,
-            (IFNULL(fmp.qte_fmp, 0) - IFNULL(eam.qte_eam, 0)) AS ecart
-        FROM
-        (
-            SELECT
-                smr_ref,
-                part,
-                part_description,
-                ABS(SUM(quantite_out)) AS qte_eam
-            FROM sortie_eam
-            WHERE smr_ref IN (?)
-            GROUP BY smr_ref, part, part_description
-        ) eam
-        LEFT JOIN
-        (
-            SELECT
-                smr,
-                item_code,
-                designation,
-                SUM(nbre_colis) AS qte_fmp
-            FROM sortie_fmp
-            WHERE smr IN (?)
-            GROUP BY smr, item_code, designation
-        ) fmp
-        ON eam.part = fmp.item_code
-
-        UNION
-
-        SELECT
-            COALESCE(eam.part, fmp.item_code) AS code_article,
-            COALESCE(eam.part_description, fmp.designation) AS description,
-            IFNULL(eam.qte_eam, 0) AS qte_eam,
-            IFNULL(fmp.qte_fmp, 0) AS qte_fmp,
-            (IFNULL(fmp.qte_fmp, 0) - IFNULL(eam.qte_eam, 0)) AS ecart
-        FROM
-        (
-            SELECT
-                smr_ref,
-                part,
-                part_description,
-                ABS(SUM(quantite_out)) AS qte_eam
-            FROM sortie_eam
-            WHERE smr_ref IN (?)
-            GROUP BY smr_ref, part, part_description
-        ) eam
-        RIGHT JOIN
-        (
-            SELECT
-                smr,
-                item_code,
-                designation,
-                SUM(nbre_colis) AS qte_fmp
-            FROM sortie_fmp
-            WHERE smr IN (?)
-            GROUP BY smr, item_code, designation
-        ) fmp
-        ON eam.part = fmp.item_code
-    `;
-
-    const params = [smr, smr, smr, smr];
-
-    db.query(query, params, (error, data) => {
-        if (error) {
-            console.error(error);
-            return res.status(500).json({ error: "Erreur serveur" });
-        }
-        return res.status(200).json(data);
-    });
-};
- */
-
-
-/* exports.getReconciliation = (req, res) => {
-    let { smr = [], item_code = [], dateRange = [] } = req.query.data || {};
-
-    if (!Array.isArray(smr)) smr = smr.split(",");
-    if (!Array.isArray(item_code)) item_code = item_code.split(",");
-
-    const params = [];
-    let filterEam = "WHERE 1=1";
-    let filterFmp = "WHERE 1=1";
-
-    if (smr.length) {
-        filterEam += " AND (smr_ref IN (?) OR smr_ref IS NULL)";
-        filterFmp += " AND (smr IN (?) OR smr IS NULL)";
-        params.push(smr, smr);
-    }
-
-    if (item_code.length) {
-        filterEam += " AND part IN (?)";
-        filterFmp += " AND item_code IN (?)";
-        params.push(item_code, item_code);
-    }
-
-    // ===== Filtre date =====
-    if (Array.isArray(dateRange) && dateRange.length === 2) {
-        const start = moment(dateRange[0])
-            .startOf("day")
-            .format("YYYY-MM-DD HH:mm:ss");
-        const end = moment(dateRange[1])
-            .endOf("day")
-            .format("YYYY-MM-DD HH:mm:ss");
-
-        filterEam += " AND transanction_date BETWEEN ? AND ?";
-        filterFmp += " AND date_sortie BETWEEN ? AND ?";
-
-        params.push(start, end, start, end);
-    }
-
-    const query = `
-        WITH eam AS (
-            SELECT
-                smr_ref,
-                part AS code_article,
-                part_description AS description,
-                ABS(SUM(quantite_out)) AS qte_eam
-            FROM sortie_eam
-            ${filterEam}
-            GROUP BY smr_ref, part, part_description
-        ),
-        fmp AS (
-            SELECT
-                smr,
-                item_code AS code_article,
-                designation AS description,
-                SUM(nbre_colis) AS qte_fmp
-            FROM sortie_fmp
-            ${filterFmp}
-            GROUP BY smr, item_code, designation
-        )
-
-        SELECT
-            COALESCE(e.code_article, f.code_article) AS code_article,
-            COALESCE(e.description, f.description) AS description,
-            IFNULL(e.qte_eam, 0) AS qte_eam,
-            IFNULL(f.qte_fmp, 0) AS qte_fmp,
-            (IFNULL(f.qte_fmp, 0) - IFNULL(e.qte_eam, 0)) AS ecart,
-            CASE
-                WHEN COALESCE(e.smr_ref, f.smr) IS NULL
-                THEN 'SANS_SMR'
-                ELSE 'AVEC_SMR'
-            END AS type_smr
-        FROM eam e
-        LEFT JOIN fmp f ON e.code_article = f.code_article
-
-        UNION ALL
-
-        -- FMP sans EAM
-        SELECT
-            COALESCE(e.code_article, f.code_article) AS code_article,
-            COALESCE(e.description, f.description) AS description,
-            IFNULL(e.qte_eam, 0) AS qte_eam,
-            IFNULL(f.qte_fmp, 0) AS qte_fmp,
-            (IFNULL(f.qte_fmp, 0) - IFNULL(e.qte_eam, 0)) AS ecart,
-            CASE
-                WHEN COALESCE(e.smr_ref, f.smr) IS NULL
-                THEN 'SANS_SMR'
-                ELSE 'AVEC_SMR'
-            END AS type_smr
-        FROM eam e
-        RIGHT JOIN fmp f ON e.code_article = f.code_article
-        WHERE e.code_article IS NULL
-    `;
-
-    db.query(query, params, (err, rows) => {
-        if (err) {
-            console.error("Reconciliation error:", err);
-            return res.status(500).json({ error: "Erreur serveur" });
-        }
-        res.status(200).json(rows);
-    });
-}; */
-
-/* exports.getReconciliation = (req, res) => {
     try {
         let { smr = [], item_code = [], dateRange = [] } = req.query.data || {};
 
@@ -1002,14 +816,18 @@ exports.getReconciliation = (req, res) => {
     }
 };
 
-exports.getItemCodeTotals = (req, res) => {
-    const { item_code } = req.query;
+/* exports.getItemCodeTotals = (req, res) => {
+    const { item_code, dateRange = [] } = req.query;
 
     if (!item_code) {
         return res.status(400).json({
             success: false,
             message: "item_code requis"
         });
+    }
+
+    if (Array.isArray(dateRange) && dateRange.length === 2) {
+
     }
 
     const query = `
@@ -1044,7 +862,61 @@ exports.getItemCodeTotals = (req, res) => {
             data: rows[0]
         });
     });
+}; */
+
+exports.getItemCodeTotals = (req, res) => {
+    const { item_code, dateRange = [] } = req.query;
+
+    if (!item_code) {
+        return res.status(400).json({ success: false, message: "item_code requis" });
+    }
+
+    // Préparer les filtres de date
+    let dateFilterEam = "";
+    let dateFilterFmp = "";
+    let params = [item_code, item_code, item_code, item_code, item_code];
+
+    if (Array.isArray(dateRange) && dateRange.length === 2) {
+        dateFilterEam = " AND date_operation BETWEEN ? AND ? ";
+        dateFilterFmp = " AND date_sortie BETWEEN ? AND ? ";
+        params = [
+            item_code,
+            dateRange[0], dateRange[1], // pour total_qte_eam
+            item_code,
+            dateRange[0], dateRange[1], // pour total_qte_fmp
+            item_code,
+            dateRange[0], dateRange[1], // pour ecart FMP
+            item_code,
+            dateRange[0], dateRange[1]  // pour ecart EAM
+        ];
+    }
+
+    const query = `
+        SELECT 
+            ? AS item_code,
+            (SELECT IFNULL(SUM(ABS(quantite_out)),0) 
+             FROM sortie_eam 
+             WHERE part = ? ${dateFilterEam}) AS total_qte_eam,
+            (SELECT IFNULL(SUM(nbre_colis),0) 
+             FROM sortie_fmp 
+             WHERE item_code = ? ${dateFilterFmp}) AS total_qte_fmp,
+            ((SELECT IFNULL(SUM(nbre_colis),0) 
+              FROM sortie_fmp 
+              WHERE item_code = ? ${dateFilterFmp}) -
+             (SELECT IFNULL(SUM(ABS(quantite_out)),0) 
+              FROM sortie_eam 
+              WHERE part = ? ${dateFilterEam})) AS ecart
+    `;
+
+    db.query(query, params, (err, rows) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({ success: false });
+        }
+        res.json({ success: true, data: rows[0] });
+    });
 };
+
 
 exports.getGlobalItemsReconciliation = (req, res) => {
     const query = `
