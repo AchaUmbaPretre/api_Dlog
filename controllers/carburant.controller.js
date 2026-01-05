@@ -1135,9 +1135,7 @@ exports.postSortiefmpExcel = async (req, res) => {
   }
 };
 
-
-
-/* exports.postEamExcel = async (req, res) => {
+exports.postEamExcel = async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: "Aucun fichier téléchargé." });
@@ -1152,7 +1150,7 @@ exports.postSortiefmpExcel = async (req, res) => {
       return res.status(400).json({ error: "Fichier trop court" });
     }
 
-    const headers = rawData[2]; // ligne des headers
+    const headers = rawData[2];
     const headerMap = {};
     headers.forEach((h, idx) => { if(h) headerMap[h] = idx; });
 
@@ -1174,7 +1172,6 @@ exports.postSortiefmpExcel = async (req, res) => {
       const dateRaw = row[headerMap["Transaction Date"]];
       if (!dateRaw) continue;
 
-      // Conversion date
       let transactionDate;
       try {
         const parts = dateRaw.toString().split('/');
@@ -1259,7 +1256,7 @@ exports.postSortiefmpExcel = async (req, res) => {
     console.error("Erreur postEamExcel:", err);
     res.status(500).json({ success: false, error: err.message });
   }
-}; */
+};
 
 
 exports.postCarburantCorrectionExcel = async (req, res) => {
