@@ -1137,6 +1137,7 @@ exports.postSortiefmpExcel = async (req, res) => {
 
 exports.postEamExcel = async (req, res) => {
   try {
+
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: "Aucun fichier téléchargé." });
     }
@@ -1257,7 +1258,6 @@ exports.postEamExcel = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
-
 
 exports.postCarburantCorrectionExcel = async (req, res) => {
   try {
