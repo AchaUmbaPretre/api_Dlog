@@ -1380,7 +1380,7 @@ exports.getCarburantPriceLimit = async (req, res) => {
     });
   }
 };
-
+  
 exports.postCarburantPrice = async (req, res) => {
     const {
         date_effective,
