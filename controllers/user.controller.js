@@ -5,13 +5,13 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
 function queryPromise(connection, sql, params) {
-    return new Promise((resolve, reject) => {
-      connection.query(sql, params, (err, results) => {
-        if (err) return reject(err);
-        resolve([results]);
-      });
+  return new Promise((resolve, reject) => {
+    connection.query(sql, params, (err, results) => {
+      if (err) return reject(err);
+      resolve([results]);
     });
-  }
+  });
+}
 
 exports.getUserCount = (req, res) => {
     
