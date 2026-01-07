@@ -11,7 +11,7 @@ function queryPromise(connection, sql, params) {
       resolve([results]);
     });
   });
-}
+};
 
 exports.getUserCount = (req, res) => {
     
@@ -25,7 +25,7 @@ exports.getUserCount = (req, res) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
-}
+};
 
 exports.getUsers = (req, res) => {
 
@@ -67,7 +67,7 @@ exports.getUserOne = (req, res) => {
         }
         return res.status(200).json(data);
     });
-}
+};
 
 exports.registerUser = async (req, res) => {
     const { nom, prenom, email, mot_de_passe, role, id_ville, id_departement  } = req.body;
@@ -105,7 +105,7 @@ exports.registerUser = async (req, res) => {
         message: `Erreur dans le contrôleur de registre : ${err.message}`,
       });
     }
-  };
+};
 
 exports.putUser = async (req, res) => {
     const { id } = req.query;
@@ -141,7 +141,7 @@ exports.putUser = async (req, res) => {
         console.error("Error updating user :", err);
         return res.status(500).json({ error: 'Failed to update user record' });
     }
-}
+};
 
 exports.deleteUser = (req, res) => {
     const id = req.params.id;
@@ -153,7 +153,7 @@ exports.deleteUser = (req, res) => {
       return res.json(data);
     });
   
-}
+};
 
 exports.putUserOne = async (req, res) => {
     const { id } = req.query;
