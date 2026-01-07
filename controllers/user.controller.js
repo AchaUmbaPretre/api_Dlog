@@ -1,6 +1,5 @@
 const { db } = require("./../config/database");
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
