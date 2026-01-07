@@ -299,7 +299,12 @@ exports.postVille = (req, res) => {
 };
 
 exports.getLocalite = (req, res) => {
-    const q = `SELECT l.id_localite, l.nom_localite, l.id_ville AS id_parent, v.nom_ville FROM localite l
+    const q =   `SELECT 
+                    l.id_localite, 
+                    l.nom_localite, 
+                    l.id_ville AS id_parent, 
+                    v.nom_ville 
+                FROM localite l
                     INNER JOIN villes v ON l.id_ville = v.id_ville`;
 
     db.query(q, (error, data) => {
@@ -313,7 +318,11 @@ exports.getLocalite = (req, res) => {
 exports.getLocaliteOne = (req, res) => {
     const { id_localite } = req.query;
 
-    const q = `SELECT l.id_localite, l.nom_localite, l.id_ville  FROM localite l
+    const q =   `SELECT 
+                    l.id_localite, 
+                    l.nom_localite, 
+                    l.id_ville  
+                FROM localite l
                     INNER JOIN villes v ON l.id_ville = v.id_ville
                    WHERE l.id_localite = ?`;
 
