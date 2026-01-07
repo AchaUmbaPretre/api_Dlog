@@ -636,7 +636,6 @@ exports.getTrajetOneV = (req, res) => {
     });
 };
 
-
 /* exports.postTrajet = (req, res) => {
     db.getConnection((connErr, connection) => {
         if(connErr) {
