@@ -1,7 +1,6 @@
 const { db } = require("./../config/database");
 const xlsx = require("xlsx");
 const fs = require("fs");
-const { resolve } = require("path");
 const { promisify } = require("util");
 const query = promisify(db.query).bind(db);
 const moment = require('moment');
