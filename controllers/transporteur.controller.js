@@ -8,7 +8,7 @@ function queryPromise(connection, sql, params) {
         resolve([results]);
       });
     });
-  }
+};
 
 exports.getLocalisation = (req, res) => {
     const q = `SELECT 
@@ -36,7 +36,7 @@ exports.getLocalisation = (req, res) => {
         }
         return res.status(200).json(data);
     });
-}
+};
 
 exports.getLocalisationOne = (req, res) => {
     const { id_localisation } = req.query;
@@ -66,7 +66,7 @@ exports.getLocalisationOne = (req, res) => {
         }
         return res.status(200).json(data);
     });
-}
+};
 
 exports.postLocalisation = (req, res) => {
     db.getConnection((connErr, connection) => {
@@ -221,8 +221,13 @@ exports.getCommune = (req, res) => {
 };
 
 exports.getVille = (req, res) => {
-    const q = `SELECT v.id_ville, v.nom_ville, v.id_province AS id_parent, p.name FROM villes v
-INNER JOIN provinces p ON v.id_province = p.id`;
+    const q =   `SELECT 
+                    v.id_ville, 
+                    v.nom_ville, 
+                    v.id_province AS id_parent, 
+                    p.name 
+                FROM villes v
+                    INNER JOIN provinces p ON v.id_province = p.id`;
 
     db.query(q, (error, data) => {
         if (error) {
