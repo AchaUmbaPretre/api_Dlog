@@ -31,6 +31,8 @@ const webhookRoutes = require('./routes/webhook.routes');
 const carburantRoutes = require('./routes/carburant.routes');
 const generateurRoutes = require('./routes/generateur.routes');
 const sortieEamFmpRoutes = require('./routes/sortieEamFmp.routes');
+const presenceRoutes = require('./routes/presence.routes');
+
 
 const https = require('https');
 const http = require('http');
@@ -100,6 +102,7 @@ app.use('/api/event', eventRoutes)
 app.use('/api/carburant', carburantRoutes)
 app.use('/api/generateur', generateurRoutes)
 app.use('/api/sortieEamFmp', sortieEamFmpRoutes)
+app.use('/api/presence', presenceRoutes)
 app.get("/api/falcon", (req, res) => {
   const options = {
     hostname: "31.207.34.171",
@@ -169,7 +172,6 @@ app.get("/api/get_event", (req, res) => {
 
   proxyReq.end();
 });
-
  app.get("/api/get_history", (req, res) => {
   const query = new URLSearchParams(req.query).toString();
 
@@ -204,7 +206,6 @@ app.get("/api/get_event", (req, res) => {
 
   proxyReq.end();
 });
-
 app.get("/api/point_in_geofences", (req, res) => {
   const query = new URLSearchParams(req.query).toString();
 
