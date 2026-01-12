@@ -138,3 +138,70 @@ exports.postPresence = async (req, res) => {
   }
 };
 
+
+//Congé
+exports.getConge = (req, res) => {
+
+    const q = `SELECT * FROM conges`;
+    db.query(q, (error, data) => {
+        if(error) {
+            return res.status(500).json({
+                message: 'Erreur lors de la récuperations des conges.',
+                error
+            })
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postConge = (req, res) => {
+    try {
+        const {
+            id_utilisateur,
+            date_debut,
+            date_fin,
+            type_conge,
+            statut,
+            commentaire
+        } = req.body;
+
+        if(!id_utilisateur || !date_debut || !date_fin ) {
+            return res.status(400).json({
+                message: "Veuillez remplir tous les champs obligatoires"
+            })
+        }
+
+        const values = [
+            id_utilisateur,
+            date_debut,
+            date_fin,
+            type_conge,
+            statut,
+            commentaire
+        ];
+
+        const q = `INSERT INTO conges (
+                        id_utilisateur, date_debut, 
+                        date_fin, type_conge, statut, 
+                        commentaire
+                    )
+                    VALUES (?,?,?,?,?,?)`;
+
+                db.query(q, values, (error) => {
+                    if(error) {
+                        console.error(error)
+                        return res.status(500).json({ message: "Erreur serveur lors de l'ajout de congé"})
+                    }
+
+                    res.status(201).json({
+                        message: "Congé a été ajoutée avec succès."
+                    });
+                })
+
+    } catch (error) {
+        console.error("Erreur lors de l'ajout :", error);
+        return res.status(500).json({
+            message: "Une erreur interne s'est produite."
+        });
+    }
+}
