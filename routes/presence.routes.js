@@ -6,4 +6,9 @@ router.get('/', presence.getPresence);
 router.get('/presenceById', presence.getPresenceById);
 router.post('/', presence.postPresence)
 
+//Congé
+router.get('/conge', presence.getConge);
+router.post('/conge', presence.postConge)
+
+
 module.exports = router;
