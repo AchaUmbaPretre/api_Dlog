@@ -4,6 +4,7 @@ const presence = require('./../controllers/presence.controller');
 
 router.get('/', presence.getPresence);
 router.get('/planning', presence.getPresencePlanning);
+router.get('/rapport', presence.getPresenceReport);
 router.get('/presenceById', presence.getPresenceById);
 router.post('/', presence.postPresence)
 
