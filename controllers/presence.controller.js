@@ -235,47 +235,38 @@ exports.getPresencePlanning = async (req, res) => {
   }
 };
 
-const mapJourSemaine = {
-  dimanche: 0,
-  lundi: 1,
-  mardi: 2,
-  mercredi: 3,
-  jeudi: 4,
-  vendredi: 5,
-  samedi: 6
-};
-
-exports.getPresenceReport = async (req, res) => {
+exports.getMonthlyPresenceReport = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
-    console.log(req.query)
+    const { month, year } = req.query;
 
-    if (!startDate || !endDate) {
-      return res.status(400).json({ message: "startDate et endDate requis (YYYY-MM-DD)" });
+    if (!month || !year) {
+      return res.status(400).json({ message: "month et year requis" });
     }
 
-    // ==========================
-    // 2️⃣ Récupérer les utilisateurs
-    // ==========================
+    const monthInt = parseInt(month, 10);
+    const yearInt = parseInt(year, 10);
+
+    const startDate = moment(`${yearInt}-${monthInt.toString().padStart(2, "0")}-01`, "YYYY-MM-DD")
+      .startOf("month")
+      .format("YYYY-MM-DD");
+    const endDate = moment(startDate).endOf("month").format("YYYY-MM-DD");
+
+    // 1️⃣ Récupérer les utilisateurs
     const users = await query(`
       SELECT id_utilisateur, nom
       FROM utilisateur
       ORDER BY nom
     `);
 
-    // ==========================
-    // 3️⃣ Récupérer les présences
-    // ==========================
+    // 2️⃣ Récupérer les présences du mois
     const presences = await query(
-      `SELECT id_utilisateur, date_presence, heure_entree, heure_sortie
+      `SELECT id_utilisateur, date_presence, heure_entree, heure_sortie, heures_supplementaires, retard_minutes
        FROM presences
        WHERE date_presence BETWEEN ? AND ?`,
       [startDate, endDate]
     );
 
-    // ==========================
-    // 4️⃣ Récupérer les congés validés
-    // ==========================
+    // 3️⃣ Récupérer les congés validés
     const conges = await query(
       `SELECT id_utilisateur, date_debut, date_fin
        FROM conges
@@ -285,26 +276,32 @@ exports.getPresenceReport = async (req, res) => {
       [startDate, endDate]
     );
 
-    // ==========================
-    // 5️⃣ Récupérer les jours fériés
-    // ==========================
+    // 4️⃣ Récupérer les jours fériés
     const joursFeries = await query(
       `SELECT date_ferie FROM jours_feries WHERE date_ferie BETWEEN ? AND ?`,
       [startDate, endDate]
     );
 
-    // ==========================
-    // 6️⃣ Récupérer les jours non travaillés
-    // ==========================
+    // 5️⃣ Récupérer les jours non travaillés
+    // Ici on considère que les jours sont en français dans la table
+    const mapJourSemaineFR = {
+      dimanche: 0,
+      lundi: 1,
+      mardi: 2,
+      mercredi: 3,
+      jeudi: 4,
+      vendredi: 5,
+      samedi: 6
+    };
     const joursNonTrav = await query(`SELECT jour_semaine FROM jours_non_travailles`);
+    const joursNonTravSet = new Set(
+      joursNonTrav.map(j => mapJourSemaineFR[j.jour_semaine.toLowerCase()])
+    );
 
-    // ==========================
-    // 7️⃣ Préparer les maps pour performance
-    // ==========================
+    // 6️⃣ Préparer les maps pour performance
     const presencesMap = new Map();
     presences.forEach(p => {
-      const key = `${p.id_utilisateur}_${moment(p.date_presence).format("YYYY-MM-DD")}`;
-      presencesMap.set(key, p);
+      presencesMap.set(`${p.id_utilisateur}_${moment(p.date_presence).format("YYYY-MM-DD")}`, p);
     });
 
     const congesMap = new Map();
@@ -317,50 +314,47 @@ exports.getPresenceReport = async (req, res) => {
     });
 
     const joursFeriesSet = new Set(joursFeries.map(j => moment(j.date_ferie).format("YYYY-MM-DD")));
-    const joursNonTravSet = new Set(joursNonTrav.map(j => mapJourSemaine[j.jour_semaine.toLowerCase()]));
 
-    // ==========================
-    // 8️⃣ Générer toutes les dates de la période
-    // ==========================
-    const start = moment(startDate);
-    const end = moment(endDate);
+    // 7️⃣ Générer toutes les dates du mois
     const dates = [];
-    for (let d = moment(start); d.isSameOrBefore(end); d.add(1, 'day')) {
-      dates.push(moment(d)); // clone pour éviter mutation
+    let d = moment(startDate);
+    while (d.isSameOrBefore(endDate)) {
+      dates.push(d.format("YYYY-MM-DD"));
+      d.add(1, "day");
     }
 
-    // ==========================
-    // 9️⃣ Construire le rapport utilisateur par utilisateur
-    // ==========================
+    // 8️⃣ Construire le rapport par utilisateur
     const report = users.map(u => {
-      let countPresent = 0,
-          countAbsent = 0,
-          countConge = 0,
-          countFerie = 0,
-          countNonTravaille = 0;
+      let joursTravailles = 0,
+          absences = 0,
+          retards = 0,
+          heuresSupp = 0,
+          congesPayes = 0,
+          joursFerie = 0,
+          nonTravaille = 0;
 
       const presMap = {};
 
-      dates.forEach(date => {
-        const dateStr = date.format("YYYY-MM-DD");
+      dates.forEach(dateStr => {
         let statut = "ABSENT";
+        const dayOfWeek = moment(dateStr).day(); // 0 = dimanche, 1 = lundi ...
 
         // Jour férié
         if (joursFeriesSet.has(dateStr)) {
           statut = "FERIE";
-          countFerie++;
+          joursFerie++;
         }
         // Jour non travaillé
-        else if (joursNonTravSet.has(date.day())) {
+        else if (joursNonTravSet.has(dayOfWeek)) {
           statut = "NON_TRAVAILLE";
-          countNonTravaille++;
+          nonTravaille++;
         }
         // Congé
         else if (congesMap.has(u.id_utilisateur)) {
-          const cong = congesMap.get(u.id_utilisateur).find(c => date.isBetween(c.debut, c.fin, null, '[]'));
+          const cong = congesMap.get(u.id_utilisateur).find(c => moment(dateStr).isBetween(c.debut, c.fin, null, "[]"));
           if (cong) {
             statut = "CONGE";
-            countConge++;
+            congesPayes++;
           }
         }
 
@@ -368,11 +362,13 @@ exports.getPresenceReport = async (req, res) => {
         const pKey = `${u.id_utilisateur}_${dateStr}`;
         if (presencesMap.has(pKey)) {
           statut = "PRESENT";
-          countPresent++;
+          joursTravailles++;
+          const p = presencesMap.get(pKey);
+          heuresSupp += Number(p.heures_supplementaires || 0);
+          retards += Number(p.retard_minutes || 0);
         }
 
-        // Si pas férié, congé, ou présence => absent
-        if (statut === "ABSENT") countAbsent++;
+        if (statut === "ABSENT") absences++;
 
         presMap[dateStr] = presencesMap.get(pKey) || { statut };
       });
@@ -380,11 +376,13 @@ exports.getPresenceReport = async (req, res) => {
       return {
         id_utilisateur: u.id_utilisateur,
         nom: u.nom,
-        countPresent,
-        countAbsent,
-        countConge,
-        countFerie,
-        countNonTravaille,
+        joursTravailles,
+        absences,
+        retards,
+        heuresSupp,
+        congesPayes,
+        joursFerie,
+        nonTravaille,
         presences: presMap
       };
     });
@@ -392,14 +390,83 @@ exports.getPresenceReport = async (req, res) => {
     res.json({
       startDate,
       endDate,
-      dates: dates.map(d => d.format("YYYY-MM-DD")),
+      dates,
       report
     });
-  } catch (error) {
-    console.error("Erreur getPresenceReport:", error);
-    res.status(500).json({ message: "Erreur serveur lors de la génération du rapport" });
+
+  } catch (err) {
+    console.error("Erreur getMonthlyAttendanceReport:", err);
+    res.status(500).json({ message: "Erreur serveur lors de la génération du rapport mensuel" });
   }
 };
+
+exports.getLateEarlyLeaveReport = async (req, res) => {
+  try {
+    let { startDate, endDate } = req.query;
+
+    // ✅ Fallback : mois courant
+    if (!startDate || !endDate) {
+      startDate = moment().startOf("month").format("YYYY-MM-DD");
+      endDate = moment().endOf("month").format("YYYY-MM-DD");
+    }
+
+    const data = await query(`
+      SELECT
+        u.nom,
+        p.date_presence,
+        '08:00:00' AS heure_entree_prevue,
+        TIME(p.heure_entree) AS heure_entree_reelle,
+        p.retard_minutes,
+        '16:00:00' AS heure_sortie_prevue,
+        IFNULL(TIME(p.heure_sortie), '-') AS heure_sortie_reelle,
+
+        CASE
+          WHEN p.heure_sortie IS NOT NULL
+           AND TIME(p.heure_sortie) < '16:00:00'
+          THEN TIMESTAMPDIFF(
+            MINUTE,
+            p.heure_sortie,
+            CONCAT(p.date_presence, ' 16:00:00')
+          )
+          ELSE 0
+        END AS depart_anticipe_minutes,
+
+        p.heures_supplementaires,
+
+        CASE
+          WHEN p.retard_minutes > 0
+           AND TIME(p.heure_sortie) < '16:00:00'
+            THEN 'Retard + Départ anticipé'
+          WHEN p.retard_minutes > 0
+            THEN 'Retard'
+          WHEN TIME(p.heure_sortie) < '16:00:00'
+            THEN 'Départ anticipé'
+          WHEN p.heures_supplementaires > 0
+            THEN 'Heures supplémentaires'
+          ELSE 'Ponctuel'
+        END AS commentaire
+
+      FROM presences p
+      JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
+      WHERE p.date_presence BETWEEN ? AND ?
+      ORDER BY p.date_presence, u.nom
+    `, [startDate, endDate]);
+
+    res.json({
+      startDate,
+      endDate,
+      total: data.length,
+      data
+    });
+
+  } catch (err) {
+    console.error("Erreur getLateEarlyLeaveReport :", err);
+    res.status(500).json({
+      message: "Erreur serveur lors de la génération du rapport"
+    });
+  }
+};
+
 
 exports.getPresenceById = (req, res) => {
     const { id_utilisateur } = req.query;
@@ -422,12 +489,12 @@ exports.getPresenceById = (req, res) => {
     });
 };
 
-exports.postPresence = async (req, res) => {
+/* exports.postPresence = async (req, res) => {
   try {
     const {
       id_utilisateur,
       date_presence,
-      datetime, // Recommandé pour biométrie
+      datetime, 
       source,
       device_sn
     } = req.body;
@@ -447,7 +514,6 @@ exports.postPresence = async (req, res) => {
     const jour = moment(date_presence).format("dddd"); // Nom du jour en anglais
     const jourFR = jourSemaineFR(date_presence); // si tu as une fonction de conversion en FR
 
-    /* 1️⃣ Vérifier jour non travaillé */
     const nonTravaille = await query(
       `SELECT 1 FROM jours_non_travailles WHERE jour_semaine = ?`,
       [jourFR]
@@ -458,7 +524,6 @@ exports.postPresence = async (req, res) => {
       });
     }
 
-    /* 2️⃣ Vérifier jour férié */
     const ferie = await query(
       `SELECT 1 FROM jours_feries WHERE date_ferie = ?`,
       [dateISO]
@@ -469,7 +534,6 @@ exports.postPresence = async (req, res) => {
       });
     }
 
-    /* 3️⃣ Vérifier présence existante */
     const presence = await query(
       `SELECT id_presence, heure_entree, heure_sortie
        FROM presences
@@ -478,7 +542,6 @@ exports.postPresence = async (req, res) => {
       [id_utilisateur, dateISO]
     );
 
-    /* 4️⃣ Aucune présence → ENTRÉE */
     if (presence.length === 0) {
       await query(
         `INSERT INTO presences (
@@ -496,7 +559,6 @@ exports.postPresence = async (req, res) => {
       });
     }
 
-    /* 5️⃣ Présence existe + sortie vide → SORTIE */
     if (presence[0].heure_sortie === null) {
       await query(
         `UPDATE presences
@@ -510,7 +572,144 @@ exports.postPresence = async (req, res) => {
       });
     }
 
-    /* 6️⃣ Déjà pointé entrée & sortie */
+    return res.status(409).json({
+      message: "Présence déjà complète pour cette date"
+    });
+
+  } catch (error) {
+    console.error("Erreur postPresence :", error);
+    res.status(500).json({
+      message: "Erreur interne du serveur"
+    });
+  }
+}; */
+
+exports.postPresence = async (req, res) => {
+  try {
+    const {
+      id_utilisateur,
+      date_presence,
+      datetime, // pour biométrie
+      source,
+      device_sn
+    } = req.body;
+
+    if (!id_utilisateur || !date_presence) {
+      return res.status(400).json({
+        message: "Champs obligatoires manquants"
+      });
+    }
+
+    // 1️⃣ Normaliser la date et l'heure du pointage
+    const dateISO = moment(date_presence).format("YYYY-MM-DD");
+    const heurePointage = datetime
+      ? moment(datetime)
+      : moment(); // moment object
+
+    // Heure de début de travail
+    const debutTravail = moment(`${dateISO} 08:00:00`, "YYYY-MM-DD HH:mm:ss");
+
+    // 2️⃣ Vérifier jour non travaillé
+    const jourFR = jourSemaineFR(date_presence); // ex: "lundi"
+    const nonTravaille = await query(
+      `SELECT 1 FROM jours_non_travailles WHERE jour_semaine = ?`,
+      [jourFR]
+    );
+    if (nonTravaille.length > 0) {
+      return res.status(403).json({
+        message: `Pointage interdit : ${jourFR} est un jour non travaillé`
+      });
+    }
+
+    // 3️⃣ Vérifier jour férié
+    const ferie = await query(
+      `SELECT 1 FROM jours_feries WHERE date_ferie = ?`,
+      [dateISO]
+    );
+    if (ferie.length > 0) {
+      return res.status(403).json({
+        message: "Pointage interdit : jour férié"
+      });
+    }
+
+    // 4️⃣ Vérifier présence existante
+    const presence = await query(
+      `SELECT id_presence, heure_entree, heure_sortie
+       FROM presences
+       WHERE id_utilisateur = ? AND date_presence = ?
+       LIMIT 1`,
+      [id_utilisateur, dateISO]
+    );
+
+    // 5️⃣ Calcul retard et heures supplémentaires
+    let retard_minutes = 0;
+    let heures_supplementaires = 0;
+
+    if (presence.length === 0) {
+      // ENTRÉE
+      // Retard si pointage après 08:00
+      if (heurePointage.isAfter(debutTravail)) {
+        retard_minutes = heurePointage.diff(debutTravail, "minutes");
+      }
+
+      await query(
+        `INSERT INTO presences (
+          id_utilisateur,
+          date_presence,
+          heure_entree,
+          source,
+          device_sn,
+          heures_supplementaires,
+          retard_minutes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id_utilisateur,
+          dateISO,
+          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          source,
+          device_sn || null,
+          heures_supplementaires,
+          retard_minutes
+        ]
+      );
+
+      return res.status(201).json({
+        message: "Entrée enregistrée",
+        retard_minutes,
+        heures_supplementaires
+      });
+    }
+
+    // SORTIE
+    if (presence[0].heure_sortie === null) {
+      const heureSortie = heurePointage;
+
+      // Heures supplémentaires si sortie après 16:00
+      const finTravail = moment(`${dateISO} 16:00:00`, "YYYY-MM-DD HH:mm:ss");
+      if (heureSortie.isAfter(finTravail)) {
+        heures_supplementaires = heureSortie.diff(finTravail, "hours", true); // en heures décimales
+      }
+
+      await query(
+        `UPDATE presences
+         SET heure_sortie = ?, heures_supplementaires = ?, retard_minutes = ?
+         WHERE id_presence = ?`,
+        [
+          heureSortie.format("YYYY-MM-DD HH:mm:ss"),
+          heures_supplementaires,
+          presence[0].retard_minutes || 0, // conserver le retard calculé à l'entrée
+          presence[0].id_presence
+        ]
+      );
+
+      return res.status(200).json({
+        message: "Sortie enregistrée",
+        retard_minutes: presence[0].retard_minutes || 0,
+        heures_supplementaires
+      });
+    }
+
+    // Déjà pointé entrée & sortie
     return res.status(409).json({
       message: "Présence déjà complète pour cette date"
     });
@@ -522,6 +721,7 @@ exports.postPresence = async (req, res) => {
     });
   }
 };
+
 
 exports.postPresenceBiometrique = async (req, res) => {
   try {
