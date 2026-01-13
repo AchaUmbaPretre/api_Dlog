@@ -121,35 +121,25 @@ const formatDate = (date) => {
 
 exports.getPresencePlanning = async (req, res) => {
   try {
-    // ==============================
-    // 1️⃣ Paramètres
-    // ==============================
     const { month, year } = req.query;
 
     if (!month || !year) {
-      return res.status(400).json({
-        message: "Paramètres month et year requis"
-      });
+      return res.status(400).json({ message: "Paramètres month et year requis" });
     }
 
     const monthPadded = String(month).padStart(2, "0");
     const debut = `${year}-${monthPadded}-01`;
-
     const lastDay = new Date(year, month, 0).getDate();
     const fin = `${year}-${monthPadded}-${String(lastDay).padStart(2, "0")}`;
 
-    // ==============================
-    // 2️⃣ Utilisateurs
-    // ==============================
+    // 1️⃣ Utilisateurs
     const users = await query(`
       SELECT id_utilisateur, nom
       FROM utilisateur
       ORDER BY nom
     `);
 
-    // ==============================
-    // 3️⃣ Générer toutes les dates du mois
-    // ==============================
+    // 2️⃣ Générer toutes les dates du mois
     const datesRaw = await query(`
       SELECT DATE(?) + INTERVAL n DAY AS date
       FROM (
@@ -162,31 +152,18 @@ exports.getPresencePlanning = async (req, res) => {
       ORDER BY DATE(?) + INTERVAL n DAY
     `, [debut, debut, fin, debut]);
 
-    // ==============================
-    // 4️⃣ Jours fériés et non travaillés
-    // ==============================
-    const joursFeries = await query(`
-      SELECT date_ferie
-      FROM jours_feries
-    `);
+    // 3️⃣ Jours fériés et non travaillés
+    const joursFeries = await query(`SELECT date_ferie FROM jours_feries`);
+    const joursNonTrav = await query(`SELECT jour_semaine FROM jours_non_travailles`);
 
-    const joursNonTrav = await query(`
-      SELECT jour_semaine
-      FROM jours_non_travailles
-    `);
-
-    // ==============================
-    // 5️⃣ Présences du mois
-    // ==============================
+    // 4️⃣ Présences du mois avec heures
     const presences = await query(`
-      SELECT id_utilisateur, date_presence
+      SELECT id_utilisateur, date_presence, heure_entree, heure_sortie
       FROM presences
       WHERE date_presence BETWEEN ? AND ?
     `, [debut, fin]);
 
-    // ==============================
-    // 6️⃣ Congés validés
-    // ==============================
+    // 5️⃣ Congés validés
     const conges = await query(`
       SELECT id_utilisateur, date_debut, date_fin
       FROM conges
@@ -195,12 +172,15 @@ exports.getPresencePlanning = async (req, res) => {
         AND date_fin >= ?
     `, [fin, debut]);
 
-    // ==============================
-    // 7️⃣ Optimisation (maps)
-    // ==============================
-    const presencesSet = new Set(
-      presences.map(p => `${p.id_utilisateur}_${formatDate(p.date_presence)}`)
-    );
+    // 6️⃣ Optimisation
+    const presMapByUserDate = {};
+    presences.forEach(p => {
+      presMapByUserDate[`${p.id_utilisateur}_${formatDate(p.date_presence)}`] = {
+        statut: "PRESENT",
+        heure_entree: p.heure_entree,
+        heure_sortie: p.heure_sortie
+      };
+    });
 
     const congesList = conges.map(c => ({
       id: c.id_utilisateur,
@@ -208,87 +188,52 @@ exports.getPresencePlanning = async (req, res) => {
       fin: formatDate(c.date_fin)
     }));
 
-    // ==============================
-    // 8️⃣ Construction des dates (colonnes)
-    // ==============================
+    // 7️⃣ Construction des dates (colonnes)
     const dates = datesRaw.map(d => {
       const dateKey = formatDate(d.date);
-
       let statutJour = "TRAVAIL";
 
-      if (joursFeries.some(j => formatDate(j.date_ferie) === dateKey)) {
-        statutJour = "FERIE";
-      } else if (
-        joursNonTrav.some(j =>
-          j.jour_semaine.toLowerCase() === jourSemaineFR(d.date).toLowerCase()
-        )
-      ) {
+      if (joursFeries.some(j => formatDate(j.date_ferie) === dateKey)) statutJour = "FERIE";
+      else if (joursNonTrav.some(j => j.jour_semaine.toLowerCase() === jourSemaineFR(d.date).toLowerCase()))
         statutJour = "NON_TRAVAILLE";
-      }
 
       const label = `${String(d.date.getDate()).padStart(2, "0")} ${d.date.toLocaleString("fr-FR", { month: "short" })}`;
 
-      return {
-        date: dateKey,
-        label,
-        statutJour
-      };
+      return { date: dateKey, label, statutJour };
     });
 
-    // ==============================
-    // 9️⃣ Construction planning utilisateurs
-    // ==============================
+    // 8️⃣ Construction planning utilisateurs
     const utilisateurs = users.map(u => {
-      const presMap = {};
+      const presencesByDate = {};
 
       dates.forEach(d => {
-        let statut = "ABSENT";
+        const key = `${u.id_utilisateur}_${d.date}`;
+        const cong = congesList.find(c => c.id === u.id_utilisateur && d.date >= c.debut && d.date <= c.fin);
 
-        if (d.statutJour === "FERIE") statut = "FERIE";
-        else if (d.statutJour === "NON_TRAVAILLE") statut = "NON_TRAVAILLE";
-
-        if (presencesSet.has(`${u.id_utilisateur}_${d.date}`)) {
-          statut = "PRESENT";
+        if (cong) {
+          presencesByDate[d.date] = { statut: "CONGE", heure_entree: null, heure_sortie: null };
+        } else if (presMapByUserDate[key]) {
+          presencesByDate[d.date] = presMapByUserDate[key];
+        } else if (d.statutJour === "FERIE") {
+          presencesByDate[d.date] = { statut: "FERIE", heure_entree: null, heure_sortie: null };
+        } else if (d.statutJour === "NON_TRAVAILLE") {
+          presencesByDate[d.date] = { statut: "NON_TRAVAILLE", heure_entree: null, heure_sortie: null };
+        } else {
+          presencesByDate[d.date] = { statut: "ABSENT", heure_entree: null, heure_sortie: null };
         }
-
-        if (
-          congesList.some(c =>
-            c.id === u.id_utilisateur &&
-            d.date >= c.debut &&
-            d.date <= c.fin
-          )
-        ) {
-          statut = "CONGE";
-        }
-
-        presMap[d.date] = statut;
       });
 
-      return {
-        id_utilisateur: u.id_utilisateur,
-        nom: u.nom,
-        presences: presMap
-      };
+      return { id_utilisateur: u.id_utilisateur, nom: u.nom, presences: presencesByDate };
     });
 
-    // ==============================
-    // 🔟 Réponse finale
-    // ==============================
-    res.json({
-      month: Number(month),
-      year: Number(year),
-      dates,
-      utilisateurs
-    });
+    // 9️⃣ Réponse finale
+    res.json({ month: Number(month), year: Number(year), dates, utilisateurs });
 
   } catch (error) {
     console.error("Erreur getPresencePlanning :", error);
-    res.status(500).json({
-      message: "Erreur serveur planning"
-    });
+    res.status(500).json({ message: "Erreur serveur planning" });
   }
 };
-
 
 exports.getPresenceById = (req, res) => {
     const { id_utilisateur } = req.query;
