@@ -31,11 +31,12 @@ const formatDate = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-exports.getPresencePlanning = async (req, res) => {
+/* exports.getPresencePlanning = async (req, res) => {
   try {
     const mois = req.query.mois; // ex: "2026-01"
     if (!mois) return res.status(400).json({ message: "Paramètre mois requis" });
 
+    console.log(req.query)
     const debut = `${mois}-01`;
     const fin = `${mois}-31`;
 
@@ -116,7 +117,178 @@ exports.getPresencePlanning = async (req, res) => {
     console.error("Erreur getPresencePlanning :", error);
     res.status(500).json({ message: "Erreur serveur planning" });
   }
+}; */
+
+exports.getPresencePlanning = async (req, res) => {
+  try {
+    // ==============================
+    // 1️⃣ Paramètres
+    // ==============================
+    const { month, year } = req.query;
+
+    if (!month || !year) {
+      return res.status(400).json({
+        message: "Paramètres month et year requis"
+      });
+    }
+
+    const monthPadded = String(month).padStart(2, "0");
+    const debut = `${year}-${monthPadded}-01`;
+
+    const lastDay = new Date(year, month, 0).getDate();
+    const fin = `${year}-${monthPadded}-${String(lastDay).padStart(2, "0")}`;
+
+    // ==============================
+    // 2️⃣ Utilisateurs
+    // ==============================
+    const users = await query(`
+      SELECT id_utilisateur, nom
+      FROM utilisateur
+      ORDER BY nom
+    `);
+
+    // ==============================
+    // 3️⃣ Générer toutes les dates du mois
+    // ==============================
+    const datesRaw = await query(`
+      SELECT DATE(?) + INTERVAL n DAY AS date
+      FROM (
+        SELECT a.a + b.a * 10 AS n
+        FROM (SELECT 0 a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+              UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) a
+        CROSS JOIN (SELECT 0 a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) b
+      ) numbers
+      WHERE DATE(?) + INTERVAL n DAY <= ?
+      ORDER BY DATE(?) + INTERVAL n DAY
+    `, [debut, debut, fin, debut]);
+
+    // ==============================
+    // 4️⃣ Jours fériés et non travaillés
+    // ==============================
+    const joursFeries = await query(`
+      SELECT date_ferie
+      FROM jours_feries
+    `);
+
+    const joursNonTrav = await query(`
+      SELECT jour_semaine
+      FROM jours_non_travailles
+    `);
+
+    // ==============================
+    // 5️⃣ Présences du mois
+    // ==============================
+    const presences = await query(`
+      SELECT id_utilisateur, date_presence
+      FROM presences
+      WHERE date_presence BETWEEN ? AND ?
+    `, [debut, fin]);
+
+    // ==============================
+    // 6️⃣ Congés validés
+    // ==============================
+    const conges = await query(`
+      SELECT id_utilisateur, date_debut, date_fin
+      FROM conges
+      WHERE statut = 'VALIDE'
+        AND date_debut <= ?
+        AND date_fin >= ?
+    `, [fin, debut]);
+
+    // ==============================
+    // 7️⃣ Optimisation (maps)
+    // ==============================
+    const presencesSet = new Set(
+      presences.map(p => `${p.id_utilisateur}_${formatDate(p.date_presence)}`)
+    );
+
+    const congesList = conges.map(c => ({
+      id: c.id_utilisateur,
+      debut: formatDate(c.date_debut),
+      fin: formatDate(c.date_fin)
+    }));
+
+    // ==============================
+    // 8️⃣ Construction des dates (colonnes)
+    // ==============================
+    const dates = datesRaw.map(d => {
+      const dateKey = formatDate(d.date);
+
+      let statutJour = "TRAVAIL";
+
+      if (joursFeries.some(j => formatDate(j.date_ferie) === dateKey)) {
+        statutJour = "FERIE";
+      } else if (
+        joursNonTrav.some(j =>
+          j.jour_semaine.toLowerCase() === jourSemaineFR(d.date).toLowerCase()
+        )
+      ) {
+        statutJour = "NON_TRAVAILLE";
+      }
+
+      const label = `${String(d.date.getDate()).padStart(2, "0")} ${d.date.toLocaleString("fr-FR", { month: "short" })}`;
+
+      return {
+        date: dateKey,
+        label,
+        statutJour
+      };
+    });
+
+    // ==============================
+    // 9️⃣ Construction planning utilisateurs
+    // ==============================
+    const utilisateurs = users.map(u => {
+      const presMap = {};
+
+      dates.forEach(d => {
+        let statut = "ABSENT";
+
+        if (d.statutJour === "FERIE") statut = "FERIE";
+        else if (d.statutJour === "NON_TRAVAILLE") statut = "NON_TRAVAILLE";
+
+        if (presencesSet.has(`${u.id_utilisateur}_${d.date}`)) {
+          statut = "PRESENT";
+        }
+
+        if (
+          congesList.some(c =>
+            c.id === u.id_utilisateur &&
+            d.date >= c.debut &&
+            d.date <= c.fin
+          )
+        ) {
+          statut = "CONGE";
+        }
+
+        presMap[d.date] = statut;
+      });
+
+      return {
+        id_utilisateur: u.id_utilisateur,
+        nom: u.nom,
+        presences: presMap
+      };
+    });
+
+    // ==============================
+    // 🔟 Réponse finale
+    // ==============================
+    res.json({
+      month: Number(month),
+      year: Number(year),
+      dates,
+      utilisateurs
+    });
+
+  } catch (error) {
+    console.error("Erreur getPresencePlanning :", error);
+    res.status(500).json({
+      message: "Erreur serveur planning"
+    });
+  }
 };
+
 
 exports.getPresenceById = (req, res) => {
     const { id_utilisateur } = req.query;
