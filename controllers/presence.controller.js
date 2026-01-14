@@ -31,95 +31,8 @@ const formatDate = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+
 /* exports.getPresencePlanning = async (req, res) => {
-  try {
-    const mois = req.query.mois; // ex: "2026-01"
-    if (!mois) return res.status(400).json({ message: "Paramètre mois requis" });
-
-    console.log(req.query)
-    const debut = `${mois}-01`;
-    const fin = `${mois}-31`;
-
-    // 1️⃣ Utilisateurs
-    const users = await query(`
-      SELECT id_utilisateur, nom
-      FROM utilisateur
-      ORDER BY nom
-    `);
-
-    // 2️⃣ Générer toutes les dates du mois
-    const datesRaw = await query(`
-      SELECT DATE(?) + INTERVAL n DAY AS date
-      FROM (
-        SELECT a.a + b.a * 10 AS n
-        FROM (SELECT 0 a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
-              UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) a
-        CROSS JOIN (SELECT 0 a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) b
-      ) numbers
-      WHERE DATE(?) + INTERVAL n DAY <= ?
-      ORDER BY DATE(?) + INTERVAL n DAY
-    `, [debut, debut, fin, debut]);
-
-    // 3️⃣ Jours fériés et non travaillés
-    const joursFeries = await query(`SELECT date_ferie FROM jours_feries`);
-    const joursNonTrav = await query(`SELECT jour_semaine FROM jours_non_travailles`);
-
-    // 4️⃣ Présences
-    const presences = await query(`
-      SELECT id_utilisateur, date_presence
-      FROM presences
-      WHERE date_presence BETWEEN ? AND ?
-    `, [debut, fin]);
-
-    // 5️⃣ Congés validés
-    const conges = await query(`
-      SELECT id_utilisateur, date_debut, date_fin
-      FROM conges
-      WHERE statut = 'VALIDE'
-        AND (date_debut <= ? AND date_fin >= ?)
-    `, [fin, debut]);
-
-    // 6️⃣ Construction planning
-    const dates = datesRaw.map(d => {
-      const dateKey = formatDate(d.date);
-
-      // Déterminer le statut du jour
-      let statutJour = 'TRAVAIL';
-      if (joursFeries.some(j => formatDate(j.date_ferie) === dateKey)) statutJour = 'FERIE';
-      else if (joursNonTrav.some(j => j.jour_semaine.toLowerCase() === jourSemaineFR(d.date).toLowerCase())) statutJour = 'NON_TRAVAILLE';
-
-      // Label lisible (ex: "01 janv.")
-      const label = `${String(d.date.getDate()).padStart(2, '0')} ${d.date.toLocaleString('fr-FR', { month: 'short' })}`;
-
-      return { date: dateKey, label, statutJour };
-    });
-
-    // 7️⃣ Construire les présences par utilisateur
-    const utilisateurs = users.map(u => {
-      const presMap = {};
-      dates.forEach(d => {
-        let statut = 'ABSENT';
-        if (d.statutJour === 'FERIE') statut = 'FERIE';
-        else if (d.statutJour === 'NON_TRAVAILLE') statut = 'NON_TRAVAILLE';
-
-        if (presences.some(p => p.id_utilisateur === u.id_utilisateur && formatDate(p.date_presence) === d.date)) statut = 'PRESENT';
-        if (conges.some(c => c.id_utilisateur === u.id_utilisateur && d.date >= formatDate(c.date_debut) && d.date <= formatDate(c.date_fin))) statut = 'CONGE';
-
-        presMap[d.date] = statut;
-      });
-
-      return { id_utilisateur: u.id_utilisateur, nom: u.nom, presences: presMap };
-    });
-
-    res.json({ dates, utilisateurs });
-
-  } catch (error) {
-    console.error("Erreur getPresencePlanning :", error);
-    res.status(500).json({ message: "Erreur serveur planning" });
-  }
-}; */
-
-exports.getPresencePlanning = async (req, res) => {
   try {
     const { month, year } = req.query;
 
@@ -227,6 +140,145 @@ exports.getPresencePlanning = async (req, res) => {
     });
 
     // 9️⃣ Réponse finale
+    res.json({ month: Number(month), year: Number(year), dates, utilisateurs });
+
+  } catch (error) {
+    console.error("Erreur getPresencePlanning :", error);
+    res.status(500).json({ message: "Erreur serveur planning" });
+  }
+}; */
+
+exports.getPresencePlanning = async (req, res) => {
+  try {
+    const { month, year } = req.query;
+    const { user_id, role, scope_sites, scope_departments } = req.abac; // injecté par middleware authorize
+
+    console.log(req.abac)
+    if (!month || !year) {
+      return res.status(400).json({ message: "Paramètres month et year requis" });
+    }
+
+    const monthPadded = String(month).padStart(2, "0");
+    const debut = `${year}-${monthPadded}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const fin = `${year}-${monthPadded}-${String(lastDay).padStart(2, "0")}`;
+
+    // 🔹 1️⃣ Utilisateurs filtrés selon ABAC
+    let usersQuery = `SELECT id_utilisateur, nom, id_departement FROM utilisateur WHERE 1=1`;
+
+    // Owner / EMPLOYEE_SELF → uniquement lui-même
+    if (role === 'Owner') {
+      usersQuery += ` AND id_utilisateur = ?`;
+    } else {
+      // Filtrage sites / départements
+      if (scope_departments && scope_departments.length > 0) {
+        usersQuery += ` AND id_departement IN (${scope_departments.join(',')})`;
+      }
+      // Scope sites sera appliqué ensuite via presences
+    }
+
+    const usersValues = role === 'Owner' ? [user_id] : [];
+    const users = await query(usersQuery, usersValues);
+
+    // 🔹 2️⃣ Générer toutes les dates du mois
+    const datesRaw = await query(`
+      SELECT DATE(?) + INTERVAL n DAY AS date
+      FROM (
+        SELECT a.a + b.a * 10 AS n
+        FROM (SELECT 0 a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+              UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) a
+        CROSS JOIN (SELECT 0 a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) b
+      ) numbers
+      WHERE DATE(?) + INTERVAL n DAY <= ?
+      ORDER BY DATE(?) + INTERVAL n DAY
+    `, [debut, debut, fin, debut]);
+
+    // 🔹 3️⃣ Jours fériés et non travaillés
+    const joursFeries = await query(`SELECT date_ferie FROM jours_feries`);
+    const joursNonTrav = await query(`SELECT jour_semaine FROM jours_non_travailles`);
+
+    // 🔹 4️⃣ Présences du mois avec ABAC sur sites
+    let presQuery = `
+      SELECT id_utilisateur, date_presence, heure_entree, heure_sortie, site_id
+      FROM presences
+      WHERE date_presence BETWEEN ? AND ?
+    `;
+    const presValues = [debut, fin];
+
+    if (scope_sites && scope_sites.length > 0) {
+      presQuery += ` AND site_id IN (${scope_sites.join(',')})`;
+    }
+    if (role === 'Owner') {
+      presQuery += ` AND id_utilisateur = ?`;
+      presValues.push(user_id);
+    }
+
+    const presences = await query(presQuery, presValues);
+
+    // 🔹 5️⃣ Congés validés
+    const conges = await query(`
+      SELECT id_utilisateur, date_debut, date_fin
+      FROM conges
+      WHERE statut = 'VALIDE'
+        AND date_debut <= ?
+        AND date_fin >= ?
+    `, [fin, debut]);
+
+    // 🔹 6️⃣ Optimisation mapping
+    const presMapByUserDate = {};
+    presences.forEach(p => {
+      presMapByUserDate[`${p.id_utilisateur}_${formatDate(p.date_presence)}`] = {
+        statut: "PRESENT",
+        heure_entree: p.heure_entree,
+        heure_sortie: p.heure_sortie
+      };
+    });
+
+    const congesList = conges.map(c => ({
+      id: c.id_utilisateur,
+      debut: formatDate(c.date_debut),
+      fin: formatDate(c.date_fin)
+    }));
+
+    // 🔹 7️⃣ Dates du mois
+    const dates = datesRaw.map(d => {
+      const dateKey = formatDate(d.date);
+      let statutJour = "TRAVAIL";
+
+      if (joursFeries.some(j => formatDate(j.date_ferie) === dateKey)) statutJour = "FERIE";
+      else if (joursNonTrav.some(j => j.jour_semaine.toLowerCase() === jourSemaineFR(d.date).toLowerCase()))
+        statutJour = "NON_TRAVAILLE";
+
+      const label = `${String(d.date.getDate()).padStart(2, "0")} ${d.date.toLocaleString("fr-FR", { month: "short" })}`;
+
+      return { date: dateKey, label, statutJour };
+    });
+
+    // 🔹 8️⃣ Construction planning utilisateurs
+    const utilisateurs = users.map(u => {
+      const presencesByDate = {};
+
+      dates.forEach(d => {
+        const key = `${u.id_utilisateur}_${d.date}`;
+        const cong = congesList.find(c => c.id === u.id_utilisateur && d.date >= c.debut && d.date <= c.fin);
+
+        if (cong) {
+          presencesByDate[d.date] = { statut: "CONGE", heure_entree: null, heure_sortie: null };
+        } else if (presMapByUserDate[key]) {
+          presencesByDate[d.date] = presMapByUserDate[key];
+        } else if (d.statutJour === "FERIE") {
+          presencesByDate[d.date] = { statut: "FERIE", heure_entree: null, heure_sortie: null };
+        } else if (d.statutJour === "NON_TRAVAILLE") {
+          presencesByDate[d.date] = { statut: "NON_TRAVAILLE", heure_entree: null, heure_sortie: null };
+        } else {
+          presencesByDate[d.date] = { statut: "ABSENT", heure_entree: null, heure_sortie: null };
+        }
+      });
+
+      return { id_utilisateur: u.id_utilisateur, nom: u.nom, presences: presencesByDate };
+    });
+
+    // 🔹 9️⃣ Réponse finale
     res.json({ month: Number(month), year: Number(year), dates, utilisateurs });
 
   } catch (error) {
@@ -467,6 +519,89 @@ exports.getLateEarlyLeaveReport = async (req, res) => {
   }
 };
 
+exports.getHRGlobalReport = async (req, res) => {
+  try {
+    let { startDate, endDate } = req.query;
+
+    // 🔹 Fallback mois courant
+    if (!startDate || !endDate) {
+      startDate = moment().startOf("month").format("YYYY-MM-DD");
+      endDate = moment().endOf("month").format("YYYY-MM-DD");
+    }
+
+    // 1️⃣ Total employés
+    const [emp] = await query(`
+      SELECT COUNT(*) AS total_employes FROM utilisateur
+    `);
+
+    // 2️⃣ Total jours travaillés
+    const [worked] = await query(`
+      SELECT COUNT(*) AS total_jours_travailles
+      FROM presences
+      WHERE date_presence BETWEEN ? AND ?
+    `, [startDate, endDate]);
+
+    // 3️⃣ Total retards
+    const [late] = await query(`
+      SELECT COUNT(*) AS total_retards
+      FROM presences
+      WHERE retard_minutes > 0
+        AND date_presence BETWEEN ? AND ?
+    `, [startDate, endDate]);
+
+    // 4️⃣ Total absences
+    const [abs] = await query(`
+      SELECT COUNT(*) AS total_absences
+      FROM utilisateur u
+      WHERE NOT EXISTS (
+        SELECT 1 FROM presences p
+        WHERE p.id_utilisateur = u.id_utilisateur
+          AND p.date_presence BETWEEN ? AND ?
+      )
+    `, [startDate, endDate]);
+
+    // 5️⃣ Absences par département
+    const absByDept = await query(`
+      SELECT
+        d.nom AS departement,
+        COUNT(*) AS absences
+      FROM utilisateur u
+      JOIN departement d ON d.id_departement = u.id_departement
+      WHERE NOT EXISTS (
+        SELECT 1 FROM presences p
+        WHERE p.id_utilisateur = u.id_utilisateur
+          AND p.date_presence BETWEEN ? AND ?
+      )
+      GROUP BY d.id_departement
+      ORDER BY absences DESC
+    `, [startDate, endDate]);
+
+    // 6️⃣ Calcul taux de présence global
+    const joursOuvres = moment(endDate).diff(moment(startDate), "days") + 1;
+    const totalTheorique = joursOuvres * emp.total_employes;
+    const tauxPresence = totalTheorique > 0
+      ? ((worked.total_jours_travailles / totalTheorique) * 100).toFixed(2)
+      : 0;
+
+    res.json({
+      periode: { startDate, endDate },
+      indicateurs: {
+        totalEmployes: emp.total_employes,
+        totalJoursTravailles: worked.total_jours_travailles,
+        totalAbsences: abs.total_absences,
+        totalRetards: late.total_retards,
+        tauxPresenceGlobal: `${tauxPresence}%`
+      },
+      absencesParDepartement: absByDept
+    });
+
+  } catch (err) {
+    console.error("Erreur rapport RH global :", err);
+    res.status(500).json({
+      message: "Erreur serveur rapport RH"
+    });
+  }
+};
 
 exports.getPresenceById = (req, res) => {
     const { id_utilisateur } = req.query;
@@ -589,134 +724,212 @@ exports.postPresence = async (req, res) => {
     const {
       id_utilisateur,
       date_presence,
-      datetime, // pour biométrie
-      source,
-      device_sn
+      datetime,          // biométrie
+      source = 'TERMINAL',
+      device_sn,
+      terminal_id
     } = req.body;
 
     if (!id_utilisateur || !date_presence) {
-      return res.status(400).json({
-        message: "Champs obligatoires manquants"
-      });
+      return res.status(400).json({ message: "Champs obligatoires manquants" });
     }
 
-    // 1️⃣ Normaliser la date et l'heure du pointage
     const dateISO = moment(date_presence).format("YYYY-MM-DD");
+
     const heurePointage = datetime
       ? moment(datetime)
-      : moment(); // moment object
+      : moment(`${dateISO} ${moment().format("HH:mm:ss")}`, "YYYY-MM-DD HH:mm:ss");
 
-    // Heure de début de travail
-    const debutTravail = moment(`${dateISO} 08:00:00`, "YYYY-MM-DD HH:mm:ss");
+    /* =========================================================
+       1️⃣ Vérifier terminal (ATTENDANCE seulement)
+    ========================================================= */
+    if (terminal_id) {
+      const terminal = await query(
+        `SELECT usage_mode, is_enabled 
+         FROM terminals 
+         WHERE id_terminal = ?`,
+        [terminal_id]
+      );
 
-    // 2️⃣ Vérifier jour non travaillé
-    const jourFR = jourSemaineFR(date_presence); // ex: "lundi"
+      if (!terminal.length || !terminal[0].is_enabled) {
+        return res.status(403).json({ message: "Terminal désactivé ou inconnu" });
+      }
+
+      if (!['ATTENDANCE', 'BOTH'].includes(terminal[0].usage_mode)) {
+        return res.status(403).json({
+          message: "Ce terminal n'est pas autorisé pour le pointage RH"
+        });
+      }
+    }
+
+    /* =========================================================
+       2️⃣ Jour non travaillé / jour férié
+    ========================================================= */
+    const jourFR = jourSemaineFR(date_presence);
+
     const nonTravaille = await query(
       `SELECT 1 FROM jours_non_travailles WHERE jour_semaine = ?`,
       [jourFR]
     );
-    if (nonTravaille.length > 0) {
+    if (nonTravaille.length) {
       return res.status(403).json({
-        message: `Pointage interdit : ${jourFR} est un jour non travaillé`
+        message: `Pointage interdit : ${jourFR} est non travaillé`
       });
     }
 
-    // 3️⃣ Vérifier jour férié
     const ferie = await query(
       `SELECT 1 FROM jours_feries WHERE date_ferie = ?`,
       [dateISO]
     );
-    if (ferie.length > 0) {
+    if (ferie.length) {
       return res.status(403).json({
         message: "Pointage interdit : jour férié"
       });
     }
 
-    // 4️⃣ Vérifier présence existante
+    /* =========================================================
+       3️⃣ Absence validée (maladie, congé, mission…)
+    ========================================================= */
+    const absence = await query(
+      `SELECT a.id_absence, t.code
+       FROM absences a
+       JOIN absence_types t ON t.id_absence_type = a.id_absence_type
+       WHERE a.id_utilisateur = ?
+         AND a.statut = 'VALIDEE'
+         AND ? BETWEEN a.date_debut AND a.date_fin`,
+      [id_utilisateur, dateISO]
+    );
+
+    if (absence.length) {
+      return res.status(403).json({
+        message: `Pointage interdit : absence validée (${absence[0].code})`
+      });
+    }
+
+    /* =========================================================
+       4️⃣ Présence existante + verrouillage RH
+    ========================================================= */
     const presence = await query(
-      `SELECT id_presence, heure_entree, heure_sortie
+      `SELECT id_presence, heure_entree, heure_sortie, is_locked
        FROM presences
-       WHERE id_utilisateur = ? AND date_presence = ?
+       WHERE id_utilisateur = ?
+         AND date_presence = ?
        LIMIT 1`,
       [id_utilisateur, dateISO]
     );
 
-    // 5️⃣ Calcul retard et heures supplémentaires
+    if (presence.length && presence[0].is_locked) {
+      return res.status(403).json({
+        message: "Présence verrouillée (clôture RH / paie)"
+      });
+    }
+
+    /* =========================================================
+       5️⃣ Paramètres horaires
+    ========================================================= */
+    const debutTravail = moment(`${dateISO} 08:00:00`);
+    const finTravail   = moment(`${dateISO} 16:00:00`);
+
     let retard_minutes = 0;
     let heures_supplementaires = 0;
 
-    if (presence.length === 0) {
-      // ENTRÉE
-      // Retard si pointage après 08:00
+    /* =========================================================
+       6️⃣ ENTRÉE
+    ========================================================= */
+    if (!presence.length) {
       if (heurePointage.isAfter(debutTravail)) {
         retard_minutes = heurePointage.diff(debutTravail, "minutes");
       }
 
-      await query(
+      const [result] = await query(
         `INSERT INTO presences (
           id_utilisateur,
+          site_id,
           date_presence,
           heure_entree,
-          source,
-          device_sn,
+          retard_minutes,
           heures_supplementaires,
-          retard_minutes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          source,
+          terminal_id,
+          device_sn
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id_utilisateur,
+          req.user.site_id ?? null,
           dateISO,
           heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          retard_minutes,
+          0,
           source,
-          device_sn || null,
-          heures_supplementaires,
-          retard_minutes
+          terminal_id || null,
+          device_sn || null
         ]
       );
 
+      // 🔍 AUDIT (hook)
+      // auditLog(req.user.id, 'CREATE', 'PRESENCE', result.insertId)
+
       return res.status(201).json({
         message: "Entrée enregistrée",
-        retard_minutes,
-        heures_supplementaires
+        retard_minutes
       });
     }
 
-    // SORTIE
+    /* =========================================================
+       7️⃣ SORTIE
+    ========================================================= */
     if (presence[0].heure_sortie === null) {
-      const heureSortie = heurePointage;
 
-      // Heures supplémentaires si sortie après 16:00
-      const finTravail = moment(`${dateISO} 16:00:00`, "YYYY-MM-DD HH:mm:ss");
-      if (heureSortie.isAfter(finTravail)) {
-        heures_supplementaires = heureSortie.diff(finTravail, "hours", true); // en heures décimales
+      // Autorisation de sortie validée ?
+      const autorisation = await query(
+        `SELECT 1 FROM attendance_adjustments
+         WHERE id_presence = ?
+           AND type = 'AUTORISATION_SORTIE'
+           AND statut = 'VALIDE'`,
+        [presence[0].id_presence]
+      );
+
+      if (heurePointage.isBefore(finTravail) && !autorisation.length) {
+        return res.status(403).json({
+          message: "Sortie anticipée non autorisée"
+        });
+      }
+
+      if (heurePointage.isAfter(finTravail)) {
+        heures_supplementaires =
+          heurePointage.diff(finTravail, "minutes") / 60;
       }
 
       await query(
         `UPDATE presences
-         SET heure_sortie = ?, heures_supplementaires = ?, retard_minutes = ?
+         SET heure_sortie = ?, heures_supplementaires = ?
          WHERE id_presence = ?`,
         [
-          heureSortie.format("YYYY-MM-DD HH:mm:ss"),
+          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
           heures_supplementaires,
-          presence[0].retard_minutes || 0, // conserver le retard calculé à l'entrée
           presence[0].id_presence
         ]
       );
 
+      // 🔍 AUDIT
+      // auditLog(req.user.id, 'UPDATE', 'PRESENCE', presence[0].id_presence)
+
       return res.status(200).json({
         message: "Sortie enregistrée",
-        retard_minutes: presence[0].retard_minutes || 0,
         heures_supplementaires
       });
     }
 
-    // Déjà pointé entrée & sortie
+    /* =========================================================
+       8️⃣ Déjà complet
+    ========================================================= */
     return res.status(409).json({
       message: "Présence déjà complète pour cette date"
     });
 
   } catch (error) {
     console.error("Erreur postPresence :", error);
-    res.status(500).json({
+    return res.status(500).json({
       message: "Erreur interne du serveur"
     });
   }

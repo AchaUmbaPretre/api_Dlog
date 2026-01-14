@@ -3,6 +3,8 @@ const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
+const util = require("util");
+const query = util.promisify(db.query).bind(db);
 
 dotenv.config();
 
@@ -45,7 +47,7 @@ exports.registerController = async (req, res) => {
     }
   };
   
-exports.loginController = async (req, res) => {
+/* exports.loginController = async (req, res) => {
     const { username, password } = req.body;
   
     try {
@@ -87,8 +89,82 @@ exports.loginController = async (req, res) => {
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
-  };
+  }; */
   
+exports.loginController = async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ message: 'Email et mot de passe requis', success: false });
+  }
+
+  try {
+    // 1️⃣ Récupérer utilisateur
+    const users = await query('SELECT * FROM utilisateur WHERE email = ?', [username]);
+    if (users.length === 0) {
+      return res.status(200).json({ message: 'Utilisateur non trouvé', success: false });
+    }
+
+    const user = users[0];
+
+    // 2️⃣ Vérifier mot de passe
+    const passwordMatch = await bcrypt.compare(password, user.mot_de_passe);
+    if (!passwordMatch) {
+      return res.status(200).json({ message: 'Email ou mot de passe invalide', success: false });
+    }
+
+    // 3️⃣ Récupérer permissions dynamiques
+    const rolePerms = await query(
+      'SELECT permission FROM roles_permissions WHERE role = ?',
+      [user.role]
+    );
+    const permissions = rolePerms.map(rp => rp.permission);
+
+    // 4️⃣ Récupérer scopes sites
+    const userSites = await query(
+      'SELECT site_id FROM user_sites WHERE user_id = ?',
+      [user.id_utilisateur]
+    );
+    const scope_sites = userSites.map(s => s.site_id);
+
+    // 5️⃣ Récupérer scopes départements
+    const userDepartments = await query(
+      'SELECT id_departement FROM user_departements WHERE id_user = ? AND can_view = 1',
+      [user.id_utilisateur]
+    );
+    const scope_departments = userDepartments.map(d => d.id_departement);
+
+    // 6️⃣ Préparer payload JWT
+    const payload = {
+      id: user.id_utilisateur,
+      role: user.role,
+      permissions,
+      scope_sites,
+      scope_departments
+    };
+
+    const accessToken = jwt.sign(payload, process.env.JWT, { expiresIn: '3d' });
+
+    // 7️⃣ Retourner l’utilisateur sans mot de passe
+    const { mot_de_passe, ...userWithoutPassword } = user;
+
+    return res.status(200).json({
+      message: 'Connexion réussie',
+      success: true,
+      ...userWithoutPassword,
+      permissions,
+      scope_sites,
+      scope_departments,
+      accessToken
+    });
+
+  } catch (error) {
+    console.error('Erreur loginController :', error);
+    return res.status(500).json({ message: 'Erreur interne du serveur' });
+  }
+};
+
+
 exports.logout = (req, res) => {
     res.clearCookie('access_token', {
       sameSite: 'None',
