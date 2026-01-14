@@ -838,15 +838,18 @@ exports.getSitesUser = async (req, res) => {
 
     try {
         const query = `SELECT 
-                        *
-                        FROM 
-                          user_sites`;
+                          us.id, s.nom_site, 
+                          s.CodeSite, u.nom, 
+                          u.prenom, u.email 
+                        FROM user_sites us
+                          LEFT JOIN sites s ON us.site_id = s.id_site
+                          LEFT JOIN utilisateur u ON us.user_id = u.id_utilisateur;`;
     
         const typeTache = await queryAsync(query);
         
         return res.status(200).json({
-            message: 'Liste des sites récupérées avec succès',
-            data: typeTache,
+          message: 'Liste des sites récupérées avec succès',
+          data: typeTache,
         });
     } catch (error) {
         console.error('Erreur lors de la récupération des sites:', error);
