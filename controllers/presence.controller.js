@@ -292,8 +292,6 @@ exports.getPresencePlanning = async (req, res) => {
   }
 };
 
-
-
 exports.getMonthlyPresenceReport = async (req, res) => {
   try {
     const { month, year } = req.query;
