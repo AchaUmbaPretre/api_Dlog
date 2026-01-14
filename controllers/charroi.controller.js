@@ -857,7 +857,26 @@ exports.getSitesUser = async (req, res) => {
 };
 
 exports.postSitesUser = async(req, res) => {
-  
+    try {
+      const { user_id, site_id } = req.body;
+
+      const q = `INSERT INTO user_sites (user_id, site_id)`;
+
+      const values = [
+        user_id, 
+        site_id
+      ] 
+
+      db.query(q, [values], (error, data) => {
+        if(error) {
+          console.log(error)
+        }
+        return res.status(200).json(data)
+      })
+
+    } catch (error) {
+      console.error('Erreur lors de l’ajout :', error);
+    }
 }
 
 //Zone

@@ -75,6 +75,7 @@ router.post('/site', charroiController.postSites)
 
 //site affectation
 router.get('/site_user', charroiController.getSitesUser)
+router.post('/site_user', charroiController.postSitesUser)
 
 
 //Zones
