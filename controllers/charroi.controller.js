@@ -856,28 +856,46 @@ exports.getSitesUser = async (req, res) => {
     }
 };
 
-exports.postSitesUser = async(req, res) => {
-    try {
-      const { user_id, site_id } = req.body;
+exports.postSitesUser = async (req, res) => {
+  try {
+    const { id_site, user_ids } = req.body;
 
-      const q = `INSERT INTO user_sites (user_id, site_id)`;
-
-      const values = [
-        user_id, 
-        site_id
-      ] 
-
-      db.query(q, [values], (error, data) => {
-        if(error) {
-          console.log(error)
-        }
-        return res.status(200).json(data)
-      })
-
-    } catch (error) {
-      console.error('Erreur lors de l’ajout :', error);
+    if (!id_site || !Array.isArray(user_ids) || user_ids.length === 0) {
+      return res.status(400).json({
+        message: "Données invalides (site ou utilisateurs manquants)"
+      });
     }
-}
+
+    // Préparer insertion multiple
+    const values = user_ids.map(userId => [userId, id_site]);
+
+    const q = `
+      INSERT INTO user_sites (user_id, site_id)
+      VALUES ?
+    `;
+
+    db.query(q, [values], (error, result) => {
+      if (error) {
+        console.error("Erreur SQL :", error);
+        return res.status(500).json({
+          message: "Erreur lors de l’affectation des utilisateurs"
+        });
+      }
+
+      return res.status(201).json({
+        message: "Utilisateurs affectés au site avec succès",
+        inserted: result.affectedRows
+      });
+    });
+
+  } catch (error) {
+    console.error("Erreur serveur :", error);
+    return res.status(500).json({
+      message: "Erreur interne du serveur"
+    });
+  }
+};
+
 
 //Zone
 exports.getZones = (req, res) => {
