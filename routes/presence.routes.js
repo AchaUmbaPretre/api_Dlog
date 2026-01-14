@@ -12,7 +12,10 @@ router.post('/', presence.postPresence)
 
 //Congé
 router.get('/conge', presence.getConge);
-router.post('/conge', presence.postConge)
+router.post('/conge', presence.postConge);
 
+//Absence
+router.get('/absence', presence.getAbsence);
+router.post('/absence', presence.postAbsence);
 
 module.exports = router;
