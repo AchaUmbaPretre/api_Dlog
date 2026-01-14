@@ -164,7 +164,6 @@ exports.loginController = async (req, res) => {
   }
 };
 
-
 exports.logout = (req, res) => {
     res.clearCookie('access_token', {
       sameSite: 'None',
