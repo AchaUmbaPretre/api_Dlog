@@ -152,7 +152,15 @@ exports.getPresencePlanning = async (req, res) => {
   try {
     const { month, year } = req.query;
     const { role, scope_sites = [], scope_departments = [] } = req.query;
-    const user_id = req.user?.id_utilisateur; // récupéré depuis middleware auth
+
+    // 🔹 Récupérer user_id depuis query si Owner
+    let user_id = null;
+    if (role === 'Owner') {
+      if (!req.query.user_id) {
+        return res.status(400).json({ message: "Owner doit fournir son user_id dans la query" });
+      }
+      user_id = parseInt(req.query.user_id, 10);
+    }
 
     if (!month || !year) {
       return res.status(400).json({ message: "Paramètres month et year requis" });
@@ -163,7 +171,7 @@ exports.getPresencePlanning = async (req, res) => {
     const lastDay = new Date(year, month, 0).getDate();
     const fin = `${year}-${monthPadded}-${String(lastDay).padStart(2, "0")}`;
 
-    // 🔹 1️⃣ Récupération des utilisateurs selon rôle/ABAC
+    // 🔹 1️⃣ Récupération des utilisateurs selon rôle / ABAC
     let usersQuery = `SELECT id_utilisateur, nom, id_departement FROM utilisateur WHERE 1=1`;
     const usersValues = [];
 
@@ -221,7 +229,7 @@ exports.getPresencePlanning = async (req, res) => {
         AND date_fin >= ?
     `, [fin, debut]);
 
-    // 🔹 6️⃣ Mapping des présences et congés
+    // 🔹 6️⃣ Mapping présences et congés
     const presMapByUserDate = {};
     presences.forEach(p => {
       presMapByUserDate[`${p.id_utilisateur}_${formatDate(p.date_presence)}`] = {
@@ -283,6 +291,7 @@ exports.getPresencePlanning = async (req, res) => {
     res.status(500).json({ message: "Erreur serveur planning" });
   }
 };
+
 
 
 exports.getMonthlyPresenceReport = async (req, res) => {
@@ -729,7 +738,7 @@ exports.postPresence = async (req, res) => {
       permissions = []
     } = req.body;
 
-    // 0️⃣ Vérification RBAC via middleware
+    // 0️⃣ Vérification RBAC
     if (!permissions.includes("attendance.events.correct")) {
       return res.status(403).json({ message: "Permission refusée" });
     }
@@ -755,16 +764,16 @@ exports.postPresence = async (req, res) => {
         [terminal_id]
       );
 
-      if (!terminals.length || !terminals[0].is_enabled) {
+      if (!Array.isArray(terminals) || terminals.length === 0 || !terminals[0].is_enabled) {
         return res.status(403).json({ message: "Terminal désactivé ou inconnu" });
       }
+
       terminal = terminals[0];
 
       if (!['ATTENDANCE', 'BOTH'].includes(terminal.usage_mode)) {
         return res.status(403).json({ message: "Terminal non autorisé pour pointage RH" });
       }
 
-      // Vérification ABAC : scope_sites
       if (!req.abac.scope_sites.includes(terminal.site_id)) {
         return res.status(403).json({ message: "Vous n'avez pas accès à ce site" });
       }
@@ -774,23 +783,24 @@ exports.postPresence = async (req, res) => {
        2️⃣ Vérifier jour férié ou non travaillé
     ========================================================= */
     const jourFR = jourSemaineFR(date_presence);
-    const [nonTravaille] = await query(
+
+    const nonTravailleRows = await query(
       `SELECT 1 FROM jours_non_travailles WHERE jour_semaine = ?`,
       [jourFR]
     );
-    if (nonTravaille) {
+    if (Array.isArray(nonTravailleRows) && nonTravailleRows.length > 0) {
       return res.status(403).json({ message: `Pointage interdit : ${jourFR} non travaillé` });
     }
 
-    const [ferie] = await query(
+    const ferieRows = await query(
       `SELECT 1 FROM jours_feries WHERE date_ferie = ?`,
       [dateISO]
     );
-    if (ferie) {
+    if (Array.isArray(ferieRows) && ferieRows.length > 0) {
       return res.status(403).json({ message: "Pointage interdit : jour férié" });
     }
 
-    const absence = await query(
+    const absenceRows = await query(
       `SELECT a.id_absence, t.code
        FROM absences a
        JOIN absence_types t ON t.id_absence_type = a.id_absence_type
@@ -799,13 +809,13 @@ exports.postPresence = async (req, res) => {
          AND ? BETWEEN a.date_debut AND a.date_fin`,
       [id_utilisateur, dateISO]
     );
-    if (absence.length) {
+    if (Array.isArray(absenceRows) && absenceRows.length > 0) {
       return res.status(403).json({
-        message: `Pointage interdit : absence validée (${absence[0].code})`
+        message: `Pointage interdit : absence validée (${absenceRows[0].code})`
       });
     }
 
-    const presenceList = await query(
+    const presenceRows = await query(
       `SELECT id_presence, heure_entree, heure_sortie, is_locked
        FROM presences
        WHERE id_utilisateur = ? AND date_presence = ?
@@ -813,7 +823,8 @@ exports.postPresence = async (req, res) => {
       [id_utilisateur, dateISO]
     );
 
-    const presence = presenceList[0];
+    const presence = Array.isArray(presenceRows) && presenceRows.length > 0 ? presenceRows[0] : null;
+
     if (presence?.is_locked) {
       return res.status(403).json({ message: "Présence verrouillée" });
     }
@@ -823,12 +834,15 @@ exports.postPresence = async (req, res) => {
     let retard_minutes = 0;
     let heures_supplementaires = 0;
 
+    /* =========================================================
+       3️⃣ Entrée
+    ========================================================= */
     if (!presence) {
       if (heurePointage.isAfter(debutTravail)) {
         retard_minutes = heurePointage.diff(debutTravail, "minutes");
       }
 
-      const [result] = await query(
+      const result = await query(
         `INSERT INTO presences (
           id_utilisateur, site_id, date_presence, heure_entree,
           retard_minutes, heures_supplementaires, source,
@@ -851,16 +865,18 @@ exports.postPresence = async (req, res) => {
     }
 
     /* =========================================================
-       7️⃣ SORTIE
+       4️⃣ Sortie
     ========================================================= */
     if (!presence.heure_sortie) {
-      const autorisation = await query(
+      const autorisationRows = await query(
         `SELECT 1 FROM attendance_adjustments
          WHERE id_presence = ? AND type = 'AUTORISATION_SORTIE' AND statut = 'VALIDE'`,
         [presence.id_presence]
       );
 
-      if (heurePointage.isBefore(finTravail) && !autorisation.length) {
+      const autorisation = Array.isArray(autorisationRows) && autorisationRows.length > 0;
+
+      if (heurePointage.isBefore(finTravail) && !autorisation) {
         return res.status(403).json({ message: "Sortie anticipée non autorisée" });
       }
 
@@ -879,7 +895,7 @@ exports.postPresence = async (req, res) => {
     }
 
     /* =========================================================
-       8️⃣ Déjà complet
+       5️⃣ Déjà complet
     ========================================================= */
     return res.status(409).json({ message: "Présence déjà complète pour cette date" });
 
@@ -888,6 +904,7 @@ exports.postPresence = async (req, res) => {
     return res.status(500).json({ message: "Erreur interne du serveur" });
   }
 };
+
 
 
 exports.postPresenceBiometrique = async (req, res) => {
