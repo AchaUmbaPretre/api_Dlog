@@ -73,6 +73,10 @@ router.post('/affectation', charroiController.postAffectation)
 router.get('/site', charroiController.getSites)
 router.post('/site', charroiController.postSites)
 
+//site affectation
+router.get('/site_user', charroiController.getSitesUser)
+
+
 //Zones
 router.get('/zone', charroiController.getZones)
 
