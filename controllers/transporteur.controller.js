@@ -540,51 +540,6 @@ exports.getTransporteur = (req, res) => {
     });
 };
 
-/* exports.getTrajet = (req, res) => {
-    const q = `SELECT 
-                    t.id_trajet,
-                    CONCAT(l.nom, ' → ', l2.nom) AS depart_destination,
-                
-                    CONCAT(
-                        GROUP_CONCAT(ld.nom ORDER BY s.ordre SEPARATOR ' → '),
-                        ' → ',
-                        (
-                        SELECT lz.nom
-                        FROM segment_trajet st
-                        JOIN localisation lz ON lz.id_localisation = st.id_destination
-                        WHERE st.id_trajet = t.id_trajet
-                        ORDER BY st.ordre DESC
-                        LIMIT 1
-                        )
-                    ) AS itineraire_complet,
-                    MIN(s.date_depart) AS date_depart,
-                    MAX(s.date_arrivee) AS date_arrivee,
-                    SUM(s.distance_km) AS distance,
-                    SUM(s.prix) AS total,
-
-                    GROUP_CONCAT(DISTINCT mt.nom_mode ORDER BY mt.nom_mode SEPARATOR ', ') AS modes_transport,
-                    
-                    DATEDIFF(MAX(s.date_arrivee), MIN(s.date_depart)) + 1 AS duree_jours
-
-                FROM trajets t
-
-                    JOIN segment_trajet s ON t.id_trajet = s.id_trajet
-                    JOIN localisation l ON t.id_depart = l.id_localisation
-                    JOIN localisation l2 ON t.id_arrive = l2.id_localisation
-                    JOIN localisation ld ON ld.id_localisation = s.id_depart
-                    JOIN mode_transport mt ON s.mode_transport = mt.id_mode_transport
-
-                    GROUP BY t.id_trajet, l.nom, l2.nom;
-                `;
-
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    });
-}; */
-
 exports.getTrajet = (req, res) => {
     const q = `SELECT 
                     t.id_trajet,  
