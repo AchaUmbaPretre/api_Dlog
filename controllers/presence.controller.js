@@ -903,8 +903,6 @@ exports.postPresence = async (req, res) => {
   }
 };
 
-
-
 exports.postPresenceBiometrique = async (req, res) => {
   try {
     const { id_utilisateur, datetime, device_sn } = req.body;
