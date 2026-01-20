@@ -1019,18 +1019,24 @@ exports.postConge = (req, res) => {
 exports.getAbsence = (req, res) => {
   const q = `
     SELECT 
-      a.id_absence,
-      a.date_debut,
-      a.date_fin,
-      a.commentaire,
-      a.statut,
-      a.created_at,
-      u.nom AS utilisateur,
-      t.libelle AS type_absence
+        a.id_absence,
+        a.date_debut,
+        a.date_fin,
+        a.commentaire,
+        a.statut,
+        a.created_at,
+        u.nom AS utilisateur,
+        u2.nom AS created_name,
+        u2.prenom AS created_lastname,
+        t.libelle AS type_absence
     FROM absences a
-    JOIN utilisateur u ON u.id_utilisateur = a.id_utilisateur
-    JOIN absence_types t ON t.id_absence_type = a.id_absence_type
-    ORDER BY a.created_at DESC
+    JOIN utilisateur u 
+        ON u.id_utilisateur = a.id_utilisateur
+    JOIN utilisateur u2 
+        ON u2.id_utilisateur = a.created_by
+    JOIN absence_types t 
+        ON t.id_absence_type = a.id_absence_type
+    ORDER BY a.created_at DESC;
   `;  
 
   db.query(q, (error, data) => {
@@ -1134,4 +1140,3 @@ exports.postAbsence = (req, res) => {
     });
   }
 };
-
