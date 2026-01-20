@@ -966,7 +966,7 @@ exports.getConge = (req, res) => {
         u2.prenom AS created_lastname
     FROM conges c
     JOIN utilisateur u ON c.id_utilisateur = u.id_utilisateur
-    JOIN utilisateur u2 ON c.created_by = u2.id_utilisateur`;
+    LEFT JOIN utilisateur u2 ON c.created_by = u2.id_utilisateur`;
     db.query(q, (error, data) => {
         if(error) {
             return res.status(500).json({
