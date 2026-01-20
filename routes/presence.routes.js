@@ -16,6 +16,7 @@ router.post('/conge', presence.postConge);
 
 //Absence
 router.get('/absence', presence.getAbsence);
+router.get('/absence_type', presence.getAbsenceType);
 router.post('/absence', presence.postAbsence);
 
 module.exports = router;

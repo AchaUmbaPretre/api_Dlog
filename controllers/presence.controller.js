@@ -1017,67 +1017,121 @@ exports.postConge = (req, res) => {
 
 //Absence
 exports.getAbsence = (req, res) => {
+  const q = `
+    SELECT 
+      a.id_absence,
+      a.date_debut,
+      a.date_fin,
+      a.commentaire,
+      a.statut,
+      a.created_at,
+      u.nom AS utilisateur,
+      t.libelle AS type_absence
+    FROM absences a
+    JOIN utilisateur u ON u.id_utilisateur = a.id_utilisateur
+    JOIN absence_types t ON t.id_absence_type = a.id_absence_type
+    ORDER BY a.created_at DESC
+  `;  
 
-    const q = `SELECT * FROM absences`;
-    db.query(q, (error, data) => {
-        if(error) {
-            return res.status(500).json({
-                message: 'Erreur lors de la récuperations des absences.',
-                error
-            })
-        }
-        return res.status(200).json(data);
-    });
+  db.query(q, (error, data) => {
+    if (error) {
+      console.error(error);
+      return res.status(500).json({
+        message: "Erreur lors de la récupération des absences"
+      });
+    }
+    return res.status(200).json(data);
+  });
+};
+
+exports.getAbsenceType = (req, res) => {
+  const q = `
+    SELECT 
+      *
+    FROM absence_types
+  `;
+
+  db.query(q, (error, data) => {
+    if (error) {
+      console.error(error);
+      return res.status(500).json({
+        message: "Erreur lors de la récupération des absences"
+      });
+    }
+    return res.status(200).json(data);
+  });
 };
 
 exports.postAbsence = (req, res) => {
-    try {
-        const {
-            id_utilisateur,
-            date_debut,
-            date_fin,
-            type_conge,
-            statut,
-            commentaire
-        } = req.body;
+  try {
+    const {
+      id_utilisateur,
+      id_absence_type,
+      date_debut,
+      date_fin,
+      commentaire,
+      created_by
+    } = req.body;
 
-        if(!id_utilisateur || !date_debut || !date_fin ) {
-            return res.status(400).json({
-                message: "Veuillez remplir tous les champs obligatoires"
-            })
-        }
-
-        const values = [
-            id_utilisateur,
-            date_debut,
-            date_fin,
-            type_conge,
-            statut,
-            commentaire
-        ];
-
-        const q = `INSERT INTO absences (
-                        id_utilisateur, date_debut, 
-                        date_fin, type_conge, statut, 
-                        commentaire
-                    )
-                    VALUES (?,?,?,?,?,?)`;
-
-                db.query(q, values, (error) => {
-                    if(error) {
-                        console.error(error)
-                        return res.status(500).json({ message: "Erreur serveur lors de l'ajout de congé"})
-                    }
-
-                    res.status(201).json({
-                        message: "Congé a été ajoutée avec succès."
-                    });
-                })
-
-    } catch (error) {
-        console.error("Erreur lors de l'ajout :", error);
-        return res.status(500).json({
-            message: "Une erreur interne s'est produite."
-        });
+    if (
+      !id_utilisateur ||
+      !id_absence_type ||
+      !date_debut ||
+      !date_fin ||
+      !created_by
+    ) {
+      return res.status(400).json({
+        message: "Champs obligatoires manquants"
+      });
     }
-}
+
+    if (new Date(date_fin) < new Date(date_debut)) {
+      return res.status(400).json({
+        message: "La date de fin doit être supérieure à la date de début"
+      });
+    }
+
+    const q = `
+      INSERT INTO absences (
+        id_utilisateur,
+        id_absence_type,
+        date_debut,
+        date_fin,
+        commentaire,
+        statut,
+        created_by
+      )
+      VALUES (?, ?, ?, ?, ?, 'PROPOSEE', ?)
+    `;
+
+    const values = [
+      id_utilisateur,
+      id_absence_type,
+      date_debut,
+      date_fin,
+      commentaire || null,
+      created_by
+    ];
+
+    db.query(q, values, (error, result) => {
+      if (error) {
+        console.error(error);
+        return res.status(500).json({
+          message: "Erreur serveur lors de l'ajout de l'absence"
+        });
+      }
+
+      return res.status(201).json({
+        message: "Absence créée avec succès",
+        id_absence: result.insertId
+      });
+    });
+
+  } catch (error) {
+    console.error("Erreur interne :", error);
+    return res.status(500).json({
+      message: "Erreur interne du serveur"
+    });
+  }
+};
+
