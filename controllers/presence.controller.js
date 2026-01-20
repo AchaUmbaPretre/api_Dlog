@@ -951,7 +951,22 @@ exports.postPresenceBiometrique = async (req, res) => {
 //Congé
 exports.getConge = (req, res) => {
 
-    const q = `SELECT * FROM conges`;
+    const q = `
+    SELECT 
+		c.id_conge,
+		c.id_utilisateur,
+        c.date_debut,
+        c.date_fin,
+        c.type_conge,
+        c.statut,
+        c.commentaire,
+        u.nom AS agent_name,
+        u.prenom AS agent_lastname,
+        u2.nom AS created_name,
+        u2.prenom AS created_lastname
+    FROM conges c
+    JOIN utilisateur u ON c.id_utilisateur = u.id_utilisateur
+    JOIN utilisateur u2 ON c.created_by = u2.id_utilisateur`;
     db.query(q, (error, data) => {
         if(error) {
             return res.status(500).json({
