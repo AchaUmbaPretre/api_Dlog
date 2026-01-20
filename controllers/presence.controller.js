@@ -950,11 +950,10 @@ exports.postPresenceBiometrique = async (req, res) => {
 
 //Congé
 exports.getConge = (req, res) => {
-
     const q = `
     SELECT 
-		c.id_conge,
-		c.id_utilisateur,
+        c.id_conge,
+        c.id_utilisateur,
         c.date_debut,
         c.date_fin,
         c.type_conge,
@@ -963,20 +962,25 @@ exports.getConge = (req, res) => {
         u.nom AS agent_name,
         u.prenom AS agent_lastname,
         u2.nom AS created_name,
-        u2.prenom AS created_lastname
+        u2.prenom AS created_lastname,
+        u3.nom AS validated_name,
+        u3.prenom AS validated_lastname
     FROM conges c
     JOIN utilisateur u ON c.id_utilisateur = u.id_utilisateur
-    LEFT JOIN utilisateur u2 ON c.created_by = u2.id_utilisateur`;
+    LEFT JOIN utilisateur u2 ON c.created_by = u2.id_utilisateur
+    LEFT JOIN utilisateur u3 ON c.validated_by = u3.id_utilisateur
+    `;
     db.query(q, (error, data) => {
         if(error) {
             return res.status(500).json({
-                message: 'Erreur lors de la récuperations des conges.',
+                message: 'Erreur lors de la récupération des congés.',
                 error
             })
         }
         return res.status(200).json(data);
     });
 };
+
 
 exports.postConge = (req, res) => {
     try {
@@ -1030,6 +1034,35 @@ exports.postConge = (req, res) => {
     }
 }
 
+exports.validateConge = async (req, res) => {
+  try {
+    const { id_conge, statut, validated_by } = req.body;
+
+    if (!id_conge || !statut) {
+      return res.status(400).json({ message: 'ID du congé et statut obligatoires.' });
+    }
+
+    if (!['VALIDE', 'REFUSE'].includes(statut)) {
+      return res.status(400).json({ message: 'Statut invalide.' });
+    }
+
+    const validated_at = new Date();
+
+    const sql = `
+      UPDATE conges
+      SET statut = ?, validated_by = ?, validated_at = ?
+      WHERE id_conge = ?
+    `;
+
+    await query(sql, [statut, validated_by, validated_at, id_conge]);
+
+    return res.status(200).json({ message: `Congé ${statut === 'VALIDE' ? 'validé' : 'refusé'} avec succès.` });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Erreur serveur lors de la validation du congé.' });
+  }
+};
+
 //Absence
 exports.getAbsence = (req, res) => {
   const q = `
@@ -1041,6 +1074,7 @@ exports.getAbsence = (req, res) => {
         a.statut,
         a.created_at,
         u.nom AS utilisateur,
+        u.prenom AS utilisateur_lastname,
         u2.nom AS created_name,
         u2.prenom AS created_lastname,
         t.libelle AS type_absence

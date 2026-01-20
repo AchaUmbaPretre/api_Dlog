@@ -13,6 +13,7 @@ router.post('/', presence.postPresence)
 //Congé
 router.get('/conge', presence.getConge);
 router.post('/conge', presence.postConge);
+router.put('/validation_conge', presence.validateConge);
 
 //Absence
 router.get('/absence', presence.getAbsence);
