@@ -10,6 +10,8 @@ router.get('/hrglobal', presence.getHRGlobalReport);
 router.get('/presenceById', presence.getPresenceById);
 router.post('/', presence.postPresence)
 
+router.post("/attendance-adjustments", presence.postAttendanceAdjustment);
+
 //Congé
 router.get('/conge', presence.getConge);
 router.post('/conge', presence.postConge);
