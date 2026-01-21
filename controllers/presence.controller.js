@@ -1264,9 +1264,43 @@ exports.validateAttendanceAdjustment = async (req, res) => {
             FOR UPDATE`,
             [id_adjustment]
         );
-        
+
+        if (!adjustment) {
+            return res.status(404).json({
+                message: "Demande introuvable",
+            });
+        }
+
+        if (adjustment.statut !== "PROPOSEE") {
+            return res.status(409).json({
+                message: "Cette demande a déjà été traitée",
+            });
+        }
+
+        await query(
+            `UPDATE attendance_adjustments
+            SET statut = ?,
+                validated_by = ?,
+                validated_at = NOW()
+            WHERE id_adjustment = ?`,
+            [decision, validated_by, id_adjustment]
+        );
+
+        await query(
+            `UPDATE attendance_adjustments
+            SET statut = ?,
+                validated_by = ?,
+                validated_at = NOW()
+            WHERE id_adjustment = ?`,
+            [decision, validated_by, id_adjustment]
+        );
+
     } catch (error) {
-        
+        console.error("Validation adjustment error:", error);
+
+        return res.status(500).json({
+        message: "Erreur serveur lors de la validation",
+        });
     }
 };
 
