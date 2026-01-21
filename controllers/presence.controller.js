@@ -517,7 +517,6 @@ exports.getPresencePlanning = async (req, res) => {
   }
 };
 
-
 exports.getMonthlyPresenceReport = async (req, res) => {
   try {
     const { month, year } = req.query;
@@ -1180,10 +1179,10 @@ exports.postAttendanceAdjustment = async (req, res) => {
       id_presence,
       type,
       nouvelle_valeur,
-      motif
+      motif,
+      created_by
     } = req.body;
 
-    const created_by = req.user.id_utilisateur;
 
     if (!id_presence || !type || !motif) {
       return res.status(400).json({ message: "Champs obligatoires manquants" });
