@@ -319,7 +319,7 @@ exports.getPresencePlanning = async (req, res) => {
 
     // 🔹 1️⃣ Utilisateurs
     let usersQuery = `
-      SELECT id_utilisateur, nom, id_departement
+      SELECT id_utilisateur, nom, prenom, id_departement
       FROM utilisateur
       WHERE 1=1
     `;
@@ -499,6 +499,7 @@ exports.getPresencePlanning = async (req, res) => {
       return {
         id_utilisateur: u.id_utilisateur,
         nom: u.nom,
+        prenom :u.prenom,
         presences: presencesByDate
       };
     });
@@ -1173,16 +1174,94 @@ exports.postPresenceBiometrique = async (req, res) => {
   }
 };
 
-exports.postAttendanceAdjustment = async (req, res) => {
+exports.getAttendanceAdjustment = async (req, res) => {
   try {
     const {
-      id_presence,
-      type,
-      nouvelle_valeur,
-      motif,
-      created_by
-    } = req.body;
+      statut,
+      month,
+      year,
+      id_utilisateur
+    } = req.query;
 
+    let where = "WHERE 1=1";
+    const values = [];
+
+    // 🔹 Filtre statut (PROPOSE | VALIDE | REJETE)
+    if (statut) {
+      where += " AND aa.statut = ?";
+      values.push(statut);
+    }
+
+    // 🔹 Filtre utilisateur
+    if (id_utilisateur) {
+      where += " AND p.id_utilisateur = ?";
+      values.push(id_utilisateur);
+    }
+
+    // 🔹 Filtre mois / année
+    if (month && year) {
+      where += " AND MONTH(p.date_presence) = ? AND YEAR(p.date_presence) = ?";
+      values.push(month, year);
+    }
+
+    const querySql = `
+      SELECT
+        aa.id_adjustment,
+        aa.type,
+        aa.ancienne_valeur,
+        aa.nouvelle_valeur,
+        aa.motif,
+        aa.statut,
+        aa.created_at,
+        aa.validated_at,
+
+        -- Présence
+        p.id_presence,
+        p.date_presence,
+        p.heure_entree,
+        p.heure_sortie,
+        p.statut_jour,
+        p.is_locked,
+
+        -- Employé
+        u.id_utilisateur,
+        u.nom AS utilisateur_nom,
+
+        -- Validateur RH
+        v.id_utilisateur AS validated_by_id,
+        v.nom AS validated_by_nom
+
+      FROM attendance_adjustments aa
+      INNER JOIN presences p ON p.id_presence = aa.id_presence
+      INNER JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
+      LEFT JOIN utilisateur v ON v.id_utilisateur = aa.validated_by
+
+      ${where}
+      ORDER BY aa.created_at DESC
+    `;
+
+    db.query(querySql, values, (error, rows) => {
+      if (error) {
+        console.error("getAttendanceAdjustments error:", error);
+        return res.status(500).json({
+          message: "Erreur lors de la récupération des ajustements",
+        });
+      }
+
+      return res.status(200).json(rows);
+    });
+
+  } catch (error) {
+    console.error("getAttendanceAdjustments exception:", error);
+    return res.status(500).json({
+      message: "Erreur serveur",
+    });
+  }
+};
+
+exports.postAttendanceAdjustment = async (req, res) => {
+  try {
+    const { id_presence, type, nouvelle_valeur, motif, created_by } = req.body;
 
     if (!id_presence || !type || !motif) {
       return res.status(400).json({ message: "Champs obligatoires manquants" });
@@ -1190,7 +1269,7 @@ exports.postAttendanceAdjustment = async (req, res) => {
 
     // 1️⃣ Vérifier existence présence
     const [presence] = await query(
-      `SELECT id_presence FROM presences WHERE id_presence = ?`,
+      `SELECT id_presence, heure_entree, heure_sortie FROM presences WHERE id_presence = ?`,
       [id_presence]
     );
 
@@ -1201,8 +1280,7 @@ exports.postAttendanceAdjustment = async (req, res) => {
     // 2️⃣ Bloquer doublon actif
     const [existing] = await query(
       `SELECT id_adjustment FROM attendance_adjustments
-       WHERE id_presence = ?
-       AND statut IN ('PROPOSE','VALIDE')`,
+       WHERE id_presence = ? AND statut IN ('PROPOSE','VALIDE')`,
       [id_presence]
     );
 
@@ -1212,51 +1290,51 @@ exports.postAttendanceAdjustment = async (req, res) => {
       });
     }
 
-    // 3️⃣ Ancienne valeur
+    // 3️⃣ Déterminer ancienne valeur
     let ancienne_valeur = null;
+    let newVal = nouvelle_valeur || null;
+
     if (type === "CORRECTION_HEURE") {
-      const [p] = await query(
-        `SELECT heure_entree FROM presences WHERE id_presence = ?`,
-        [id_presence]
-      );
-      ancienne_valeur = p?.heure_entree;
+      ancienne_valeur = presence.heure_entree ? presence.heure_entree.toISOString() : null;
+
+      if (!nouvelle_valeur) {
+        return res.status(400).json({ message: "Nouvelle valeur obligatoire pour CORRECTION_HEURE" });
+      }
+
+      // S'assurer que nouvelle_valeur est bien une string
+      if (nouvelle_valeur instanceof Date) {
+        newVal = nouvelle_valeur.toISOString();
+      } else {
+        newVal = String(nouvelle_valeur);
+      }
+    } else if (type === "RETARD_JUSTIFIE" || type === "AUTORISATION_SORTIE") {
+      // Pour ces types, nouvelle_valeur est optionnelle, mais on stocke string
+      newVal = nouvelle_valeur ? String(nouvelle_valeur) : null;
     }
 
     // 4️⃣ Insertion ajustement
     await query(
       `INSERT INTO attendance_adjustments
-      (id_presence, type, ancienne_valeur, nouvelle_valeur, motif, created_by)
-      VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        id_presence,
-        type,
-        ancienne_valeur,
-        nouvelle_valeur || null,
-        motif,
-        created_by
-      ]
+        (id_presence, type, ancienne_valeur, nouvelle_valeur, motif, created_by)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id_presence, type, ancienne_valeur, newVal, motif, created_by]
     );
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Demande d’ajustement soumise avec succès"
     });
 
   } catch (error) {
     console.error("postAttendanceAdjustment error:", error);
-    res.status(500).json({ message: "Erreur serveur" });
+    return res.status(500).json({ message: "Erreur serveur" });
   }
 };
+
 
 exports.validateAttendanceAdjustment = async (req, res) => {
 
   try {
     const { id_adjustment, validated_by, decision } = req.body;
-
-    if (!["VALIDE", "REJETE"].includes(decision)) {
-      return res.status(400).json({
-        message: "Décision invalide (VALIDE | REJETE)",
-      });
-    }
 
     // 1️⃣ Récupération + verrouillage
     const [adjustment] = await query(

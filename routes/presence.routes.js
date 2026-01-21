@@ -10,6 +10,8 @@ router.get('/hrglobal', presence.getHRGlobalReport);
 router.get('/presenceById', presence.getPresenceById);
 router.post('/', presence.postPresence)
 
+//Attendance-adjustments
+router.get('/attendance-adjustments', presence.getAttendanceAdjustment);
 router.post("/attendance-adjustments", presence.postAttendanceAdjustment);
 router.put('/validation-adjustments', presence.validateAttendanceAdjustment);
 
