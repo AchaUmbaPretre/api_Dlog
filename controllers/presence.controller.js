@@ -1540,12 +1540,15 @@ exports.getAbsence = (req, res) => {
         u.prenom AS utilisateur_lastname,
         u2.nom AS created_name,
         u2.prenom AS created_lastname,
+        u3.nom AS validated_name,
         t.libelle AS type_absence
     FROM absences a
     JOIN utilisateur u 
         ON u.id_utilisateur = a.id_utilisateur
     JOIN utilisateur u2 
         ON u2.id_utilisateur = a.created_by
+    JOIN utilisateur u3
+    	ON u3.id_utilisateur = a.validated_by
     JOIN absence_types t 
         ON t.id_absence_type = a.id_absence_type
     ORDER BY a.created_at DESC;
