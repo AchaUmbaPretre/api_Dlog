@@ -31,7 +31,6 @@ const formatDate = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-
 /* exports.getPresencePlanning = async (req, res) => {
   try {
     const { month, year } = req.query;
