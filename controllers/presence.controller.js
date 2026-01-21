@@ -1247,6 +1247,29 @@ exports.postAttendanceAdjustment = async (req, res) => {
   }
 };
 
+exports.validateAttendanceAdjustment = async (req, res) => {
+    try {
+        const { id_adjustment, validated_by, decision } = req.body;
+
+        if (!["VALIDEE", "REJETEE"].includes(decision)) {
+            return res.status(400).json({
+                message: "Décision invalide",
+            });
+        }
+
+        const [adjustment] = await query(
+            `SELECT *
+            FROM attendance_adjustments
+            WHERE id_adjustment = ?
+            FOR UPDATE`,
+            [id_adjustment]
+        );
+        
+    } catch (error) {
+        
+    }
+};
+
 
 //Congé
 exports.getConge = (req, res) => {
