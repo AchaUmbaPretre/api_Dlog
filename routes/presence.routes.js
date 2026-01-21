@@ -11,6 +11,7 @@ router.get('/presenceById', presence.getPresenceById);
 router.post('/', presence.postPresence)
 
 router.post("/attendance-adjustments", presence.postAttendanceAdjustment);
+router.put('/validation-adjustments', presence.validateAttendanceAdjustment);
 
 //Congé
 router.get('/conge', presence.getConge);

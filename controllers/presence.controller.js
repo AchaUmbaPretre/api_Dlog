@@ -1248,62 +1248,93 @@ exports.postAttendanceAdjustment = async (req, res) => {
 };
 
 exports.validateAttendanceAdjustment = async (req, res) => {
-    try {
-        const { id_adjustment, validated_by, decision } = req.body;
 
-        if (!["VALIDEE", "REJETEE"].includes(decision)) {
-            return res.status(400).json({
-                message: "Décision invalide",
-            });
-        }
+  try {
+    const { id_adjustment, validated_by, decision } = req.body;
 
-        const [adjustment] = await query(
-            `SELECT *
-            FROM attendance_adjustments
-            WHERE id_adjustment = ?
-            FOR UPDATE`,
-            [id_adjustment]
-        );
-
-        if (!adjustment) {
-            return res.status(404).json({
-                message: "Demande introuvable",
-            });
-        }
-
-        if (adjustment.statut !== "PROPOSEE") {
-            return res.status(409).json({
-                message: "Cette demande a déjà été traitée",
-            });
-        }
-
-        await query(
-            `UPDATE attendance_adjustments
-            SET statut = ?,
-                validated_by = ?,
-                validated_at = NOW()
-            WHERE id_adjustment = ?`,
-            [decision, validated_by, id_adjustment]
-        );
-
-        await query(
-            `UPDATE attendance_adjustments
-            SET statut = ?,
-                validated_by = ?,
-                validated_at = NOW()
-            WHERE id_adjustment = ?`,
-            [decision, validated_by, id_adjustment]
-        );
-
-    } catch (error) {
-        console.error("Validation adjustment error:", error);
-
-        return res.status(500).json({
-        message: "Erreur serveur lors de la validation",
-        });
+    if (!["VALIDE", "REJETE"].includes(decision)) {
+      return res.status(400).json({
+        message: "Décision invalide (VALIDE | REJETE)",
+      });
     }
-};
 
+    // 1️⃣ Récupération + verrouillage
+    const [adjustment] = await query(
+      `SELECT *
+       FROM attendance_adjustments
+       WHERE id_adjustment = ?
+       FOR UPDATE`,
+      [id_adjustment]
+    );
+
+    if (!adjustment) {
+      return res.status(404).json({ message: "Demande introuvable" });
+    }
+
+    if (adjustment.statut !== "PROPOSE") {
+      return res.status(409).json({
+        message: "Cette demande a déjà été traitée",
+      });
+    }
+
+    // 2️⃣ Mise à jour adjustment (AUDIT)
+    await query(
+      `UPDATE attendance_adjustments
+       SET statut = ?,
+           validated_by = ?,
+           validated_at = NOW()
+       WHERE id_adjustment = ?`,
+      [decision, validated_by, id_adjustment]
+    );
+
+    // 3️⃣ Appliquer l'ajustement si validé
+    if (decision === "VALIDE") {
+      // Verrouiller la présence
+      await query(
+        `UPDATE presences
+         SET is_locked = 1,
+             updated_at = NOW()
+         WHERE id_presence = ?`,
+        [adjustment.id_presence]
+      );
+
+      // Ajustement métier selon le type
+      if (adjustment.type === "RETARD_JUSTIFIE") {
+        await query(
+          `UPDATE presences
+           SET retard_minutes = 0,
+               statut_jour = 'ABSENCE_JUSTIFIEE'
+           WHERE id_presence = ?`,
+          [adjustment.id_presence]
+        );
+      }
+
+      if (adjustment.type === "CORRECTION_HEURE") {
+        await query(
+          `UPDATE presences
+           SET heure_entree = ?,
+               heure_sortie = ?
+           WHERE id_presence = ?`,
+          [
+            adjustment.nouvelle_valeur?.split("|")[0] || null,
+            adjustment.nouvelle_valeur?.split("|")[1] || null,
+            adjustment.id_presence,
+          ]
+        );
+      }
+    }
+
+    return res.status(200).json({
+      message: `Demande ${decision === "VALIDE" ? "validée" : "rejetée"} avec succès`,
+    });
+  } catch (error) {
+    console.error("Validation adjustment error:", error);
+
+    return res.status(500).json({
+      message: "Erreur serveur lors de la validation",
+    });
+  }
+};
 
 //Congé
 exports.getConge = (req, res) => {
