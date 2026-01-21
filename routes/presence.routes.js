@@ -26,4 +26,8 @@ router.get('/absence_type', presence.getAbsenceType);
 router.post('/absence', presence.postAbsence);
 router.put('/absence-validation', presence.putAbsenceValidation);
 
+//JOUR FERIE
+router.get('/jour-ferie', presence.getJourFerie);
+router.post('/jour-ferie', presence.postJourFerie);
+
 module.exports = router;

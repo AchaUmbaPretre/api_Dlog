@@ -1583,3 +1583,61 @@ exports.putAbsenceValidation = async (req, res) => {
     return res.status(500).json({ message: "Erreur serveur lors de la validation" });
   }
 };
+
+exports.getJourFerie = (req, res) => {
+  const q = `
+    SELECT 
+      *
+    FROM jours_feries
+  `;
+
+  db.query(q, (error, data) => {
+    if (error) {
+      console.error(error);
+      return res.status(500).json({
+        message: "Erreur lors de la récupération des absences"
+      });
+    }
+    return res.status(200).json(data);
+  });
+};
+
+
+exports.postJourFerie = async (req, res) => {
+  const { date_ferie, libelle, est_paye } = req.body;
+
+  if (!date_ferie || !libelle) {
+    return res.status(400).json({
+      message: 'Date et libellé sont obligatoires',
+    });
+  }
+
+  try {
+    const [exists] = await query(
+      'SELECT id_ferie FROM jours_feries WHERE date_ferie = ?',
+      [date_ferie]
+    );
+
+    if (exists.length > 0) {
+      return res.status(409).json({
+        message: 'Un jour férié existe déjà pour cette date',
+      });
+    }
+
+    await query(
+      `INSERT INTO jours_feries (date_ferie, libelle, est_paye)
+       VALUES (?, ?, ?)`,
+      [date_ferie, libelle, est_paye ?? 1]
+    );
+
+    res.status(201).json({
+      message: 'Jour férié créé avec succès',
+    });
+
+  } catch (error) {
+    console.error('createJourFerie:', error);
+    res.status(500).json({
+      message: 'Erreur serveur',
+    });
+  }
+};
