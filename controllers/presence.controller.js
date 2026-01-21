@@ -1547,7 +1547,7 @@ exports.getAbsence = (req, res) => {
         ON u.id_utilisateur = a.id_utilisateur
     JOIN utilisateur u2 
         ON u2.id_utilisateur = a.created_by
-    JOIN utilisateur u3
+    LEFT JOIN utilisateur u3
     	ON u3.id_utilisateur = a.validated_by
     JOIN absence_types t 
         ON t.id_absence_type = a.id_absence_type
