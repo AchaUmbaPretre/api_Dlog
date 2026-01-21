@@ -1602,7 +1602,6 @@ exports.getJourFerie = (req, res) => {
   });
 };
 
-
 exports.postJourFerie = async (req, res) => {
   const { date_ferie, libelle, est_paye } = req.body;
 
