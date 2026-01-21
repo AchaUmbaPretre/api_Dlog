@@ -1329,7 +1329,6 @@ exports.postAttendanceAdjustment = async (req, res) => {
   }
 };
 
-
 exports.validateAttendanceAdjustment = async (req, res) => {
 
   try {
@@ -1651,5 +1650,49 @@ exports.postAbsence = (req, res) => {
     return res.status(500).json({
       message: "Erreur interne du serveur"
     });
+  }
+};
+
+exports.putAbsenceValidation = async (req, res) => {
+  try {
+    const { id_absence, validated_by, decision } = req.body;
+
+    if (!id_absence || !validated_by || !decision) {
+      return res.status(400).json({
+        message: "Champs obligatoires manquants (id_absence, validated_by, decision)"
+      });
+    }
+
+    // 1️⃣ Récupération + verrouillage de l'absence
+    const [absence] = await query(
+      `SELECT * FROM absences WHERE id_absence = ? FOR UPDATE`,
+      [id_absence]
+    );
+
+    if (!absence) {
+      return res.status(404).json({ message: "Absence introuvable" });
+    }
+
+    if (absence.statut !== 'PROPOSEE') {
+      return res.status(409).json({ message: "Cette absence a déjà été traitée" });
+    }
+
+    // 2️⃣ Mise à jour
+    await query(
+      `UPDATE absences
+       SET statut = ?, 
+           validated_by = ?, 
+           validated_at = NOW()
+       WHERE id_absence = ?`,
+      [decision, validated_by, id_absence]
+    );
+
+    return res.status(200).json({
+      message: `Absence ${decision === 'VALIDEE' ? 'validée' : 'rejetée'} avec succès`
+    });
+
+  } catch (error) {
+    console.error("Erreur validation absence :", error);
+    return res.status(500).json({ message: "Erreur serveur lors de la validation" });
   }
 };

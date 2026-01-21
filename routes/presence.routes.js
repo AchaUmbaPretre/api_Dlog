@@ -24,5 +24,7 @@ router.put('/validation_conge', presence.validateConge);
 router.get('/absence', presence.getAbsence);
 router.get('/absence_type', presence.getAbsenceType);
 router.post('/absence', presence.postAbsence);
+router.post('/absence-validation', presence.putAbsenceValidation);
+
 
 module.exports = router;
