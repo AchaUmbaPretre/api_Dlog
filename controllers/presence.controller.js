@@ -1,5 +1,6 @@
 const { db } = require("./../config/database");
 const moment = require("moment");
+const bcrypt = require('bcryptjs');
 const util = require("util");
 const query = util.promisify(db.query).bind(db);
 const { jourSemaineFR, formatDate } = require("../utils/dateUtils.js");
@@ -999,14 +1000,13 @@ exports.postPresence = async (req, res) => {
   }
 };
 
-exports.postPresenceBiometrique = async (req, res) => {
+/* exports.postPresenceBiometrique = async (req, res) => {
   try {
     const { id_utilisateur, datetime, device_sn } = req.body;
 
     const date = datetime.split(" ")[0];
     const heure = datetime;
 
-    /* vérifier présence existante */
     const exist = await query(`
       SELECT id_presence, heure_entree
       FROM presences
@@ -1015,7 +1015,6 @@ exports.postPresenceBiometrique = async (req, res) => {
     `, [id_utilisateur, date]);
 
     if (exist.length === 0) {
-      /* ENTRÉE */
       await query(`
         INSERT INTO presences (
           id_utilisateur,
@@ -1029,7 +1028,6 @@ exports.postPresenceBiometrique = async (req, res) => {
       return res.json({ message: "Entrée enregistrée" });
     }
 
-    /* SORTIE */
     await query(`
       UPDATE presences
       SET heure_sortie = ?
@@ -1042,7 +1040,141 @@ exports.postPresenceBiometrique = async (req, res) => {
     console.error(error);
     res.status(500).json({ message: "Erreur biométrique" });
   }
+}; */
+
+exports.postPresenceFromHikvision = async (req, res) => {
+  try {
+    const { device_sn, user_code, datetime, terminal_id } = req.body;
+    const terminal = terminal_id; // injecté par middleware
+
+    if (!device_sn || !user_code || !datetime) {
+      return res.status(400).json({
+        message: "device_sn, user_code et datetime requis"
+      });
+    }
+
+/*     if (!['ATTENDANCE', 'BOTH'].includes(terminal.usage_mode)) {
+      return res.status(403).json({
+        message: "Terminal non autorisé pour la présence"
+      });
+    } */
+
+    /* ===============================
+       1️⃣ Mapping utilisateur
+    =============================== */
+    const users = await query(
+      `SELECT id_utilisateur
+       FROM utilisateur
+       WHERE matricule = ?`,
+      [user_code]
+    );
+
+    if (!users.length) {
+      return res.status(404).json({
+        message: "Utilisateur inconnu"
+      });
+    }
+
+    const id_utilisateur = users[0].id_utilisateur;
+    const dateISO = moment(datetime).format("YYYY-MM-DD");
+    const heurePointage = moment(datetime);
+
+    /* ===============================
+       2️⃣ Vérifier présence existante
+    =============================== */
+    const presenceRows = await query(
+      `SELECT id_presence, heure_entree, heure_sortie, is_locked
+       FROM presences
+       WHERE id_utilisateur = ? AND date_presence = ?
+       LIMIT 1`,
+      [id_utilisateur, dateISO]
+    );
+
+    const presence = presenceRows.length ? presenceRows[0] : null;
+
+    if (presence?.is_locked) {
+      return res.status(403).json({
+        message: "Présence verrouillée"
+      });
+    }
+
+    const debutTravail = moment(`${dateISO} 08:00:00`);
+    const finTravail   = moment(`${dateISO} 16:00:00`);
+
+    /* ===============================
+       3️⃣ ENTRÉE
+    =============================== */
+    if (!presence) {
+      const retard_minutes = heurePointage.isAfter(debutTravail)
+        ? heurePointage.diff(debutTravail, "minutes")
+        : 0;
+
+      await query(
+        `INSERT INTO presences (
+          id_utilisateur, site_id, date_presence,
+          heure_entree, retard_minutes,
+          source, terminal_id, device_sn
+        ) VALUES (?, ?, ?, ?, ?, 'HIKVISION', ?, ?)`,
+        [
+          id_utilisateur,
+          terminal.site_id,
+          dateISO,
+          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          retard_minutes,
+          terminal.id_terminal,
+          device_sn
+        ]
+      );
+
+      return res.status(201).json({
+        message: "Entrée enregistrée",
+        retard_minutes
+      });
+    }
+
+    /* ===============================
+       4️⃣ SORTIE
+    =============================== */
+    if (!presence.heure_sortie) {
+      let heures_supplementaires = 0;
+
+      if (heurePointage.isAfter(finTravail)) {
+        heures_supplementaires =
+          heurePointage.diff(finTravail, "minutes") / 60;
+      }
+
+      await query(
+        `UPDATE presences
+         SET heure_sortie = ?, heures_supplementaires = ?
+         WHERE id_presence = ?`,
+        [
+          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          heures_supplementaires,
+          presence.id_presence
+        ]
+      );
+
+      return res.status(200).json({
+        message: "Sortie enregistrée",
+        heures_supplementaires
+      });
+    }
+
+    /* ===============================
+       5️⃣ DÉJÀ COMPLET
+    =============================== */
+    return res.status(409).json({
+      message: "Présence déjà complète"
+    });
+
+  } catch (error) {
+    console.error("postPresenceFromHikvision:", error);
+    return res.status(500).json({
+      message: "Erreur interne serveur"
+    });
+  }
 };
+
 
 exports.getAttendanceAdjustment = async (req, res) => {
   try {
@@ -1633,8 +1765,9 @@ exports.postJourFerie = async (req, res) => {
 exports.getTerminal = (req, res) => {
   const q = `
     SELECT 
-      *
-    FROM terminals
+      t.*, s.nom_site
+    FROM terminals t
+    LEFT JOIN sites s ON t.site_id = s.id_site
   `;
 
   db.query(q, (error, data) => {
@@ -1663,31 +1796,26 @@ exports.postTerminal = async (req, res) => {
     } = req.body;
 
     if (!site_id || !name || !device_sn || !credentials) {
-      return res.status(400).json({
-        message: "Champs obligatoires manquants"
-      });
+      return res.status(400).json({ message: "Champs obligatoires manquants" });
     }
 
     if (!["ATTENDANCE", "ACCESS_CONTROL", "BOTH"].includes(usage_mode)) {
-      return res.status(400).json({
-        message: "usage_mode invalide"
-      });
+      return res.status(400).json({ message: "usage_mode invalide" });
     }
 
-    const [existing] = await db.query(
-      "SELECT id_terminal FROM terminals WHERE device_sn = ?",
-      [device_sn]
+    const existing = await query(
+        "SELECT id_terminal FROM terminals WHERE device_sn = ?",
+        [device_sn]
     );
 
-    if (existing.length > 0) {
-      return res.status(409).json({
-        message: "Un terminal avec ce numéro de série existe déjà"
-      });
+    if (Array.isArray(existing) && existing.length > 0) {
+    return res.status(409).json({ message: "Un terminal avec ce numéro de série existe déjà" });
     }
 
-    const credentials_encrypted = encrypt(credentials);
+    const credentials_string = JSON.stringify(credentials);
+    const credentials_encrypted = await bcrypt.hash(credentials_string, 10);
 
-    const [result] = await db.query(
+    const result = await query(
       `INSERT INTO terminals (
         site_id,
         name,
@@ -1719,8 +1847,6 @@ exports.postTerminal = async (req, res) => {
 
   } catch (error) {
     console.error("postTerminal error:", error);
-    return res.status(500).json({
-      message: "Erreur serveur lors de l'enregistrement du terminal"
-    });
+    return res.status(500).json({ message: "Erreur serveur lors de l'enregistrement du terminal" });
   }
 };
