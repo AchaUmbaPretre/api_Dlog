@@ -1485,9 +1485,6 @@ exports.postConge = async (req, res) => {
       });
     }
 
-    /* ===============================
-       1️⃣ ABAC – scope site
-    =============================== */
     const siteUser = await query(
       `SELECT site_id FROM user_sites WHERE user_id = ?`,
       [id_utilisateur]
@@ -1504,9 +1501,6 @@ exports.postConge = async (req, res) => {
       });
     }
 
-    /* ===============================
-       2️⃣ Insertion congé
-    =============================== */
     const result = await query(
       `INSERT INTO conges (
         id_utilisateur,
@@ -1526,9 +1520,6 @@ exports.postConge = async (req, res) => {
       ]
     );
 
-    /* ===============================
-       3️⃣ Audit
-    =============================== */
     await query(
       `INSERT INTO audit_logs_presence
        (user_id, action, entity, entity_id, new_value)
@@ -1554,8 +1545,6 @@ exports.postConge = async (req, res) => {
     });
   }
 };
-
-
 
 exports.validateConge = async (req, res) => {
   try {
