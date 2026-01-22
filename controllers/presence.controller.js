@@ -2,6 +2,7 @@ const { db } = require("./../config/database");
 const moment = require("moment");
 const util = require("util");
 const query = util.promisify(db.query).bind(db);
+const { jourSemaineFR, formatDate } = require("../utils/dateUtils.js");
 
 exports.getPresence = (req, res) => {
 
@@ -15,20 +16,6 @@ exports.getPresence = (req, res) => {
         }
         return res.status(200).json(data);
     });
-};
-
-const jourSemaineFR = (date) => {
-  const jours = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
-  const d = new Date(date);
-  return jours[d.getDay()];
-};
-
-const formatDate = (date) => {
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 };
 
 /* exports.getPresencePlanning = async (req, res) => {
@@ -1584,6 +1571,7 @@ exports.putAbsenceValidation = async (req, res) => {
   }
 };
 
+//Ferié
 exports.getJourFerie = (req, res) => {
   const q = `
     SELECT 
@@ -1637,6 +1625,102 @@ exports.postJourFerie = async (req, res) => {
     console.error('createJourFerie:', error);
     res.status(500).json({
       message: 'Erreur serveur',
+    });
+  }
+};
+
+//Terminal
+exports.getTerminal = (req, res) => {
+  const q = `
+    SELECT 
+      *
+    FROM terminals
+  `;
+
+  db.query(q, (error, data) => {
+    if (error) {
+      console.error(error);
+      return res.status(500).json({
+        message: "Erreur lors de la récupération des absences"
+      });
+    }
+    return res.status(200).json(data);
+  });
+};
+
+exports.postTerminal = async (req, res) => {
+  try {
+    const {
+      site_id,
+      name,
+      location_zone,
+      device_model,
+      device_sn,
+      ip_address,
+      port = 80,
+      usage_mode = "ATTENDANCE",
+      credentials
+    } = req.body;
+
+    if (!site_id || !name || !device_sn || !credentials) {
+      return res.status(400).json({
+        message: "Champs obligatoires manquants"
+      });
+    }
+
+    if (!["ATTENDANCE", "ACCESS_CONTROL", "BOTH"].includes(usage_mode)) {
+      return res.status(400).json({
+        message: "usage_mode invalide"
+      });
+    }
+
+    const [existing] = await db.query(
+      "SELECT id_terminal FROM terminals WHERE device_sn = ?",
+      [device_sn]
+    );
+
+    if (existing.length > 0) {
+      return res.status(409).json({
+        message: "Un terminal avec ce numéro de série existe déjà"
+      });
+    }
+
+    const credentials_encrypted = encrypt(credentials);
+
+    const [result] = await db.query(
+      `INSERT INTO terminals (
+        site_id,
+        name,
+        location_zone,
+        device_model,
+        device_sn,
+        ip_address,
+        port,
+        usage_mode,
+        credentials_encrypted
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        site_id,
+        name,
+        location_zone || null,
+        device_model || null,
+        device_sn,
+        ip_address || null,
+        port,
+        usage_mode,
+        credentials_encrypted
+      ]
+    );
+
+    return res.status(201).json({
+      message: "Terminal enregistré avec succès",
+      terminal_id: result.insertId
+    });
+
+  } catch (error) {
+    console.error("postTerminal error:", error);
+    return res.status(500).json({
+      message: "Erreur serveur lors de l'enregistrement du terminal"
     });
   }
 };

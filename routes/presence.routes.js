@@ -30,4 +30,8 @@ router.put('/absence-validation', presence.putAbsenceValidation);
 router.get('/jour-ferie', presence.getJourFerie);
 router.post('/jour-ferie', presence.postJourFerie);
 
+//TERMINAL
+router.get('/terminal', presence.getTerminal);
+router.post('/terminal', presence.postTerminal);
+
 module.exports = router;
