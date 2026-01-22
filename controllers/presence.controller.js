@@ -1114,7 +1114,7 @@ exports.postPresenceFromHikvision = async (req, res) => {
           id_utilisateur, site_id, date_presence,
           heure_entree, retard_minutes,
           source, terminal_id, device_sn
-        ) VALUES (?, ?, ?, ?, ?, 'HIKVISION', ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, 'API', ?, ?)`,
         [
           id_utilisateur,
           terminal.site_id,
