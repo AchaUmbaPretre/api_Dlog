@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const util = require("util");
 const query = util.promisify(db.query).bind(db);
 const { jourSemaineFR, formatDate } = require("../utils/dateUtils.js");
+const { auditPresence } = require("../utils/audit.js");
 
 exports.getPresence = (req, res) => {
 
@@ -826,7 +827,7 @@ exports.postPresence = async (req, res) => {
     const {
       id_utilisateur,
       date_presence,
-      datetime,          // biométrie
+      datetime,
       source = 'TERMINAL',
       device_sn,
       terminal_id,
@@ -853,7 +854,7 @@ exports.postPresence = async (req, res) => {
     let terminal = null;
     if (terminal_id) {
       const terminals = await query(
-        `SELECT usage_mode, is_enabled, site_id
+        `SELECT usage_mode, is_enabled, site_id, ip_address
          FROM terminals 
          WHERE id_terminal = ?`,
         [terminal_id]
@@ -874,9 +875,6 @@ exports.postPresence = async (req, res) => {
       }
     }
 
-    /* =========================================================
-       2️⃣ Vérifier jour férié ou non travaillé
-    ========================================================= */
     const jourFR = jourSemaineFR(date_presence);
 
     const nonTravailleRows = await query(
@@ -929,9 +927,6 @@ exports.postPresence = async (req, res) => {
     let retard_minutes = 0;
     let heures_supplementaires = 0;
 
-    /* =========================================================
-       3️⃣ Entrée
-    ========================================================= */
     if (!presence) {
       if (heurePointage.isAfter(debutTravail)) {
         retard_minutes = heurePointage.diff(debutTravail, "minutes");
@@ -956,12 +951,26 @@ exports.postPresence = async (req, res) => {
         ]
       );
 
+        await auditPresence({
+            user_id: 1,
+            action: 'CREATE_ENTRY',
+            entity: 'presences',
+            entity_id: result.insertId,
+            old_value: null,
+            new_value: {
+                id_utilisateur,
+                date_presence: dateISO,
+                heure_entree: heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+                retard_minutes,
+                terminal_id: terminal_id || null,
+                device_sn
+            },
+            ip_address: terminal?.ip_address || null
+        });
+
       return res.status(201).json({ message: "Entrée enregistrée", retard_minutes });
     }
 
-    /* =========================================================
-       4️⃣ Sortie
-    ========================================================= */
     if (!presence.heure_sortie) {
       const autorisationRows = await query(
         `SELECT 1 FROM attendance_adjustments
@@ -985,13 +994,10 @@ exports.postPresence = async (req, res) => {
          WHERE id_presence = ?`,
         [heurePointage.format("YYYY-MM-DD HH:mm:ss"), heures_supplementaires, presence.id_presence]
       );
-
+      
       return res.status(200).json({ message: "Sortie enregistrée", heures_supplementaires });
     }
 
-    /* =========================================================
-       5️⃣ Déjà complet
-    ========================================================= */
     return res.status(409).json({ message: "Présence déjà complète pour cette date" });
 
   } catch (error) {
@@ -1052,12 +1058,6 @@ exports.postPresenceFromHikvision = async (req, res) => {
         message: "device_sn, user_code et datetime requis"
       });
     }
-
-/*     if (!['ATTENDANCE', 'BOTH'].includes(terminal.usage_mode)) {
-      return res.status(403).json({
-        message: "Terminal non autorisé pour la présence"
-      });
-    } */
 
     /* ===============================
        1️⃣ Mapping utilisateur
