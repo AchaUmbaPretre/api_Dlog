@@ -875,6 +875,15 @@ exports.postPresence = async (req, res) => {
       }
     }
 
+        let site_id = null;
+        if(id_utilisateur) {
+            const siteUser = await query(
+            `SELECT site_id FROM user_sites WHERE user_id = ?`,
+            [id_utilisateur]
+            )
+            site_id = siteUser[0]?.site_id
+        }
+
     const jourFR = jourSemaineFR(date_presence);
 
     const nonTravailleRows = await query(
@@ -940,7 +949,7 @@ exports.postPresence = async (req, res) => {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id_utilisateur,
-          terminal?.site_id || null,
+          site_id || terminal?.site_id || null,
           dateISO,
           heurePointage.format("YYYY-MM-DD HH:mm:ss"),
           retard_minutes,
@@ -1448,57 +1457,105 @@ exports.getConge = (req, res) => {
     });
 };
 
-exports.postConge = (req, res) => {
-    try {
-        const {
-            id_utilisateur,
-            date_debut,
-            date_fin,
-            type_conge,
-            statut,
-            commentaire
-        } = req.body;
+exports.postConge = async (req, res) => {
+  try {
+    const {
+      id_utilisateur,
+      date_debut,
+      date_fin,
+      type_conge,
+      statut = 'EN_ATTENTE',
+      commentaire,
+      permissions = [],
+      scope_sites = []
+    } = req.body;
 
-        if(!id_utilisateur || !date_debut || !date_fin ) {
-            return res.status(400).json({
-                message: "Veuillez remplir tous les champs obligatoires"
-            })
-        }
-
-        const values = [
-            id_utilisateur,
-            date_debut,
-            date_fin,
-            type_conge,
-            statut,
-            commentaire
-        ];
-
-        const q = `INSERT INTO conges (
-                        id_utilisateur, date_debut, 
-                        date_fin, type_conge, statut, 
-                        commentaire
-                    )
-                    VALUES (?,?,?,?,?,?)`;
-
-                db.query(q, values, (error) => {
-                    if(error) {
-                        console.error(error)
-                        return res.status(500).json({ message: "Erreur serveur lors de l'ajout de congé"})
-                    }
-
-                    res.status(201).json({
-                        message: "Congé a été ajoutée avec succès."
-                    });
-                })
-
-    } catch (error) {
-        console.error("Erreur lors de l'ajout :", error);
-        return res.status(500).json({
-            message: "Une erreur interne s'est produite."
-        });
+    /* ===============================
+       0️⃣ RBAC – depuis JWT
+    =============================== */
+    if (!permissions.includes('attendance.events.correct')) {
+      return res.status(403).json({
+        message: "Permission refusée"
+      });
     }
-}
+
+    if (!id_utilisateur || !date_debut || !date_fin) {
+      return res.status(400).json({
+        message: "Champs obligatoires manquants"
+      });
+    }
+
+    /* ===============================
+       1️⃣ ABAC – scope site
+    =============================== */
+    const siteUser = await query(
+      `SELECT site_id FROM user_sites WHERE user_id = ?`,
+      [id_utilisateur]
+    );
+
+    const site_id = siteUser[0]?.site_id;
+
+    if (
+      scope_sites?.length &&
+      !scope_sites.includes(site_id)
+    ) {
+      return res.status(403).json({
+        message: "Accès refusé (scope site)"
+      });
+    }
+
+    /* ===============================
+       2️⃣ Insertion congé
+    =============================== */
+    const result = await query(
+      `INSERT INTO conges (
+        id_utilisateur,
+        date_debut,
+        date_fin,
+        type_conge,
+        statut,
+        commentaire
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        id_utilisateur,
+        date_debut,
+        date_fin,
+        type_conge,
+        statut,
+        commentaire
+      ]
+    );
+
+    /* ===============================
+       3️⃣ Audit
+    =============================== */
+    await query(
+      `INSERT INTO audit_logs_presence
+       (user_id, action, entity, entity_id, new_value)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        id_utilisateur,
+        'CREATE_CONGE',
+        'conges',
+        result.insertId,
+        JSON.stringify(req.body)
+      ]
+    );
+
+    return res.status(201).json({
+      message: "Congé ajouté avec succès",
+      id_conge: result.insertId
+    });
+
+  } catch (error) {
+    console.error("Erreur postConge :", error);
+    return res.status(500).json({
+      message: "Erreur interne du serveur"
+    });
+  }
+};
+
+
 
 exports.validateConge = async (req, res) => {
   try {
