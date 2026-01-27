@@ -7,7 +7,6 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const connection = db;
 
-
 function queryPromise(connection, sql, params) {
     return new Promise((resolve, reject) => {
       connection.query(sql, params, (err, results) => {

@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
+const { v4: uuidv4 } = require('uuid');
 const util = require("util");
 const query = util.promisify(db.query).bind(db);
 
@@ -94,63 +95,64 @@ exports.registerController = async (req, res) => {
 exports.loginController = async (req, res) => {
   const { username, password } = req.body;
 
-  if (!username || !password) {
-    return res.status(400).json({ message: 'Email et mot de passe requis', success: false });
-  }
+  if (!username || !password)
+    return res.status(400).json({ success: false, message: 'Email et mot de passe requis' });
 
   try {
-    // 1️⃣ Récupérer utilisateur
-    const users = await query('SELECT * FROM utilisateur WHERE email = ?', [username]);
-    if (users.length === 0) {
-      return res.status(200).json({ message: 'Utilisateur non trouvé', success: false });
-    }
+    // 1️⃣ Récupérer l’utilisateur
+    const users = await query('SELECT * FROM utilisateur WHERE email = ? LIMIT 1', [username]);
+    if (!users.length)
+      return res.status(401).json({ success: false, message: 'Email ou mot de passe invalide' });
 
     const user = users[0];
 
     // 2️⃣ Vérifier mot de passe
     const passwordMatch = await bcrypt.compare(password, user.mot_de_passe);
-    if (!passwordMatch) {
-      return res.status(200).json({ message: 'Email ou mot de passe invalide', success: false });
-    }
+    if (!passwordMatch)
+      return res.status(401).json({ success: false, message: 'Email ou mot de passe invalide' });
 
-    // 3️⃣ Récupérer permissions dynamiques
-    const rolePerms = await query(
-      'SELECT permission FROM roles_permissions WHERE role = ?',
-      [user.role]
-    );
+    // 3️⃣ Permissions RBAC
+    const rolePerms = await query('SELECT permission FROM roles_permissions WHERE role = ?', [user.role]);
     const permissions = rolePerms.map(rp => rp.permission);
 
-    // 4️⃣ Récupérer scopes sites
-    const userSites = await query(
-      'SELECT site_id FROM user_sites WHERE user_id = ?',
-      [user.id_utilisateur]
-    );
+    // 4️⃣ Scopes sites
+    const userSites = await query('SELECT site_id FROM user_sites WHERE user_id = ?', [user.id_utilisateur]);
     const scope_sites = userSites.map(s => s.site_id);
 
-    // 5️⃣ Récupérer scopes départements
+    // 5️⃣ Scopes départements
     const userDepartments = await query(
       'SELECT id_departement FROM user_departements WHERE id_user = ? AND can_view = 1',
       [user.id_utilisateur]
     );
     const scope_departments = userDepartments.map(d => d.id_departement);
 
-    // 6️⃣ Préparer payload JWT
-    const payload = {
-      id: user.id_utilisateur,
-      role: user.role,
-      permissions,
-      scope_sites,
-      scope_departments
-    };
+    // 6️⃣ JWT access token
+    const payload = { id: user.id_utilisateur, role: user.role, permissions, scope_sites, scope_departments };
+    const accessToken = jwt.sign(payload, process.env.JWT, { expiresIn: '15m' });
 
-    const accessToken = jwt.sign(payload, process.env.JWT, { expiresIn: '3d' });
+    // 7️⃣ Refresh token sécurisé avec bcryptjs
+    const plainRefreshToken = uuidv4();
+    const hashedRefreshToken = await bcrypt.hash(plainRefreshToken, 10);
 
-    // 7️⃣ Retourner l’utilisateur sans mot de passe
+    await query(
+      'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY))',
+      [user.id_utilisateur, hashedRefreshToken]
+    );
+
+    // 8️⃣ Envoyer le refresh token en cookie HttpOnly
+    res.cookie('refreshToken', plainRefreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 jours
+    });
+
+    // 9️⃣ Retourner l’utilisateur sans mot de passe
     const { mot_de_passe, ...userWithoutPassword } = user;
 
     return res.status(200).json({
-      message: 'Connexion réussie',
       success: true,
+      message: 'Connexion réussie',
       ...userWithoutPassword,
       permissions,
       scope_sites,
@@ -158,20 +160,110 @@ exports.loginController = async (req, res) => {
       accessToken
     });
 
-  } catch (error) {
-    console.error('Erreur loginController :', error);
-    return res.status(500).json({ message: 'Erreur interne du serveur' });
+  } catch (err) {
+    console.error('loginController error', err);
+    return res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
   }
 };
 
-exports.logout = (req, res) => {
+exports.refreshTokenController = async (req, res) => {
+  try {
+    const tokenFromCookie = req.cookies.refreshToken;
+    if (!tokenFromCookie) return res.status(401).json({ message: 'Refresh token manquant' });
+
+    const rows = await query('SELECT * FROM refresh_tokens WHERE expires_at > NOW()');
+
+    let matchedToken = null;
+    for (const row of rows) {
+      if (await bcrypt.compare(tokenFromCookie, row.token)) {
+        matchedToken = row;
+        break;
+      }
+    }
+
+    if (!matchedToken) return res.status(403).json({ message: 'Refresh token invalide ou expiré' });
+
+    const userId = matchedToken.user_id;
+
+    // User + permissions + scopes
+    const users = await query('SELECT * FROM utilisateur WHERE id_utilisateur = ?', [userId]);
+    if (!users.length) return res.status(404).json({ message: 'Utilisateur non trouvé' });
+
+    const user = users[0];
+
+    const rolePerms = await query('SELECT permission FROM roles_permissions WHERE role = ?', [user.role]);
+    const permissions = rolePerms.map(rp => rp.permission);
+
+    const userSites = await query('SELECT site_id FROM user_sites WHERE user_id = ?', [user.id_utilisateur]);
+    const scope_sites = userSites.map(s => s.site_id);
+
+    const userDepartments = await query(
+      'SELECT id_departement FROM user_departements WHERE id_user = ? AND can_view = 1',
+      [user.id_utilisateur]
+    );
+    const scope_departments = userDepartments.map(d => d.id_departement);
+
+    const payload = { id: user.id_utilisateur, role: user.role, permissions, scope_sites, scope_departments };
+    const accessToken = jwt.sign(payload, process.env.JWT, { expiresIn: '15m' });
+
+    const { mot_de_passe, ...userWithoutPassword } = user;
+
+    return res.status(200).json({
+      ...userWithoutPassword,
+      permissions,
+      scope_sites,
+      scope_departments,
+      accessToken
+    });
+
+  } catch (err) {
+    console.error('refreshTokenController error', err);
+    return res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+exports.logout = async (req, res) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+
+    if (!refreshToken) {
+      // Pas de cookie, on renvoie succès quand même
+      return res.status(200).json({ message: "Déconnexion réussie" });
+    }
+
+    // Supprimer le refresh token dans la base
+    const rows = await query('SELECT * FROM refresh_tokens');
+    for (const row of rows) {
+      if (await bcrypt.compare(refreshToken, row.token)) {
+        await query('DELETE FROM refresh_tokens WHERE id = ?', [row.id]);
+        break;
+      }
+    }
+
+    // Supprimer le cookie côté client
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Strict',
+    });
+
+    return res.status(200).json({ message: "Déconnexion réussie" });
+
+  } catch (err) {
+    console.error('logoutController error', err);
+    return res.status(500).json({ message: 'Erreur serveur lors de la déconnexion' });
+  }
+};
+
+
+/* exports.logout = (req, res) => {
     res.clearCookie('access_token', {
       sameSite: 'None',
       secure: true,
     });
   
     res.status(200).json({ message: 'Utilisateur déconnecté avec succès' });
-  };
+  }; */
 
     // Créer le transporteur avec les informations SMTP
 const transporter = nodemailer.createTransport({

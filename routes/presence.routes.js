@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const presence = require('./../controllers/presence.controller');
+const { authorize } = require("../midllewares/authorize");
 
 router.get('/', presence.getPresence);
 router.get('/planning', presence.getPresencePlanning);
@@ -17,7 +18,7 @@ router.post("/attendance-adjustments", presence.postAttendanceAdjustment);
 router.put('/validation-adjustments', presence.validateAttendanceAdjustment);
 
 //Congé
-router.get('/conge', presence.getConge);
+router.get('/conge', authorize('attendance.events.read'), presence.getConge);
 router.post('/conge', presence.postConge);
 router.put('/validation_conge', presence.validateConge);
 
@@ -34,5 +35,10 @@ router.post('/jour-ferie', presence.postJourFerie);
 //TERMINAL
 router.get('/terminal', presence.getTerminal);
 router.post('/terminal', presence.postTerminal);
+
+//USER TERMINAL
+router.get('/user-terminal', presence.getUserTerminal);
+router.get('/user-terminalById', presence.getUserTerminalById);
+router.post('/user-terminal', presence.postUserTerminal);
 
 module.exports = router;

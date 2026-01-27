@@ -57,11 +57,12 @@ if (environment === 'development') {
 }
 
 const corsOptions = {
-  origin: '*',
+  origin: 'http://localhost:3000',
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   preflightContinue: false,
   optionsSuccessStatus: 204,
-  allowedHeaders: 'Origin, X-Requested-With, Content-Type, Accept'
+  allowedHeaders: 'Origin, X-Requested-With, Content-Type, Accept, Authorization',
+  credentials: true
 };
 
 app.use(cors(corsOptions));

@@ -1068,9 +1068,6 @@ exports.postPresenceFromHikvision = async (req, res) => {
       });
     }
 
-    /* ===============================
-       1️⃣ Mapping utilisateur
-    =============================== */
     const users = await query(
       `SELECT id_utilisateur
        FROM utilisateur
@@ -1088,9 +1085,6 @@ exports.postPresenceFromHikvision = async (req, res) => {
     const dateISO = moment(datetime).format("YYYY-MM-DD");
     const heurePointage = moment(datetime);
 
-    /* ===============================
-       2️⃣ Vérifier présence existante
-    =============================== */
     const presenceRows = await query(
       `SELECT id_presence, heure_entree, heure_sortie, is_locked
        FROM presences
@@ -1110,9 +1104,6 @@ exports.postPresenceFromHikvision = async (req, res) => {
     const debutTravail = moment(`${dateISO} 08:00:00`);
     const finTravail   = moment(`${dateISO} 16:00:00`);
 
-    /* ===============================
-       3️⃣ ENTRÉE
-    =============================== */
     if (!presence) {
       const retard_minutes = heurePointage.isAfter(debutTravail)
         ? heurePointage.diff(debutTravail, "minutes")
@@ -1183,7 +1174,6 @@ exports.postPresenceFromHikvision = async (req, res) => {
     });
   }
 };
-
 
 exports.getAttendanceAdjustment = async (req, res) => {
   try {
@@ -1894,5 +1884,107 @@ exports.postTerminal = async (req, res) => {
   } catch (error) {
     console.error("postTerminal error:", error);
     return res.status(500).json({ message: "Erreur serveur lors de l'enregistrement du terminal" });
+  }
+};
+
+//User Terminal
+exports.getUserTerminal = (req, res) => {
+  const q = `
+    SELECT 
+      ut.id, ut.user_id, ut.terminal_id, ut.can_read, ut.can_edit, ut.created_at, ut.updated_at,
+      u.nom AS user_name,
+      t.name AS terminal_name
+    FROM user_terminals ut
+    JOIN utilisateur u ON ut.user_id = u.id_utilisateur
+    JOIN terminals t ON ut.terminal_id = t.id_terminal
+  `;
+
+  db.query(q, (error, data) => {
+    if (error) {
+      console.error(error);
+      return res.status(500).json({
+        message: "Erreur lors de la récupération des associations utilisateur-terminal"
+      });
+    }
+    return res.status(200).json(data);
+  });
+};
+
+exports.getUserTerminal = (req, res) => {
+  const q = `
+    SELECT 
+      ut.id, ut.user_id, ut.terminal_id, ut.can_read, ut.can_edit, ut.created_at, ut.updated_at,
+      u.nom AS user_name,
+      t.name AS terminal_name
+    FROM user_terminals ut
+    JOIN utilisateur u ON ut.user_id = u.id_utilisateur
+    JOIN terminals t ON ut.terminal_id = t.id_terminal
+  `;
+
+  db.query(q, (error, data) => {
+    if (error) {
+      console.error(error);
+      return res.status(500).json({
+        message: "Erreur lors de la récupération des associations utilisateur-terminal"
+      });
+    }
+    return res.status(200).json(data);
+  });
+};
+
+exports.getUserTerminalById = async (req, res) => {
+  try {
+    const { id_terminal } = req.query;
+
+    if (!id_terminal) {
+      return res.status(400).json({ message: "id_terminal est requis" });
+    }
+
+    const q = `
+      SELECT ut.user_id, u.nom, u.email, u.role, ut.can_read, ut.can_edit
+      FROM user_terminals ut
+      JOIN utilisateur u ON ut.user_id = u.id_utilisateur
+      WHERE ut.terminal_id = ?
+    `;
+
+    db.query(q, [id_terminal], (error, data) => {
+        if(error) {
+          console.log(error)
+        }
+        return res.status(200).json(data );
+    })
+  } catch (error) {
+    console.error("getUserTerminalById error:", error);
+    return res.status(500).json({ message: "Erreur serveur lors de la récupération des utilisateurs du terminal" });
+  }
+};
+
+exports.postUserTerminal = async (req, res) => {
+  try {
+    const { user_id, terminal_id, can_read = 1, can_edit = 0 } = req.body;
+
+    if (!user_id || !terminal_id) {
+      return res.status(400).json({ message: "user_id et terminal_id sont requis" });
+    }
+
+    const q = `
+      INSERT INTO user_terminals (user_id, terminal_id, can_read, can_edit)
+      VALUES (?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        can_read = VALUES(can_read),
+        can_edit = VALUES(can_edit),
+        updated_at = CURRENT_TIMESTAMP
+    `;
+
+    const [result] = await db.promise().execute(q, [user_id, terminal_id, can_read, can_edit]);
+
+    return res.status(201).json({
+      message: "Association utilisateur-terminal enregistrée avec succès",
+      id: result.insertId
+    });
+
+  } catch (error) {
+    console.error("postUserTerminal error:", error);
+    return res.status(500).json({ message: "Erreur serveur lors de l'enregistrement de l'association" });
   }
 };
