@@ -1712,37 +1712,38 @@ exports.postConge = async (req, res) => {
       scope_sites = []
     } = req.body;
 
-    /* ===============================
-       0️⃣ RBAC – depuis JWT
-    =============================== */
+    // ===============================
+    // 0️⃣ RBAC – vérification des permissions depuis JWT
+    // ===============================
     if (!permissions.includes('attendance.events.read')) {
-      return res.status(403).json({
-        message: "Permission refusée"
-      });
+      return res.status(403).json({ message: "Permission refusée" });
     }
 
-    if (!id_utilisateur || !date_debut || !date_fin) {
+    // ===============================
+    // 1️⃣ Validation des champs obligatoires
+    // ===============================
+    if (!id_utilisateur || !date_debut || !date_fin || !type_conge) {
       return res.status(400).json({
         message: "Champs obligatoires manquants"
       });
     }
 
+    // ===============================
+    // 2️⃣ Vérification du scope site
+    // ===============================
     const siteUser = await query(
       `SELECT site_id FROM user_sites WHERE user_id = ?`,
       [id_utilisateur]
     );
 
     const site_id = siteUser[0]?.site_id;
-
-    if (
-      scope_sites?.length &&
-      !scope_sites.includes(site_id)
-    ) {
-      return res.status(403).json({
-        message: "Accès refusé (scope site)"
-      });
+    if (scope_sites?.length && !scope_sites.includes(site_id)) {
+      return res.status(403).json({ message: "Accès refusé (scope site)" });
     }
 
+    // ===============================
+    // 3️⃣ Insertion du congé
+    // ===============================
     const result = await query(
       `INSERT INTO conges (
         id_utilisateur,
@@ -1750,43 +1751,57 @@ exports.postConge = async (req, res) => {
         date_fin,
         type_conge,
         statut,
-        commentaire
-      ) VALUES (?, ?, ?, ?, ?, ?)`,
+        commentaire,
+        created_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         id_utilisateur,
         date_debut,
         date_fin,
         type_conge,
         statut,
-        commentaire
+        commentaire,
+        req.abac?.user_id || null // enregistre qui a créé le congé
       ]
     );
 
+    const insertedId = result.insertId;
+
+    // ===============================
+    // 4️⃣ Audit log
+    // ===============================
     await query(
       `INSERT INTO audit_logs_presence
        (user_id, action, entity, entity_id, new_value)
        VALUES (?, ?, ?, ?, ?)`,
       [
-        id_utilisateur,
+        req.abac?.user_id || id_utilisateur,
         'CREATE_CONGE',
         'conges',
-        result.insertId,
+        insertedId,
         JSON.stringify(req.body)
       ]
     );
 
+    // ===============================
+    // 5️⃣ Réponse
+    // ===============================
     return res.status(201).json({
+      success: true,
       message: "Congé ajouté avec succès",
-      id_conge: result.insertId
+      id_conge: insertedId
     });
 
   } catch (error) {
     console.error("Erreur postConge :", error);
     return res.status(500).json({
-      message: "Erreur interne du serveur"
+      success: false,
+      message: "Erreur interne du serveur",
+      error: error.message
     });
   }
 };
+
 
 exports.validateConge = async (req, res) => {
   try {
@@ -1818,42 +1833,58 @@ exports.validateConge = async (req, res) => {
 };
 
 //Absence
-exports.getAbsence = (req, res) => {
-  const q = `
-    SELECT 
-        a.id_absence,
-        a.date_debut,
-        a.date_fin,
-        a.commentaire,
-        a.statut,
-        a.created_at,
-        u.nom AS utilisateur,
-        u.prenom AS utilisateur_lastname,
-        u2.nom AS created_name,
-        u2.prenom AS created_lastname,
-        u3.nom AS validated_name,
-        t.libelle AS type_absence
-    FROM absences a
-    JOIN utilisateur u 
-        ON u.id_utilisateur = a.id_utilisateur
-    JOIN utilisateur u2 
-        ON u2.id_utilisateur = a.created_by
-    LEFT JOIN utilisateur u3
-    	ON u3.id_utilisateur = a.validated_by
-    JOIN absence_types t 
-        ON t.id_absence_type = a.id_absence_type
-    ORDER BY a.created_at DESC;
-  `;  
+exports.getAbsence = async (req, res) => {
+  try {
+    const { role, scope_departments = [], user_id } = req.abac || {};
 
-  db.query(q, (error, data) => {
-    if (error) {
-      console.error(error);
-      return res.status(500).json({
-        message: "Erreur lors de la récupération des absences"
-      });
+    let queryStr = `
+      SELECT 
+          a.id_absence,
+          a.id_utilisateur,
+          a.date_debut,
+          a.date_fin,
+          a.commentaire,
+          a.statut,
+          a.created_at,
+          u.nom AS utilisateur,
+          u.prenom AS utilisateur_lastname,
+          u2.nom AS created_name,
+          u2.prenom AS created_lastname,
+          u3.nom AS validated_name,
+          t.libelle AS type_absence
+      FROM absences a
+      JOIN utilisateur u ON u.id_utilisateur = a.id_utilisateur
+      JOIN utilisateur u2 ON u2.id_utilisateur = a.created_by
+      LEFT JOIN utilisateur u3 ON u3.id_utilisateur = a.validated_by
+      JOIN absence_types t ON t.id_absence_type = a.id_absence_type
+      WHERE 1=1
+    `;
+
+    const queryValues = [];
+
+    // 🔹 Owner : ne voir que ses absences
+    if (role === "Owner") {
+      queryStr += " AND a.id_utilisateur = ?";
+      queryValues.push(user_id);
+    } else if (scope_departments.length) {
+      // 🔹 Manager/HR : filtrer par département
+      queryStr += ` AND u.id_departement IN (${scope_departments.map(() => "?").join(",")})`;
+      queryValues.push(...scope_departments);
     }
-    return res.status(200).json(data);
-  });
+
+    queryStr += " ORDER BY a.created_at DESC";
+
+    const data = await query(queryStr, queryValues);
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error("Erreur getAbsence :", error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des absences.",
+      error
+    });
+  }
 };
 
 exports.getAbsenceType = (req, res) => {
