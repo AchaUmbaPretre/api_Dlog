@@ -167,9 +167,8 @@ exports.getPresence = (req, res) => {
 exports.getPresencePlanning = async (req, res) => {
   try {
     const { month, year } = req.query;
-    const { role, scope_sites = [], scope_departments = [], user_id } = req.abac || {};
+    let { role, scope_sites = [], scope_departments = [], user_id } = req.abac || {};
 
-    console.log(req.abac)
     if (role === "Owner") {
       if (!req.query.user_id) {
         return res.status(400).json({

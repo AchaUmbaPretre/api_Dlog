@@ -21,7 +21,8 @@ exports.authorize = (permission) => {
       req.abac = {
         scope_sites: decoded.scope_sites || [],
         scope_departments: decoded.scope_departments || [],
-        user_id: decoded.id
+        user_id: decoded.id,
+        role: decoded.role
       };
 
       next();

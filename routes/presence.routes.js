@@ -4,7 +4,7 @@ const presence = require('./../controllers/presence.controller');
 const { authorize } = require("../midllewares/authorize");
 
 router.get('/', presence.getPresence);
-router.get('/planning', presence.getPresencePlanning);
+router.get('/planning', authorize('attendance.events.read'), presence.getPresencePlanning);
 router.get('/month', presence.getMonthlyPresenceReport);
 router.get('/lateEarly', presence.getLateEarlyLeaveReport);
 router.get('/hrglobal', presence.getHRGlobalReport);
