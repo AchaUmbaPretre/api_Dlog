@@ -47,7 +47,7 @@ exports.registerController = async (req, res) => {
         message: `Erreur dans le contrôleur de registre : ${err.message}`,
       });
     }
-  };
+};
   
 /* exports.loginController = async (req, res) => {
     const { username, password } = req.body;
@@ -133,6 +133,11 @@ exports.loginController = async (req, res) => {
     );
     const scope_terminals = userTerminals.map(t => t.terminal_id);
 
+    await query('DELETE FROM refresh_tokens WHERE user_id = ?', [
+      user.id_utilisateur
+    ]);
+    
+
     // 6️⃣ JWT access token
     const payload = { id: user.id_utilisateur, role: user.role, permissions, scope_sites, scope_departments, scope_terminals };
     const accessToken = jwt.sign(payload, process.env.JWT, { expiresIn: '15m' });
@@ -147,12 +152,12 @@ exports.loginController = async (req, res) => {
     );
 
     // 8️⃣ Envoyer le refresh token en cookie HttpOnly
-    res.cookie('refreshToken', plainRefreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 jours
-    });
+    res.setHeader(
+      'Set-Cookie',
+      `refreshToken=${plainRefreshToken}; HttpOnly; Path=/; Max-Age=${
+        7 * 24 * 60 * 60
+      }; SameSite=Lax`
+    );
 
     const { mot_de_passe, ...userWithoutPassword } = user;
 
@@ -175,11 +180,11 @@ exports.loginController = async (req, res) => {
 
 exports.refreshTokenController = async (req, res) => {
   try {
-    // Récupérer le refreshToken depuis le header sans cookie-parser
+    // 🔹 Récupérer le refreshToken depuis le cookie (sans cookie-parser)
     const tokenFromCookie = getCookie(req, 'refreshToken');
     if (!tokenFromCookie) return res.status(401).json({ message: 'Refresh token manquant' });
 
-    // Chercher le token dans la base (non expiré)
+    // 🔹 Chercher le token actif dans la base
     const rows = await query('SELECT * FROM refresh_tokens WHERE expires_at > NOW()');
 
     let matchedToken = null;
@@ -192,13 +197,13 @@ exports.refreshTokenController = async (req, res) => {
 
     if (!matchedToken) return res.status(403).json({ message: 'Refresh token invalide ou expiré' });
 
-    const userId = matchedToken.user_id;
-    const users = await query('SELECT * FROM utilisateur WHERE id_utilisateur = ?', [userId]);
+    // 🔹 Récupérer l'utilisateur
+    const users = await query('SELECT * FROM utilisateur WHERE id_utilisateur = ?', [matchedToken.user_id]);
     if (!users.length) return res.status(404).json({ message: 'Utilisateur non trouvé' });
 
     const user = users[0];
 
-    // Permissions et scopes
+    // 🔹 Permissions et scopes
     const rolePerms = await query('SELECT permission FROM roles_permissions WHERE role = ?', [user.role]);
     const permissions = rolePerms.map(rp => rp.permission);
 
@@ -211,19 +216,24 @@ exports.refreshTokenController = async (req, res) => {
     );
     const scope_departments = userDepartments.map(d => d.id_departement);
 
-    const userTerminals = await query(
-      'SELECT terminal_id FROM user_terminals WHERE user_id = ?',
-      [user.id_utilisateur]
-    );
+    const userTerminals = await query('SELECT terminal_id FROM user_terminals WHERE user_id = ?', [user.id_utilisateur]);
     const scope_terminals = userTerminals.map(t => t.terminal_id);
 
-    // Générer le nouvel accessToken
-    const payload = { id: user.id_utilisateur, role: user.role, permissions, scope_sites, scope_departments, scope_terminals };
+    const payload = {
+      id: user.id_utilisateur,
+      role: user.role,
+      permissions,
+      scope_sites,
+      scope_departments,
+      scope_terminals
+    };
     const accessToken = jwt.sign(payload, process.env.JWT, { expiresIn: '15m' });
 
+    // 🔹 Retirer le mot de passe côté client
     const { mot_de_passe, ...userWithoutPassword } = user;
 
     return res.status(200).json({
+      success: true,
       ...userWithoutPassword,
       permissions,
       scope_sites,
@@ -243,11 +253,11 @@ exports.logout = async (req, res) => {
     const refreshToken = getCookie(req, 'refreshToken');
 
     if (!refreshToken) {
-      // Pas de cookie, on renvoie succès quand même
+      // 🔹 Pas de cookie => succès
       return res.status(200).json({ message: "Déconnexion réussie" });
     }
 
-    // Supprimer le refresh token dans la base
+    // 🔹 Supprimer le refresh token correspondant dans la base
     const rows = await query('SELECT * FROM refresh_tokens');
     for (const row of rows) {
       if (await bcrypt.compare(refreshToken, row.token)) {
@@ -256,7 +266,11 @@ exports.logout = async (req, res) => {
       }
     }
 
-    res.setHeader('Set-Cookie', 'refreshToken=; HttpOnly; Max-Age=0; Path=/; SameSite=Strict;');
+    // 🔹 Supprimer le cookie côté client
+    res.setHeader(
+      'Set-Cookie',
+      'refreshToken=; HttpOnly; Max-Age=0; Path=/; SameSite=Lax'
+    );
 
     return res.status(200).json({ message: "Déconnexion réussie" });
 
