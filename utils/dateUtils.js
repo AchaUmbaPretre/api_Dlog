@@ -12,7 +12,18 @@ const formatDate = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const mapJourSemaineFR = {
+      dimanche: 0,
+      lundi: 1,
+      mardi: 2,
+      mercredi: 3,
+      jeudi: 4,
+      vendredi: 5,
+      samedi: 6
+};
+
 module.exports = {
   jourSemaineFR,
-  formatDate
+  formatDate,
+  mapJourSemaineFR
 };
