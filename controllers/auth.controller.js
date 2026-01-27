@@ -289,7 +289,7 @@ exports.logout = async (req, res) => {
     res.status(200).json({ message: 'Utilisateur déconnecté avec succès' });
   }; */
 
-    // Créer le transporteur avec les informations SMTP
+// Créer le transporteur avec les informations SMTP
 const transporter = nodemailer.createTransport({
   host: 'mail.loginsmart-cd.com', // Serveur sortant
   port: 465, // Port SMTP pour SSL
