@@ -764,21 +764,22 @@ exports.getMonthlyPresenceReport = async (req, res) => {
 
 exports.getLateEarlyLeaveReport = async (req, res) => {
   try {
-    let { startDate, endDate } = req.query;
+    let { startDate, endDate, site } = req.query;
 
-    // ✅ Fallback : mois courant
     if (!startDate || !endDate) {
       startDate = moment().startOf("month").format("YYYY-MM-DD");
       endDate = moment().endOf("month").format("YYYY-MM-DD");
     }
 
-    const data = await query(`
+    let sql = `
       SELECT
         u.nom,
         p.date_presence,
+
         '08:00:00' AS heure_entree_prevue,
         TIME(p.heure_entree) AS heure_entree_reelle,
         p.retard_minutes,
+
         '16:00:00' AS heure_sortie_prevue,
         IFNULL(TIME(p.heure_sortie), '-') AS heure_sortie_reelle,
 
@@ -797,11 +798,13 @@ exports.getLateEarlyLeaveReport = async (req, res) => {
 
         CASE
           WHEN p.retard_minutes > 0
+           AND p.heure_sortie IS NOT NULL
            AND TIME(p.heure_sortie) < '16:00:00'
             THEN 'Retard + Départ anticipé'
           WHEN p.retard_minutes > 0
             THEN 'Retard'
-          WHEN TIME(p.heure_sortie) < '16:00:00'
+          WHEN p.heure_sortie IS NOT NULL
+           AND TIME(p.heure_sortie) < '16:00:00'
             THEN 'Départ anticipé'
           WHEN p.heures_supplementaires > 0
             THEN 'Heures supplémentaires'
@@ -810,13 +813,34 @@ exports.getLateEarlyLeaveReport = async (req, res) => {
 
       FROM presences p
       JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
-      WHERE p.date_presence BETWEEN ? AND ?
+    `;
+
+    const params = [];
+
+    if (site) {
+      sql += `
+        JOIN user_sites us ON us.user_id = u.id_utilisateur
+        WHERE us.site_id = ?
+          AND p.date_presence BETWEEN ? AND ?
+      `;
+      params.push(site, startDate, endDate);
+    } else {
+      sql += `
+        WHERE p.date_presence BETWEEN ? AND ?
+      `;
+      params.push(startDate, endDate);
+    }
+
+    sql += `
       ORDER BY p.date_presence, u.nom
-    `, [startDate, endDate]);
+    `;
+
+    const data = await query(sql, params);
 
     res.json({
       startDate,
       endDate,
+      site: site || null,
       total: data.length,
       data
     });
@@ -828,6 +852,7 @@ exports.getLateEarlyLeaveReport = async (req, res) => {
     });
   }
 };
+
 
 exports.getHRGlobalReport = async (req, res) => {
   try {
