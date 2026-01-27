@@ -40,5 +40,6 @@ router.post('/terminal', presence.postTerminal);
 router.get('/user-terminal', presence.getUserTerminal);
 router.get('/user-terminalById', presence.getUserTerminalById);
 router.post('/user-terminal', presence.postUserTerminal);
+router.delete('/user-terminal', presence.deleteUserTerminal);
 
 module.exports = router;

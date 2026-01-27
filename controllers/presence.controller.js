@@ -167,10 +167,9 @@ exports.getPresence = (req, res) => {
 exports.getPresencePlanning = async (req, res) => {
   try {
     const { month, year } = req.query;
-    const { role, scope_sites = [], scope_departments = [] } = req.query;
+    const { role, scope_sites = [], scope_departments = [], user_id } = req.abac || {};
 
-    // 🔹 Owner
-    let user_id = null;
+    console.log(req.abac)
     if (role === "Owner") {
       if (!req.query.user_id) {
         return res.status(400).json({
@@ -200,9 +199,11 @@ exports.getPresencePlanning = async (req, res) => {
     if (role === "Owner") {
       usersQuery += " AND id_utilisateur = ?";
       usersValues.push(user_id);
-    } else if (scope_departments.length > 0) {
-      usersQuery += ` AND id_departement IN (${scope_departments.join(",")})`;
+    } else if (scope_departments.length) {
+      usersQuery += ` AND id_departement IN (${scope_departments.map(() => "?").join(",")})`;
+      usersValues.push(...scope_departments);
     }
+
 
     const users = await query(usersQuery, usersValues);
 
@@ -1941,7 +1942,7 @@ exports.getUserTerminalById = async (req, res) => {
     }
 
     const q = `
-      SELECT ut.user_id, u.nom, u.email, u.role, ut.can_read, ut.can_edit
+      SELECT ut.user_id, u.nom, u.email, u.role
       FROM user_terminals ut
       JOIN utilisateur u ON ut.user_id = u.id_utilisateur
       WHERE ut.terminal_id = ?
@@ -1961,30 +1962,64 @@ exports.getUserTerminalById = async (req, res) => {
 
 exports.postUserTerminal = async (req, res) => {
   try {
-    const { user_id, terminal_id, can_read = 1, can_edit = 0 } = req.body;
+    const { user_id, terminal_id } = req.body;
 
     if (!user_id || !terminal_id) {
-      return res.status(400).json({ message: "user_id et terminal_id sont requis" });
+      return res.status(400).json({
+        success: false,
+        message: "user_id et terminal_id sont requis"
+      });
     }
 
-    const q = `
-      INSERT INTO user_terminals (user_id, terminal_id, can_read, can_edit)
-      VALUES (?, ?, ?, ?)
+    const sql = `
+      INSERT INTO user_terminals (user_id, terminal_id)
+      VALUES (?, ?)
       ON DUPLICATE KEY UPDATE
-        can_read = VALUES(can_read),
-        can_edit = VALUES(can_edit),
-        updated_at = CURRENT_TIMESTAMP
+        user_id = user_id
     `;
 
-    const [result] = await db.promise().execute(q, [user_id, terminal_id, can_read, can_edit]);
+    await query(sql, [user_id, terminal_id]);
 
     return res.status(201).json({
-      message: "Association utilisateur-terminal enregistrée avec succès",
-      id: result.insertId
+      success: true,
+      message: "Accès au terminal accordé à l'utilisateur"
     });
 
   } catch (error) {
-    console.error("postUserTerminal error:", error);
-    return res.status(500).json({ message: "Erreur serveur lors de l'enregistrement de l'association" });
+    console.error('[postUserTerminal]', error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur serveur lors de l'association utilisateur-terminal"
+    });
+  }
+};
+
+exports.deleteUserTerminal = async (req, res) => {
+  try {
+    const { user_id, terminal_id } = req.query;
+
+    if (!user_id || !terminal_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'user_id et terminal_id sont requis'
+      });
+    }
+
+    await query(
+      'DELETE FROM user_terminals WHERE user_id = ? AND terminal_id = ?',
+      [user_id, terminal_id]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Accès au terminal supprimé"
+    });
+
+  } catch (error) {
+    console.error('[deleteUserTerminal]', error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur serveur lors de la suppression"
+    });
   }
 };

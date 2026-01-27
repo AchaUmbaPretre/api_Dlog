@@ -126,8 +126,14 @@ exports.loginController = async (req, res) => {
     );
     const scope_departments = userDepartments.map(d => d.id_departement);
 
+    const userTerminals = await query(
+      'SELECT terminal_id FROM user_terminals WHERE user_id = ?',
+      [user.id_utilisateur]
+    );
+    const scope_terminals = userTerminals.map(t => t.terminal_id);
+
     // 6️⃣ JWT access token
-    const payload = { id: user.id_utilisateur, role: user.role, permissions, scope_sites, scope_departments };
+    const payload = { id: user.id_utilisateur, role: user.role, permissions, scope_sites, scope_departments, scope_terminals };
     const accessToken = jwt.sign(payload, process.env.JWT, { expiresIn: '15m' });
 
     // 7️⃣ Refresh token sécurisé avec bcryptjs
@@ -147,7 +153,6 @@ exports.loginController = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 jours
     });
 
-    // 9️⃣ Retourner l’utilisateur sans mot de passe
     const { mot_de_passe, ...userWithoutPassword } = user;
 
     return res.status(200).json({
@@ -157,6 +162,7 @@ exports.loginController = async (req, res) => {
       permissions,
       scope_sites,
       scope_departments,
+      scope_terminals,
       accessToken
     });
 
@@ -185,7 +191,6 @@ exports.refreshTokenController = async (req, res) => {
 
     const userId = matchedToken.user_id;
 
-    // User + permissions + scopes
     const users = await query('SELECT * FROM utilisateur WHERE id_utilisateur = ?', [userId]);
     if (!users.length) return res.status(404).json({ message: 'Utilisateur non trouvé' });
 
