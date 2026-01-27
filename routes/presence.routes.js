@@ -23,7 +23,7 @@ router.post('/conge', presence.postConge);
 router.put('/validation_conge', presence.validateConge);
 
 //Absence
-router.get('/absence', presence.getAbsence);
+router.get('/absence', authorize('attendance.events.read'), presence.getAbsence);
 router.get('/absence_type', presence.getAbsenceType);
 router.post('/absence', presence.postAbsence);
 router.put('/absence-validation', presence.putAbsenceValidation);

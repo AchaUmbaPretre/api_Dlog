@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 const { v4: uuidv4 } = require('uuid');
 const util = require("util");
+const { getCookie } = require('../utils/getCookie');
 const query = util.promisify(db.query).bind(db);
 
 dotenv.config();
@@ -174,9 +175,11 @@ exports.loginController = async (req, res) => {
 
 exports.refreshTokenController = async (req, res) => {
   try {
-    const tokenFromCookie = req.cookies.refreshToken;
+    // Récupérer le refreshToken depuis le header sans cookie-parser
+    const tokenFromCookie = getCookie(req, 'refreshToken');
     if (!tokenFromCookie) return res.status(401).json({ message: 'Refresh token manquant' });
 
+    // Chercher le token dans la base (non expiré)
     const rows = await query('SELECT * FROM refresh_tokens WHERE expires_at > NOW()');
 
     let matchedToken = null;
@@ -190,12 +193,12 @@ exports.refreshTokenController = async (req, res) => {
     if (!matchedToken) return res.status(403).json({ message: 'Refresh token invalide ou expiré' });
 
     const userId = matchedToken.user_id;
-
     const users = await query('SELECT * FROM utilisateur WHERE id_utilisateur = ?', [userId]);
     if (!users.length) return res.status(404).json({ message: 'Utilisateur non trouvé' });
 
     const user = users[0];
 
+    // Permissions et scopes
     const rolePerms = await query('SELECT permission FROM roles_permissions WHERE role = ?', [user.role]);
     const permissions = rolePerms.map(rp => rp.permission);
 
@@ -208,7 +211,14 @@ exports.refreshTokenController = async (req, res) => {
     );
     const scope_departments = userDepartments.map(d => d.id_departement);
 
-    const payload = { id: user.id_utilisateur, role: user.role, permissions, scope_sites, scope_departments };
+    const userTerminals = await query(
+      'SELECT terminal_id FROM user_terminals WHERE user_id = ?',
+      [user.id_utilisateur]
+    );
+    const scope_terminals = userTerminals.map(t => t.terminal_id);
+
+    // Générer le nouvel accessToken
+    const payload = { id: user.id_utilisateur, role: user.role, permissions, scope_sites, scope_departments, scope_terminals };
     const accessToken = jwt.sign(payload, process.env.JWT, { expiresIn: '15m' });
 
     const { mot_de_passe, ...userWithoutPassword } = user;
@@ -218,6 +228,7 @@ exports.refreshTokenController = async (req, res) => {
       permissions,
       scope_sites,
       scope_departments,
+      scope_terminals,
       accessToken
     });
 
@@ -229,7 +240,7 @@ exports.refreshTokenController = async (req, res) => {
 
 exports.logout = async (req, res) => {
   try {
-    const refreshToken = req.cookies.refreshToken;
+    const refreshToken = getCookie(req, 'refreshToken');
 
     if (!refreshToken) {
       // Pas de cookie, on renvoie succès quand même
@@ -245,12 +256,7 @@ exports.logout = async (req, res) => {
       }
     }
 
-    // Supprimer le cookie côté client
-    res.clearCookie('refreshToken', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Strict',
-    });
+    res.setHeader('Set-Cookie', 'refreshToken=; HttpOnly; Max-Age=0; Path=/; SameSite=Strict;');
 
     return res.status(200).json({ message: "Déconnexion réussie" });
 
@@ -259,7 +265,6 @@ exports.logout = async (req, res) => {
     return res.status(500).json({ message: 'Erreur serveur lors de la déconnexion' });
   }
 };
-
 
 /* exports.logout = (req, res) => {
     res.clearCookie('access_token', {

@@ -1415,9 +1415,12 @@ exports.validateAttendanceAdjustment = async (req, res) => {
 };
 
 //Congé
-exports.getConge = (req, res) => {
-    const q = `
-    SELECT 
+exports.getConge = async (req, res) => {
+  try {
+    const { role, scope_departments = [], user_id } = req.abac || {};
+
+    let queryStr = `
+      SELECT 
         c.id_conge,
         c.id_utilisateur,
         c.date_debut,
@@ -1431,21 +1434,38 @@ exports.getConge = (req, res) => {
         u2.prenom AS created_lastname,
         u3.nom AS validated_name,
         u3.prenom AS validated_lastname
-    FROM conges c
-    JOIN utilisateur u ON c.id_utilisateur = u.id_utilisateur
-    LEFT JOIN utilisateur u2 ON c.created_by = u2.id_utilisateur
-    LEFT JOIN utilisateur u3 ON c.validated_by = u3.id_utilisateur
+      FROM conges c
+      JOIN utilisateur u ON c.id_utilisateur = u.id_utilisateur
+      LEFT JOIN utilisateur u2 ON c.created_by = u2.id_utilisateur
+      LEFT JOIN utilisateur u3 ON c.validated_by = u3.id_utilisateur
+      WHERE 1=1
     `;
-    db.query(q, (error, data) => {
-        if(error) {
-            return res.status(500).json({
-                message: 'Erreur lors de la récupération des congés.',
-                error
-            })
-        }
-        return res.status(200).json(data);
+
+    const queryValues = [];
+
+    // 🔹 Owner : ne voir que ses congés
+    if (role === "Owner") {
+      queryStr += " AND c.id_utilisateur = ?";
+      queryValues.push(user_id);
+    } else if (scope_departments.length) {
+      // 🔹 Manager/HR : filtrer par département
+      queryStr += ` AND u.id_departement IN (${scope_departments.map(() => "?").join(",")})`;
+      queryValues.push(...scope_departments);
+    }
+
+    const data = await query(queryStr, queryValues);
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error("Erreur getConge :", error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des congés.",
+      error
     });
+  }
 };
+
 
 exports.postConge = async (req, res) => {
   try {
@@ -1463,7 +1483,7 @@ exports.postConge = async (req, res) => {
     /* ===============================
        0️⃣ RBAC – depuis JWT
     =============================== */
-    if (!permissions.includes('attendance.events.correct')) {
+    if (!permissions.includes('attendance.events.read')) {
       return res.status(403).json({
         message: "Permission refusée"
       });
