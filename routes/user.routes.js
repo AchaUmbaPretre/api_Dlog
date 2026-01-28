@@ -4,6 +4,7 @@ const  userController = require('./../controllers/user.controller');
 const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const verifyToken = require("../midllewares/verifyToken");
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -19,7 +20,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 router.get('/count', userController.getUserCount)
-router.get('/', userController.getUsers)
+router.get('/', verifyToken, userController.getUsers)
 router.get('/one', userController.getUserOne)
 router.post('/', userController.registerUser)
 router.put('/', userController.putUser)
