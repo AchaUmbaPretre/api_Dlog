@@ -131,7 +131,6 @@ exports.loginController = async (req, res) => {
     [user.id_utilisateur]
   )).map(t => t.terminal_id);
 
-  // Supprimer anciens refresh tokens
   await query('DELETE FROM refresh_tokens WHERE user_id = ?', [user.id_utilisateur]);
 
   // Payload JWT
@@ -146,18 +145,15 @@ exports.loginController = async (req, res) => {
 
   const accessToken = jwt.sign(payload, process.env.JWT, { expiresIn: '15m' });
 
-  // Refresh token (UUID côté front)
   const refreshToken = uuidv4();
   const hashed = await bcrypt.hash(refreshToken, 10);
 
-  // Stocker hashé côté DB
   await query(
     `INSERT INTO refresh_tokens (user_id, token, expires_at)
      VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY))`,
     [user.id_utilisateur, hashed]
   );
 
-  // Envoyer le cookie HttpOnly + Secure
   res.setHeader('Set-Cookie', [
     `refreshToken=${refreshToken}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${7 * 86400}`
   ]);
@@ -179,7 +175,6 @@ exports.refreshTokenController = async (req, res) => {
   const refreshToken = getCookie(req, 'refreshToken');
   if (!refreshToken) return res.status(401).json({ message: 'Refresh token manquant' });
 
-  // Chercher token valide côté DB
   const rows = await query(
     'SELECT * FROM refresh_tokens WHERE expires_at > NOW()'
   );
@@ -187,10 +182,8 @@ exports.refreshTokenController = async (req, res) => {
   const stored = rows.find(r => bcrypt.compareSync(refreshToken, r.token));
   if (!stored) return res.status(403).json({ message: 'Refresh token invalide' });
 
-  // Supprimer ancien token (rotation)
   await query('DELETE FROM refresh_tokens WHERE id = ?', [stored.id]);
 
-  // Récupérer l’utilisateur
   const user = (await query(
     'SELECT * FROM utilisateur WHERE id_utilisateur = ?',
     [stored.user_id]

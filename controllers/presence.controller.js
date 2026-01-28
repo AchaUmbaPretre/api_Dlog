@@ -164,12 +164,12 @@ exports.getPresence = (req, res) => {
   }
 }; */
 
-exports.getPresencePlanning = async (req, res) => {
+/* exports.getPresencePlanning = async (req, res) => {
   try {
     const { month, year } = req.query;
     let { role, scope_sites = [], scope_departments = [], user_id } = req.abac || {};
 
-    if (role === "Owner") {
+    if (role === "Owner" || role === "Employé") {
       if (!req.query.user_id) {
         return res.status(400).json({
           message: "Owner doit fournir son user_id dans la query"
@@ -187,7 +187,6 @@ exports.getPresencePlanning = async (req, res) => {
     const lastDay = new Date(year, month, 0).getDate();
     const fin = `${year}-${monthPadded}-${String(lastDay).padStart(2, "0")}`;
 
-    // 🔹 1️⃣ Utilisateurs
     let usersQuery = `
       SELECT id_utilisateur, nom, prenom, id_departement
       FROM utilisateur
@@ -195,7 +194,7 @@ exports.getPresencePlanning = async (req, res) => {
     `;
     const usersValues = [];
 
-    if (role === "Owner") {
+    if (role === "Owner" || role === "Employé" ) {
       usersQuery += " AND id_utilisateur = ?";
       usersValues.push(user_id);
     } else if (scope_departments.length) {
@@ -384,6 +383,198 @@ exports.getPresencePlanning = async (req, res) => {
       utilisateurs
     });
 
+  } catch (error) {
+    console.error("Erreur getPresencePlanning :", error);
+    res.status(500).json({ message: "Erreur serveur planning" });
+  }
+}; */
+
+exports.getPresencePlanning = async (req, res) => {
+  try {
+    const { month, year, user_id: queryUserId } = req.query;
+    const { role, scope_sites = [], scope_departments = [], user_id: abacUserId } = req.abac || {};
+
+    // 🔹 Validation paramètres
+    if (!month || !year) {
+      return res.status(400).json({ message: "Paramètres month et year requis" });
+    }
+
+    const monthPadded = String(month).padStart(2, "0");
+    const debut = `${year}-${monthPadded}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const fin = `${year}-${monthPadded}-${String(lastDay).padStart(2, "0")}`;
+
+    // 🔹 Déterminer l'utilisateur ciblé
+    let userId = abacUserId;
+    if (role === "Owner" || role === "Employé") {
+      if (!queryUserId) {
+        return res.status(400).json({ message: `${role} doit fournir son user_id dans la query` });
+      }
+      userId = parseInt(queryUserId, 10);
+    }
+
+    // 🔹 1️⃣ Construction requête utilisateurs
+    let usersQuery = `SELECT DISTINCT u.id_utilisateur, u.nom, u.prenom, u.id_departement FROM utilisateur u`;
+    const usersValues = [];
+    const userWhere = [];
+
+    if (role === "Owner" || role === "Employé") {
+      userWhere.push("u.id_utilisateur = ?");
+      usersValues.push(userId);
+    } else if (role === "RH" || role === "RS") {
+      if (!scope_departments?.length) {
+        return res.status(403).json({ message: `${role} doit avoir au moins un département assigné` });
+      }
+      userWhere.push(`u.id_departement IN (${scope_departments.map(() => "?").join(",")})`);
+      usersValues.push(...scope_departments);
+    } else if (role === "Manager") {
+      if (!scope_departments?.length && !scope_sites?.length) {
+        return res.status(403).json({ message: "Manager doit avoir au moins un site ou département assigné" });
+      }
+
+      if (scope_departments?.length) {
+        userWhere.push(`u.id_departement IN (${scope_departments.map(() => "?").join(",")})`);
+        usersValues.push(...scope_departments);
+      }
+
+      if (scope_sites?.length) {
+        usersQuery += ` JOIN user_sites us ON us.user_id = u.id_utilisateur`;
+        userWhere.push(`us.site_id IN (${scope_sites.map(() => "?").join(",")})`);
+        usersValues.push(...scope_sites);
+      }
+    }
+    // Admin et Securité = pas de filtre
+    if (userWhere.length) {
+      usersQuery += " WHERE " + userWhere.join(" OR ");
+    }
+
+    const users = await query(usersQuery, usersValues);
+
+    // 🔹 2️⃣ Génération dates du mois
+    const datesRaw = await query(
+      `SELECT DATE(?) + INTERVAL n DAY AS date
+       FROM (
+         SELECT a.a + b.a * 10 AS n
+         FROM (SELECT 0 a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+               UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) a
+         CROSS JOIN (SELECT 0 a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) b
+       ) numbers
+       WHERE DATE(?) + INTERVAL n DAY <= ?
+       ORDER BY DATE(?) + INTERVAL n DAY`,
+      [debut, debut, fin, debut]
+    );
+
+    // 🔹 3️⃣ Jours fériés et non travaillés
+    const [joursFeries, joursNonTrav] = await Promise.all([
+      query(`SELECT date_ferie FROM jours_feries`),
+      query(`SELECT jour_semaine FROM jours_non_travailles`)
+    ]);
+
+    // 🔹 4️⃣ Présences
+    let presQuery = `SELECT id_presence, id_utilisateur, date_presence, heure_entree, heure_sortie, site_id
+                     FROM presences
+                     WHERE date_presence BETWEEN ? AND ?`;
+    const presValues = [debut, fin];
+
+    if (role !== "Owner" && role !== "Employé" && scope_sites?.length) {
+      presQuery += ` AND site_id IN (${scope_sites.map(() => "?").join(",")})`;
+      presValues.push(...scope_sites);
+    }
+
+    if (role === "Owner" || role === "Employé") {
+      presQuery += " AND id_utilisateur = ?";
+      presValues.push(userId);
+    }
+
+    const presences = await query(presQuery, presValues);
+
+    // 🔹 Ajustements
+    const adjustments = await query(
+      `SELECT a.id_presence, a.type, a.nouvelle_valeur, a.statut,
+              p.id_utilisateur, p.date_presence
+       FROM attendance_adjustments a
+       JOIN presences p ON p.id_presence = a.id_presence
+       WHERE p.date_presence BETWEEN ? AND ?`,
+      [debut, fin]
+    );
+
+    const adjustmentsMap = {};
+    adjustments.forEach(a => {
+      adjustmentsMap[`${a.id_utilisateur}_${formatDate(a.date_presence)}`] = a;
+    });
+
+    // 🔹 Congés validés
+    const conges = await query(
+      `SELECT id_utilisateur, date_debut, date_fin
+       FROM conges
+       WHERE statut = 'VALIDE'
+         AND date_debut <= ?
+         AND date_fin >= ?`,
+      [fin, debut]
+    );
+
+    const congesList = conges.map(c => ({
+      id: c.id_utilisateur,
+      debut: formatDate(c.date_debut),
+      fin: formatDate(c.date_fin)
+    }));
+
+    // 🔹 Mapping présences par utilisateur/date
+    const presMapByUserDate = {};
+    presences.forEach(p => {
+      const key = `${p.id_utilisateur}_${formatDate(p.date_presence)}`;
+      const adj = adjustmentsMap[key];
+      presMapByUserDate[key] = {
+        statut: "PRESENT",
+        heure_entree: p.heure_entree,
+        heure_sortie: p.heure_sortie,
+        id_presence: p.id_presence,
+        adjustment_statut: adj?.statut || null,
+        adjustment_type: adj?.type || null
+      };
+    });
+
+    // 🔹 Construction dates avec statut
+    const dates = datesRaw.map(d => {
+      const dateKey = formatDate(d.date);
+      let statutJour = "TRAVAIL";
+      if (joursFeries.some(j => formatDate(j.date_ferie) === dateKey)) statutJour = "FERIE";
+      else if (joursNonTrav.some(j => j.jour_semaine.toLowerCase() === jourSemaineFR(d.date).toLowerCase()))
+        statutJour = "NON_TRAVAILLE";
+
+      return {
+        date: dateKey,
+        label: `${String(d.date.getDate()).padStart(2, "0")} ${d.date.toLocaleString("fr-FR", { month: "short" })}`,
+        statutJour
+      };
+    });
+
+    // 🔹 Construction planning final
+    const utilisateurs = users.map(u => {
+      const presencesByDate = {};
+      dates.forEach(d => {
+        const key = `${u.id_utilisateur}_${d.date}`;
+        const cong = congesList.find(c => c.id === u.id_utilisateur && d.date >= c.debut && d.date <= c.fin);
+
+        if (cong) presencesByDate[d.date] = { statut: "CONGE", heure_entree: null, heure_sortie: null };
+        else if (presMapByUserDate[key]) {
+          const base = { ...presMapByUserDate[key] };
+          const adj = adjustmentsMap[key];
+          if (adj?.statut === "VALIDE") {
+            if (adj.type === "RETARD_JUSTIFIE") base.retard_justifie = true;
+            if (adj.type === "CORRECTION_HEURE") base.heure_entree = adj.nouvelle_valeur;
+            if (adj.type === "AUTORISATION_SORTIE") base.autorisation_sortie = true;
+          }
+          presencesByDate[d.date] = base;
+        } else if (d.statutJour === "FERIE") presencesByDate[d.date] = { statut: "FERIE", heure_entree: null, heure_sortie: null };
+        else if (d.statutJour === "NON_TRAVAILLE") presencesByDate[d.date] = { statut: "NON_TRAVAILLE", heure_entree: null, heure_sortie: null };
+        else presencesByDate[d.date] = { statut: "ABSENT", heure_entree: null, heure_sortie: null };
+      });
+
+      return { id_utilisateur: u.id_utilisateur, nom: u.nom, prenom: u.prenom, presences: presencesByDate };
+    });
+
+    res.json({ month: Number(month), year: Number(year), dates, utilisateurs });
   } catch (error) {
     console.error("Erreur getPresencePlanning :", error);
     res.status(500).json({ message: "Erreur serveur planning" });
