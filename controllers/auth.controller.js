@@ -143,7 +143,7 @@ exports.loginController = async (req, res) => {
     scope_terminals
   };
 
-  const accessToken = jwt.sign(payload, process.env.JWT, { expiresIn: '40m' });
+  const accessToken = jwt.sign(payload, process.env.JWT, { expiresIn: '3d' });
 
   const refreshToken = uuidv4();
   const hashed = await bcrypt.hash(refreshToken, 10);

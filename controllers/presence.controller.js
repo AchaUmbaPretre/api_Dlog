@@ -7,6 +7,27 @@ const { jourSemaineFR, formatDate, mapJourSemaineFR } = require("../utils/dateUt
 const { auditPresence } = require("../utils/audit.js");
 
 exports.getPresence = (req, res) => {
+  try {
+    const { startDate, endDate, site } = req.query;
+
+    let conditions = [];
+    let values = [];
+
+    // ✅ Filtre période
+    if (startDate && endDate) {
+      conditions.push("p.date_presence BETWEEN ? AND ?");
+      values.push(startDate, endDate);
+    }
+
+    // ✅ Filtre site
+    if (site) {
+      conditions.push("p.site_id = ?");
+      values.push(site);
+    }
+
+    const whereClause = conditions.length
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
 
     const q = `
       SELECT 
@@ -20,16 +41,23 @@ exports.getPresence = (req, res) => {
       FROM presences p
       LEFT JOIN utilisateur u ON p.id_utilisateur = u.id_utilisateur
       LEFT JOIN sites s ON p.site_id = s.id_site
-      ORDER BY p.date_presence DESC`;
-    db.query(q, (error, data) => {
-        if(error) {
-            return res.status(500).json({
-                message: 'Erreur lors de la récuperations des presences.',
-                error
-            })
-        }
-        return res.status(200).json(data);
+      ${whereClause}
+      ORDER BY p.date_presence DESC
+    `;
+
+    db.query(q, values, (error, data) => {
+      if (error) {
+        return res.status(500).json({
+          message: "Erreur lors de la récupération des présences",
+          error
+        });
+      }
+      return res.status(200).json(data);
     });
+
+  } catch (err) {
+    return res.status(500).json({ message: "Erreur serveur", err });
+  }
 };
 
 /* exports.getPresencePlanning = async (req, res) => {
