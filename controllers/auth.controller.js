@@ -93,7 +93,7 @@ exports.registerController = async (req, res) => {
     }
   }; */
   
-exports.loginController = async (req, res) => {
+/* exports.loginController = async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password)
     return res.status(400).json({ message: 'Email et mot de passe requis' });
@@ -169,7 +169,85 @@ exports.loginController = async (req, res) => {
     scope_terminals,
     accessToken
   });
+}; */
+
+exports.loginController = async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ message: "Veuillez entrer votre email et mot de passe." });
+  }
+
+  const users = await query(
+    'SELECT * FROM utilisateur WHERE email = ? LIMIT 1',
+    [username]
+  );
+
+  if (!users.length) {
+    // Email inexistant
+    return res.status(404).json({ message: "Aucun compte n'est associé à cet email." });
+  }
+
+  const user = users[0];
+  const match = await bcrypt.compare(password, user.mot_de_passe);
+
+  if (!match) {
+    // Mot de passe incorrect
+    return res.status(401).json({ message: "Le mot de passe est incorrect. Veuillez réessayer." });
+  }
+
+  // RBAC et scopes
+  const permissions = (await query(
+    'SELECT permission FROM roles_permissions WHERE role = ?',
+    [user.role]
+  )).map(p => p.permission);
+
+  const scope_sites = (await query(
+    'SELECT site_id FROM user_sites WHERE user_id = ?',
+    [user.id_utilisateur]
+  )).map(s => s.site_id);
+
+  const scope_departments = (await query(
+    'SELECT id_departement FROM user_departements WHERE id_user = ? AND can_view = 1',
+    [user.id_utilisateur]
+  )).map(d => d.id_departement);
+
+  const scope_terminals = (await query(
+    'SELECT terminal_id FROM user_terminals WHERE user_id = ?',
+    [user.id_utilisateur]
+  )).map(t => t.terminal_id);
+
+  await query('DELETE FROM refresh_tokens WHERE user_id = ?', [user.id_utilisateur]);
+
+  // JWT
+  const payload = { id: user.id_utilisateur, role: user.role, permissions, scope_sites, scope_departments, scope_terminals };
+  const accessToken = jwt.sign(payload, process.env.JWT, { expiresIn: '3d' });
+
+  const refreshToken = uuidv4();
+  const hashed = await bcrypt.hash(refreshToken, 10);
+
+  await query(
+    `INSERT INTO refresh_tokens (user_id, token, expires_at)
+     VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY))`,
+    [user.id_utilisateur, hashed]
+  );
+
+  res.setHeader('Set-Cookie', [
+    `refreshToken=${refreshToken}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${7 * 86400}`
+  ]);
+
+  const { mot_de_passe, ...safeUser } = user;
+
+  res.json({
+    success: true,
+    ...safeUser,
+    permissions,
+    scope_sites,
+    scope_departments,
+    scope_terminals,
+    accessToken
+  });
 };
+
 
 exports.refreshTokenController = async (req, res) => {
   const refreshToken = getCookie(req, 'refreshToken');

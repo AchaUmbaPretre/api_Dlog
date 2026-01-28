@@ -56,7 +56,7 @@ if (environment === 'development') {
   app.use(morgan('dev'));
 }
 
-const corsOptions = {
+/* const corsOptions = {
   origin: 'http://localhost:3000',
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   preflightContinue: false,
@@ -64,6 +64,24 @@ const corsOptions = {
   allowedHeaders: 'Origin, X-Requested-With, Content-Type, Accept, Authorization',
   credentials: true
 };
+ */
+
+const allowedOrigins = ['https://dlog.loginsmart-cd.com', 'http://localhost:3000'];
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  allowedHeaders: 'Origin, X-Requested-With, Content-Type, Accept, Authorization',
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
+};
+
 
 app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: '50mb' }));
