@@ -1933,7 +1933,6 @@ exports.getConge = async (req, res) => {
   }
 };
 
-
 exports.postConge = async (req, res) => {
   try {
     const {
@@ -2037,7 +2036,6 @@ exports.postConge = async (req, res) => {
   }
 };
 
-
 exports.validateConge = async (req, res) => {
   try {
     const { id_conge, statut, validated_by } = req.body;
@@ -2097,12 +2095,10 @@ exports.getAbsence = async (req, res) => {
 
     const queryValues = [];
 
-    // 🔹 Owner : ne voir que ses absences
     if (role === "Owner") {
       queryStr += " AND a.id_utilisateur = ?";
       queryValues.push(user_id);
     } else if (scope_departments.length) {
-      // 🔹 Manager/HR : filtrer par département
       queryStr += ` AND u.id_departement IN (${scope_departments.map(() => "?").join(",")})`;
       queryValues.push(...scope_departments);
     }
