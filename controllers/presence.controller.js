@@ -1761,7 +1761,7 @@ exports.postConge = async (req, res) => {
         type_conge,
         statut,
         commentaire,
-        req.abac?.user_id || null // enregistre qui a créé le congé
+        req.abac?.user_id || null
       ]
     );
 

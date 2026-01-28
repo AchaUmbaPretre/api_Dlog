@@ -19,13 +19,13 @@ router.put('/validation-adjustments', presence.validateAttendanceAdjustment);
 
 //Congé
 router.get('/conge', authorize('attendance.events.read'), presence.getConge);
-router.post('/conge', presence.postConge);
+router.post('/conge', authorize('attendance.events.read'), presence.postConge);
 router.put('/validation_conge', presence.validateConge);
 
 //Absence
 router.get('/absence', authorize('attendance.events.read'), presence.getAbsence);
 router.get('/absence_type', presence.getAbsenceType);
-router.post('/absence', presence.postAbsence);
+router.post('/absence', authorize('attendance.events.read'), presence.postAbsence);
 router.put('/absence-validation', presence.putAbsenceValidation);
 
 //JOUR FERIE

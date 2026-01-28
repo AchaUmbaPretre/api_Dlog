@@ -147,16 +147,14 @@ exports.loginController = async (req, res) => {
     const hashedRefreshToken = await bcrypt.hash(plainRefreshToken, 10);
 
     await query(
-      'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY))',
-      [user.id_utilisateur, hashedRefreshToken]
+      'INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY))',
+      [plainRefreshToken, user.id_utilisateur, hashedRefreshToken]
     );
 
     // 8️⃣ Envoyer le refresh token en cookie HttpOnly
     res.setHeader(
       'Set-Cookie',
-      `refreshToken=${plainRefreshToken}; HttpOnly; Path=/; Max-Age=${
-        7 * 24 * 60 * 60
-      }; SameSite=Lax`
+      `refreshToken=${plainRefreshToken}; refreshId=${plainRefreshToken}; HttpOnly; Path=/; SameSite=None; Secure`
     );
 
     const { mot_de_passe, ...userWithoutPassword } = user;
