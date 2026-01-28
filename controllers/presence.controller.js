@@ -19,7 +19,8 @@ exports.getPresence = (req, res) => {
         s.nom_site 
       FROM presences p
       LEFT JOIN utilisateur u ON p.id_utilisateur = u.id_utilisateur
-      LEFT JOIN sites s ON p.site_id = s.id_site`;
+      LEFT JOIN sites s ON p.site_id = s.id_site
+      ORDER BY p.date_presence DESC`;
     db.query(q, (error, data) => {
         if(error) {
             return res.status(500).json({
