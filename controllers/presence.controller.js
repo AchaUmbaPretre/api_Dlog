@@ -453,7 +453,6 @@ exports.getPresencePlanning = async (req, res) => {
       userId = parseInt(queryUserId, 10);
     }
 
-    // 🔹 1️⃣ Construction requête utilisateurs
     let usersQuery = `SELECT DISTINCT u.id_utilisateur, u.nom, u.prenom, u.id_departement FROM utilisateur u`;
     const usersValues = [];
     const userWhere = [];
@@ -1302,7 +1301,7 @@ exports.postPresence = async (req, res) => {
     } = req.body;
 
     // 0️⃣ Vérification RBAC
-    if (!permissions.includes("attendance.events.correct")) {
+    if (!permissions.includes("attendance.events.approve")) {
       return res.status(403).json({ message: "Permission refusée" });
     }
 
