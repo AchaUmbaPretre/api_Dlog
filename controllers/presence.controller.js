@@ -8,7 +8,18 @@ const { auditPresence } = require("../utils/audit.js");
 
 exports.getPresence = (req, res) => {
 
-    const q = `SELECT * FROM presences`;
+    const q = `
+      SELECT 
+        p.id_presence, 
+        p.date_presence, 
+        p.heure_entree, 
+        p.heure_sortie, 
+        p.statut_jour, 
+        u.nom, 
+        s.nom_site 
+      FROM presences p
+      LEFT JOIN utilisateur u ON p.id_utilisateur = u.id_utilisateur
+      LEFT JOIN sites s ON p.site_id = s.id_site`;
     db.query(q, (error, data) => {
         if(error) {
             return res.status(500).json({
@@ -443,12 +454,17 @@ exports.getPresencePlanning = async (req, res) => {
         usersValues.push(...scope_sites);
       }
     }
-    // Admin et Securité = pas de filtre
+
+    // Admin et Sécurité = pas de filtre
     if (userWhere.length) {
       usersQuery += " WHERE " + userWhere.join(" OR ");
     }
 
     const users = await query(usersQuery, usersValues);
+
+    if (users.length === 0) {
+      return res.json({ month: Number(month), year: Number(year), dates: [], utilisateurs: [] });
+    }
 
     // 🔹 2️⃣ Génération dates du mois
     const datesRaw = await query(
@@ -476,14 +492,14 @@ exports.getPresencePlanning = async (req, res) => {
                      WHERE date_presence BETWEEN ? AND ?`;
     const presValues = [debut, fin];
 
-    if (role !== "Owner" && role !== "Employé" && scope_sites?.length) {
-      presQuery += ` AND site_id IN (${scope_sites.map(() => "?").join(",")})`;
-      presValues.push(...scope_sites);
-    }
-
     if (role === "Owner" || role === "Employé") {
       presQuery += " AND id_utilisateur = ?";
       presValues.push(userId);
+    } else {
+      // Pour Manager/RH/RS/Admin: toutes les présences des utilisateurs filtrés
+      const userIds = users.map(u => u.id_utilisateur);
+      presQuery += ` AND id_utilisateur IN (${userIds.map(() => "?").join(",")})`;
+      presValues.push(...userIds);
     }
 
     const presences = await query(presQuery, presValues);
@@ -575,6 +591,7 @@ exports.getPresencePlanning = async (req, res) => {
     });
 
     res.json({ month: Number(month), year: Number(year), dates, utilisateurs });
+
   } catch (error) {
     console.error("Erreur getPresencePlanning :", error);
     res.status(500).json({ message: "Erreur serveur planning" });
