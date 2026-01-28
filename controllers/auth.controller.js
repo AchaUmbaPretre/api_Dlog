@@ -110,7 +110,7 @@ exports.loginController = async (req, res) => {
   if (!match)
     return res.status(401).json({ message: 'Identifiants invalides' });
 
-  // 🔐 RBAC + Scopes
+  // RBAC
   const permissions = (await query(
     'SELECT permission FROM roles_permissions WHERE role = ?',
     [user.role]
@@ -131,11 +131,10 @@ exports.loginController = async (req, res) => {
     [user.id_utilisateur]
   )).map(t => t.terminal_id);
 
-  // 🔁 Supprimer anciens refresh tokens
-  await query('DELETE FROM refresh_tokens WHERE user_id = ?', [
-    user.id_utilisateur
-  ]);
+  // Supprimer anciens refresh tokens
+  await query('DELETE FROM refresh_tokens WHERE user_id = ?', [user.id_utilisateur]);
 
+  // Payload JWT
   const payload = {
     id: user.id_utilisateur,
     role: user.role,
@@ -147,20 +146,20 @@ exports.loginController = async (req, res) => {
 
   const accessToken = jwt.sign(payload, process.env.JWT, { expiresIn: '15m' });
 
-  // 🔄 Refresh token rotation
+  // Refresh token (UUID côté front)
   const refreshToken = uuidv4();
-  const refreshId = uuidv4();
   const hashed = await bcrypt.hash(refreshToken, 10);
 
+  // Stocker hashé côté DB
   await query(
-    `INSERT INTO refresh_tokens (id, user_id, token, expires_at)
-     VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY))`,
-    [refreshId, user.id_utilisateur, hashed]
+    `INSERT INTO refresh_tokens (user_id, token, expires_at)
+     VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY))`,
+    [user.id_utilisateur, hashed]
   );
 
+  // Envoyer le cookie HttpOnly + Secure
   res.setHeader('Set-Cookie', [
-    `refreshToken=${refreshToken}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${7 * 86400}`,
-    `refreshId=${refreshId}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${7 * 86400}`
+    `refreshToken=${refreshToken}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${7 * 86400}`
   ]);
 
   const { mot_de_passe, ...safeUser } = user;
@@ -178,31 +177,24 @@ exports.loginController = async (req, res) => {
 
 exports.refreshTokenController = async (req, res) => {
   const refreshToken = getCookie(req, 'refreshToken');
-  const refreshId = getCookie(req, 'refreshId');
+  if (!refreshToken) return res.status(401).json({ message: 'Refresh token manquant' });
 
-  if (!refreshToken || !refreshId)
-    return res.status(401).json({ message: 'Refresh token manquant' });
-
+  // Chercher token valide côté DB
   const rows = await query(
-    'SELECT * FROM refresh_tokens WHERE id = ? AND expires_at > NOW()',
-    [refreshId]
+    'SELECT * FROM refresh_tokens WHERE expires_at > NOW()'
   );
-  if (!rows.length)
-    return res.status(403).json({ message: 'Refresh token invalide' });
 
-  const stored = rows[0];
-  const valid = await bcrypt.compare(refreshToken, stored.token);
-  if (!valid)
-    return res.status(403).json({ message: 'Refresh token invalide' });
+  const stored = rows.find(r => bcrypt.compareSync(refreshToken, r.token));
+  if (!stored) return res.status(403).json({ message: 'Refresh token invalide' });
 
-  // 🔄 Rotation
-  await query('DELETE FROM refresh_tokens WHERE id = ?', [refreshId]);
+  // Supprimer ancien token (rotation)
+  await query('DELETE FROM refresh_tokens WHERE id = ?', [stored.id]);
 
-  const users = await query(
+  // Récupérer l’utilisateur
+  const user = (await query(
     'SELECT * FROM utilisateur WHERE id_utilisateur = ?',
     [stored.user_id]
-  );
-  const user = users[0];
+  ))[0];
 
   const permissions = (await query(
     'SELECT permission FROM roles_permissions WHERE role = ?',
@@ -212,19 +204,26 @@ exports.refreshTokenController = async (req, res) => {
   const payload = { id: user.id_utilisateur, role: user.role, permissions };
   const accessToken = jwt.sign(payload, process.env.JWT, { expiresIn: '15m' });
 
+  // Nouveau refresh token
+  const newRefreshToken = uuidv4();
+  const hashed = await bcrypt.hash(newRefreshToken, 10);
+  await query(
+    `INSERT INTO refresh_tokens (user_id, token, expires_at)
+     VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY))`,
+    [user.id_utilisateur, hashed]
+  );
+
+  res.setHeader('Set-Cookie',
+    `refreshToken=${newRefreshToken}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${7 * 86400}`
+  );
+
   res.json({ success: true, accessToken });
 };
 
 exports.logout = async (req, res) => {
-  try {
-    const refreshToken = getCookie(req, 'refreshToken');
+  const refreshToken = getCookie(req, 'refreshToken');
 
-    if (!refreshToken) {
-      // 🔹 Pas de cookie => succès
-      return res.status(200).json({ message: "Déconnexion réussie" });
-    }
-
-    // 🔹 Supprimer le refresh token correspondant dans la base
+  if (refreshToken) {
     const rows = await query('SELECT * FROM refresh_tokens');
     for (const row of rows) {
       if (await bcrypt.compare(refreshToken, row.token)) {
@@ -232,19 +231,14 @@ exports.logout = async (req, res) => {
         break;
       }
     }
-
-    // 🔹 Supprimer le cookie côté client
-    res.setHeader(
-      'Set-Cookie',
-      'refreshToken=; HttpOnly; Max-Age=0; Path=/; SameSite=Lax'
-    );
-
-    return res.status(200).json({ message: "Déconnexion réussie" });
-
-  } catch (err) {
-    console.error('logoutController error', err);
-    return res.status(500).json({ message: 'Erreur serveur lors de la déconnexion' });
   }
+
+  res.setHeader(
+    'Set-Cookie',
+    'refreshToken=; HttpOnly; Max-Age=0; Path=/; SameSite=None; Secure'
+  );
+
+  res.status(200).json({ message: 'Déconnexion réussie' });
 };
 
 /* exports.logout = (req, res) => {
