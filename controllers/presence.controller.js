@@ -998,7 +998,6 @@ exports.getMonthlyPresenceReport = async (req, res) => {
   }
 };
 
-
 exports.getLateEarlyLeaveReport = async (req, res) => {
   try {
     let { startDate, endDate, site } = req.query;
@@ -1089,7 +1088,6 @@ exports.getLateEarlyLeaveReport = async (req, res) => {
     });
   }
 };
-
 
 exports.getHRGlobalReport = async (req, res) => {
   try {
