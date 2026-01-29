@@ -1880,6 +1880,16 @@ exports.validateAttendanceAdjustment = async (req, res) => {
   }
 };
 
+//Dashboard
+exports.getPresenceDashboard = async (req, res) => {
+
+  try {
+    
+  } catch (error) {
+    
+  }
+}
+
 //Congé
 exports.getConge = async (req, res) => {
   try {
