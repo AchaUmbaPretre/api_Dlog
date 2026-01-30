@@ -7,6 +7,7 @@ const { jourSemaineFR, formatDate, mapJourSemaineFR } = require("../utils/dateUt
 const { auditPresence } = require("../utils/audit.js");
 const WORK_DAY_HOURS = 8;
 const HALF_DAY_HOURS = 4;
+const INTERVAL_MS = 1 * 60 * 1000; // toutes les 5 minutes
 
 exports.getPresence = (req, res) => {
   try {
@@ -1296,7 +1297,7 @@ exports.postPresence = async (req, res) => {
       id_utilisateur,
       date_presence,
       datetime,
-      source = 'TERMINAL',
+      source = 'MANUEL',
       device_sn,
       terminal_id,
       permissions = []
@@ -2600,7 +2601,6 @@ exports.putAbsenceValidation = async (req, res) => {
   }
 };
 
-
 //Ferié
 exports.getJourFerie = (req, res) => {
   const q = `
@@ -2885,8 +2885,7 @@ exports.deleteUserTerminal = async (req, res) => {
   }
 };
 
-
-exports.cronDailyAttendance = async () => {
+const cronDailyAttendance = async () => {
   console.log('[CRON] Daily attendance started');
 
   const today = moment().format('YYYY-MM-DD');
@@ -2980,3 +2979,11 @@ exports.cronDailyAttendance = async () => {
     console.error('[CRON] ERROR', error);
   }
 };
+
+exports.cronDailyAttendance = cronDailyAttendance;
+
+setInterval(() => {
+  cronDailyAttendance()
+    .then((msg) => console.log("[AutoSync]", msg))
+    .catch((err) => console.error("[AutoSync] Erreur:", err.message));
+}, INTERVAL_MS);
