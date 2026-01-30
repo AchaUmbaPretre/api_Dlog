@@ -5,6 +5,8 @@ const util = require("util");
 const query = util.promisify(db.query).bind(db);
 const { jourSemaineFR, formatDate, mapJourSemaineFR } = require("../utils/dateUtils.js");
 const { auditPresence } = require("../utils/audit.js");
+const WORK_DAY_HOURS = 8;
+const HALF_DAY_HOURS = 4;
 
 exports.getPresence = (req, res) => {
   try {
@@ -1880,15 +1882,104 @@ exports.validateAttendanceAdjustment = async (req, res) => {
   }
 };
 
-//Dashboard
 exports.getPresenceDashboard = async (req, res) => {
-
   try {
-    
+    // Requête KPI
+    const kpiPromise = query(`
+      SELECT
+        COUNT(*) AS total,
+        SUM(statut_jour = 'PRESENT') AS presents,
+        SUM(statut_jour = 'ABSENT') AS absents,
+        SUM(retard_minutes > 0) AS retards
+      FROM presences
+      WHERE date_presence = CURDATE()
+    `);
+
+    // Répartition par statut (Pie Chart)
+    const statutsPromise = query(`
+      SELECT statut_jour AS label, COUNT(*) AS value
+      FROM presences
+      WHERE date_presence = CURDATE()
+      GROUP BY statut_jour
+    `);
+
+    // Présence sur 7 jours (Line Chart)
+    const evolutionPromise = query(`
+      SELECT 
+        date_presence AS date,
+        SUM(statut_jour = 'PRESENT') AS presents,
+        SUM(statut_jour = 'ABSENT') AS absents
+      FROM presences
+      WHERE date_presence >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+      GROUP BY date_presence
+      ORDER BY date_presence
+    `);
+
+    // Liste des employés aujourd'hui
+    const employesPromise = query(`
+      SELECT 
+        u.nom,
+        p.statut_jour,
+        p.heure_entree,
+        p.heure_sortie,
+        CASE
+          WHEN p.retard_minutes > 0 THEN 'RETARD'
+          WHEN p.statut_jour = 'PRESENT' THEN 'A L_HEURE'
+          ELSE p.statut_jour
+        END AS statut_affiche
+      FROM presences p
+      JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
+      WHERE p.date_presence = CURDATE()
+      ORDER BY p.heure_entree ASC
+    `);
+
+    // Top absences (30 derniers jours)
+    const topAbsencesPromise = query(`
+      SELECT 
+        u.nom,
+        COUNT(*) AS total_absences
+      FROM presences p
+      JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
+      WHERE p.statut_jour IN ('ABSENT', 'ABSENCE_JUSTIFIEE')
+        AND p.date_presence >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+      GROUP BY p.id_utilisateur
+      ORDER BY total_absences DESC
+      LIMIT 5
+    `);
+
+    // Exécution parallèle
+    const [
+      kpiRows,
+      statutsRows,
+      evolutionRows,
+      employesRows,
+      topAbsencesRows
+    ] = await Promise.all([
+      kpiPromise,
+      statutsPromise,
+      evolutionPromise,
+      employesPromise,
+      topAbsencesPromise
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        kpi: kpiRows[0],
+        statuts: statutsRows,
+        evolution: evolutionRows,
+        employes: employesRows,
+        topAbsences: topAbsencesRows
+      }
+    });
   } catch (error) {
-    
+    console.error('Dashboard error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur chargement dashboard présence'
+    });
   }
-}
+};
 
 //Congé
 exports.getConge = async (req, res) => {
@@ -2075,7 +2166,7 @@ exports.validateConge = async (req, res) => {
 };
 
 //Absence
-exports.getAbsence = async (req, res) => {
+/* exports.getAbsence = async (req, res) => {
   try {
     const { role, scope_departments = [], user_id } = req.abac || {};
 
@@ -2125,7 +2216,204 @@ exports.getAbsence = async (req, res) => {
       error
     });
   }
+}; */
+
+/* exports.getAbsence = async (req, res) => {
+  try {
+    const { role, scope_departments = [], user_id } = req.abac || {};
+
+    let queryStr = `
+      SELECT 
+        a.id_absence,
+        a.id_utilisateur,
+        a.date_debut,
+        a.date_fin,
+        a.commentaire,
+        a.statut,
+        a.created_at,
+
+        u.nom AS utilisateur,
+        u.prenom AS utilisateur_lastname,
+
+        u2.nom AS created_name,
+        u2.prenom AS created_lastname,
+
+        u3.nom AS validated_name,
+
+        t.libelle AS type_absence,
+
+        -- 📊 KPI calculés
+        DATEDIFF(a.date_fin, a.date_debut) + 1 AS nb_jours_total,
+
+        (
+          SELECT COUNT(*)
+          FROM jours_feries jf
+          WHERE jf.date_ferie BETWEEN a.date_debut AND a.date_fin
+        ) AS nb_jours_feries,
+
+        (
+          SELECT COUNT(*)
+          FROM jours_non_travailles jnt
+          WHERE jnt.jour_semaine IN (
+            SELECT DAYNAME(DATE_ADD(a.date_debut, INTERVAL n DAY))
+            FROM (
+              SELECT 0 n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3
+              UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6
+              UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
+              UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12
+              UNION ALL SELECT 13 UNION ALL SELECT 14 UNION ALL SELECT 15
+            ) numbers
+            WHERE DATE_ADD(a.date_debut, INTERVAL n DAY) <= a.date_fin
+          )
+        ) AS nb_jours_non_travailles,
+
+        (
+          (DATEDIFF(a.date_fin, a.date_debut) + 1)
+          -
+          (
+            SELECT COUNT(*)
+            FROM jours_feries jf
+            WHERE jf.date_ferie BETWEEN a.date_debut AND a.date_fin
+          )
+          -
+          (
+            SELECT COUNT(*)
+            FROM jours_non_travailles jnt
+            WHERE jnt.jour_semaine IN (
+              SELECT DAYNAME(DATE_ADD(a.date_debut, INTERVAL n DAY))
+              FROM (
+                SELECT 0 n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3
+                UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6
+                UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
+                UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12
+                UNION ALL SELECT 13 UNION ALL SELECT 14 UNION ALL SELECT 15
+              ) numbers
+              WHERE DATE_ADD(a.date_debut, INTERVAL n DAY) <= a.date_fin
+            )
+          )
+        ) AS nb_jours_absence_effective
+
+      FROM absences a
+      JOIN utilisateur u  ON u.id_utilisateur = a.id_utilisateur
+      JOIN utilisateur u2 ON u2.id_utilisateur = a.created_by
+      LEFT JOIN utilisateur u3 ON u3.id_utilisateur = a.validated_by
+      JOIN absence_types t ON t.id_absence_type = a.id_absence_type
+      WHERE 1=1
+    `;
+
+    const queryValues = [];
+
+    if (role === "Owner") {
+      queryStr += " AND a.id_utilisateur = ?";
+      queryValues.push(user_id);
+    } else if (scope_departments.length) {
+      queryStr += ` AND u.id_departement IN (${scope_departments.map(() => "?").join(",")})`;
+      queryValues.push(...scope_departments);
+    }
+
+    queryStr += " ORDER BY a.created_at DESC";
+
+    const data = await query(queryStr, queryValues);
+
+    return res.status(200).json({ success: true, data });
+
+  } catch (error) {
+    console.error("Erreur getAbsence :", error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des absences."
+    });
+  }
+}; */
+
+exports.getAbsence = async (req, res) => {
+  try {
+    const { role, scope_departments = [], user_id } = req.abac || {};
+
+    let queryStr = `
+      SELECT 
+        a.id_absence,
+        a.id_utilisateur,
+        a.date_debut,
+        a.date_fin,
+        a.commentaire,
+        a.statut,
+        a.created_at,
+
+        u.nom AS utilisateur,
+        u.prenom AS utilisateur_lastname,
+
+        u2.nom AS created_name,
+        u2.prenom AS created_lastname,
+
+        u3.nom AS validated_name,
+        t.libelle AS type_absence,
+
+        -- KPI simples calculables directement
+        DATEDIFF(a.date_fin, a.date_debut) + 1 AS nb_jours_total,
+
+        (
+          SELECT COUNT(*)
+          FROM jours_feries jf
+          WHERE jf.date_ferie BETWEEN a.date_debut AND a.date_fin
+        ) AS nb_jours_feries
+
+      FROM absences a
+      JOIN utilisateur u  ON u.id_utilisateur = a.id_utilisateur
+      JOIN utilisateur u2 ON u2.id_utilisateur = a.created_by
+      LEFT JOIN utilisateur u3 ON u3.id_utilisateur = a.validated_by
+      JOIN absence_types t ON t.id_absence_type = a.id_absence_type
+      WHERE 1=1
+    `;
+
+    const queryValues = [];
+
+    if (role === "Owner" || role === 'Employé') {
+      queryStr += " AND a.id_utilisateur = ?";
+      queryValues.push(user_id);
+    } else if (scope_departments.length) {
+      queryStr += ` AND u.id_departement IN (${scope_departments.map(() => "?").join(",")})`;
+      queryValues.push(...scope_departments);
+    }
+
+    queryStr += " ORDER BY a.created_at DESC";
+
+    const data = await query(queryStr, queryValues);
+
+    // Calcul des jours non travaillés côté Node.js pour éviter l'erreur SQL
+    const joursNonTravailles = await query("SELECT jour_semaine FROM jours_non_travailles");
+    const joursNonTravaillesSet = new Set(joursNonTravailles.map(j => j.jour_semaine));
+
+    const result = data.map(abs => {
+      const start = new Date(abs.date_debut);
+      const end = new Date(abs.date_fin);
+      let nbJoursNonTravailles = 0;
+
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        // DAYOFWEEK: 1 = dimanche, 2 = lundi, ..., 7 = samedi
+        if (joursNonTravaillesSet.has(d.getDay() + 1)) {
+          nbJoursNonTravailles++;
+        }
+      }
+
+      abs.nb_jours_non_travailles = nbJoursNonTravailles;
+      abs.nb_jours_absence_effective = abs.nb_jours_total - abs.nb_jours_feries - nbJoursNonTravailles;
+
+      return abs;
+    });
+
+    return res.status(200).json({ success: true, data: result });
+
+  } catch (error) {
+    console.error("Erreur getAbsence :", error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des absences.",
+      error: error.message
+    });
+  }
 };
+
 
 exports.getAbsenceType = (req, res) => {
   const q = `
@@ -2224,43 +2512,94 @@ exports.putAbsenceValidation = async (req, res) => {
 
     if (!id_absence || !validated_by || !decision) {
       return res.status(400).json({
-        message: "Champs obligatoires manquants (id_absence, validated_by, decision)"
+        message: "Champs obligatoires manquants"
       });
     }
 
-    // 1️⃣ Récupération + verrouillage de l'absence
+    await query('START TRANSACTION');
+
+    // 1️⃣ Lock absence
     const [absence] = await query(
       `SELECT * FROM absences WHERE id_absence = ? FOR UPDATE`,
       [id_absence]
     );
 
     if (!absence) {
+      await query('ROLLBACK');
       return res.status(404).json({ message: "Absence introuvable" });
     }
 
     if (absence.statut !== 'PROPOSEE') {
-      return res.status(409).json({ message: "Cette absence a déjà été traitée" });
+      await query('ROLLBACK');
+      return res.status(409).json({ message: "Absence déjà traitée" });
     }
 
-    // 2️⃣ Mise à jour
+    // 2️⃣ Update absence
     await query(
       `UPDATE absences
-       SET statut = ?, 
-           validated_by = ?, 
-           validated_at = NOW()
+       SET statut = ?, validated_by = ?, validated_at = NOW()
        WHERE id_absence = ?`,
       [decision, validated_by, id_absence]
     );
+
+    // 3️⃣ Sync presences
+    if (decision === 'VALIDEE') {
+      await query(
+        `
+        INSERT INTO presences (
+          id_utilisateur,
+          date_presence,
+          statut_jour,
+          source,
+          is_locked
+        )
+        SELECT 
+          ?, d.date,
+          'ABSENCE_JUSTIFIEE',
+          'MANUEL',
+          1
+        FROM (
+          SELECT DATE_ADD(?, INTERVAL n DAY) AS date
+          FROM (
+            SELECT 0 n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3
+            UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6
+            UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
+          ) numbers
+          WHERE DATE_ADD(?, INTERVAL n DAY) <= ?
+        ) d
+        ON DUPLICATE KEY UPDATE
+          statut_jour = 'ABSENCE_JUSTIFIEE',
+          heure_entree = NULL,
+          heure_sortie = NULL,
+          retard_minutes = 0,
+          heures_supplementaires = 0,
+          source = 'MANUEL',
+          is_locked = 1
+        `,
+        [
+          absence.id_utilisateur,
+          absence.date_debut,
+          absence.date_debut,
+          absence.date_fin
+        ]
+      );
+    }
+
+    await query('COMMIT');
 
     return res.status(200).json({
       message: `Absence ${decision === 'VALIDEE' ? 'validée' : 'rejetée'} avec succès`
     });
 
   } catch (error) {
+    await query('ROLLBACK');
     console.error("Erreur validation absence :", error);
-    return res.status(500).json({ message: "Erreur serveur lors de la validation" });
+    return res.status(500).json({
+      message: "Erreur serveur lors de la validation"
+    });
   }
 };
+
 
 //Ferié
 exports.getJourFerie = (req, res) => {
@@ -2543,5 +2882,101 @@ exports.deleteUserTerminal = async (req, res) => {
       success: false,
       message: "Erreur serveur lors de la suppression"
     });
+  }
+};
+
+
+exports.cronDailyAttendance = async () => {
+  console.log('[CRON] Daily attendance started');
+
+  const today = moment().format('YYYY-MM-DD');
+  const todayFR = moment().locale('fr').format('dddd');
+
+  try {
+    /* =====================================================
+       1️⃣ Ignorer jours fériés
+    ===================================================== */
+    const ferie = await query(
+      `SELECT 1 FROM jours_feries WHERE date_ferie = ? LIMIT 1`,
+      [today]
+    );
+    if (ferie.length) {
+      console.log('[CRON] Jour férié – aucun traitement');
+      return;
+    }
+
+    /* =====================================================
+       2️⃣ Ignorer jours non travaillés
+    ===================================================== */
+    const nonTravaille = await query(
+      `SELECT 1 FROM jours_non_travailles WHERE jour_semaine = ? LIMIT 1`,
+      [todayFR]
+    );
+    if (nonTravaille.length) {
+      console.log('[CRON] Jour non travaillé – aucun traitement');
+      return;
+    }
+
+    /* =====================================================
+       3️⃣ Calcul présence / demi-journée
+    ===================================================== */
+    await query(`
+      UPDATE presences
+      SET
+        statut_jour = CASE
+          WHEN heure_entree IS NULL THEN 'ABSENT'
+          WHEN heure_sortie IS NULL THEN 'ABSENT'
+          WHEN TIMESTAMPDIFF(MINUTE, heure_entree, heure_sortie) >= ? THEN 'PRESENT'
+          WHEN TIMESTAMPDIFF(MINUTE, heure_entree, heure_sortie) >= ? THEN 'ABSENCE_JUSTIFIEE'
+          ELSE 'ABSENT'
+        END
+      WHERE date_presence = ?
+        AND statut_jour = 'PRESENT'
+    `, [WORK_DAY_HOURS * 60, HALF_DAY_HOURS * 60, today]);
+
+    /* =====================================================
+       4️⃣ Créer ABSENT pour non pointés
+    ===================================================== */
+    const result = await query(`
+      INSERT INTO presences (
+        id_utilisateur,
+        site_id,
+        date_presence,
+        statut_jour,
+        source,
+        created_at
+      )
+      SELECT
+        u.id_utilisateur,
+        us.site_id,
+        ?,
+        'ABSENT',
+        'SYSTEM',
+        NOW()
+      FROM utilisateur u
+      LEFT JOIN user_sites us ON us.user_id = u.id_utilisateur
+      WHERE u.is_active = 1
+
+      -- pas déjà présent
+      AND NOT EXISTS (
+        SELECT 1 FROM presences p
+        WHERE p.id_utilisateur = u.id_utilisateur
+          AND p.date_presence = ?
+      )
+
+      -- pas en absence validée
+      AND NOT EXISTS (
+        SELECT 1 FROM absences a
+        WHERE a.id_utilisateur = u.id_utilisateur
+          AND a.statut = 'VALIDEE'
+          AND ? BETWEEN a.date_debut AND a.date_fin
+      )
+    `, [today, today, today]);
+
+    console.log(`[CRON] Absents créés : ${result.affectedRows}`);
+    console.log('[CRON] Daily attendance finished');
+
+  } catch (error) {
+    console.error('[CRON] ERROR', error);
   }
 };
