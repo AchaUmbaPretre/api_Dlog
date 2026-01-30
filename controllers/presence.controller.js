@@ -2937,40 +2937,40 @@ const cronDailyAttendance = async () => {
        4️⃣ Créer ABSENT pour non pointés
     ===================================================== */
     const result = await query(`
-      INSERT INTO presences (
-        id_utilisateur,
-        site_id,
-        date_presence,
-        statut_jour,
-        source,
-        created_at
-      )
-      SELECT
-        u.id_utilisateur,
-        us.site_id,
-        ?,
-        'ABSENT',
-        'SYSTEM',
-        NOW()
-      FROM utilisateur u
-      LEFT JOIN user_sites us ON us.user_id = u.id_utilisateur
-      WHERE u.is_active = 1
+    INSERT INTO presences (
+      id_utilisateur,
+      site_id,
+      date_presence,
+      statut_jour,
+      source,
+      created_at
+    )
+    SELECT
+      u.id_utilisateur,
+      us.site_id,
+      ?,
+      'ABSENT',
+      'SYSTEM',
+      NOW()
+    FROM utilisateur u
+    LEFT JOIN user_sites us ON us.user_id = u.id_utilisateur
 
-      -- pas déjà présent
-      AND NOT EXISTS (
-        SELECT 1 FROM presences p
-        WHERE p.id_utilisateur = u.id_utilisateur
-          AND p.date_presence = ?
-      )
+    -- pas déjà présent
+    WHERE NOT EXISTS (
+      SELECT 1 FROM presences p
+      WHERE p.id_utilisateur = u.id_utilisateur
+        AND p.date_presence = ?
+    )
 
-      -- pas en absence validée
-      AND NOT EXISTS (
-        SELECT 1 FROM absences a
-        WHERE a.id_utilisateur = u.id_utilisateur
-          AND a.statut = 'VALIDEE'
-          AND ? BETWEEN a.date_debut AND a.date_fin
-      )
-    `, [today, today, today]);
+    -- pas en absence validée
+    AND NOT EXISTS (
+      SELECT 1 FROM absences a
+      WHERE a.id_utilisateur = u.id_utilisateur
+        AND a.statut = 'VALIDEE'
+        AND ? BETWEEN a.date_debut AND a.date_fin
+    )
+  `, [today, today, today]);
+
 
     console.log(`[CRON] Absents créés : ${result.affectedRows}`);
     console.log('[CRON] Daily attendance finished');
