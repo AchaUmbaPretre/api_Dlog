@@ -36,7 +36,8 @@ router.get('/jour-ferie', presence.getJourFerie);
 router.post('/jour-ferie', presence.postJourFerie);
 
 //HORAIRE USER
-router.get('/horaire_user', presence.getHoraire);
+router.get('/horaire', presence.getHoraire);
+router.get('/horaire_user', presence.getHoraireUser);
 router.post('/horaire_user', presence.postHoraireUser);
 
 //TERMINAL

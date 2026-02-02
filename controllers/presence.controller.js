@@ -2842,21 +2842,10 @@ exports.postJourFerie = async (req, res) => {
 //Horaire 
 exports.getHoraire = (req, res) => {
   const q = `
-  SELECT 
-    hu.id_horaire_user,
-    hu.user_id,
-    hu.horaire_id,
-    hu.date_debut,
-    hu.date_fin,
-    hu.actif,
-    ht.nom AS horaire_nom,
-    u.nom AS utilisateur_nom,
-    u.prenom AS utilisateur_prenom
-  FROM horaire_user hu
-  JOIN horaire_travail ht ON ht.id_horaire = hu.horaire_id
-  JOIN utilisateur u ON u.id_utilisateur = hu.user_id
-  WHERE hu.actif = 1
-`;
+    SELECT 
+      *
+    FROM horaire_travail
+  `;
 
   db.query(q, (error, data) => {
     if (error) {
@@ -2868,6 +2857,35 @@ exports.getHoraire = (req, res) => {
     return res.status(200).json(data);
   });
 };
+
+exports.getHoraireUser = (req, res) => {
+   const q = `
+   SELECT 
+     hu.id_horaire_user,
+     hu.user_id,
+     hu.horaire_id,
+     hu.date_debut,
+     hu.date_fin,
+     hu.actif,
+     ht.nom AS horaire_nom,
+     u.nom AS utilisateur_nom,
+     u.prenom AS utilisateur_prenom
+   FROM horaire_user hu
+   JOIN horaire_travail ht ON ht.id_horaire = hu.horaire_id
+   JOIN utilisateur u ON u.id_utilisateur = hu.user_id
+   WHERE hu.actif = 1
+ `;
+ 
+   db.query(q, (error, data) => {
+     if (error) {
+       console.error(error);
+       return res.status(500).json({
+         message: "Erreur lors de la récupération des horaires."
+       });
+     }
+     return res.status(200).json(data);
+   });
+ };
 
 exports.postHoraireUser = async (req, res) => {
   const { user_id, horaire_id, date_debut } = req.body;
