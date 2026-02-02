@@ -2842,10 +2842,21 @@ exports.postJourFerie = async (req, res) => {
 //Horaire 
 exports.getHoraire = (req, res) => {
   const q = `
-    SELECT 
-      *
-    FROM horaire_travail
-  `;
+  SELECT 
+    hu.id_horaire_user,
+    hu.user_id,
+    hu.horaire_id,
+    hu.date_debut,
+    hu.date_fin,
+    hu.actif,
+    ht.nom AS horaire_nom,
+    u.nom AS utilisateur_nom,
+    u.prenom AS utilisateur_prenom
+  FROM horaire_user hu
+  JOIN horaire_travail ht ON ht.id_horaire = hu.horaire_id
+  JOIN utilisateur u ON u.id_utilisateur = hu.user_id
+  WHERE hu.actif = 1
+`;
 
   db.query(q, (error, data) => {
     if (error) {
