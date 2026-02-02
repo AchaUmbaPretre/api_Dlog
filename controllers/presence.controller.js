@@ -1,5 +1,6 @@
 const { db } = require("./../config/database");
 const moment = require("moment");
+require('moment/locale/fr');
 const bcrypt = require('bcryptjs');
 const util = require("util");
 const query = util.promisify(db.query).bind(db);
@@ -571,14 +572,18 @@ exports.getPresencePlanning = async (req, res) => {
     presences.forEach(p => {
       const key = `${p.id_utilisateur}_${formatDate(p.date_presence)}`;
       const adj = adjustmentsMap[key];
+
+      
       presMapByUserDate[key] = {
-        statut: "PRESENT",
+        statut: p.statut_jour || (p.heure_entree || p.heure_sortie ? "PRESENT" : "ABSENT"),
         heure_entree: p.heure_entree,
         heure_sortie: p.heure_sortie,
         id_presence: p.id_presence,
         adjustment_statut: adj?.statut || null,
-        adjustment_type: adj?.type || null
+        adjustment_type: adj?.type || null,
+        auto_generated: p.statut_jour === "ABSENT" && !p.heure_entree
       };
+
     });
 
     // 🔹 Construction dates avec statut
@@ -1297,11 +1302,14 @@ exports.postPresence = async (req, res) => {
       id_utilisateur,
       date_presence,
       datetime,
-      source = 'MANUEL',
+      source = "MANUEL",
       device_sn,
       terminal_id,
-      permissions = []
+      permissions = [],
     } = req.body;
+
+    // 🔹 Récupérer user_id pour audit de façon sécurisée
+    const actingUserId = req.abac?.user_id || 0;
 
     // 0️⃣ Vérification RBAC
     if (!permissions.includes("attendance.events.approve")) {
@@ -1317,9 +1325,7 @@ exports.postPresence = async (req, res) => {
       ? moment(datetime)
       : moment(`${dateISO} ${moment().format("HH:mm:ss")}`, "YYYY-MM-DD HH:mm:ss");
 
-    /* =========================================================
-       1️⃣ Vérifier terminal (ATTENDANCE seulement) + ABAC
-    ========================================================= */
+    // 1️⃣ Vérification terminal (si fourni)
     let terminal = null;
     if (terminal_id) {
       const terminals = await query(
@@ -1329,37 +1335,36 @@ exports.postPresence = async (req, res) => {
         [terminal_id]
       );
 
-      if (!Array.isArray(terminals) || terminals.length === 0 || !terminals[0].is_enabled) {
+      if (!terminals?.length || !terminals[0].is_enabled) {
         return res.status(403).json({ message: "Terminal désactivé ou inconnu" });
       }
 
       terminal = terminals[0];
 
-      if (!['ATTENDANCE', 'BOTH'].includes(terminal.usage_mode)) {
+      if (!["ATTENDANCE", "BOTH"].includes(terminal.usage_mode)) {
         return res.status(403).json({ message: "Terminal non autorisé pour pointage RH" });
       }
 
-      if (!req.abac.scope_sites.includes(terminal.site_id)) {
+      if (!req.abac?.scope_sites.includes(terminal.site_id)) {
         return res.status(403).json({ message: "Vous n'avez pas accès à ce site" });
       }
     }
 
-        let site_id = null;
-        if(id_utilisateur) {
-            const siteUser = await query(
-            `SELECT site_id FROM user_sites WHERE user_id = ?`,
-            [id_utilisateur]
-            )
-            site_id = siteUser[0]?.site_id
-        }
+    // 1️⃣a Déterminer site_id
+    const siteUser = await query(
+      `SELECT site_id FROM user_sites WHERE user_id = ?`,
+      [id_utilisateur]
+    );
+    const site_id = siteUser[0]?.site_id || terminal?.site_id || null;
 
-    const jourFR = jourSemaineFR(date_presence);
+    // 2️⃣ Vérifier jours non travaillés / fériés
+    const jourFR = jourSemaineFR(dateISO);
 
     const nonTravailleRows = await query(
       `SELECT 1 FROM jours_non_travailles WHERE jour_semaine = ?`,
       [jourFR]
     );
-    if (Array.isArray(nonTravailleRows) && nonTravailleRows.length > 0) {
+    if (nonTravailleRows?.length) {
       return res.status(403).json({ message: `Pointage interdit : ${jourFR} non travaillé` });
     }
 
@@ -1367,45 +1372,106 @@ exports.postPresence = async (req, res) => {
       `SELECT 1 FROM jours_feries WHERE date_ferie = ?`,
       [dateISO]
     );
-    if (Array.isArray(ferieRows) && ferieRows.length > 0) {
+    if (ferieRows?.length) {
       return res.status(403).json({ message: "Pointage interdit : jour férié" });
     }
 
     const absenceRows = await query(
-      `SELECT a.id_absence, t.code
-       FROM absences a
-       JOIN absence_types t ON t.id_absence_type = a.id_absence_type
-       WHERE a.id_utilisateur = ?
-         AND a.statut = 'VALIDEE'
-         AND ? BETWEEN a.date_debut AND a.date_fin`,
+      `
+      SELECT 
+        a.id_absence,
+        t.code,
+        a.date_debut,
+        a.date_fin,
+        DATEDIFF(a.date_fin, a.date_debut) + 1 AS nb_jours
+      FROM absences a
+      JOIN absence_types t ON t.id_absence_type = a.id_absence_type
+      WHERE a.id_utilisateur = ?
+        AND a.statut = 'VALIDEE'
+        AND ? BETWEEN a.date_debut AND a.date_fin
+      `,
       [id_utilisateur, dateISO]
     );
-    if (Array.isArray(absenceRows) && absenceRows.length > 0) {
+
+    if (absenceRows?.length) {
+      const absence = absenceRows[0];
+
+      const dateDebut = moment(absence.date_debut).format('DD/MM/YYYY');
+      const dateFin = moment(absence.date_fin).format('DD/MM/YYYY');
+
       return res.status(403).json({
-        message: `Pointage interdit : absence validée (${absenceRows[0].code})`
+        message: `Pointage interdit : absence validée (${absence.code}) pour ${absence.nb_jours} jour(s), du ${dateDebut} au ${dateFin}.`,
+        code: 'ABSENCE_VALIDEE',
+        details: {
+          type: absence.code,
+          date_debut: dateDebut,
+          date_fin: dateFin,
+          nb_jours: absence.nb_jours
+        }
       });
     }
 
+    // 3️⃣ Vérifier présence existante
     const presenceRows = await query(
-      `SELECT id_presence, heure_entree, heure_sortie, is_locked
+      `SELECT id_presence, heure_entree, heure_sortie, is_locked, statut_jour
        FROM presences
-       WHERE id_utilisateur = ? AND date_presence = ?
-       LIMIT 1`,
+       WHERE id_utilisateur = ? AND date_presence = ? LIMIT 1`,
       [id_utilisateur, dateISO]
     );
 
-    const presence = Array.isArray(presenceRows) && presenceRows.length > 0 ? presenceRows[0] : null;
+    let presence = presenceRows?.[0] || null;
 
-    if (presence?.is_locked) {
-      return res.status(403).json({ message: "Présence verrouillée" });
+    // 4️⃣ Blocage si NON_TRAVAILLE / FERIE
+    if (presence?.statut_jour === "NON_TRAVAILLE" || presence?.statut_jour === "FERIE") {
+      return res.status(403).json({ message: `Pointage impossible : jour ${presence.statut_jour}` });
     }
 
     const debutTravail = moment(`${dateISO} 08:00:00`);
-    const finTravail   = moment(`${dateISO} 16:00:00`);
-    let retard_minutes = 0;
-    let heures_supplementaires = 0;
+    const finTravail = moment(`${dateISO} 16:00:00`);
 
+    // 5️⃣ Corriger ABSENT → PRESENT
+    if (presence?.statut_jour === "ABSENT") {
+      let retard_minutes = 0;
+      if (heurePointage.isAfter(debutTravail)) {
+        retard_minutes = heurePointage.diff(debutTravail, "minutes");
+      }
+
+      await query(
+        `UPDATE presences 
+         SET heure_entree = ?, statut_jour = 'PRESENT', retard_minutes = ?, source = ?, terminal_id = ?, device_sn = ?
+         WHERE id_presence = ?`,
+        [
+          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          retard_minutes,
+          source,
+          terminal_id || null,
+          device_sn || null,
+          presence.id_presence,
+        ]
+      );
+
+      await auditPresence({
+        user_id: actingUserId,
+        action: "UPDATE_ENTRY_FROM_ABSENT",
+        entity: "presences",
+        entity_id: presence.id_presence,
+        old_value: presence,
+        new_value: {
+          id_utilisateur,
+          date_presence: dateISO,
+          heure_entree: heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          statut_jour: "PRESENT",
+          retard_minutes,
+        },
+        ip_address: terminal?.ip_address || null,
+      });
+
+      return res.status(200).json({ message: "ABSENT corrigé en PRESENT", retard_minutes });
+    }
+
+    // 6️⃣ Créer entrée si pas encore pointé
     if (!presence) {
+      let retard_minutes = 0;
       if (heurePointage.isAfter(debutTravail)) {
         retard_minutes = heurePointage.diff(debutTravail, "minutes");
       }
@@ -1418,50 +1484,51 @@ exports.postPresence = async (req, res) => {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id_utilisateur,
-          site_id || terminal?.site_id || null,
+          site_id,
           dateISO,
           heurePointage.format("YYYY-MM-DD HH:mm:ss"),
           retard_minutes,
           0,
           source,
           terminal_id || null,
-          device_sn || null
+          device_sn || null,
         ]
       );
 
-        await auditPresence({
-            user_id: 1,
-            action: 'CREATE_ENTRY',
-            entity: 'presences',
-            entity_id: result.insertId,
-            old_value: null,
-            new_value: {
-                id_utilisateur,
-                date_presence: dateISO,
-                heure_entree: heurePointage.format("YYYY-MM-DD HH:mm:ss"),
-                retard_minutes,
-                terminal_id: terminal_id || null,
-                device_sn
-            },
-            ip_address: terminal?.ip_address || null
-        });
+      await auditPresence({
+        user_id: actingUserId,
+        action: "CREATE_ENTRY",
+        entity: "presences",
+        entity_id: result.insertId,
+        old_value: null,
+        new_value: {
+          id_utilisateur,
+          date_presence: dateISO,
+          heure_entree: heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          retard_minutes,
+          terminal_id: terminal_id || null,
+          device_sn,
+        },
+        ip_address: terminal?.ip_address || null,
+      });
 
       return res.status(201).json({ message: "Entrée enregistrée", retard_minutes });
     }
 
+    // 7️⃣ Gestion sortie
     if (!presence.heure_sortie) {
       const autorisationRows = await query(
         `SELECT 1 FROM attendance_adjustments
          WHERE id_presence = ? AND type = 'AUTORISATION_SORTIE' AND statut = 'VALIDE'`,
         [presence.id_presence]
       );
-
-      const autorisation = Array.isArray(autorisationRows) && autorisationRows.length > 0;
+      const autorisation = autorisationRows?.length > 0;
 
       if (heurePointage.isBefore(finTravail) && !autorisation) {
         return res.status(403).json({ message: "Sortie anticipée non autorisée" });
       }
 
+      let heures_supplementaires = 0;
       if (heurePointage.isAfter(finTravail)) {
         heures_supplementaires = heurePointage.diff(finTravail, "minutes") / 60;
       }
@@ -1472,17 +1539,17 @@ exports.postPresence = async (req, res) => {
          WHERE id_presence = ?`,
         [heurePointage.format("YYYY-MM-DD HH:mm:ss"), heures_supplementaires, presence.id_presence]
       );
-      
+
       return res.status(200).json({ message: "Sortie enregistrée", heures_supplementaires });
     }
 
     return res.status(409).json({ message: "Présence déjà complète pour cette date" });
-
   } catch (error) {
     console.error("Erreur postPresence :", error);
     return res.status(500).json({ message: "Erreur interne du serveur" });
   }
 };
+
 
 /* exports.postPresenceBiometrique = async (req, res) => {
   try {
@@ -2917,9 +2984,11 @@ const cronDailyAttendance = async () => {
     }
 
     /* =====================================================
-       3️⃣ Calcul présence / demi-journée
+       3️⃣ Mettre à jour présences incomplètes ou absentes
+       ✅ Ne jamais écraser les vrais PRESENT complets
     ===================================================== */
-    await query(`
+    await query(
+      `
       UPDATE presences
       SET
         statut_jour = CASE
@@ -2930,47 +2999,54 @@ const cronDailyAttendance = async () => {
           ELSE 'ABSENT'
         END
       WHERE date_presence = ?
-        AND statut_jour = 'PRESENT'
-    `, [WORK_DAY_HOURS * 60, HALF_DAY_HOURS * 60, today]);
+        AND statut_jour IN ('ABSENT', 'ABSENCE_JUSTIFIEE')
+    `,
+      [WORK_DAY_HOURS * 60, HALF_DAY_HOURS * 60, today]
+    );
 
     /* =====================================================
-       4️⃣ Créer ABSENT pour non pointés
+       4️⃣ Créer absents pour utilisateurs non pointés
     ===================================================== */
-    const result = await query(`
-    INSERT INTO presences (
-      id_utilisateur,
-      site_id,
-      date_presence,
-      statut_jour,
-      source,
-      created_at
-    )
-    SELECT
-      u.id_utilisateur,
-      us.site_id,
-      ?,
-      'ABSENT',
-      'SYSTEM',
-      NOW()
-    FROM utilisateur u
-    LEFT JOIN user_sites us ON us.user_id = u.id_utilisateur
+    /* =====================================================
+   4️⃣ Créer absents pour utilisateurs non pointés
+===================================================== */
+    const result = await query(
+      `
+      INSERT INTO presences (
+        id_utilisateur,
+        site_id,
+        date_presence,
+        statut_jour,
+        source,
+        created_at
+      )
+      SELECT
+        u.id_utilisateur,
+        us.site_id,
+        ?,
+        'ABSENT',
+        'SYSTEM',
+        NOW()
+      FROM utilisateur u
+      LEFT JOIN user_sites us ON us.user_id = u.id_utilisateur
 
-    -- pas déjà présent
-    WHERE NOT EXISTS (
-      SELECT 1 FROM presences p
-      WHERE p.id_utilisateur = u.id_utilisateur
-        AND p.date_presence = ?
-    )
+      -- pas déjà présent pour cette date (quelle que soit la valeur)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM presences p
+        WHERE p.id_utilisateur = u.id_utilisateur
+          AND p.date_presence = ?
+      )
 
-    -- pas en absence validée
-    AND NOT EXISTS (
-      SELECT 1 FROM absences a
-      WHERE a.id_utilisateur = u.id_utilisateur
-        AND a.statut = 'VALIDEE'
-        AND ? BETWEEN a.date_debut AND a.date_fin
-    )
-  `, [today, today, today]);
-
+      -- pas en absence validée
+      AND NOT EXISTS (
+        SELECT 1 FROM absences a
+        WHERE a.id_utilisateur = u.id_utilisateur
+          AND a.statut = 'VALIDEE'
+          AND ? BETWEEN a.date_debut AND a.date_fin
+      )
+    `,
+      [today, today, today]
+    );
 
     console.log(`[CRON] Absents créés : ${result.affectedRows}`);
     console.log('[CRON] Daily attendance finished');
@@ -2979,6 +3055,7 @@ const cronDailyAttendance = async () => {
     console.error('[CRON] ERROR', error);
   }
 };
+
 
 exports.cronDailyAttendance = cronDailyAttendance;
 
