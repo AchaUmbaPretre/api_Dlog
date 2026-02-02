@@ -35,6 +35,10 @@ router.put('/absence-validation', presence.putAbsenceValidation);
 router.get('/jour-ferie', presence.getJourFerie);
 router.post('/jour-ferie', presence.postJourFerie);
 
+//HORAIRE USER
+router.get('/horaire_user', presence.getHoraire);
+router.post('/horaire_user', presence.postHoraireUser);
+
 //TERMINAL
 router.get('/terminal', presence.getTerminal);
 router.post('/terminal', presence.postTerminal);
