@@ -8,7 +8,7 @@ const { jourSemaineFR, formatDate, mapJourSemaineFR } = require("../utils/dateUt
 const { auditPresence } = require("../utils/audit.js");
 const WORK_DAY_HOURS = 8;
 const HALF_DAY_HOURS = 4;
-const INTERVAL_MS = 1 * 60 * 1000; // toutes les 5 minutes
+const INTERVAL_MS = 12 * 60 * 60 * 1000; // toutes les 12 heures
 
 exports.getPresence = (req, res) => {
   try {
@@ -1550,7 +1550,6 @@ exports.postPresence = async (req, res) => {
   }
 };
 
-
 /* exports.postPresenceBiometrique = async (req, res) => {
   try {
     const { id_utilisateur, datetime, device_sn } = req.body;
@@ -1950,7 +1949,7 @@ exports.validateAttendanceAdjustment = async (req, res) => {
   }
 };
 
-exports.getPresenceDashboard = async (req, res) => {
+/* exports.getPresenceDashboard = async (req, res) => {
   try {
     // Requête KPI
     const kpiPromise = query(`
@@ -2047,7 +2046,122 @@ exports.getPresenceDashboard = async (req, res) => {
       message: 'Erreur chargement dashboard présence'
     });
   }
+}; */
+
+exports.getPresenceDashboard = async (req, res) => {
+  try {
+    // KPI + métriques avancées
+    const kpiPromise = query(`
+      SELECT
+        COUNT(*) AS total,
+        SUM(statut_jour = 'PRESENT') AS presents,
+        SUM(statut_jour IN ('ABSENT', 'ABSENCE_JUSTIFIEE')) AS absences_totales,
+        SUM(retard_minutes > 0) AS retards,
+        ROUND(
+          (SUM(statut_jour = 'PRESENT') / NULLIF(COUNT(*), 0)) * 100,
+          2
+        ) AS taux_presence,
+        ROUND(
+          AVG(CASE WHEN retard_minutes > 0 THEN retard_minutes END),
+          2
+        ) AS retard_moyen
+      FROM presences
+      WHERE date_presence = CURDATE()
+    `);
+
+    // Répartition par statut (Pie Chart)
+    const statutsPromise = query(`
+      SELECT statut_jour AS label, COUNT(*) AS value
+      FROM presences
+      WHERE date_presence = CURDATE()
+      GROUP BY statut_jour
+    `);
+
+    // Évolution sur 7 jours (Line Chart)
+    const evolutionPromise = query(`
+      SELECT 
+        date_presence AS date,
+        SUM(statut_jour = 'PRESENT') AS presents,
+        SUM(statut_jour IN ('ABSENT', 'ABSENCE_JUSTIFIEE')) AS absents
+      FROM presences
+      WHERE date_presence >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+      GROUP BY date_presence
+      ORDER BY date_presence
+    `);
+
+    // Liste des employés du jour
+    const employesPromise = query(`
+      SELECT 
+        u.nom,
+        p.statut_jour,
+        p.heure_entree,
+        p.heure_sortie,
+        p.retard_minutes,
+        CASE
+          WHEN p.retard_minutes > 0 THEN 'RETARD'
+          WHEN p.statut_jour = 'PRESENT' THEN 'A_L_HEURE'
+          ELSE p.statut_jour
+        END AS statut_affiche
+      FROM presences p
+      JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
+      WHERE p.date_presence = CURDATE()
+      ORDER BY p.heure_entree ASC
+    `);
+
+    // Top absences (30 derniers jours)
+    const topAbsencesPromise = query(`
+      SELECT 
+        u.nom,
+        COUNT(*) AS total_absences
+      FROM presences p
+      JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
+      WHERE p.statut_jour IN ('ABSENT', 'ABSENCE_JUSTIFIEE')
+        AND p.date_presence >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+      GROUP BY p.id_utilisateur
+      ORDER BY total_absences DESC
+      LIMIT 5
+    `);
+
+    const [
+      kpiRows,
+      statutsRows,
+      evolutionRows,
+      employesRows,
+      topAbsencesRows
+    ] = await Promise.all([
+      kpiPromise,
+      statutsPromise,
+      evolutionPromise,
+      employesPromise,
+      topAbsencesPromise
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        kpi: {
+          total: kpiRows[0].total,
+          presents: kpiRows[0].presents,
+          absencesTotales: kpiRows[0].absences_totales,
+          retards: kpiRows[0].retards,
+          tauxPresence: kpiRows[0].taux_presence,      // %
+          retardMoyen: kpiRows[0].retard_moyen          // minutes
+        },
+        statuts: statutsRows,
+        evolution: evolutionRows,
+        employes: employesRows,
+        topAbsences: topAbsencesRows
+      }
+    });
+  } catch (error) {
+    console.error('Dashboard error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur chargement dashboard présence'
+    });
+  }
 };
+
 
 //Congé
 exports.getConge = async (req, res) => {
@@ -2481,7 +2595,6 @@ exports.getAbsence = async (req, res) => {
     });
   }
 };
-
 
 exports.getAbsenceType = (req, res) => {
   const q = `
@@ -3055,7 +3168,6 @@ const cronDailyAttendance = async () => {
     console.error('[CRON] ERROR', error);
   }
 };
-
 
 exports.cronDailyAttendance = cronDailyAttendance;
 
