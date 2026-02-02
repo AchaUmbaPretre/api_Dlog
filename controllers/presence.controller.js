@@ -2839,6 +2839,67 @@ exports.postJourFerie = async (req, res) => {
   }
 };
 
+//Horaire 
+exports.getHoraire = (req, res) => {
+  const q = `
+    SELECT 
+      *
+    FROM horaire_travail
+  `;
+
+  db.query(q, (error, data) => {
+    if (error) {
+      console.error(error);
+      return res.status(500).json({
+        message: "Erreur lors de la récupération des horaires."
+      });
+    }
+    return res.status(200).json(data);
+  });
+};
+
+exports.postHoraireUser = async (req, res) => {
+  const { user_id, horaire_id, date_debut } = req.body;
+
+  if (!user_id || !horaire_id || !date_debut) {
+    return res.status(400).json({
+      message: "Utilisateur, horaire et date de début sont obligatoires",
+    });
+  }
+
+  try {
+    // 1️⃣ Désactiver l’horaire actif existant
+    await query(
+      `
+      UPDATE horaire_user
+      SET actif = 0, date_fin = ?
+      WHERE user_id = ? AND actif = 1
+      `,
+      [date_debut, user_id]
+    );
+
+    // 2️⃣ Insérer le nouvel horaire
+    await query(
+      `
+      INSERT INTO horaire_user (user_id, horaire_id, date_debut, actif)
+      VALUES (?, ?, ?, 1)
+      `,
+      [user_id, horaire_id, date_debut]
+    );
+
+    return res.status(201).json({
+      message: "Horaire affecté à l’utilisateur avec succès",
+    });
+
+  } catch (error) {
+    console.error("postHoraireUser:", error);
+    return res.status(500).json({
+      message: "Erreur serveur",
+    });
+  }
+};
+
+
 //Terminal
 exports.getTerminal = (req, res) => {
   const q = `
