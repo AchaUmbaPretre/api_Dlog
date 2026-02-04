@@ -4,8 +4,9 @@ require('moment/locale/fr');
 const bcrypt = require('bcryptjs');
 const util = require("util");
 const query = util.promisify(db.query).bind(db);
-const { jourSemaineFR, formatDate, mapJourSemaineFR } = require("../utils/dateUtils.js");
+const { jourSemaineFR, formatDate, mapJourSemaineFR, jourSemaineSQL } = require("../utils/dateUtils.js");
 const { auditPresence } = require("../utils/audit.js");
+const { encrypt } = require("../utils/encrypt.js");
 const WORK_DAY_HOURS = 8;
 const HALF_DAY_HOURS = 4;
 const INTERVAL_MS = 12 * 60 * 60 * 1000; // toutes les 12 heures
@@ -1308,6 +1309,8 @@ exports.postPresence = async (req, res) => {
       permissions = [],
     } = req.body;
 
+    console.log(req.body)
+
     // 🔹 Récupérer user_id pour audit de façon sécurisée
     const actingUserId = req.abac?.user_id || 0;
 
@@ -1357,15 +1360,33 @@ exports.postPresence = async (req, res) => {
     );
     const site_id = siteUser[0]?.site_id || terminal?.site_id || null;
 
-    // 2️⃣ Vérifier jours non travaillés / fériés
-    const jourFR = jourSemaineFR(dateISO);
+   // 2️⃣ Vérifier jour travaillé selon l’horaire utilisateur
+    const jourSQL = jourSemaineSQL(dateISO);
 
-    const nonTravailleRows = await query(
-      `SELECT 1 FROM jours_non_travailles WHERE jour_semaine = ?`,
-      [jourFR]
+    const horaireRows = await query(
+      `
+      SELECT 
+        ht.nom AS horaire_nom,
+        ht.${jourSQL} AS jour_autorise
+      FROM horaire_user hu
+      JOIN horaire_travail ht ON ht.id_horaire = hu.horaire_id
+      WHERE hu.user_id = ?
+        AND hu.actif = 1
+      LIMIT 1
+      `,
+      [id_utilisateur, dateISO]
     );
-    if (nonTravailleRows?.length) {
-      return res.status(403).json({ message: `Pointage interdit : ${jourFR} non travaillé` });
+
+    if (!horaireRows.length) {
+      return res.status(403).json({
+        message: "Pointage interdit : aucun horaire actif pour cet utilisateur"
+      });
+    }
+
+    if (horaireRows[0].jour_autorise === 0) {
+      return res.status(403).json({
+        message: `Pointage interdit : jour non travaillé selon l’horaire (${horaireRows[0].horaire_nom})`
+      });
     }
 
     const ferieRows = await query(
@@ -1592,10 +1613,9 @@ exports.postPresence = async (req, res) => {
   }
 }; */
 
-exports.postPresenceFromHikvision = async (req, res) => {
+/* exports.postPresenceFromHikvision = async (req, res) => {
   try {
-    const { device_sn, user_code, datetime, terminal_id } = req.body;
-    const terminal = terminal_id; // injecté par middleware
+    const { device_sn, user_code, datetime } = req.body;
 
     if (!device_sn || !user_code || !datetime) {
       return res.status(400).json({
@@ -1620,10 +1640,35 @@ exports.postPresenceFromHikvision = async (req, res) => {
     const dateISO = moment(datetime).format("YYYY-MM-DD");
     const heurePointage = moment(datetime);
 
+    const terminals = await query(
+      `SELECT t.id_terminal, t.site_id, t.device_sn
+       FROM user_terminals ut
+       JOIN terminals t ON ut.terminal_id = t.id_terminal
+       WHERE ut.user_id = ?`,
+      [id_utilisateur]
+    );
+
+    if (!terminals.length) {
+      return res.status(403).json({
+        message: "Aucun terminal autorisé pour cet utilisateur"
+      });
+    }
+
+    const terminalAutorise = terminals.find(
+      t => t.device_sn === device_sn
+    );
+
+    if (!terminalAutorise) {
+      return res.status(403).json({
+        message: "Terminal non autorisé pour cet utilisateur"
+      });
+    }
+
     const presenceRows = await query(
       `SELECT id_presence, heure_entree, heure_sortie, is_locked
        FROM presences
-       WHERE id_utilisateur = ? AND date_presence = ?
+       WHERE id_utilisateur = ?
+         AND date_presence = ?
        LIMIT 1`,
       [id_utilisateur, dateISO]
     );
@@ -1646,17 +1691,22 @@ exports.postPresenceFromHikvision = async (req, res) => {
 
       await query(
         `INSERT INTO presences (
-          id_utilisateur, site_id, date_presence,
-          heure_entree, retard_minutes,
-          source, terminal_id, device_sn
-        ) VALUES (?, ?, ?, ?, ?, 'API', ?, ?)`,
+          id_utilisateur,
+          site_id,
+          date_presence,
+          heure_entree,
+          retard_minutes,
+          source,
+          terminal_id,
+          device_sn
+        ) VALUES (?, ?, ?, ?, ?, 'HIKVISION', ?, ?)`,
         [
           id_utilisateur,
-          terminal.site_id,
+          terminalAutorise.site_id,
           dateISO,
           heurePointage.format("YYYY-MM-DD HH:mm:ss"),
           retard_minutes,
-          terminal.id_terminal,
+          terminalAutorise.id_terminal,
           device_sn
         ]
       );
@@ -1667,20 +1717,29 @@ exports.postPresenceFromHikvision = async (req, res) => {
       });
     }
 
-    /* ===============================
-       4️⃣ SORTIE
-    =============================== */
+    if (
+      presence.heure_entree &&
+      !presence.heure_sortie &&
+      moment(presence.heure_entree).isSame(heurePointage, "minute")
+    ) {
+      return res.status(200).json({
+        message: "Scan déjà pris en compte"
+      });
+    }
+
     if (!presence.heure_sortie) {
       let heures_supplementaires = 0;
 
       if (heurePointage.isAfter(finTravail)) {
-        heures_supplementaires =
-          heurePointage.diff(finTravail, "minutes") / 60;
+        heures_supplementaires = Number(
+          (heurePointage.diff(finTravail, "minutes") / 60).toFixed(2)
+        );
       }
 
       await query(
         `UPDATE presences
-         SET heure_sortie = ?, heures_supplementaires = ?
+         SET heure_sortie = ?,
+             heures_supplementaires = ?
          WHERE id_presence = ?`,
         [
           heurePointage.format("YYYY-MM-DD HH:mm:ss"),
@@ -1695,9 +1754,176 @@ exports.postPresenceFromHikvision = async (req, res) => {
       });
     }
 
-    /* ===============================
-       5️⃣ DÉJÀ COMPLET
-    =============================== */
+    return res.status(409).json({
+      message: "Présence déjà complète"
+    });
+
+  } catch (error) {
+    console.error("postPresenceFromHikvision:", error);
+    return res.status(500).json({
+      message: "Erreur interne serveur"
+    });
+  }
+}; */
+
+exports.postPresenceFromHikvision = async (req, res) => {
+  try {
+    const payload = req.body;
+
+    const user_code =
+      payload.employeeNoString ||
+      payload?.AcsEvent?.employeeNoString ||
+      payload?.AcsEvent?.info?.[0]?.employeeNoString;
+
+    const datetime =
+      payload.time ||
+      payload?.AcsEvent?.time ||
+      payload?.AcsEvent?.info?.[0]?.time;
+
+    const device_sn =
+      payload.device_sn ||
+      payload.deviceSerialNo ||
+      payload?.AcsEvent?.deviceSerialNo ||
+      payload?.AcsEvent?.info?.[0]?.deviceSerialNo;
+
+
+    if (!device_sn || !user_code || !datetime) {
+      return res.status(400).json({
+        message: "device_sn, user_code et datetime requis"
+      });
+    }
+
+    const users = await query(
+      `SELECT id_utilisateur
+       FROM utilisateur
+       WHERE matricule = ?`,
+      [user_code]
+    );
+
+    if (!users.length) {
+      return res.status(404).json({
+        message: "Utilisateur inconnu"
+      });
+    }
+
+    const id_utilisateur = users[0].id_utilisateur;
+    const dateISO = moment(datetime).format("YYYY-MM-DD");
+    const heurePointage = moment(datetime);
+
+    const terminals = await query(
+      `SELECT t.id_terminal, t.site_id, t.device_sn
+       FROM user_terminals ut
+       JOIN terminals t ON ut.terminal_id = t.id_terminal
+       WHERE ut.user_id = ?`,
+      [id_utilisateur]
+    );
+
+    if (!terminals.length) {
+      return res.status(403).json({
+        message: "Aucun terminal autorisé pour cet utilisateur"
+      });
+    }
+
+    const terminalAutorise = terminals.find(
+      t => t.device_sn === device_sn
+    );
+
+    if (!terminalAutorise) {
+      return res.status(403).json({
+        message: "Terminal non autorisé pour cet utilisateur"
+      });
+    }
+
+    const presenceRows = await query(
+      `SELECT id_presence, heure_entree, heure_sortie, is_locked
+       FROM presences
+       WHERE id_utilisateur = ?
+         AND date_presence = ?
+       LIMIT 1`,
+      [id_utilisateur, dateISO]
+    );
+
+    const presence = presenceRows.length ? presenceRows[0] : null;
+
+    if (presence?.is_locked) {
+      return res.status(403).json({
+        message: "Présence verrouillée"
+      });
+    }
+
+    const debutTravail = moment(`${dateISO} 08:00:00`);
+    const finTravail   = moment(`${dateISO} 16:00:00`);
+
+    if (!presence) {
+      const retard_minutes = heurePointage.isAfter(debutTravail)
+        ? heurePointage.diff(debutTravail, "minutes")
+        : 0;
+
+      await query(
+        `INSERT INTO presences (
+          id_utilisateur,
+          site_id,
+          date_presence,
+          heure_entree,
+          retard_minutes,
+          source,
+          terminal_id,
+          device_sn
+        ) VALUES (?, ?, ?, ?, ?, 'HIKVISION', ?, ?)`,
+        [
+          id_utilisateur,
+          terminalAutorise.site_id,
+          dateISO,
+          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          retard_minutes,
+          terminalAutorise.id_terminal,
+          device_sn
+        ]
+      );
+
+      return res.status(201).json({
+        message: "Entrée enregistrée",
+        retard_minutes
+      });
+    }
+
+    if (
+      presence.heure_entree &&
+      !presence.heure_sortie &&
+      moment(presence.heure_entree).isSame(heurePointage, "minute")
+    ) {
+      return res.status(200).json({
+        message: "Scan déjà pris en compte"
+      });
+    }
+
+    if (!presence.heure_sortie) {
+      let heures_supplementaires = 0;
+
+      if (heurePointage.isAfter(finTravail)) {
+        heures_supplementaires = Number(
+          (heurePointage.diff(finTravail, "minutes") / 60).toFixed(2)
+        );
+      }
+
+      await query(
+        `UPDATE presences
+         SET heure_sortie = ?,
+             heures_supplementaires = ?
+         WHERE id_presence = ?`,
+        [
+          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          heures_supplementaires,
+          presence.id_presence
+        ]
+      );
+
+      return res.status(200).json({
+        message: "Sortie enregistrée",
+        heures_supplementaires
+      });
+    }
+
     return res.status(409).json({
       message: "Présence déjà complète"
     });
@@ -2093,6 +2319,7 @@ exports.getPresenceDashboard = async (req, res) => {
     const employesPromise = query(`
       SELECT 
         u.nom,
+        u.prenom,
         p.statut_jour,
         p.heure_entree,
         p.heure_sortie,
@@ -2112,6 +2339,7 @@ exports.getPresenceDashboard = async (req, res) => {
     const topAbsencesPromise = query(`
       SELECT 
         u.nom,
+        u.prenom,
         COUNT(*) AS total_absences
       FROM presences p
       JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
@@ -2161,7 +2389,6 @@ exports.getPresenceDashboard = async (req, res) => {
     });
   }
 };
-
 
 //Congé
 exports.getConge = async (req, res) => {
@@ -2400,113 +2627,6 @@ exports.validateConge = async (req, res) => {
   }
 }; */
 
-/* exports.getAbsence = async (req, res) => {
-  try {
-    const { role, scope_departments = [], user_id } = req.abac || {};
-
-    let queryStr = `
-      SELECT 
-        a.id_absence,
-        a.id_utilisateur,
-        a.date_debut,
-        a.date_fin,
-        a.commentaire,
-        a.statut,
-        a.created_at,
-
-        u.nom AS utilisateur,
-        u.prenom AS utilisateur_lastname,
-
-        u2.nom AS created_name,
-        u2.prenom AS created_lastname,
-
-        u3.nom AS validated_name,
-
-        t.libelle AS type_absence,
-
-        -- 📊 KPI calculés
-        DATEDIFF(a.date_fin, a.date_debut) + 1 AS nb_jours_total,
-
-        (
-          SELECT COUNT(*)
-          FROM jours_feries jf
-          WHERE jf.date_ferie BETWEEN a.date_debut AND a.date_fin
-        ) AS nb_jours_feries,
-
-        (
-          SELECT COUNT(*)
-          FROM jours_non_travailles jnt
-          WHERE jnt.jour_semaine IN (
-            SELECT DAYNAME(DATE_ADD(a.date_debut, INTERVAL n DAY))
-            FROM (
-              SELECT 0 n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3
-              UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6
-              UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
-              UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12
-              UNION ALL SELECT 13 UNION ALL SELECT 14 UNION ALL SELECT 15
-            ) numbers
-            WHERE DATE_ADD(a.date_debut, INTERVAL n DAY) <= a.date_fin
-          )
-        ) AS nb_jours_non_travailles,
-
-        (
-          (DATEDIFF(a.date_fin, a.date_debut) + 1)
-          -
-          (
-            SELECT COUNT(*)
-            FROM jours_feries jf
-            WHERE jf.date_ferie BETWEEN a.date_debut AND a.date_fin
-          )
-          -
-          (
-            SELECT COUNT(*)
-            FROM jours_non_travailles jnt
-            WHERE jnt.jour_semaine IN (
-              SELECT DAYNAME(DATE_ADD(a.date_debut, INTERVAL n DAY))
-              FROM (
-                SELECT 0 n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3
-                UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6
-                UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
-                UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12
-                UNION ALL SELECT 13 UNION ALL SELECT 14 UNION ALL SELECT 15
-              ) numbers
-              WHERE DATE_ADD(a.date_debut, INTERVAL n DAY) <= a.date_fin
-            )
-          )
-        ) AS nb_jours_absence_effective
-
-      FROM absences a
-      JOIN utilisateur u  ON u.id_utilisateur = a.id_utilisateur
-      JOIN utilisateur u2 ON u2.id_utilisateur = a.created_by
-      LEFT JOIN utilisateur u3 ON u3.id_utilisateur = a.validated_by
-      JOIN absence_types t ON t.id_absence_type = a.id_absence_type
-      WHERE 1=1
-    `;
-
-    const queryValues = [];
-
-    if (role === "Owner") {
-      queryStr += " AND a.id_utilisateur = ?";
-      queryValues.push(user_id);
-    } else if (scope_departments.length) {
-      queryStr += ` AND u.id_departement IN (${scope_departments.map(() => "?").join(",")})`;
-      queryValues.push(...scope_departments);
-    }
-
-    queryStr += " ORDER BY a.created_at DESC";
-
-    const data = await query(queryStr, queryValues);
-
-    return res.status(200).json({ success: true, data });
-
-  } catch (error) {
-    console.error("Erreur getAbsence :", error);
-    return res.status(500).json({
-      success: false,
-      message: "Erreur lors de la récupération des absences."
-    });
-  }
-}; */
 
 exports.getAbsence = async (req, res) => {
   try {
@@ -2928,7 +3048,6 @@ exports.postHoraireUser = async (req, res) => {
   }
 };
 
-
 //Terminal
 exports.getTerminal = (req, res) => {
   const q = `
@@ -2963,25 +3082,34 @@ exports.postTerminal = async (req, res) => {
       credentials
     } = req.body;
 
-    if (!site_id || !name || !device_sn || !credentials) {
-      return res.status(400).json({ message: "Champs obligatoires manquants" });
+    if (!site_id || !name || !device_sn || !credentials?.username || !credentials?.password) {
+      return res.status(400).json({
+        message: "site_id, name, device_sn et credentials requis"
+      });
     }
 
     if (!["ATTENDANCE", "ACCESS_CONTROL", "BOTH"].includes(usage_mode)) {
       return res.status(400).json({ message: "usage_mode invalide" });
     }
 
-    const existing = await query(
-        "SELECT id_terminal FROM terminals WHERE device_sn = ?",
-        [device_sn]
-    );
-
-    if (Array.isArray(existing) && existing.length > 0) {
-    return res.status(409).json({ message: "Un terminal avec ce numéro de série existe déjà" });
+    if (ip_address && !/^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip_address)) {
+      return res.status(400).json({ message: "Adresse IP invalide" });
     }
 
-    const credentials_string = JSON.stringify(credentials);
-    const credentials_encrypted = await bcrypt.hash(credentials_string, 10);
+    const existing = await query(
+      `SELECT id_terminal
+       FROM terminals
+       WHERE device_sn = ?`,
+      [device_sn]
+    );
+
+    if (existing.length) {
+      return res.status(409).json({
+        message: "Un terminal avec ce numéro de série existe déjà"
+      });
+    }
+
+    const credentials_encrypted = encrypt(JSON.stringify(credentials));
 
     const result = await query(
       `INSERT INTO terminals (
@@ -2999,7 +3127,7 @@ exports.postTerminal = async (req, res) => {
         site_id,
         name,
         location_zone || null,
-        device_model || null,
+        device_model || "DS-K1T804AMF",
         device_sn,
         ip_address || null,
         port,
@@ -3014,8 +3142,10 @@ exports.postTerminal = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("postTerminal error:", error);
-    return res.status(500).json({ message: "Erreur serveur lors de l'enregistrement du terminal" });
+    console.error("postTerminal:", error);
+    return res.status(500).json({
+      message: "Erreur serveur lors de l'enregistrement du terminal"
+    });
   }
 };
 

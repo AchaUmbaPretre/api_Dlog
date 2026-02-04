@@ -1,8 +1,15 @@
-const jourSemaineFR = (date) => {
+/* const jourSemaineFR = (date) => {
   const jours = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
   const d = new Date(date);
   return jours[d.getDay()];
+}; */
+
+const jourSemaineFR = (date) => {
+  const jours = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+  const d = new Date(date);
+  return jours[d.getDay()];
 };
+
 
 const formatDate = (date) => {
   const d = new Date(date);
@@ -22,8 +29,30 @@ const mapJourSemaineFR = {
       samedi: 6
 };
 
+const jourSemaineSQL = (dateISO) => {
+  const map = {
+    lundi: 'lundi',
+    mardi: 'mardi',
+    mercredi: 'mercredi',
+    jeudi: 'jeudi',
+    vendredi: 'vendredi',
+    samedi: 'samedi',
+    dimanche: 'dimanche',
+  };
+
+  const jour = jourSemaineFR(dateISO)?.toLowerCase();
+
+  if (!map[jour]) {
+    throw new Error(`Jour de semaine invalide : ${jour}`);
+  }
+
+  return map[jour];
+};
+
+
 module.exports = {
   jourSemaineFR,
   formatDate,
-  mapJourSemaineFR
+  mapJourSemaineFR,
+  jourSemaineSQL
 };
