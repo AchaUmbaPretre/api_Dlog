@@ -1,7 +1,6 @@
 const { db } = require("./../config/database");
 const moment = require("moment");
 require('moment/locale/fr');
-const bcrypt = require('bcryptjs');
 const util = require("util");
 const query = util.promisify(db.query).bind(db);
 const { jourSemaineFR, formatDate, mapJourSemaineFR, jourSemaineSQL } = require("../utils/dateUtils.js");
@@ -2626,7 +2625,6 @@ exports.validateConge = async (req, res) => {
     });
   }
 }; */
-
 
 exports.getAbsence = async (req, res) => {
   try {
