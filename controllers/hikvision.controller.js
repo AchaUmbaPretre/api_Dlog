@@ -14,7 +14,7 @@ async function pullAllHikvisionTerminals() {
      WHERE is_enabled = 1 AND usage_mode IN ('ATTENDANCE','BOTH')`
   );
 
-  if (!terminals.length) return console.log("ℹ️ Aucun terminal actif");
+  if (!terminals.length) return console.log("Aucun terminal actif");
 
   for (const terminal of terminals) await pullSingleTerminal(terminal);
 }
