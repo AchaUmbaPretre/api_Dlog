@@ -20,7 +20,7 @@ async function handleHikvisionPresence(event) {
     return;
   }
 
-  const heurePointage = moment(time);
+  const heurePointage = moment.parseZone(time);
   const dateISO = heurePointage.format("YYYY-MM-DD");
   console.log(`[INFO] Événement reçu : user=${employeeNoString}, time=${time}, device=${device_sn}`);
 
@@ -106,48 +106,77 @@ async function handleHikvisionPresence(event) {
     ? heurePointage.diff(debutTravail, "minutes")
     : 0;
 
-  if (presence && (!presence.heure_entree || !presence.statut_jour || presence.statut_jour === "ABSENT")) {
-    console.log(`[UPDATE] Passage ABSENT/NULL → PRESENT pour ${employeeNoString}`);
-    await query(
-      `UPDATE presences
-       SET heure_entree = ?, statut_jour = 'PRESENT', retard_minutes = ?, source = ?, terminal_id = ?, device_sn = ?
-       WHERE id_presence = ?`,
-      [
-        heurePointage.format("YYYY-MM-DD HH:mm:ss"),
-        retard_minutes,
-        'HIKVISION',
-        terminal_id,
-        device_sn,
-        presence.id_presence
-      ]
-    );
-    return;
-  }
 
-  if (!presence) {
-    console.log(`[INSERT] Nouvelle présence PRESENT pour ${employeeNoString}`);
-    await query(
-      `INSERT INTO presences (
-        id_utilisateur, site_id, date_presence, heure_entree,
-        retard_minutes, heures_supplementaires, source,
-        terminal_id, device_sn, statut_jour
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PRESENT')`,
-      [id_utilisateur, site_id, dateISO, heurePointage.format("YYYY-MM-DD HH:mm:ss"),
-       retard_minutes, 0, 'HIKVISION', terminal_id, device_sn]
-    );
-    return;
-  }
+    if (presence && presence.statut_jour === "ABSENT") {
+      console.log(`[UPDATE] ABSENT → PRESENT ${employeeNoString}`);
 
-  if (!presence.heure_sortie) {
-    const heures_supplementaires = heurePointage.isAfter(finTravail)
-      ? Number((heurePointage.diff(finTravail, "minutes") / 60).toFixed(2))
-      : 0;
-    console.log(`[UPDATE] Mise à jour sortie pour ${employeeNoString}`);
-    await query(
-      `UPDATE presences SET heure_sortie = ?, heures_supplementaires = ? WHERE id_presence = ?`,
-      [heurePointage.format("YYYY-MM-DD HH:mm:ss"), heures_supplementaires, presence.id_presence]
-    );
-  }
+      await query(
+        `UPDATE presences
+        SET heure_entree = ?,
+            statut_jour = 'PRESENT',
+            retard_minutes = ?,
+            source = 'HIKVISION',
+            terminal_id = ?,
+            device_sn = ?
+        WHERE id_presence = ?`,
+        [
+          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          retard_minutes,
+          terminal_id,
+          device_sn,
+          presence.id_presence
+        ]
+      );
+      return;
+    }
+
+
+    if (!presence) {
+      console.log(`[INSERT] Nouvelle présence PRESENT pour ${employeeNoString}`);
+      await query(
+        `INSERT INTO presences (
+          id_utilisateur, site_id, date_presence, heure_entree,
+          retard_minutes, heures_supplementaires, source,
+          terminal_id, device_sn, statut_jour
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PRESENT')`,
+        [id_utilisateur, site_id, dateISO, heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+        retard_minutes, 0, 'HIKVISION', terminal_id, device_sn]
+      );
+      return;
+    }
+
+    if (presence && !presence.heure_sortie) {
+      const autorisationRows = await query(
+        `SELECT 1 FROM attendance_adjustments
+        WHERE id_presence = ? AND type = 'AUTORISATION_SORTIE' AND statut = 'VALIDE'`,
+        [presence.id_presence]
+      );
+
+      const autorisation = autorisationRows.length > 0;
+
+      if (heurePointage.isBefore(finTravail) && !autorisation) {
+        console.log(`[SKIP] Sortie anticipée non autorisée pour ${id_utilisateur}`);
+        return;
+      }
+
+      const heures_supplementaires = heurePointage.isAfter(finTravail)
+        ? Number((heurePointage.diff(finTravail, "minutes") / 60).toFixed(2))
+        : 0;
+
+      await query(
+        `UPDATE presences
+        SET heure_sortie = ?, heures_supplementaires = ?
+        WHERE id_presence = ?`,
+        [
+          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          heures_supplementaires,
+          presence.id_presence
+        ]
+      );
+      console.log(`[UPDATE] Sortie enregistrée pour ${id_utilisateur}`);
+      return;
+    }
+
 }
 
 
@@ -198,6 +227,10 @@ async function pullSingleTerminal(terminal) {
     const maxResults = 40;
     let hasMore = true;
 
+    const startOfDay = moment().startOf("day").format("YYYY-MM-DDTHH:mm:ssZ");
+    const endOfDay = moment().endOf("day").format("YYYY-MM-DDTHH:mm:ssZ");
+
+
     while (hasMore) {
       const payload = {
         AcsEventCond: {
@@ -206,8 +239,8 @@ async function pullSingleTerminal(terminal) {
           maxResults,
           major: 5,
           minor: 0,
-          startTime: "2024-01-01T00:00:00Z",
-          endTime: "2026-12-31T23:59:59Z"
+          startTime: startOfDay,
+          endTime: endOfDay
         }
       };
 
