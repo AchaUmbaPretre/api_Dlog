@@ -100,8 +100,9 @@ async function handleHikvisionPresence(event) {
   );
   const presence = presenceRows[0] || null;
 
-  const debutTravail = moment(`${dateISO} 08:00:00`);
-  const finTravail = moment(`${dateISO} 16:00:00`);
+  const tz = heurePointage.format("Z");
+  const debutTravail = moment.parseZone(`${dateISO}T08:00:00${tz}`);
+
   const retard_minutes = heurePointage.isAfter(debutTravail)
     ? heurePointage.diff(debutTravail, "minutes")
     : 0;
@@ -148,13 +149,21 @@ async function handleHikvisionPresence(event) {
     if (presence && !presence.heure_sortie) {
       const autorisationRows = await query(
         `SELECT 1 FROM attendance_adjustments
-        WHERE id_presence = ? AND type = 'AUTORISATION_SORTIE' AND statut = 'VALIDE'`,
+        WHERE id_presence = ?
+          AND type = 'AUTORISATION_SORTIE'
+          AND statut = 'VALIDE'`,
         [presence.id_presence]
       );
 
       const autorisation = autorisationRows.length > 0;
 
-      if (heurePointage.isBefore(finTravail) && !autorisation) {
+      const tz = heurePointage.format("Z");
+      const finTravail = moment.parseZone(`${dateISO}T16:00:00${tz}`);
+
+      const sortieAutorisee =
+        heurePointage.isSameOrAfter(finTravail) || autorisation;
+
+      if (!sortieAutorisee) {
         console.log(`[SKIP] Sortie anticipée non autorisée pour ${id_utilisateur}`);
         return;
       }
@@ -173,12 +182,11 @@ async function handleHikvisionPresence(event) {
           presence.id_presence
         ]
       );
+
       console.log(`[UPDATE] Sortie enregistrée pour ${id_utilisateur}`);
       return;
     }
-
 }
-
 
 // ===================== HIKVISION REQUEST =====================
 async function hikvisionRequest(terminal, credentials, payload) { 
