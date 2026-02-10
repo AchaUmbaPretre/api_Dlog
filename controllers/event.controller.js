@@ -98,96 +98,10 @@ const fetchFalconDevices = () => {
 };
 
 // Enregistrer l’historique toutes les 5 minutes
-/* const recordLogSnapshot = async () => {
-  try {
-    const now = moment().format("YYYY-MM-DD HH:mm:ss");
-    const devices = await fetchFalconDevices();
-
-    for (const d of devices) {
-      const status = d.online === "online" ? "connected" : "disconnected";
-      const lastSeen = moment.unix(d.timestamp).format("YYYY-MM-DD HH:mm:ss");
-
-      // 1️⃣ Insertion du statut toutes les 5 min
-      await query(
-        `INSERT INTO tracker_connectivity_log (device_id, device_name, status, last_connection, recorded_at)
-         VALUES (?, ?, ?, ?, ?)`,
-        [d.id, d.name, status, lastSeen, now]
-      );
-
-      // 2️⃣ Vérification des changements de statut pour calculer la durée de déconnexion
-      const lastTwo = await query(
-        `SELECT id, status, recorded_at FROM tracker_connectivity_log
-         WHERE device_id = ? ORDER BY id DESC LIMIT 2`,
-        [d.id]
-      );
-
-      if (lastTwo.length === 2) {
-        const [last, prev] = lastTwo;
-
-        // Si le traceur vient de se reconnecter après une déconnexion
-        if (prev.status === "disconnected" && last.status === "connected") {
-          const startTime = moment(prev.recorded_at);
-          const endTime = moment(last.recorded_at);
-          const downtime = endTime.diff(startTime, "minutes");
-
-          await query(
-            `INSERT INTO tracker_disconnect_stats (device_id, device_name, start_time, end_time, downtime_minutes)
-             VALUES (?, ?, ?, ?, ?)`,
-            [d.id, d.name, startTime.format("YYYY-MM-DD HH:mm:ss"), endTime.format("YYYY-MM-DD HH:mm:ss"), downtime]
-          );
-        }
-      }
-    }
-
-    console.log(`[${now}] ✅ ${devices.length} statuts enregistrés.`);
-  } catch (err) {
-    console.error("❌ Erreur snapshot Falcon:", err);
-  }
-}; */
 
 // Générer snapshot 4x/jour à partir du log
-/* const generateDailySnapshot = async () => {
-  try {
-    const now = moment();
-    const sixHoursAgo = moment().subtract(6, 'hours');
-
-    // Récupérer le dernier log de chaque device dans les 6h
-    const logs = await query(`
-      SELECT t1.device_id, t1.device_name, t1.last_connection, t1.status
-      FROM tracker_connectivity_log t1
-      INNER JOIN (
-        SELECT device_id, MAX(recorded_at) AS max_time
-        FROM tracker_connectivity_log
-        WHERE recorded_at BETWEEN ? AND ?
-        GROUP BY device_id
-      ) t2 ON t1.device_id = t2.device_id AND t1.recorded_at = t2.max_time
-    `, [sixHoursAgo.format('YYYY-MM-DD HH:mm:ss'), now.format('YYYY-MM-DD HH:mm:ss')]);
-
-    for (const log of logs) {
-      // Vérifier doublon
-      const existing = await query(`
-        SELECT id FROM tracker_connectivity
-        WHERE device_id = ? AND check_time = ?
-        LIMIT 1
-      `, [log.device_id, now.format('YYYY-MM-DD HH:mm:ss')]);
-
-      if (existing.length > 0) continue;
-
-      await query(`
-        INSERT INTO tracker_connectivity (device_id, device_name, last_connection, status, check_time)
-        VALUES (?, ?, ?, ?, ?)
-      `, [log.device_id, log.device_name, log.last_connection, log.status, now.format('YYYY-MM-DD HH:mm:ss')]);
-    }
-
-    console.log(`[${now.format('YYYY-MM-DD HH:mm:ss')}] ✅ Snapshot 4x/jour généré (${logs.length} devices)`);
-  } catch (err) {
-    console.error("❌ Erreur génération snapshot:", err.message);
-  }
-}; */
 
 // Lancer le log toutes les 5 minutes
-/* setInterval(recordLogSnapshot, INTERVAL_MS);
-setInterval(generateDailySnapshot, SIX_HOURS_MS); */
 
 // 🔹 1. Enregistre l’état de tous les devices (toutes les 5 min)
 /* const recordLogSnapshot = async () => {
@@ -886,7 +800,6 @@ exports.postEvent = async (req, res) => {
       );
       if (!existsAlert.length) {
         await createAlert(alert);
-        console.log(`✅ Nouvelle alerte : ${alert.alert_type} → ${alert.alert_message}`);
       } else {
         console.log(`⚠️ Alerte déjà existante (${alert.alert_type}) ignorée.`);
       }
@@ -1263,8 +1176,8 @@ const fetchAndStoreEvents = async () => {
     }
 
     const events = response.items.data;
-    console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] ${events.length} événements reçus.`);
-
+/*     console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] ${events.length} événements reçus.`);
+ */
     for (const e of events) {
       try {
         await exports.postEvent({
@@ -1285,8 +1198,8 @@ const fetchAndStoreEvents = async () => {
       }
     }
 
-    console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] ✅ Tous les événements ont été traités.`);
-  } catch (err) {
+/*     console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] ✅ Tous les événements ont été traités.`);
+ */  } catch (err) {
     console.error(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] ❌ Erreur fetchAndStoreEvents:`, err.message);
   } finally {
     isFetching = false;

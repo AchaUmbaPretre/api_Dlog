@@ -32,7 +32,7 @@ const carburantRoutes = require('./routes/carburant.routes');
 const generateurRoutes = require('./routes/generateur.routes');
 const sortieEamFmpRoutes = require('./routes/sortieEamFmp.routes');
 const presenceRoutes = require('./routes/presence.routes');
-
+const hikvisionRoutes = require('./routes/hikvision.routes');
 
 const https = require('https');
 const http = require('http');
@@ -121,6 +121,7 @@ app.use('/api/carburant', carburantRoutes)
 app.use('/api/generateur', generateurRoutes)
 app.use('/api/sortieEamFmp', sortieEamFmpRoutes)
 app.use('/api/presence', presenceRoutes)
+app.use('/api/hikvision', hikvisionRoutes)
 app.get("/api/falcon", (req, res) => {
   const options = {
     hostname: "31.207.34.171",

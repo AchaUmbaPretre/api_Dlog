@@ -1,99 +1,268 @@
 const http = require("http");
 const https = require("https");
-const { query } = require("./db");
-const { decrypt } = require("./encrypt");
+const util = require("util");
+const { db } = require('./../config/database');
+const query = util.promisify(db.query).bind(db);
+const { decrypt } = require("./../utils/encrypt");
 const { URL } = require("url");
+const moment = require("moment");
+const { jourSemaineSQL } = require("../utils/dateUtils");
+const { getDigestHeader } = require("../utils/hikvisionUtils");
 
-const PULL_INTERVAL_MS = 30 * 1000;
-const API_PRESENCE_URL = "http://localhost:8080/api/presence/hikvision";
+const PULL_INTERVAL_MS = 3 * 1000;
+const API_PRESENCE_URL = "presence/hikvision";
 
+// ===================== HANDLE HIKVISION PRESENCE =====================
+async function handleHikvisionPresence(event) {
+  const { employeeNoString, time, device_sn, serialNo, cardReaderNo } = event;
+  if (!employeeNoString || !time || !device_sn || !serialNo) {
+    console.log("[SKIP] Données manquantes :", event);
+    return;
+  }
+
+  const heurePointage = moment(time);
+  const dateISO = heurePointage.format("YYYY-MM-DD");
+  console.log(`[INFO] Événement reçu : user=${employeeNoString}, time=${time}, device=${device_sn}`);
+
+  // 1️⃣ Anti-doublon
+  try {
+    await query(
+      `INSERT INTO presence_logs (device_sn, serial_no, employee_no, event_time, reader_no)
+       VALUES (?, ?, ?, ?, ?)`,
+      [device_sn, serialNo, employeeNoString, time, cardReaderNo]
+    );
+  } catch (e) {
+    if (e.code === "ER_DUP_ENTRY") {
+      console.log("[DUPLICATE] Log déjà existant :", serialNo);
+      return;
+    }
+    throw e;
+  }
+
+  // 2️⃣ Récupérer l'utilisateur
+  const users = await query(`SELECT id_utilisateur FROM utilisateur WHERE matricule = ?`, [employeeNoString]);
+  if (!users.length) {
+    console.log("[SKIP] Utilisateur introuvable :", employeeNoString);
+    return;
+  }
+  const id_utilisateur = users[0].id_utilisateur;
+
+  const siteUser = await query(`SELECT site_id FROM user_sites WHERE user_id = ?`, [id_utilisateur]);
+  const site_id = siteUser[0]?.site_id || null;
+
+  // 3️⃣ Terminal
+  const terminals = await query(
+    `SELECT id_terminal, usage_mode, is_enabled, site_id, ip_address
+     FROM terminals WHERE device_sn = ?`,
+    [device_sn]
+  );
+  const terminal_id = terminals[0]?.id_terminal || null;
+
+  // 4️⃣ Jour autorisé
+  const jourSQL = jourSemaineSQL(dateISO);
+  const horaireRows = await query(
+    `SELECT ht.nom AS horaire_nom, ht.${jourSQL} AS jour_autorise
+     FROM horaire_user hu
+     JOIN horaire_travail ht ON ht.id_horaire = hu.horaire_id
+     WHERE hu.user_id = ? AND hu.actif = 1
+     LIMIT 1`,
+    [id_utilisateur]
+  );
+
+  if (!horaireRows.length) {
+    console.log(`[SKIP] Jour non autorisé ou pas d'horaire pour ${id_utilisateur} le ${dateISO}`);
+    return;
+  }
+
+  // 5️⃣ Jour férié
+  const ferieRows = await query(`SELECT 1 FROM jours_feries WHERE date_ferie = ?`, [dateISO]);
+  if (ferieRows.length) {
+    console.log(`[SKIP] Jour férié : ${dateISO}`);
+    return;
+  }
+
+  // 6️⃣ Absence validée
+  const absence = await query(
+    `SELECT 1 FROM absences WHERE id_utilisateur = ? AND statut = 'VALIDEE'
+     AND ? BETWEEN date_debut AND date_fin`,
+    [id_utilisateur, dateISO]
+  );
+  if (absence.length) {
+    console.log(`[SKIP] Absence validée pour ${employeeNoString} le ${dateISO}`);
+    return;
+  }
+
+  // 7️⃣ Présence existante
+  const presenceRows = await query(
+    `SELECT id_presence, heure_entree, heure_sortie, statut_jour
+     FROM presences WHERE id_utilisateur = ? AND DATE(date_presence) = ? LIMIT 1`,
+    [id_utilisateur, dateISO]
+  );
+  const presence = presenceRows[0] || null;
+
+  const debutTravail = moment(`${dateISO} 08:00:00`);
+  const finTravail = moment(`${dateISO} 16:00:00`);
+  const retard_minutes = heurePointage.isAfter(debutTravail)
+    ? heurePointage.diff(debutTravail, "minutes")
+    : 0;
+
+  if (presence && (!presence.heure_entree || !presence.statut_jour || presence.statut_jour === "ABSENT")) {
+    console.log(`[UPDATE] Passage ABSENT/NULL → PRESENT pour ${employeeNoString}`);
+    await query(
+      `UPDATE presences
+       SET heure_entree = ?, statut_jour = 'PRESENT', retard_minutes = ?, source = ?, terminal_id = ?, device_sn = ?
+       WHERE id_presence = ?`,
+      [
+        heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+        retard_minutes,
+        'HIKVISION',
+        terminal_id,
+        device_sn,
+        presence.id_presence
+      ]
+    );
+    return;
+  }
+
+  if (!presence) {
+    console.log(`[INSERT] Nouvelle présence PRESENT pour ${employeeNoString}`);
+    await query(
+      `INSERT INTO presences (
+        id_utilisateur, site_id, date_presence, heure_entree,
+        retard_minutes, heures_supplementaires, source,
+        terminal_id, device_sn, statut_jour
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PRESENT')`,
+      [id_utilisateur, site_id, dateISO, heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+       retard_minutes, 0, 'HIKVISION', terminal_id, device_sn]
+    );
+    return;
+  }
+
+  if (!presence.heure_sortie) {
+    const heures_supplementaires = heurePointage.isAfter(finTravail)
+      ? Number((heurePointage.diff(finTravail, "minutes") / 60).toFixed(2))
+      : 0;
+    console.log(`[UPDATE] Mise à jour sortie pour ${employeeNoString}`);
+    await query(
+      `UPDATE presences SET heure_sortie = ?, heures_supplementaires = ? WHERE id_presence = ?`,
+      [heurePointage.format("YYYY-MM-DD HH:mm:ss"), heures_supplementaires, presence.id_presence]
+    );
+  }
+}
+
+
+// ===================== HIKVISION REQUEST =====================
+async function hikvisionRequest(terminal, credentials, payload) { 
+  const protocol = terminal.port === 443 ? https : http;
+  const uri = "/ISAPI/AccessControl/AcsEvent";
+  const path = `${uri}?format=json`;
+  const jsonBody = JSON.stringify(payload);
+
+  const makeRequest = (auth = null) => new Promise((resolve, reject) => {
+    const req = protocol.request({
+      hostname: terminal.ip_address,
+      port: terminal.port,
+      path,
+      method: "POST",
+      timeout: 15000,
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(jsonBody),
+        ...(auth && { Authorization: auth })
+      }
+    }, res => {
+      let body = "";
+      res.on("data", d => body += d);
+      res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, body }));
+    });
+    req.on("error", reject);
+    req.write(jsonBody);
+    req.end();
+  });
+
+  let res = await makeRequest();
+  if (res.status === 401) {
+    const auth = getDigestHeader("POST", uri, res.headers["www-authenticate"], credentials.username, credentials.password);
+    res = await makeRequest(auth);
+  }
+
+  try { return JSON.parse(res.body); } 
+  catch (e) { throw new Error(`Réponse non JSON : ${res.body}`); }
+}
+
+// ===================== PULL SINGLE TERMINAL =====================
+async function pullSingleTerminal(terminal) {
+  try {
+    const credentials = JSON.parse(decrypt(terminal.credentials_encrypted));
+    let searchResultPosition = 0;
+    const maxResults = 40;
+    let hasMore = true;
+
+    while (hasMore) {
+      const payload = {
+        AcsEventCond: {
+          searchID: Date.now().toString(),
+          searchResultPosition,
+          maxResults,
+          major: 5,
+          minor: 0,
+          startTime: "2024-01-01T00:00:00Z",
+          endTime: "2026-12-31T23:59:59Z"
+        }
+      };
+
+      const json = await hikvisionRequest(terminal, credentials, payload);
+      const acs = json?.AcsEvent;
+      const events = acs?.InfoList || [];
+      if (!events.length) break;
+
+      for (const event of events) {
+        if (!event.employeeNoString) continue;
+
+        await handleHikvisionPresence({
+          employeeNoString: event.employeeNoString,
+          time: event.time,
+          serialNo: event.serialNo,
+          cardReaderNo: event.cardReaderNo,
+          device_sn: terminal.device_sn
+        });
+
+        console.log(`✅ ${event.employeeNoString} | ${event.time} | ${terminal.device_sn}`);
+      }
+
+      hasMore = acs?.responseStatusStrg === "MORE";
+      searchResultPosition += maxResults;
+    }
+
+    await query(
+      `UPDATE terminals SET last_sync_at = NOW(), last_seen_at = NOW() WHERE id_terminal = ?`,
+      [terminal.id_terminal]
+    );
+
+    console.log(`✅ Terminal ${terminal.device_sn} synchronisé`);
+  } catch (err) {
+    console.error(`❌ Terminal ${terminal.device_sn} :`, err.message);
+  }
+}
+
+// ===================== PULL ALL TERMINALS =====================
 async function pullAllHikvisionTerminals() {
   const terminals = await query(
     `SELECT id_terminal, device_sn, ip_address, port, credentials_encrypted
      FROM terminals
      WHERE is_enabled = 1 AND usage_mode IN ('ATTENDANCE','BOTH')`
   );
-
   if (!terminals.length) return console.log("Aucun terminal actif");
 
   for (const terminal of terminals) await pullSingleTerminal(terminal);
 }
 
-async function pullSingleTerminal(terminal) {
-  try {
-    const credentials = JSON.parse(decrypt(terminal.credentials_encrypted));
-    const url = new URL(`http://${terminal.ip_address}:${terminal.port}/ISAPI/AccessControl/AcsEvent?format=json`);
-
-    const options = {
-      hostname: url.hostname,
-      port: url.port,
-      path: url.pathname + url.search,
-      method: "GET",
-      auth: `${credentials.username}:${credentials.password}`,
-      timeout: 10000
-    };
-
-    const protocol = url.protocol === "https:" ? https : http;
-
-    const data = await new Promise((resolve, reject) => {
-      const req = protocol.request(options, res => {
-        let body = "";
-        res.on("data", chunk => body += chunk);
-        res.on("end", () => resolve(body));
-      });
-      req.on("error", reject);
-      req.on("timeout", () => { req.destroy(); reject(new Error("Timeout")); });
-      req.end();
-    });
-
-    let json;
-    try { json = JSON.parse(data); } catch { return; }
-
-    const events = json?.AcsEvent?.info || [];
-    for (const event of events) {
-      if (event.majorEventType !== 5 || event.subEventType !== 75) continue;
-
-      await sendToPresenceAPI({
-        user_code: event.employeeNoString,
-        datetime: event.time,
-        device_sn: terminal.device_sn
-      });
-    }
-
-    await query(`UPDATE terminals SET last_sync_at = NOW(), last_seen_at = NOW() WHERE id_terminal = ?`, [terminal.id_terminal]);
-    console.log(`✅ Terminal ${terminal.device_sn} synchronisé`);
-
-  } catch (err) {
-    console.error(`❌ Terminal ${terminal.device_sn}:`, err.message);
-  }
-}
-
-async function sendToPresenceAPI(payload) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(API_PRESENCE_URL);
-    const data = JSON.stringify(payload);
-    const options = {
-      hostname: url.hostname,
-      port: url.port || 80,
-      path: url.pathname,
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data) }
-    };
-    const req = http.request(options, res => {
-      let body = "";
-      res.on("data", chunk => body += chunk);
-      res.on("end", () => resolve(body));
-    });
-    req.on("error", reject);
-    req.write(data);
-    req.end();
-  });
-}
-
+// ===================== AUTO-SYNC =====================
 setInterval(() => {
   pullAllHikvisionTerminals()
     .then(() => console.log("[AutoSync] Terminaux pullés"))
     .catch(err => console.error("[AutoSync] Erreur:", err.message));
 }, PULL_INTERVAL_MS);
 
+// ===================== EXPORT =====================
 module.exports = { startPullScheduler: pullAllHikvisionTerminals };

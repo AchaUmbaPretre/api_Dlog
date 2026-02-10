@@ -9,6 +9,9 @@ const { encrypt } = require("../utils/encrypt.js");
 const WORK_DAY_HOURS = 8;
 const HALF_DAY_HOURS = 4;
 const INTERVAL_MS = 12 * 60 * 60 * 1000; // toutes les 12 heures
+const axios = require('axios');
+const crypto = require('crypto');
+
 
 exports.getPresence = (req, res) => {
   try {
@@ -1308,8 +1311,6 @@ exports.postPresence = async (req, res) => {
       permissions = [],
     } = req.body;
 
-    console.log(req.body)
-
     // 🔹 Récupérer user_id pour audit de façon sécurisée
     const actingUserId = req.abac?.user_id || 0;
 
@@ -1392,6 +1393,7 @@ exports.postPresence = async (req, res) => {
       `SELECT 1 FROM jours_feries WHERE date_ferie = ?`,
       [dateISO]
     );
+
     if (ferieRows?.length) {
       return res.status(403).json({ message: "Pointage interdit : jour férié" });
     }
@@ -1569,6 +1571,73 @@ exports.postPresence = async (req, res) => {
     return res.status(500).json({ message: "Erreur interne du serveur" });
   }
 };
+
+/**
+ * Calcule le header d'autorisation Digest pour Hikvision
+ */
+function calculateDigest(method, url, authHeader, username, password) {
+    const realm = /realm="([^"]+)"/.exec(authHeader)?.[1];
+    const nonce = /nonce="([^"]+)"/.exec(authHeader)?.[1];
+    const qop = /qop="([^"]+)"/.exec(authHeader)?.[1];
+    const opaque = /opaque="([^"]+)"/.exec(authHeader)?.[1] || "";
+    const nc = '00000001';
+    const cnonce = crypto.randomBytes(8).toString('hex');
+
+    const ha1 = crypto.createHash('md5').update(`${username}:${realm}:${password}`).digest('hex');
+    const ha2 = crypto.createHash('md5').update(`${method.toUpperCase()}:${url}`).digest('hex');
+    
+    // Calcul de la réponse selon la spec RFC 2617
+    const response = crypto.createHash('md5')
+        .update(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`)
+        .digest('hex');
+
+    return `Digest username="${username}", realm="${realm}", nonce="${nonce}", uri="${url}", qop=${qop}, nc=${nc}, cnonce="${cnonce}", response="${response}", opaque="${opaque}"`;
+}
+
+exports.getPresenceEvents = async (req, res) => {
+    const endpoint = '/ISAPI/AccessControl/AcsEvent?format=json';
+    const fullUrl = `http://192.168.1.80${endpoint}`;
+    
+    const body = {
+        AcsEventCond: {
+            searchID: Date.now().toString(),
+            searchResultPosition: 0,
+            maxResults: 50,
+            major: 5,
+            minor: 0,
+            startTime: "2024-01-01T00:00:00Z",
+            endTime: "2026-12-31T23:59:59Z"
+        }
+    };
+
+    try {
+        // 1. On tente l'appel à vide pour déclencher le 401 (et récupérer le nonce)
+        await axios.post(fullUrl, body);
+    } catch (error) {
+        if (error.response && error.response.status === 401) {
+            const wwwAuthenticate = error.response.headers['www-authenticate'];
+            
+            try {
+                // 2. On renvoie la requête avec le bon header Digest
+                const authHeader = calculateDigest('POST', endpoint, wwwAuthenticate, 'admin', 'GTM159951gtm@');
+                
+                const finalResponse = await axios.post(fullUrl, body, {
+                    headers: { 
+                        'Authorization': authHeader,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                return res.json(finalResponse.data);
+            } catch (authError) {
+                return res.status(403).json({ error: "Auth failed", detail: authError.message });
+            }
+        }
+        res.status(500).json({ error: error.message });
+    }
+};
+
+
 
 /* exports.postPresenceBiometrique = async (req, res) => {
   try {
@@ -1768,7 +1837,7 @@ exports.postPresence = async (req, res) => {
 exports.postPresenceFromHikvision = async (req, res) => {
   try {
     const payload = req.body;
-
+    console.log(payload)
     const user_code =
       payload.employeeNoString ||
       payload?.AcsEvent?.employeeNoString ||
@@ -1934,6 +2003,8 @@ exports.postPresenceFromHikvision = async (req, res) => {
     });
   }
 };
+
+
 
 exports.getAttendanceAdjustment = async (req, res) => {
   try {

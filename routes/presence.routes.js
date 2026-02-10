@@ -10,6 +10,7 @@ router.get('/lateEarly', presence.getLateEarlyLeaveReport);
 router.get('/hrglobal', presence.getHRGlobalReport);
 router.get('/presenceById', presence.getPresenceById);
 router.post('/', presence.postPresence);
+router.get('/presenceEvent', presence.getPresenceEvents);
 router.post('/hikvision', presence.postPresenceFromHikvision);
 
 //Attendance-adjustments

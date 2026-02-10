@@ -97,8 +97,8 @@ const createAlert = async ({
     alert_time
   ]);
 
-  console.log(`🚨 Nouvelle alerte créée pour ${device_name} (${alert_type})`);
-  return { created: true, alertId: result.insertId };
+/*   console.log(`🚨 Nouvelle alerte créée pour ${device_name} (${alert_type})`);
+ */  return { created: true, alertId: result.insertId };
 };
 
 exports.postWebhook = async (req, res) => {

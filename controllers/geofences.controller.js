@@ -74,8 +74,8 @@ const fetchAndSyncGeofences = () => {
             );
           });
 
-          resolve(`✅ ${count} geofences synchronisées.`);
-        } catch (e) {
+/*           resolve(`✅ ${count} geofences synchronisées.`);
+ */        } catch (e) {
           reject(e);
         }
       });
