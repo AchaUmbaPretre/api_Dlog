@@ -214,7 +214,7 @@ const PULL_INTERVAL_MS = 30 * 1000;
     throw e;
   }
 
-  // 2️⃣ Récupérer l'utilisateur
+  // Récupérer l'utilisateur
   const users = await query(`SELECT id_utilisateur FROM utilisateur WHERE matricule = ?`, [employeeNoString]);
   if (!users.length) {
     console.log("[SKIP] Utilisateur introuvable :", employeeNoString);
@@ -222,17 +222,14 @@ const PULL_INTERVAL_MS = 30 * 1000;
   }
   const id_utilisateur = users[0].id_utilisateur;
 
-  // 3️⃣ Déterminer site
-  const siteUser = await query(`SELECT site_id FROM user_sites WHERE user_id = ?`, [id_utilisateur]);
-  const site_id = siteUser[0]?.site_id || null;
-
-  // 4️⃣ Terminal
+  //Terminal
   const terminals = await query(
     `SELECT id_terminal, usage_mode, is_enabled, site_id, ip_address
      FROM terminals WHERE device_sn = ?`,
     [device_sn]
   );
   const terminal_id = terminals[0]?.id_terminal || null;
+  const site_id = terminals[0]?.site_id || null;
 
   // Vérifier planning actif du jour
   const jourNom = moment(dateISO).locale("fr").format("dddd").toUpperCase(); // LUNDI, MARDI...
@@ -282,9 +279,10 @@ const PULL_INTERVAL_MS = 30 * 1000;
     console.log(`[UPDATE] ABSENT → PRESENT ${employeeNoString}`);
     await query(
       `UPDATE presences
-       SET heure_entree = ?, statut_jour = 'PRESENT', retard_minutes = ?, source = 'HIKVISION', terminal_id = ?, device_sn = ?
+       SET site_id = ?, heure_entree = ?, statut_jour = 'PRESENT', retard_minutes = ?, source = 'HIKVISION', terminal_id = ?, device_sn = ?
        WHERE id_presence = ?`,
       [
+        site_id,
         heurePointage.format("YYYY-MM-DD HH:mm:ss"),
         retard_minutes,
         terminal_id,

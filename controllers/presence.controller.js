@@ -3359,10 +3359,8 @@ exports.deleteUserTerminal = async (req, res) => {
 };
 
 const cronDailyAttendance = async () => {
-  console.log('[CRON] Daily attendance started');
 
   const today = moment().format('YYYY-MM-DD');
-  const todayFR = moment().locale('fr').format('dddd');
 
   try {
     /* =====================================================
@@ -3380,14 +3378,19 @@ const cronDailyAttendance = async () => {
     /* =====================================================
        2️⃣ Ignorer jours non travaillés
     ===================================================== */
-    const nonTravaille = await query(
-      `SELECT 1 FROM jours_non_travailles WHERE jour_semaine = ? LIMIT 1`,
-      [todayFR]
-    );
-    if (nonTravaille.length) {
-      console.log('[CRON] Jour non travaillé – aucun traitement');
-      return;
-    }
+      const jourNom = moment(dateISO).locale("fr").format("dddd").toUpperCase(); // LUNDI, MARDI...
+      const planningRows = await query(
+        `SELECT p.id_planning, pd.jour_semaine, pd.heure_debut, pd.heure_fin
+         FROM planning_employe p
+         JOIN planning_detail pd ON pd.planning_id = p.id_planning
+         WHERE p.user_id = ? AND p.actif = 1 AND pd.jour_semaine = ?`,
+        [id_utilisateur, jourNom]
+      );
+    
+      if (!planningRows.length) {
+        console.log(`[SKIP] Aucun planning actif pour cet utilisateur.`);
+        return;
+      }
 
     /* =====================================================
        3️⃣ Mettre à jour présences incomplètes ou absentes
@@ -3428,7 +3431,7 @@ const cronDailyAttendance = async () => {
         us.site_id,
         ?,
         'ABSENT',
-        'SYSTEM',
+        'API',
         NOW()
       FROM utilisateur u
       LEFT JOIN user_sites us ON us.user_id = u.id_utilisateur
