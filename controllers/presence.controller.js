@@ -1297,7 +1297,7 @@ exports.getPresenceById = (req, res) => {
   }
 }; */
 
-exports.postPresence = async (req, res) => {
+/* exports.postPresence = async (req, res) => {
   try {
     const {
       id_utilisateur,
@@ -1564,6 +1564,236 @@ exports.postPresence = async (req, res) => {
     }
 
     return res.status(409).json({ message: "Présence déjà complète pour cette date" });
+  } catch (error) {
+    console.error("Erreur postPresence :", error);
+    return res.status(500).json({ message: "Erreur interne du serveur" });
+  }
+}; */
+
+exports.postPresence = async (req, res) => {
+  try {
+    const {
+      id_utilisateur,
+      date_presence,
+      datetime,
+      source = "MANUEL",
+      device_sn,
+      terminal_id,
+      permissions = [],
+    } = req.body;
+
+    const actingUserId = req.abac?.user_id || 0;
+
+    // 0️⃣ Vérification RBAC
+    if (!permissions.includes("attendance.events.approve")) {
+      return res.status(403).json({ message: "Permission refusée" });
+    }
+
+    if (!id_utilisateur || !date_presence) {
+      return res.status(400).json({ message: "Champs obligatoires manquants" });
+    }
+
+    const dateISO = moment(date_presence).format("YYYY-MM-DD");
+    const heurePointage = datetime
+      ? moment(datetime)
+      : moment(`${dateISO} ${moment().format("HH:mm:ss")}`, "YYYY-MM-DD HH:mm:ss");
+
+    // 1️⃣ Vérification terminal (si fourni)
+    let terminal = null;
+    if (terminal_id) {
+      const terminals = await query(
+        `SELECT usage_mode, is_enabled, site_id, ip_address
+         FROM terminals 
+         WHERE id_terminal = ?`,
+        [terminal_id]
+      );
+
+      if (!terminals?.length || !terminals[0].is_enabled) {
+        return res.status(403).json({ message: "Terminal désactivé ou inconnu" });
+      }
+
+      terminal = terminals[0];
+
+      if (!["ATTENDANCE", "BOTH"].includes(terminal.usage_mode)) {
+        return res.status(403).json({ message: "Terminal non autorisé pour pointage RH" });
+      }
+
+      if (!req.abac?.scope_sites.includes(terminal.site_id)) {
+        return res.status(403).json({ message: "Vous n'avez pas accès à ce site" });
+      }
+    }
+
+    // 1️⃣a Déterminer site_id
+    const siteUser = await query(
+      `SELECT site_id FROM user_sites WHERE user_id = ?`,
+      [id_utilisateur]
+    );
+    const site_id = siteUser[0]?.site_id || terminal?.site_id || null;
+
+    // 2️⃣ Vérifier jour travaillé selon planning
+    const jourNom = moment(dateISO).locale("fr").format("dddd").toUpperCase(); // "LUNDI", "MARDI", ...
+    const planningRows = await query(
+      `SELECT p.id_planning, pd.jour_semaine, pd.heure_debut, pd.heure_fin
+       FROM planning_employe p
+       JOIN planning_detail pd ON pd.planning_id = p.id_planning
+       WHERE p.user_id = ? AND p.actif = 1 AND pd.jour_semaine = ?`,
+      [id_utilisateur, jourNom]
+    );
+
+    if (!planningRows?.length) {
+      return res.status(403).json({
+        message: "Pointage interdit : aucun planning actif pour cet utilisateur ce jour"
+      });
+    }
+
+    const pd = planningRows[0];
+    const debutTravail = moment(`${dateISO} ${pd.heure_debut}`, "YYYY-MM-DD HH:mm:ss");
+    const finTravail = moment(`${dateISO} ${pd.heure_fin}`, "YYYY-MM-DD HH:mm:ss");
+
+    // 2️⃣a Vérifier jour férié
+    const ferieRows = await query(
+      `SELECT 1 FROM jours_feries WHERE date_ferie = ?`,
+      [dateISO]
+    );
+    if (ferieRows?.length) {
+      return res.status(403).json({ message: "Pointage interdit : jour férié" });
+    }
+
+    // 2️⃣b Vérifier absence validée
+    const absenceRows = await query(
+      `SELECT a.id_absence, t.code, a.date_debut, a.date_fin, DATEDIFF(a.date_fin, a.date_debut) + 1 AS nb_jours
+       FROM absences a
+       JOIN absence_types t ON t.id_absence_type = a.id_absence_type
+       WHERE a.id_utilisateur = ? AND a.statut = 'VALIDEE' AND ? BETWEEN a.date_debut AND a.date_fin`,
+      [id_utilisateur, dateISO]
+    );
+
+    if (absenceRows?.length) {
+      const absence = absenceRows[0];
+      return res.status(403).json({
+        message: `Pointage interdit : absence validée (${absence.code}) pour ${absence.nb_jours} jour(s), du ${moment(absence.date_debut).format('DD/MM/YYYY')} au ${moment(absence.date_fin).format('DD/MM/YYYY')}.`,
+        code: 'ABSENCE_VALIDEE',
+        details: absence
+      });
+    }
+
+    // 3️⃣ Vérifier présence existante
+    const presenceRows = await query(
+      `SELECT id_presence, heure_entree, heure_sortie, is_locked, statut_jour
+       FROM presences
+       WHERE id_utilisateur = ? AND date_presence = ? LIMIT 1`,
+      [id_utilisateur, dateISO]
+    );
+
+    let presence = presenceRows?.[0] || null;
+
+    // 4️⃣ ABSENT → PRESENT ou nouvelle entrée
+    let retard_minutes = heurePointage.isAfter(debutTravail)
+      ? heurePointage.diff(debutTravail, "minutes")
+      : 0;
+
+    if (presence?.statut_jour === "ABSENT") {
+      await query(
+        `UPDATE presences
+         SET heure_entree = ?, statut_jour = 'PRESENT', retard_minutes = ?, source = ?, terminal_id = ?, device_sn = ?
+         WHERE id_presence = ?`,
+        [
+          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          retard_minutes,
+          source,
+          terminal_id || null,
+          device_sn || null,
+          presence.id_presence,
+        ]
+      );
+
+      await auditPresence({
+        user_id: actingUserId,
+        action: "UPDATE_ENTRY_FROM_ABSENT",
+        entity: "presences",
+        entity_id: presence.id_presence,
+        old_value: presence,
+        new_value: {
+          id_utilisateur,
+          date_presence: dateISO,
+          heure_entree: heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          statut_jour: "PRESENT",
+          retard_minutes,
+        },
+        ip_address: terminal?.ip_address || null,
+      });
+
+      return res.status(200).json({ message: "ABSENT corrigé en PRESENT", retard_minutes });
+    }
+
+    if (!presence) {
+      const result = await query(
+        `INSERT INTO presences (
+          id_utilisateur, site_id, date_presence, heure_entree,
+          retard_minutes, heures_supplementaires, source,
+          terminal_id, device_sn, statut_jour
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PRESENT')`,
+        [
+          id_utilisateur,
+          site_id,
+          dateISO,
+          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          retard_minutes,
+          0,
+          source,
+          terminal_id || null,
+          device_sn || null,
+        ]
+      );
+
+      await auditPresence({
+        user_id: actingUserId,
+        action: "CREATE_ENTRY",
+        entity: "presences",
+        entity_id: result.insertId,
+        old_value: null,
+        new_value: {
+          id_utilisateur,
+          date_presence: dateISO,
+          heure_entree: heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          retard_minutes,
+        },
+        ip_address: terminal?.ip_address || null,
+      });
+
+      return res.status(201).json({ message: "Entrée enregistrée", retard_minutes });
+    }
+
+    // 5️⃣ Gestion sortie
+    if (!presence.heure_sortie) {
+      const autorisationRows = await query(
+        `SELECT 1 FROM attendance_adjustments
+         WHERE id_presence = ? AND type = 'AUTORISATION_SORTIE' AND statut = 'VALIDE'`,
+        [presence.id_presence]
+      );
+      const autorisation = autorisationRows?.length > 0;
+
+      if (heurePointage.isBefore(finTravail) && !autorisation) {
+        return res.status(403).json({ message: "Sortie anticipée non autorisée" });
+      }
+
+      let heures_supplementaires = 0;
+      if (heurePointage.isAfter(finTravail)) {
+        heures_supplementaires = heurePointage.diff(finTravail, "minutes") / 60;
+      }
+
+      await query(
+        `UPDATE presences
+         SET heure_sortie = ?, heures_supplementaires = ?
+         WHERE id_presence = ?`,
+        [heurePointage.format("YYYY-MM-DD HH:mm:ss"), heures_supplementaires, presence.id_presence]
+      );
+
+      return res.status(200).json({ message: "Sortie enregistrée", heures_supplementaires });
+    }
+
+    return res.status(409).json({ message: "Présence déjà complète pour cette date" });
+
   } catch (error) {
     console.error("Erreur postPresence :", error);
     return res.status(500).json({ message: "Erreur interne du serveur" });

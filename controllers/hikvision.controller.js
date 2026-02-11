@@ -6,14 +6,12 @@ const query = util.promisify(db.query).bind(db);
 const { decrypt } = require("./../utils/encrypt");
 const { URL } = require("url");
 const moment = require("moment");
-const { jourSemaineSQL } = require("../utils/dateUtils");
 const { getDigestHeader } = require("../utils/hikvisionUtils");
 
-const PULL_INTERVAL_MS = 50 * 1000;
-const API_PRESENCE_URL = "presence/hikvision";
+const PULL_INTERVAL_MS = 30 * 1000;
 
 // ===================== HANDLE HIKVISION PRESENCE =====================
-async function handleHikvisionPresence(event) {
+/* async function handleHikvisionPresence(event) {
   const { employeeNoString, time, device_sn, serialNo, cardReaderNo } = event;
   if (!employeeNoString || !time || !device_sn || !serialNo) {
     console.log("[SKIP] Données manquantes :", event);
@@ -186,7 +184,179 @@ async function handleHikvisionPresence(event) {
       console.log(`[UPDATE] Sortie enregistrée pour ${id_utilisateur}`);
       return;
     }
+} */
+
+  async function handleHikvisionPresence(event) {
+  const { employeeNoString, time, device_sn, serialNo, cardReaderNo } = event;
+
+  if (!employeeNoString || !time || !device_sn || !serialNo) {
+    console.log("[SKIP] Données manquantes :", event);
+    return;
+  }
+
+  const heurePointage = moment.parseZone(time);
+  const dateISO = heurePointage.format("YYYY-MM-DD");
+
+  console.log(`[INFO] Événement reçu : user=${employeeNoString}, time=${time}, device=${device_sn}`);
+
+  // Anti-doublon dans logs
+  try {
+    await query(
+      `INSERT INTO presence_logs (device_sn, serial_no, employee_no, event_time, reader_no)
+       VALUES (?, ?, ?, ?, ?)`,
+      [device_sn, serialNo, employeeNoString, time, cardReaderNo]
+    );
+  } catch (e) {
+    if (e.code === "ER_DUP_ENTRY") {
+      console.log("[DUPLICATE] Log déjà existant :", serialNo);
+      return;
+    }
+    throw e;
+  }
+
+  // 2️⃣ Récupérer l'utilisateur
+  const users = await query(`SELECT id_utilisateur FROM utilisateur WHERE matricule = ?`, [employeeNoString]);
+  if (!users.length) {
+    console.log("[SKIP] Utilisateur introuvable :", employeeNoString);
+    return;
+  }
+  const id_utilisateur = users[0].id_utilisateur;
+
+  // 3️⃣ Déterminer site
+  const siteUser = await query(`SELECT site_id FROM user_sites WHERE user_id = ?`, [id_utilisateur]);
+  const site_id = siteUser[0]?.site_id || null;
+
+  // 4️⃣ Terminal
+  const terminals = await query(
+    `SELECT id_terminal, usage_mode, is_enabled, site_id, ip_address
+     FROM terminals WHERE device_sn = ?`,
+    [device_sn]
+  );
+  const terminal_id = terminals[0]?.id_terminal || null;
+
+  // Vérifier planning actif du jour
+  const jourNom = moment(dateISO).locale("fr").format("dddd").toUpperCase(); // LUNDI, MARDI...
+  const planningRows = await query(
+    `SELECT p.id_planning, pd.jour_semaine, pd.heure_debut, pd.heure_fin
+     FROM planning_employe p
+     JOIN planning_detail pd ON pd.planning_id = p.id_planning
+     WHERE p.user_id = ? AND p.actif = 1 AND pd.jour_semaine = ?`,
+    [id_utilisateur, jourNom]
+  );
+
+  if (!planningRows.length) {
+    console.log(`[SKIP] Aucun planning actif pour ${employeeNoString} le ${dateISO}`);
+    return;
+  }
+  const pd = planningRows[0];
+  const debutTravail = moment(`${dateISO} ${pd.heure_debut}`, "YYYY-MM-DD HH:mm:ss");
+  const finTravail = moment(`${dateISO} ${pd.heure_fin}`, "YYYY-MM-DD HH:mm:ss");
+
+  const ferieRows = await query(`SELECT 1 FROM jours_feries WHERE date_ferie = ?`, [dateISO]);
+  if (ferieRows.length) {
+    console.log(`[SKIP] Jour férié : ${dateISO}`);
+    return;
+  }
+
+  const absenceRows = await query(
+    `SELECT 1 FROM absences WHERE id_utilisateur = ? AND statut = 'VALIDEE' AND ? BETWEEN date_debut AND date_fin`,
+    [id_utilisateur, dateISO]
+  );
+  if (absenceRows.length) {
+    console.log(`[SKIP] Absence validée pour ${employeeNoString} le ${dateISO}`);
+    return;
+  }
+
+  const presenceRows = await query(
+    `SELECT id_presence, heure_entree, heure_sortie, statut_jour
+     FROM presences WHERE id_utilisateur = ? AND DATE(date_presence) = ? LIMIT 1`,
+    [id_utilisateur, dateISO]
+  );
+  const presence = presenceRows[0] || null;
+
+  const retard_minutes = heurePointage.isAfter(debutTravail)
+    ? heurePointage.diff(debutTravail, "minutes")
+    : 0;
+
+  if (presence && presence.statut_jour === "ABSENT") {
+    console.log(`[UPDATE] ABSENT → PRESENT ${employeeNoString}`);
+    await query(
+      `UPDATE presences
+       SET heure_entree = ?, statut_jour = 'PRESENT', retard_minutes = ?, source = 'HIKVISION', terminal_id = ?, device_sn = ?
+       WHERE id_presence = ?`,
+      [
+        heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+        retard_minutes,
+        terminal_id,
+        device_sn,
+        presence.id_presence
+      ]
+    );
+    return;
+  }
+
+  // 10️⃣ Nouvelle entrée
+  if (!presence) {
+    console.log(`[INSERT] Nouvelle présence PRESENT pour ${employeeNoString}`);
+    await query(
+      `INSERT INTO presences (
+        id_utilisateur, site_id, date_presence, heure_entree,
+        retard_minutes, heures_supplementaires, source,
+        terminal_id, device_sn, statut_jour
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PRESENT')`,
+      [
+        id_utilisateur,
+        site_id,
+        dateISO,
+        heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+        retard_minutes,
+        0,
+        'HIKVISION',
+        terminal_id,
+        device_sn
+      ]
+    );
+    return;
+  }
+
+  // 11️⃣ Gestion sortie
+  if (presence && !presence.heure_sortie) {
+    const autorisationRows = await query(
+      `SELECT 1 FROM attendance_adjustments
+       WHERE id_presence = ? AND type = 'AUTORISATION_SORTIE' AND statut = 'VALIDE'`,
+      [presence.id_presence]
+    );
+    const autorisation = autorisationRows.length > 0;
+
+    const sortieAutorisee = heurePointage.isSameOrAfter(finTravail) || autorisation;
+
+    if (!sortieAutorisee) {
+      console.log(`[SKIP] Sortie anticipée non autorisée pour ${employeeNoString}`);
+      return;
+    }
+
+    const heures_supplementaires = heurePointage.isAfter(finTravail)
+      ? Number((heurePointage.diff(finTravail, "minutes") / 60).toFixed(2))
+      : 0;
+
+    await query(
+      `UPDATE presences
+       SET heure_sortie = ?, heures_supplementaires = ?
+       WHERE id_presence = ?`,
+      [
+        heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+        heures_supplementaires,
+        presence.id_presence
+      ]
+    );
+
+    console.log(`[UPDATE] Sortie enregistrée pour ${employeeNoString}`);
+    return;
+  }
+
+  console.log(`[INFO] Présence déjà complète pour ${employeeNoString} le ${dateISO}`);
 }
+
 
 // ===================== HIKVISION REQUEST =====================
 async function hikvisionRequest(terminal, credentials, payload) { 
