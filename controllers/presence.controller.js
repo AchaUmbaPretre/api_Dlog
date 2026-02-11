@@ -2838,7 +2838,6 @@ exports.postPlanningEmploye = async (req, res) => {
   }
 
   try {
-    // 1️⃣ Désactiver l'ancien planning actif
     await query(
       `
       UPDATE planning_employe
@@ -2861,7 +2860,7 @@ exports.postPlanningEmploye = async (req, res) => {
 
     // 3️⃣ Insérer les jours avec heures personnalisées
     for (const jour of jours) {
-      if (!jour.jour || !jour.heure_debut || !jour.heure_fin) {
+      if (!jour.jour_semaine || !jour.heure_debut || !jour.heure_fin) {
         continue; // ignore ligne invalide
       }
 
@@ -2873,7 +2872,7 @@ exports.postPlanningEmploye = async (req, res) => {
         `,
         [
           planning_id,
-          jour.jour,
+          jour.jour_semaine,
           jour.heure_debut,
           jour.heure_fin
         ]
@@ -2891,7 +2890,6 @@ exports.postPlanningEmploye = async (req, res) => {
     });
   }
 };
-
 
 //Terminal
 exports.getTerminal = (req, res) => {
