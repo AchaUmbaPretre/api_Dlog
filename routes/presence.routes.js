@@ -10,7 +10,6 @@ router.get('/lateEarly', presence.getLateEarlyLeaveReport);
 router.get('/hrglobal', presence.getHRGlobalReport);
 router.get('/presenceById', presence.getPresenceById);
 router.post('/', presence.postPresence);
-router.get('/presenceEvent', presence.getPresenceEvents);
 router.post('/hikvision', presence.postPresenceFromHikvision);
 
 //Attendance-adjustments
@@ -38,8 +37,8 @@ router.post('/jour-ferie', presence.postJourFerie);
 
 //HORAIRE USER
 router.get('/horaire', presence.getHoraire);
-router.get('/horaire_user', presence.getHoraireUser);
-router.post('/horaire_user', presence.postHoraireUser);
+router.get('/planning_employe', presence.getPlanningEmploye);
+router.post('/planning_employe', presence.postPlanningEmploye);
 
 //TERMINAL
 router.get('/terminal', presence.getTerminal);

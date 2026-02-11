@@ -1572,272 +1572,9 @@ exports.postPresence = async (req, res) => {
   }
 };
 
-/**
- * Calcule le header d'autorisation Digest pour Hikvision
- */
-function calculateDigest(method, url, authHeader, username, password) {
-    const realm = /realm="([^"]+)"/.exec(authHeader)?.[1];
-    const nonce = /nonce="([^"]+)"/.exec(authHeader)?.[1];
-    const qop = /qop="([^"]+)"/.exec(authHeader)?.[1];
-    const opaque = /opaque="([^"]+)"/.exec(authHeader)?.[1] || "";
-    const nc = '00000001';
-    const cnonce = crypto.randomBytes(8).toString('hex');
-
-    const ha1 = crypto.createHash('md5').update(`${username}:${realm}:${password}`).digest('hex');
-    const ha2 = crypto.createHash('md5').update(`${method.toUpperCase()}:${url}`).digest('hex');
-    
-    // Calcul de la réponse selon la spec RFC 2617
-    const response = crypto.createHash('md5')
-        .update(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`)
-        .digest('hex');
-
-    return `Digest username="${username}", realm="${realm}", nonce="${nonce}", uri="${url}", qop=${qop}, nc=${nc}, cnonce="${cnonce}", response="${response}", opaque="${opaque}"`;
-}
-
-exports.getPresenceEvents = async (req, res) => {
-    const endpoint = '/ISAPI/AccessControl/AcsEvent?format=json';
-    const fullUrl = `http://192.168.1.80${endpoint}`;
-    
-    const body = {
-        AcsEventCond: {
-            searchID: Date.now().toString(),
-            searchResultPosition: 0,
-            maxResults: 50,
-            major: 5,
-            minor: 0,
-            startTime: "2024-01-01T00:00:00Z",
-            endTime: "2026-12-31T23:59:59Z"
-        }
-    };
-
-    try {
-        // 1. On tente l'appel à vide pour déclencher le 401 (et récupérer le nonce)
-        await axios.post(fullUrl, body);
-    } catch (error) {
-        if (error.response && error.response.status === 401) {
-            const wwwAuthenticate = error.response.headers['www-authenticate'];
-            
-            try {
-                // 2. On renvoie la requête avec le bon header Digest
-                const authHeader = calculateDigest('POST', endpoint, wwwAuthenticate, 'admin', 'GTM159951gtm@');
-                
-                const finalResponse = await axios.post(fullUrl, body, {
-                    headers: { 
-                        'Authorization': authHeader,
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                return res.json(finalResponse.data);
-            } catch (authError) {
-                return res.status(403).json({ error: "Auth failed", detail: authError.message });
-            }
-        }
-        res.status(500).json({ error: error.message });
-    }
-};
-
-
-
-/* exports.postPresenceBiometrique = async (req, res) => {
-  try {
-    const { id_utilisateur, datetime, device_sn } = req.body;
-
-    const date = datetime.split(" ")[0];
-    const heure = datetime;
-
-    const exist = await query(`
-      SELECT id_presence, heure_entree
-      FROM presences
-      WHERE id_utilisateur = ? AND date_presence = ?
-      LIMIT 1
-    `, [id_utilisateur, date]);
-
-    if (exist.length === 0) {
-      await query(`
-        INSERT INTO presences (
-          id_utilisateur,
-          date_presence,
-          heure_entree,
-          source,
-          device_sn
-        ) VALUES (?, ?, ?, 'BIOMETRIQUE', ?)
-      `, [id_utilisateur, date, heure, device_sn]);
-
-      return res.json({ message: "Entrée enregistrée" });
-    }
-
-    await query(`
-      UPDATE presences
-      SET heure_sortie = ?
-      WHERE id_presence = ?
-    `, [heure, exist[0].id_presence]);
-
-    res.json({ message: "Sortie enregistrée" });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Erreur biométrique" });
-  }
-}; */
-
-/* exports.postPresenceFromHikvision = async (req, res) => {
-  try {
-    const { device_sn, user_code, datetime } = req.body;
-
-    if (!device_sn || !user_code || !datetime) {
-      return res.status(400).json({
-        message: "device_sn, user_code et datetime requis"
-      });
-    }
-
-    const users = await query(
-      `SELECT id_utilisateur
-       FROM utilisateur
-       WHERE matricule = ?`,
-      [user_code]
-    );
-
-    if (!users.length) {
-      return res.status(404).json({
-        message: "Utilisateur inconnu"
-      });
-    }
-
-    const id_utilisateur = users[0].id_utilisateur;
-    const dateISO = moment(datetime).format("YYYY-MM-DD");
-    const heurePointage = moment(datetime);
-
-    const terminals = await query(
-      `SELECT t.id_terminal, t.site_id, t.device_sn
-       FROM user_terminals ut
-       JOIN terminals t ON ut.terminal_id = t.id_terminal
-       WHERE ut.user_id = ?`,
-      [id_utilisateur]
-    );
-
-    if (!terminals.length) {
-      return res.status(403).json({
-        message: "Aucun terminal autorisé pour cet utilisateur"
-      });
-    }
-
-    const terminalAutorise = terminals.find(
-      t => t.device_sn === device_sn
-    );
-
-    if (!terminalAutorise) {
-      return res.status(403).json({
-        message: "Terminal non autorisé pour cet utilisateur"
-      });
-    }
-
-    const presenceRows = await query(
-      `SELECT id_presence, heure_entree, heure_sortie, is_locked
-       FROM presences
-       WHERE id_utilisateur = ?
-         AND date_presence = ?
-       LIMIT 1`,
-      [id_utilisateur, dateISO]
-    );
-
-    const presence = presenceRows.length ? presenceRows[0] : null;
-
-    if (presence?.is_locked) {
-      return res.status(403).json({
-        message: "Présence verrouillée"
-      });
-    }
-
-    const debutTravail = moment(`${dateISO} 08:00:00`);
-    const finTravail   = moment(`${dateISO} 16:00:00`);
-
-    if (!presence) {
-      const retard_minutes = heurePointage.isAfter(debutTravail)
-        ? heurePointage.diff(debutTravail, "minutes")
-        : 0;
-
-      await query(
-        `INSERT INTO presences (
-          id_utilisateur,
-          site_id,
-          date_presence,
-          heure_entree,
-          retard_minutes,
-          source,
-          terminal_id,
-          device_sn
-        ) VALUES (?, ?, ?, ?, ?, 'HIKVISION', ?, ?)`,
-        [
-          id_utilisateur,
-          terminalAutorise.site_id,
-          dateISO,
-          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
-          retard_minutes,
-          terminalAutorise.id_terminal,
-          device_sn
-        ]
-      );
-
-      return res.status(201).json({
-        message: "Entrée enregistrée",
-        retard_minutes
-      });
-    }
-
-    if (
-      presence.heure_entree &&
-      !presence.heure_sortie &&
-      moment(presence.heure_entree).isSame(heurePointage, "minute")
-    ) {
-      return res.status(200).json({
-        message: "Scan déjà pris en compte"
-      });
-    }
-
-    if (!presence.heure_sortie) {
-      let heures_supplementaires = 0;
-
-      if (heurePointage.isAfter(finTravail)) {
-        heures_supplementaires = Number(
-          (heurePointage.diff(finTravail, "minutes") / 60).toFixed(2)
-        );
-      }
-
-      await query(
-        `UPDATE presences
-         SET heure_sortie = ?,
-             heures_supplementaires = ?
-         WHERE id_presence = ?`,
-        [
-          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
-          heures_supplementaires,
-          presence.id_presence
-        ]
-      );
-
-      return res.status(200).json({
-        message: "Sortie enregistrée",
-        heures_supplementaires
-      });
-    }
-
-    return res.status(409).json({
-      message: "Présence déjà complète"
-    });
-
-  } catch (error) {
-    console.error("postPresenceFromHikvision:", error);
-    return res.status(500).json({
-      message: "Erreur interne serveur"
-    });
-  }
-}; */
-
 exports.postPresenceFromHikvision = async (req, res) => {
   try {
     const payload = req.body;
-    console.log(payload)
     const user_code =
       payload.employeeNoString ||
       payload?.AcsEvent?.employeeNoString ||
@@ -2003,8 +1740,6 @@ exports.postPresenceFromHikvision = async (req, res) => {
     });
   }
 };
-
-
 
 exports.getAttendanceAdjustment = async (req, res) => {
   try {
@@ -2645,58 +2380,6 @@ exports.validateConge = async (req, res) => {
 };
 
 //Absence
-/* exports.getAbsence = async (req, res) => {
-  try {
-    const { role, scope_departments = [], user_id } = req.abac || {};
-
-    let queryStr = `
-      SELECT 
-          a.id_absence,
-          a.id_utilisateur,
-          a.date_debut,
-          a.date_fin,
-          a.commentaire,
-          a.statut,
-          a.created_at,
-          u.nom AS utilisateur,
-          u.prenom AS utilisateur_lastname,
-          u2.nom AS created_name,
-          u2.prenom AS created_lastname,
-          u3.nom AS validated_name,
-          t.libelle AS type_absence
-      FROM absences a
-      JOIN utilisateur u ON u.id_utilisateur = a.id_utilisateur
-      JOIN utilisateur u2 ON u2.id_utilisateur = a.created_by
-      LEFT JOIN utilisateur u3 ON u3.id_utilisateur = a.validated_by
-      JOIN absence_types t ON t.id_absence_type = a.id_absence_type
-      WHERE 1=1
-    `;
-
-    const queryValues = [];
-
-    if (role === "Owner") {
-      queryStr += " AND a.id_utilisateur = ?";
-      queryValues.push(user_id);
-    } else if (scope_departments.length) {
-      queryStr += ` AND u.id_departement IN (${scope_departments.map(() => "?").join(",")})`;
-      queryValues.push(...scope_departments);
-    }
-
-    queryStr += " ORDER BY a.created_at DESC";
-
-    const data = await query(queryStr, queryValues);
-
-    return res.status(200).json({ success: true, data });
-  } catch (error) {
-    console.error("Erreur getAbsence :", error);
-    return res.status(500).json({
-      success: false,
-      message: "Erreur lors de la récupération des absences.",
-      error
-    });
-  }
-}; */
-
 exports.getAbsence = async (req, res) => {
   try {
     const { role, scope_departments = [], user_id } = req.abac || {};
@@ -3047,36 +2730,66 @@ exports.getHoraire = (req, res) => {
   });
 };
 
-exports.getHoraireUser = (req, res) => {
-   const q = `
-   SELECT 
-     hu.id_horaire_user,
-     hu.user_id,
-     hu.horaire_id,
-     hu.date_debut,
-     hu.date_fin,
-     hu.actif,
-     ht.nom AS horaire_nom,
-     u.nom AS utilisateur_nom,
-     u.prenom AS utilisateur_prenom
-   FROM horaire_user hu
-   JOIN horaire_travail ht ON ht.id_horaire = hu.horaire_id
-   JOIN utilisateur u ON u.id_utilisateur = hu.user_id
-   WHERE hu.actif = 1
- `;
- 
-   db.query(q, (error, data) => {
-     if (error) {
-       console.error(error);
-       return res.status(500).json({
-         message: "Erreur lors de la récupération des horaires."
-       });
-     }
-     return res.status(200).json(data);
-   });
- };
+exports.getPlanningEmploye = async (req, res) => {
+  try {
+    // 1️⃣ Récupérer les plannings actifs
+    const plannings = await query(`
+      SELECT 
+        pe.id_planning,
+        pe.user_id,
+        pe.date_debut,
+        pe.date_fin,
+        pe.actif,
+        u.nom AS utilisateur_nom,
+        u.prenom AS utilisateur_prenom
+      FROM planning_employe pe
+      JOIN utilisateur u ON u.id_utilisateur = pe.user_id
+      WHERE pe.actif = 1
+      ORDER BY pe.date_debut DESC
+    `);
 
-exports.postHoraireUser = async (req, res) => {
+    if (!plannings.length) {
+      return res.status(200).json([]);
+    }
+
+    // 2️⃣ Récupérer tous les détails liés
+    const planningIds = plannings.map(p => p.id_planning);
+
+    const details = await query(`
+      SELECT 
+        pd.planning_id,
+        pd.jour_semaine,
+        pd.heure_debut,
+        pd.heure_fin
+      FROM planning_detail pd
+      WHERE pd.planning_id IN (?)
+    `, [planningIds]);
+
+    // 3️⃣ Regrouper les détails par planning
+    const result = plannings.map(planning => {
+      return {
+        ...planning,
+        jours: details
+          .filter(d => d.planning_id === planning.id_planning)
+          .map(d => ({
+            jour: d.jour_semaine,
+            heure_debut: d.heure_debut,
+            heure_fin: d.heure_fin
+          }))
+      };
+    });
+
+    return res.status(200).json(result);
+
+  } catch (error) {
+    console.error("getPlanningEmploye:", error);
+    return res.status(500).json({
+      message: "Erreur lors de la récupération des plannings"
+    });
+  }
+};
+
+/* exports.postHoraireUser = async (req, res) => {
   const { user_id, horaire_id, date_debut } = req.body;
 
   if (!user_id || !horaire_id || !date_debut) {
@@ -3115,7 +2828,72 @@ exports.postHoraireUser = async (req, res) => {
       message: "Erreur serveur",
     });
   }
+}; */
+
+exports.postPlanningEmploye = async (req, res) => {
+  const { user_id, date_debut, jours } = req.body;
+
+  if (!user_id || !date_debut || !jours || !Array.isArray(jours) || !jours.length) {
+    return res.status(400).json({
+      message: "user_id, date_debut et jours sont obligatoires",
+    });
+  }
+
+  try {
+    // 1️⃣ Désactiver l'ancien planning actif
+    await query(
+      `
+      UPDATE planning_employe
+      SET actif = 0, date_fin = ?
+      WHERE user_id = ? AND actif = 1
+      `,
+      [date_debut, user_id]
+    );
+
+    // 2️⃣ Créer le nouveau planning
+    const result = await query(
+      `
+      INSERT INTO planning_employe (user_id, date_debut, actif)
+      VALUES (?, ?, 1)
+      `,
+      [user_id, date_debut]
+    );
+
+    const planning_id = result.insertId;
+
+    // 3️⃣ Insérer les jours avec heures personnalisées
+    for (const jour of jours) {
+      if (!jour.jour || !jour.heure_debut || !jour.heure_fin) {
+        continue; // ignore ligne invalide
+      }
+
+      await query(
+        `
+        INSERT INTO planning_detail
+        (planning_id, jour_semaine, heure_debut, heure_fin)
+        VALUES (?, ?, ?, ?)
+        `,
+        [
+          planning_id,
+          jour.jour,
+          jour.heure_debut,
+          jour.heure_fin
+        ]
+      );
+    }
+
+    return res.status(201).json({
+      message: "Planning personnalisé enregistré avec succès",
+    });
+
+  } catch (error) {
+    console.error("postPlanningEmploye:", error);
+    return res.status(500).json({
+      message: "Erreur serveur",
+    });
+  }
 };
+
 
 //Terminal
 exports.getTerminal = (req, res) => {
