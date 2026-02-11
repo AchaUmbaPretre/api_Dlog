@@ -3413,9 +3413,7 @@ const cronDailyAttendance = async () => {
       [WORK_DAY_HOURS * 60, HALF_DAY_HOURS * 60, today]
     );
 
-    /* =====================================================
-       4️⃣ Créer absents pour utilisateurs non pointés
-    ===================================================== */
+    /*4️⃣ Créer absents pour utilisateurs non pointés */
     const result = await query(
       `
       INSERT INTO presences (
