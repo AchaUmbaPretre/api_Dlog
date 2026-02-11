@@ -9,7 +9,7 @@ const moment = require("moment");
 const { jourSemaineSQL } = require("../utils/dateUtils");
 const { getDigestHeader } = require("../utils/hikvisionUtils");
 
-const PULL_INTERVAL_MS = 3 * 1000;
+const PULL_INTERVAL_MS = 50 * 1000;
 const API_PRESENCE_URL = "presence/hikvision";
 
 // ===================== HANDLE HIKVISION PRESENCE =====================
