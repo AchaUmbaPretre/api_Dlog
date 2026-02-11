@@ -9,8 +9,6 @@ const { encrypt } = require("../utils/encrypt.js");
 const WORK_DAY_HOURS = 8;
 const HALF_DAY_HOURS = 4;
 const INTERVAL_MS = 12 * 60 * 60 * 1000; // toutes les 12 heures
-const axios = require('axios');
-const crypto = require('crypto');
 
 
 exports.getPresence = (req, res) => {
@@ -3187,9 +3185,6 @@ const cronDailyAttendance = async () => {
     /* =====================================================
        4️⃣ Créer absents pour utilisateurs non pointés
     ===================================================== */
-    /* =====================================================
-   4️⃣ Créer absents pour utilisateurs non pointés
-===================================================== */
     const result = await query(
       `
       INSERT INTO presences (
