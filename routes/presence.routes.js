@@ -37,8 +37,9 @@ router.post('/jour-ferie', presence.postJourFerie);
 
 //HORAIRE USER
 router.get('/horaire', presence.getHoraire);
-router.get('/planning_employe', presence.getPlanningEmploye);
-router.post('/planning_employe', presence.postPlanningEmploye);
+router.get('/horaire_user', presence.getHoraireUser);
+router.post('/create_horaire', presence.createHoraire);
+router.post('/planning_employe', presence.postHoraireUser);
 
 //TERMINAL
 router.get('/terminal', presence.getTerminal);

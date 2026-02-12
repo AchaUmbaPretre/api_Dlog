@@ -2944,7 +2944,7 @@ exports.getHoraire = (req, res) => {
   const q = `
     SELECT 
       *
-    FROM horaire_travail
+    FROM horaire
   `;
 
   db.query(q, (error, data) => {
@@ -2956,6 +2956,93 @@ exports.getHoraire = (req, res) => {
     }
     return res.status(200).json(data);
   });
+};
+
+exports.getHoraireUser = (req, res) => {
+  const q = `
+    SELECT 
+      *
+    horaire_user
+  `;
+
+  db.query(q, (error, data) => {
+    if (error) {
+      console.error(error);
+      return res.status(500).json({
+        message: "Erreur lors de la récupération des horaires."
+      });
+    }
+    return res.status(200).json(data);
+  });
+};
+
+exports.createHoraire = async (req, res) => {
+  const { nom, description, jours } = req.body;
+
+  if (!jours || !Array.isArray(jours) || !jours.length) {
+    return res.status(400).json({ message: "Jours avec heures sont obligatoires" });
+  }
+
+  try {
+    const resultHoraire = await query(
+      `INSERT INTO horaire (nom, description)
+       VALUES (?, ?)`,
+      [nom || `Horaire ${Date.now()}`, description || null]
+    );
+
+    const horaire_id = resultHoraire.insertId;
+
+    for (const jour of jours) {
+      if (!jour.jour_semaine || !jour.heure_debut || !jour.heure_fin) continue;
+
+      await query(
+        `INSERT INTO horaire_detail (horaire_id, jour_semaine, heure_debut, heure_fin, tolerance_retard)
+         VALUES (?, ?, ?, ?, ?)`,
+        [horaire_id, jour.jour_semaine, jour.heure_debut, jour.heure_fin, jour.tolerance_retard || 0]
+      );
+    }
+
+    return res.status(201).json({ message: "Horaire créé avec succès", horaire_id });
+
+  } catch (error) {
+    console.error("createHoraire:", error);
+    return res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
+// POST /horaire_user
+exports.postHoraireUser = async (req, res) => {
+  const { user_id, horaire_id, date_debut, date_fin } = req.body;
+
+  // ✅ Validation simple
+  if (!user_id || !horaire_id || !date_debut) {
+    return res.status(400).json({
+      success: false,
+      message: "user_id, horaire_id et date_debut sont obligatoires"
+    });
+  }
+
+  try {
+    // Insérer le nouvel horaire pour l'utilisateur
+    const result = await query(
+      `INSERT INTO horaire_user 
+        (user_id, horaire_id, date_debut, date_fin) 
+       VALUES (?, ?, ?, ?)`,
+      [user_id, horaire_id, date_debut, date_fin || null]
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: 'Horaire attribué à l’utilisateur avec succès',
+      insertId: result.insertId
+    });
+  } catch (error) {
+    console.error('postHoraireUser error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
 };
 
 exports.getPlanningEmploye = async (req, res) => {
@@ -3358,14 +3445,11 @@ exports.deleteUserTerminal = async (req, res) => {
   }
 };
 
-const cronDailyAttendance = async () => {
+/* const cronDailyAttendance = async () => {
 
   const today = moment().format('YYYY-MM-DD');
 
   try {
-    /* =====================================================
-       1️⃣ Ignorer jours fériés
-    ===================================================== */
     const ferie = await query(
       `SELECT 1 FROM jours_feries WHERE date_ferie = ? LIMIT 1`,
       [today]
@@ -3375,9 +3459,6 @@ const cronDailyAttendance = async () => {
       return;
     }
 
-    /* =====================================================
-       2️⃣ Ignorer jours non travaillés
-    ===================================================== */
       const jourNom = moment(dateISO).locale("fr").format("dddd").toUpperCase(); // LUNDI, MARDI...
       const planningRows = await query(
         `SELECT p.id_planning, pd.jour_semaine, pd.heure_debut, pd.heure_fin
@@ -3392,10 +3473,6 @@ const cronDailyAttendance = async () => {
         return;
       }
 
-    /* =====================================================
-       3️⃣ Mettre à jour présences incomplètes ou absentes
-       ✅ Ne jamais écraser les vrais PRESENT complets
-    ===================================================== */
     await query(
       `
       UPDATE presences
@@ -3413,7 +3490,6 @@ const cronDailyAttendance = async () => {
       [WORK_DAY_HOURS * 60, HALF_DAY_HOURS * 60, today]
     );
 
-    /*4️⃣ Créer absents pour utilisateurs non pointés */
     const result = await query(
       `
       INSERT INTO presences (
@@ -3458,12 +3534,162 @@ const cronDailyAttendance = async () => {
   } catch (error) {
     console.error('[CRON] ERROR', error);
   }
+}; */
+
+const cronDailyAttendance = async () => {
+
+  const today = moment().format('YYYY-MM-DD');
+  const jourNom = moment().locale("fr").format("dddd").toUpperCase(); // LUNDI
+
+  try {
+
+    /* =====================================================
+       1️⃣ Ignorer jours fériés globaux
+    ===================================================== */
+    const ferie = await query(
+      `SELECT 1 FROM jours_feries WHERE date_ferie = ? LIMIT 1`,
+      [today]
+    );
+
+    if (ferie.length) {
+      console.log('[CRON] Jour férié – aucun traitement');
+      return;
+    }
+
+    /* =====================================================
+       2️⃣ Récupérer tous les employés avec planning actif
+    ===================================================== */
+    const users = await query(`
+      SELECT 
+        u.id_utilisateur,
+        us.site_id,
+        p.id_planning
+      FROM utilisateur u
+      LEFT JOIN user_sites us ON us.user_id = u.id_utilisateur
+      INNER JOIN planning_employe p 
+        ON p.user_id = u.id_utilisateur 
+        AND p.actif = 1
+    `);
+
+    for (const user of users) {
+
+      const { id_utilisateur, site_id, id_planning } = user;
+
+      /* =====================================================
+         3️⃣ Vérifier si ce jour est travaillé
+      ===================================================== */
+      const planningDetail = await query(
+        `SELECT heure_debut, heure_fin
+         FROM planning_detail
+         WHERE planning_id = ?
+           AND jour_semaine = ?`,
+        [id_planning, jourNom]
+      );
+
+      // ❌ Pas travaillé ce jour → ignorer
+      if (!planningDetail.length) {
+        continue;
+      }
+
+      const { heure_debut, heure_fin } = planningDetail[0];
+
+      const debutTravail = moment(`${today} ${heure_debut}`, "YYYY-MM-DD HH:mm:ss");
+      const finTravail = moment(`${today} ${heure_fin}`, "YYYY-MM-DD HH:mm:ss");
+
+      /* =====================================================
+         4️⃣ Ignorer absence validée
+      ===================================================== */
+      const absence = await query(
+        `SELECT 1 FROM absences
+         WHERE id_utilisateur = ?
+           AND statut = 'VALIDEE'
+           AND ? BETWEEN date_debut AND date_fin`,
+        [id_utilisateur, today]
+      );
+
+      if (absence.length) continue;
+
+      /* =====================================================
+         5️⃣ Vérifier présence existante
+      ===================================================== */
+      const presenceRows = await query(
+        `SELECT id_presence, heure_entree, heure_sortie
+         FROM presences
+         WHERE id_utilisateur = ?
+           AND date_presence = ?
+         LIMIT 1`,
+        [id_utilisateur, today]
+      );
+
+      const presence = presenceRows[0];
+
+      // 🔴 CAS 1 : Pas de présence → créer ABSENT
+      if (!presence) {
+
+        await query(
+          `INSERT INTO presences (
+             id_utilisateur,
+             site_id,
+             date_presence,
+             statut_jour,
+             source,
+             created_at
+           )
+           VALUES (?, ?, ?, 'ABSENT', 'API', NOW())`,
+          [id_utilisateur, site_id, today]
+        );
+
+        continue;
+      }
+
+      // 🟢 CAS 2 : Présence existante → recalcul statut
+/*       if (presence.heure_entree && presence.heure_sortie) {
+
+        const dureeTravail = moment(presence.heure_sortie)
+          .diff(moment(presence.heure_entree), 'minutes');
+
+        const dureePlanning = finTravail.diff(debutTravail, 'minutes');
+
+        let statut = 'ABSENT';
+
+        if (dureeTravail >= dureePlanning) {
+          statut = 'PRESENT';
+        }
+
+        await query(
+          `UPDATE presences
+           SET statut_jour = ?
+           WHERE id_presence = ?`,
+          [statut, presence.id_presence]
+        );
+      }
+      else {
+        // Entrée sans sortie = PRESENT
+        await query(
+          `UPDATE presences
+           SET statut_jour = 'PRESENT'
+           WHERE id_presence = ?`,
+          [presence.id_presence]
+        );
+      } */
+
+    }
+
+    console.log('[CRON] Daily attendance finished');
+
+  } catch (error) {
+    console.error('[CRON] ERROR', error);
+  }
 };
+
 
 exports.cronDailyAttendance = cronDailyAttendance;
 
-setInterval(() => {
-  cronDailyAttendance()
-    .then((msg) => console.log("[AutoSync]", msg))
-    .catch((err) => console.error("[AutoSync] Erreur:", err.message));
+setInterval(async () => {
+  try {
+    await cronDailyAttendance();
+    console.log('[AutoSync] SUCCESS');
+  } catch (err) {
+    console.error('[AutoSync] ERROR:', err.message);
+  }
 }, INTERVAL_MS);

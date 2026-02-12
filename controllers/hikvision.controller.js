@@ -8,7 +8,7 @@ const { URL } = require("url");
 const moment = require("moment");
 const { getDigestHeader } = require("../utils/hikvisionUtils");
 
-const PULL_INTERVAL_MS = 30 * 1000;
+const PULL_INTERVAL_MS = 60 * 1000;
 
 // ===================== HANDLE HIKVISION PRESENCE =====================
 /* async function handleHikvisionPresence(event) {
