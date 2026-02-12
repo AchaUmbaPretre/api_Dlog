@@ -3132,7 +3132,6 @@ exports.postHoraireUser = async (req, res) => {
   }
 };
 
-
 exports.getPlanningEmploye = async (req, res) => {
   try {
     // 1️⃣ Récupérer les plannings actifs
@@ -3769,7 +3768,6 @@ const cronDailyAttendance = async () => {
     console.error('[CRON] ERROR', error);
   }
 };
-
 
 exports.cronDailyAttendance = cronDailyAttendance;
 
