@@ -2943,26 +2943,82 @@ exports.postJourFerie = async (req, res) => {
 exports.getHoraire = (req, res) => {
   const q = `
     SELECT 
-      *
-    FROM horaire
+      h.id_horaire,
+      h.nom,
+      h.description,
+      h.created_at,
+      hd.id_detail,
+      hd.jour_semaine,
+      hd.heure_debut,
+      hd.heure_fin,
+      hd.tolerance_retard
+    FROM horaire h
+    LEFT JOIN horaire_detail hd 
+      ON hd.horaire_id = h.id_horaire
+    ORDER BY h.id_horaire,
+             FIELD(hd.jour_semaine, 
+               'LUNDI','MARDI','MERCREDI',
+               'JEUDI','VENDREDI','SAMEDI','DIMANCHE'
+             )
   `;
 
-  db.query(q, (error, data) => {
+  db.query(q, (error, rows) => {
     if (error) {
       console.error(error);
       return res.status(500).json({
         message: "Erreur lors de la récupération des horaires."
       });
     }
-    return res.status(200).json(data);
+
+    // 🔹 Regroupement des détails par horaire
+    const horaires = [];
+    const map = {};
+
+    rows.forEach(row => {
+      if (!map[row.id_horaire]) {
+        map[row.id_horaire] = {
+          id_horaire: row.id_horaire,
+          nom: row.nom,
+          description: row.description,
+          created_at: row.created_at,
+          details: []
+        };
+        horaires.push(map[row.id_horaire]);
+      }
+
+      if (row.id_detail) {
+        map[row.id_horaire].details.push({
+          id_detail: row.id_detail,
+          jour_semaine: row.jour_semaine,
+          heure_debut: row.heure_debut,
+          heure_fin: row.heure_fin,
+          tolerance_retard: row.tolerance_retard
+        });
+      }
+    });
+
+    return res.status(200).json(horaires);
   });
 };
 
 exports.getHoraireUser = (req, res) => {
   const q = `
     SELECT 
-      *
-    horaire_user
+      hu.id_horaire_user AS id_planning,
+      u.nom AS utilisateur_nom,
+      u.prenom AS utilisateur_prenom,
+      hu.date_debut,
+      hu.date_fin,
+      h.nom AS horaire_nom,
+      hd.jour_semaine,
+      hd.heure_debut,
+      hd.heure_fin
+    FROM horaire_user hu
+    JOIN utilisateur u ON u.id_utilisateur = hu.user_id
+    JOIN horaire h ON h.id_horaire = hu.horaire_id
+    LEFT JOIN horaire_detail hd ON hd.horaire_id = h.id_horaire
+    ORDER BY u.nom, u.prenom, 
+             FIELD(hd.jour_semaine, 'LUNDI','MARDI','MERCREDI','JEUDI','VENDREDI','SAMEDI','DIMANCHE')
   `;
 
   db.query(q, (error, data) => {
@@ -2972,7 +3028,36 @@ exports.getHoraireUser = (req, res) => {
         message: "Erreur lors de la récupération des horaires."
       });
     }
-    return res.status(200).json(data);
+
+    // 🔹 Regrouper les horaires par utilisateur et planning
+    const formattedData = [];
+    const map = {};
+
+    data.forEach(row => {
+      const key = row.id_planning;
+      if (!map[key]) {
+        map[key] = {
+          id_planning: row.id_planning,
+          utilisateur_nom: row.utilisateur_nom,
+          utilisateur_prenom: row.utilisateur_prenom,
+          date_debut: row.date_debut,
+          date_fin: row.date_fin,
+          horaire_nom: row.horaire_nom,
+          jours: [],
+        };
+        formattedData.push(map[key]);
+      }
+
+      if (row.jour_semaine) {
+        map[key].jours.push({
+          jour: row.jour_semaine,
+          heure_debut: row.heure_debut,
+          heure_fin: row.heure_fin,
+        });
+      }
+    });
+
+    return res.status(200).json(formattedData);
   });
 };
 
@@ -3012,38 +3097,41 @@ exports.createHoraire = async (req, res) => {
 
 // POST /horaire_user
 exports.postHoraireUser = async (req, res) => {
-  const { user_id, horaire_id, date_debut, date_fin } = req.body;
+  const { user_ids, horaire_id } = req.body;
 
-  // ✅ Validation simple
-  if (!user_id || !horaire_id || !date_debut) {
+  if (!user_ids || !horaire_id || !Array.isArray(user_ids) || !user_ids.length) {
     return res.status(400).json({
       success: false,
-      message: "user_id, horaire_id et date_debut sont obligatoires"
+      message: "user_ids (tableau) et horaire_id sont obligatoires"
     });
   }
 
   try {
-    // Insérer le nouvel horaire pour l'utilisateur
-    const result = await query(
-      `INSERT INTO horaire_user 
-        (user_id, horaire_id, date_debut, date_fin) 
-       VALUES (?, ?, ?, ?)`,
-      [user_id, horaire_id, date_debut, date_fin || null]
+    // Créer les placeholders pour MySQL
+    const placeholders = user_ids.map(() => "(?, ?)").join(", ");
+    const values = [];
+    user_ids.forEach(id => {
+      values.push(id, horaire_id);
+    });
+
+    await query(
+      `INSERT INTO horaire_user (user_id, horaire_id) VALUES ${placeholders}`,
+      values
     );
 
     return res.status(201).json({
       success: true,
-      message: 'Horaire attribué à l’utilisateur avec succès',
-      insertId: result.insertId
+      message: "Horaire attribué à tous les utilisateurs avec succès"
     });
   } catch (error) {
-    console.error('postHoraireUser error:', error);
+    console.error("postHoraireUser error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Erreur serveur'
+      message: "Erreur serveur"
     });
   }
 };
+
 
 exports.getPlanningEmploye = async (req, res) => {
   try {
