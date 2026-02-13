@@ -19,6 +19,8 @@ router.put('/validation-adjustments', presence.validateAttendanceAdjustment);
 
 //Dashboard
 router.get('/dashboard', presence.getPresenceDashboard);
+router.get('/dashboardParSite', presence.getPresentDashboardSiteDetail);
+router.get('/dashboardParBySite', presence.getPresentDashboardSiteDetailBySite);
 
 //Congé
 router.get('/conge', authorize('attendance.events.read'), presence.getConge);

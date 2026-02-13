@@ -2441,8 +2441,136 @@ exports.getPresenceDashboard = async (req, res) => {
   }
 };
 
-exports.getPresentDashboardDetail = async(req, res) => {
+exports.getPresentDashboardSiteDetail = async (req, res) => {
+  try {
+    const today = moment().format('YYYY-MM-DD');
 
+    // 1️⃣ Récupérer tous les sites avec leurs utilisateurs
+    const sitesWithUsers = await query(`
+      SELECT s.id_site, s.nom_site, us.user_id
+      FROM sites s
+      LEFT JOIN user_sites us ON s.id_site = us.site_id
+    `);
+
+    // Grouper utilisateurs par site
+    const siteMap = {};
+    sitesWithUsers.forEach(row => {
+      if (!siteMap[row.id_site]) {
+        siteMap[row.id_site] = {
+          site_id: row.id_site,
+          site_name: row.nom_site,
+          users: []
+        };
+      }
+      if (row.user_id) siteMap[row.id_site].users.push(row.user_id);
+    });
+
+    const allUserIds = sitesWithUsers.map(u => u.user_id).filter(Boolean);
+
+    // 2️⃣ Récupérer toutes les présences du jour pour tous les utilisateurs d'un coup
+    const presences = allUserIds.length
+      ? await query(`
+          SELECT id_utilisateur, site_id, statut_jour, retard_minutes
+          FROM presences
+          WHERE date_presence = ?
+        `, [today])
+      : [];
+
+    // 3️⃣ Construire résultat
+    const result = Object.values(siteMap).map(site => {
+      const totalUsers = site.users.length;
+      const sitePresences = presences.filter(p => p.site_id === site.site_id);
+
+      let presentCount = 0, retardCount = 0, absentCount = 0, justifieCount = 0;
+
+      sitePresences.forEach(p => {
+        if (p.statut_jour === 'PRESENT') {
+          presentCount++;
+          if (p.retard_minutes > 0) retardCount++;
+        } else if (p.statut_jour === 'ABSENT') {
+          absentCount++;
+        } else if (p.statut_jour === 'ABSENCE_JUSTIFIEE') {
+          justifieCount++;
+        }
+      });
+
+      const presentPct = totalUsers ? ((presentCount / totalUsers) * 100).toFixed(2) : 0;
+      const retardPct = presentCount ? ((retardCount / presentCount) * 100).toFixed(2) : 0;
+      const absencePct = totalUsers ? (((absentCount + justifieCount) / totalUsers) * 100).toFixed(2) : 0;
+
+      return {
+        site_id: site.site_id,
+        site_name: site.site_name,
+        total_users: totalUsers,
+        present: { count: presentCount, pct: Number(presentPct) },
+        retard: { count: retardCount, pct: Number(retardPct) },
+        absence: { absent: absentCount, justifie: justifieCount, pct: Number(absencePct) }
+      };
+    });
+
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('[DASHBOARD] ERROR', error);
+    return res.status(500).json({ success: false, message: 'Erreur serveur', error: error.message });
+  }
+};
+
+exports.getPresentDashboardSiteDetailBySite = async (req, res) => {
+  try {
+    const { siteId } = req.query;
+    const today = moment().format('YYYY-MM-DD');
+
+    // 1️⃣ Récupérer tous les utilisateurs du site
+    const users = await query(
+      `SELECT u.id_utilisateur, u.nom, u.prenom
+       FROM utilisateur u
+       INNER JOIN user_sites us ON u.id_utilisateur = us.user_id
+       WHERE us.site_id = ?`,
+      [siteId]
+    );
+
+    const userIds = users.map(u => u.id_utilisateur);
+    if (!userIds.length) return res.json({ success: true, data: [] });
+
+    // 2️⃣ Récupérer leurs présences
+    const presences = await query(
+      `SELECT id_utilisateur, statut_jour, retard_minutes, heure_entree, heure_sortie
+       FROM presences
+       WHERE id_utilisateur IN (?) AND date_presence = ?`,
+      [userIds, today]
+    );
+
+    // 3️⃣ Construire le JSON détaillé avec heures en GMT
+    const details = users.map(u => {
+      const p = presences.find(p => p.id_utilisateur === u.id_utilisateur);
+
+      let heureEntreeGMT = null;
+      let heureSortieGMT = null;
+
+      if (p?.heure_entree) {
+        heureEntreeGMT = moment.utc(p.heure_entree).format('HH:mm:ss [GMT]');
+      }
+      if (p?.heure_sortie) {
+        heureSortieGMT = moment.utc(p.heure_sortie).format('HH:mm:ss [GMT]');
+      }
+
+      return {
+        id_utilisateur: u.id_utilisateur,
+        nom_complet: `${u.nom} ${u.prenom}`,
+        statut: p ? p.statut_jour : 'ABSENT',
+        retard_minutes: p ? p.retard_minutes : 0,
+        heure_entree_gmt: heureEntreeGMT,
+        heure_sortie_gmt: heureSortieGMT,
+        is_present: p && p.statut_jour === 'PRESENT'
+      };
+    });
+
+    return res.json({ success: true, data: details });
+
+  } catch (error) {
+    console.error('[DETAIL SITE] ERROR', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 //Congé
