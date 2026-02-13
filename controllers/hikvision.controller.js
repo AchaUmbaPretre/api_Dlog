@@ -231,23 +231,49 @@ const PULL_INTERVAL_MS = 60 * 1000;
   const terminal_id = terminals[0]?.id_terminal || null;
   const site_id = terminals[0]?.site_id || null;
 
-  // Vérifier planning actif du jour
-  const jourNom = moment(dateISO).locale("fr").format("dddd").toUpperCase(); // LUNDI, MARDI...
-  const planningRows = await query(
-    `SELECT p.id_planning, pd.jour_semaine, pd.heure_debut, pd.heure_fin
-     FROM planning_employe p
-     JOIN planning_detail pd ON pd.planning_id = p.id_planning
-     WHERE p.user_id = ? AND p.actif = 1 AND pd.jour_semaine = ?`,
-    [id_utilisateur, jourNom]
+  // Vérifier horaire actif du jour
+  const jourNom = moment(dateISO)
+    .locale("fr")
+    .format("dddd")
+    .toUpperCase(); // LUNDI, MARDI...
+
+  const horaireRows = await query(
+    `SELECT 
+        hu.id_horaire_user,
+        hd.jour_semaine,
+        hd.heure_debut,
+        hd.heure_fin,
+        hd.tolerance_retard
+    FROM horaire_user hu
+    JOIN horaire_detail hd ON hd.horaire_id = hu.horaire_id
+    WHERE hu.user_id = ?
+      AND hd.jour_semaine = ?
+      AND hu.date_debut <= ?
+      AND (hu.date_fin IS NULL OR hu.date_fin >= ?)`,
+    [id_utilisateur, jourNom, dateISO, dateISO]
   );
 
-  if (!planningRows.length) {
-    console.log(`[SKIP] Aucun planning actif pour ${employeeNoString} le ${dateISO}`);
+  if (!horaireRows.length) {
+    console.log(`[SKIP] Aucun horaire actif pour ${employeeNoString} le ${dateISO}`);
     return;
   }
-  const pd = planningRows[0];
-  const debutTravail = moment(`${dateISO} ${pd.heure_debut}`, "YYYY-MM-DD HH:mm:ss");
-  const finTravail = moment(`${dateISO} ${pd.heure_fin}`, "YYYY-MM-DD HH:mm:ss");
+
+  const hd = horaireRows[0];
+
+  let debutTravail = moment(
+    `${dateISO} ${hd.heure_debut}`,
+    "YYYY-MM-DD HH:mm:ss"
+  );
+
+  let finTravail = moment(
+    `${dateISO} ${hd.heure_fin}`,
+    "YYYY-MM-DD HH:mm:ss"
+  );
+
+  // Gestion horaire de nuit (ex: 22:00 → 06:00)
+  if (finTravail.isBefore(debutTravail)) {
+    finTravail.add(1, "day");
+  }
 
   const ferieRows = await query(`SELECT 1 FROM jours_feries WHERE date_ferie = ?`, [dateISO]);
   if (ferieRows.length) {
@@ -271,9 +297,15 @@ const PULL_INTERVAL_MS = 60 * 1000;
   );
   const presence = presenceRows[0] || null;
 
-  const retard_minutes = heurePointage.isAfter(debutTravail)
-    ? heurePointage.diff(debutTravail, "minutes")
-    : 0;
+  let retard_minutes = 0;
+
+  if (heurePointage.isAfter(debutTravail)) {
+    const diff = heurePointage.diff(debutTravail, "minutes");
+
+    if (diff > hd.tolerance_retard) {
+      retard_minutes = diff - hd.tolerance_retard;
+    }
+  }
 
   if (presence && presence.statut_jour === "ABSENT") {
     console.log(`[UPDATE] ABSENT → PRESENT ${employeeNoString}`);

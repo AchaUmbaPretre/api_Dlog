@@ -41,6 +41,9 @@ router.get('/horaire_user', presence.getHoraireUser);
 router.post('/create_horaire', presence.createHoraire);
 router.post('/planning_employe', presence.postHoraireUser);
 
+//RAPPORT PAR SITE
+router.get('/rapport_presense_site', presence.getRapportPresenceParSite)
+
 //TERMINAL
 router.get('/terminal', presence.getTerminal);
 router.post('/terminal', presence.postTerminal);

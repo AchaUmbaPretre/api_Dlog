@@ -1631,24 +1631,41 @@ exports.postPresence = async (req, res) => {
     const site_id = siteUser[0]?.site_id || terminal?.site_id || null;
 
     // 2️⃣ Vérifier jour travaillé selon planning
-    const jourNom = moment(dateISO).locale("fr").format("dddd").toUpperCase(); // "LUNDI", "MARDI", ...
+    const jourNom = moment(dateISO).locale("fr").format("dddd").toUpperCase();
+
     const planningRows = await query(
-      `SELECT p.id_planning, pd.jour_semaine, pd.heure_debut, pd.heure_fin
-       FROM planning_employe p
-       JOIN planning_detail pd ON pd.planning_id = p.id_planning
-       WHERE p.user_id = ? AND p.actif = 1 AND pd.jour_semaine = ?`,
-      [id_utilisateur, jourNom]
+      `SELECT 
+          hu.id_horaire_user,
+          hd.jour_semaine,
+          hd.heure_debut,
+          hd.heure_fin,
+          hd.tolerance_retard
+      FROM horaire_user hu
+      JOIN horaire_detail hd ON hd.horaire_id = hu.horaire_id
+      WHERE hu.user_id = ?
+        AND hd.jour_semaine = ?
+        AND hu.date_debut <= ?
+        AND (hu.date_fin IS NULL OR hu.date_fin >= ?)`,
+      [id_utilisateur, jourNom, dateISO, dateISO]
     );
 
     if (!planningRows?.length) {
       return res.status(403).json({
-        message: "Pointage interdit : aucun planning actif pour cet utilisateur ce jour"
+        message: "Pointage interdit : aucun horaire actif pour cet utilisateur ce jour"
       });
     }
 
-    const pd = planningRows[0];
-    const debutTravail = moment(`${dateISO} ${pd.heure_debut}`, "YYYY-MM-DD HH:mm:ss");
-    const finTravail = moment(`${dateISO} ${pd.heure_fin}`, "YYYY-MM-DD HH:mm:ss");
+    const hd = planningRows[0];
+
+    const debutTravail = moment(
+      `${dateISO} ${hd.heure_debut}`,
+      "YYYY-MM-DD HH:mm:ss"
+    );
+
+    const finTravail = moment(
+      `${dateISO} ${hd.heure_fin}`,
+      "YYYY-MM-DD HH:mm:ss"
+    );
 
     // 2️⃣a Vérifier jour férié
     const ferieRows = await query(
@@ -3132,168 +3149,55 @@ exports.postHoraireUser = async (req, res) => {
   }
 };
 
-exports.getPlanningEmploye = async (req, res) => {
-  try {
-    // 1️⃣ Récupérer les plannings actifs
-    const plannings = await query(`
-      SELECT 
-        pe.id_planning,
-        pe.user_id,
-        pe.date_debut,
-        pe.date_fin,
-        pe.actif,
-        u.nom AS utilisateur_nom,
-        u.prenom AS utilisateur_prenom
-      FROM planning_employe pe
-      JOIN utilisateur u ON u.id_utilisateur = pe.user_id
-      WHERE pe.actif = 1
-      ORDER BY pe.date_debut DESC
-    `);
+//Rapport par site 
+exports.getRapportPresenceParSite = (req, res) => {
+  const { date_debut, date_fin } = req.query;
 
-    if (!plannings.length) {
-      return res.status(200).json([]);
+  if (!date_debut || !date_fin) {
+    return res.status(400).json({
+      message: "date_debut et date_fin sont obligatoires"
+    });
+  }
+
+  const q = `
+    SELECT 
+        s.id_site,
+        s.nom_site,
+        
+        COUNT(p.id_presence) AS total_enregistrements,
+        
+        SUM(CASE WHEN p.statut_jour = 'PRESENT' THEN 1 ELSE 0 END) AS total_presents,
+        SUM(CASE WHEN p.statut_jour = 'ABSENT' THEN 1 ELSE 0 END) AS total_absents,
+        SUM(CASE WHEN p.statut_jour = 'ABSENCE_JUSTIFIEE' THEN 1 ELSE 0 END) AS total_absences_justifiees,
+        SUM(CASE WHEN p.statut_jour = 'JOUR_FERIE' THEN 1 ELSE 0 END) AS total_jours_feries,
+        SUM(CASE WHEN p.statut_jour = 'JOUR_NON_TRAVAILLE' THEN 1 ELSE 0 END) AS total_jours_non_travailles,
+        
+        SUM(p.retard_minutes) AS total_retard_minutes,
+        SUM(p.heures_supplementaires) AS total_heures_supplementaires,
+        
+        COUNT(DISTINCT p.id_utilisateur) AS total_employes_distincts
+
+    FROM presences p
+    JOIN sites s ON s.id_site = p.site_id
+
+    WHERE p.date_presence BETWEEN ? AND ?
+
+    GROUP BY s.id_site, s.nom_site
+    ORDER BY s.nom_site ASC
+  `;
+
+  db.query(q, [date_debut, date_fin], (err, data) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({
+        message: "Erreur lors de la génération du rapport"
+      });
     }
 
-    // 2️⃣ Récupérer tous les détails liés
-    const planningIds = plannings.map(p => p.id_planning);
-
-    const details = await query(`
-      SELECT 
-        pd.planning_id,
-        pd.jour_semaine,
-        pd.heure_debut,
-        pd.heure_fin
-      FROM planning_detail pd
-      WHERE pd.planning_id IN (?)
-    `, [planningIds]);
-
-    // 3️⃣ Regrouper les détails par planning
-    const result = plannings.map(planning => {
-      return {
-        ...planning,
-        jours: details
-          .filter(d => d.planning_id === planning.id_planning)
-          .map(d => ({
-            jour: d.jour_semaine,
-            heure_debut: d.heure_debut,
-            heure_fin: d.heure_fin
-          }))
-      };
-    });
-
-    return res.status(200).json(result);
-
-  } catch (error) {
-    console.error("getPlanningEmploye:", error);
-    return res.status(500).json({
-      message: "Erreur lors de la récupération des plannings"
-    });
-  }
+    return res.status(200).json(data);
+  });
 };
 
-/* exports.postHoraireUser = async (req, res) => {
-  const { user_id, horaire_id, date_debut } = req.body;
-
-  if (!user_id || !horaire_id || !date_debut) {
-    return res.status(400).json({
-      message: "Utilisateur, horaire et date de début sont obligatoires",
-    });
-  }
-
-  try {
-    // 1️⃣ Désactiver l’horaire actif existant
-    await query(
-      `
-      UPDATE horaire_user
-      SET actif = 0, date_fin = ?
-      WHERE user_id = ? AND actif = 1
-      `,
-      [date_debut, user_id]
-    );
-
-    // 2️⃣ Insérer le nouvel horaire
-    await query(
-      `
-      INSERT INTO horaire_user (user_id, horaire_id, date_debut, actif)
-      VALUES (?, ?, ?, 1)
-      `,
-      [user_id, horaire_id, date_debut]
-    );
-
-    return res.status(201).json({
-      message: "Horaire affecté à l’utilisateur avec succès",
-    });
-
-  } catch (error) {
-    console.error("postHoraireUser:", error);
-    return res.status(500).json({
-      message: "Erreur serveur",
-    });
-  }
-}; */
-
-exports.postPlanningEmploye = async (req, res) => {
-  const { user_id, date_debut, jours } = req.body;
-
-  if (!user_id || !date_debut || !jours || !Array.isArray(jours) || !jours.length) {
-    return res.status(400).json({
-      message: "user_id, date_debut et jours sont obligatoires",
-    });
-  }
-
-  try {
-    await query(
-      `
-      UPDATE planning_employe
-      SET actif = 0, date_fin = ?
-      WHERE user_id = ? AND actif = 1
-      `,
-      [date_debut, user_id]
-    );
-
-    // 2️⃣ Créer le nouveau planning
-    const result = await query(
-      `
-      INSERT INTO planning_employe (user_id, date_debut, actif)
-      VALUES (?, ?, 1)
-      `,
-      [user_id, date_debut]
-    );
-
-    const planning_id = result.insertId;
-
-    // 3️⃣ Insérer les jours avec heures personnalisées
-    for (const jour of jours) {
-      if (!jour.jour_semaine || !jour.heure_debut || !jour.heure_fin) {
-        continue; // ignore ligne invalide
-      }
-
-      await query(
-        `
-        INSERT INTO planning_detail
-        (planning_id, jour_semaine, heure_debut, heure_fin)
-        VALUES (?, ?, ?, ?)
-        `,
-        [
-          planning_id,
-          jour.jour_semaine,
-          jour.heure_debut,
-          jour.heure_fin
-        ]
-      );
-    }
-
-    return res.status(201).json({
-      message: "Planning personnalisé enregistré avec succès",
-    });
-
-  } catch (error) {
-    console.error("postPlanningEmploye:", error);
-    return res.status(500).json({
-      message: "Erreur serveur",
-    });
-  }
-};
 
 //Terminal
 exports.getTerminal = (req, res) => {
