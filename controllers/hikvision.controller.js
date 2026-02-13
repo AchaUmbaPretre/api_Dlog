@@ -299,13 +299,34 @@ const PULL_INTERVAL_MS = 60 * 1000;
 
   let retard_minutes = 0;
 
-  if (heurePointage.isAfter(debutTravail)) {
-    const diff = heurePointage.diff(debutTravail, "minutes");
+  let toleranceMinutes = 0;
 
-    if (diff > hd.tolerance_retard) {
-      retard_minutes = diff - hd.tolerance_retard;
+  if (hd.tolerance_retard) {
+    if (typeof hd.tolerance_retard === "number") {
+      toleranceMinutes = hd.tolerance_retard;
+    } else if (typeof hd.tolerance_retard === "string") {
+      // Si format HH:mm:ss
+      const parts = hd.tolerance_retard.split(":");
+      if (parts.length === 3) {
+        toleranceMinutes =
+          parseInt(parts[0]) * 60 +
+          parseInt(parts[1]);
+      } else {
+        toleranceMinutes = parseInt(hd.tolerance_retard) || 0;
+      }
     }
   }
+
+  const isEntree = !presence || !presence.heure_entree;
+
+  if (isEntree) {
+    const debutAvecTolerance = debutTravail.clone().add(toleranceMinutes, "minutes");
+
+    if (heurePointage.isAfter(debutAvecTolerance)) {
+      retard_minutes = heurePointage.diff(debutAvecTolerance, "minutes");
+    }
+  }
+
 
   if (presence && presence.statut_jour === "ABSENT") {
     console.log(`[UPDATE] ABSENT → PRESENT ${employeeNoString}`);
