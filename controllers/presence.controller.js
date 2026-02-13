@@ -3782,6 +3782,23 @@ const cronDailyAttendance = async () => {
   }
 };
 
+const insertPresence = async (id_utilisateur, site_id, date, statut) => {
+
+  await query(`
+    INSERT INTO presences (
+      id_utilisateur,
+      site_id,
+      date_presence,
+      statut_jour,
+      source,
+      created_at
+    )
+    VALUES (?, ?, ?, ?, 'API', NOW())
+  `, [id_utilisateur, site_id, date, statut]);
+
+};
+
+
 exports.cronDailyAttendance = cronDailyAttendance;
 
 setInterval(async () => {
