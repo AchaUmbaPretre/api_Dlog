@@ -2225,6 +2225,7 @@ exports.validateAttendanceAdjustment = async (req, res) => {
   }
 };
 
+//DASHBOARD PRESENCE
 /* exports.getPresenceDashboard = async (req, res) => {
   try {
     // Requête KPI
@@ -2438,6 +2439,10 @@ exports.getPresenceDashboard = async (req, res) => {
       message: 'Erreur chargement dashboard présence'
     });
   }
+};
+
+exports.getPresentDashboardDetail = async(req, res) => {
+
 };
 
 //Congé
