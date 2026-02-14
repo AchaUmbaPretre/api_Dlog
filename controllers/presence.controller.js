@@ -1755,8 +1755,9 @@ exports.postPresenceFromHikvision = async (req, res) => {
       `SELECT t.id_terminal, t.site_id, t.device_sn
        FROM user_terminals ut
        JOIN terminals t ON ut.terminal_id = t.id_terminal
-       WHERE ut.user_id = ?`,
-      [id_utilisateur]
+       JOIN utilisateur u ON ut.user_id = u.id_utilisateur
+       WHERE u.matricule = ?`,
+      [user_code]
     );
 
     if (!terminals.length) {
