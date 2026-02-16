@@ -1600,7 +1600,7 @@ exports.postPresence = async (req, res) => {
       ? heurePointage.diff(debutTravail, "minutes")
       : 0;
 
-    if (presence?.statut_jour === "ABSENT") {
+    if (presence?.statut_jour === "ABSENT" || "JOUR_NON_TRAVAILLE") {
       await query(
         `UPDATE presences
          SET heure_entree = ?, statut_jour = 'PRESENT', retard_minutes = ?, source = ?, terminal_id = ?, device_sn = ?
