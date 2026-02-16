@@ -1708,7 +1708,7 @@ exports.postPresence = async (req, res) => {
   }
 };
 
-exports.postPresenceFromHikvision = async (req, res) => {
+/* exports.postPresenceFromHikvision = async (req, res) => {
   try {
     const payload = req.body;
     const user_code =
@@ -1840,6 +1840,282 @@ exports.postPresenceFromHikvision = async (req, res) => {
     }
 
     if (!presence.heure_sortie) {
+      let heures_supplementaires = 0;
+
+      if (heurePointage.isAfter(finTravail)) {
+        heures_supplementaires = Number(
+          (heurePointage.diff(finTravail, "minutes") / 60).toFixed(2)
+        );
+      }
+
+      await query(
+        `UPDATE presences
+         SET heure_sortie = ?,
+             heures_supplementaires = ?
+         WHERE id_presence = ?`,
+        [
+          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          heures_supplementaires,
+          presence.id_presence
+        ]
+      );
+
+      return res.status(200).json({
+        message: "Sortie enregistrée",
+        heures_supplementaires
+      });
+    }
+
+    return res.status(409).json({
+      message: "Présence déjà complète"
+    });
+
+  } catch (error) {
+    console.error("postPresenceFromHikvision:", error);
+    return res.status(500).json({
+      message: "Erreur interne serveur"
+    });
+  }
+}; */
+
+exports.postPresenceFromHikvision = async (req, res) => {
+  try {
+    const payload = req.body;
+
+    const user_code =
+      payload.employeeNoString ||
+      payload?.AcsEvent?.employeeNoString ||
+      payload?.AcsEvent?.info?.[0]?.employeeNoString;
+
+    const datetime =
+      payload.time ||
+      payload?.AcsEvent?.time ||
+      payload?.AcsEvent?.info?.[0]?.time;
+
+    const device_sn =
+      payload.device_sn ||
+      payload.deviceSerialNo ||
+      payload?.AcsEvent?.deviceSerialNo ||
+      payload?.AcsEvent?.info?.[0]?.deviceSerialNo;
+
+    if (!device_sn || !user_code || !datetime) {
+      return res.status(400).json({
+        message: "device_sn, user_code et datetime requis"
+      });
+    }
+
+    const users = await query(
+      `SELECT id_utilisateur
+       FROM utilisateur
+       WHERE matricule = ?`,
+      [user_code]
+    );
+
+    if (!users.length) {
+      return res.status(404).json({
+        message: "Utilisateur inconnu"
+      });
+    }
+
+    const id_utilisateur = users[0].id_utilisateur;
+
+    const heurePointage = moment.parseZone(datetime);
+    const dateISO = heurePointage.format("YYYY-MM-DD");
+
+    // 🔎 Vérification terminal autorisé
+    const terminals = await query(
+      `SELECT t.id_terminal, t.site_id, t.device_sn
+       FROM user_terminals ut
+       JOIN terminals t ON ut.terminal_id = t.id_terminal
+       JOIN utilisateur u ON ut.user_id = u.id_utilisateur
+       WHERE u.matricule = ?`,
+      [user_code]
+    );
+
+    if (!terminals.length) {
+      return res.status(403).json({
+        message: "Aucun terminal autorisé pour cet utilisateur"
+      });
+    }
+
+    const terminalAutorise = terminals.find(
+      t => t.device_sn === device_sn
+    );
+
+    if (!terminalAutorise) {
+      return res.status(403).json({
+        message: "Terminal non autorisé pour cet utilisateur"
+      });
+    }
+
+    // 🔎 Vérifier planning actif
+    const jourNom = heurePointage.locale("fr").format("dddd").toUpperCase();
+
+    const planningRows = await query(
+      `SELECT 
+          hu.id_horaire_user,
+          hd.jour_semaine,
+          hd.heure_debut,
+          hd.heure_fin,
+          hd.tolerance_retard
+       FROM horaire_user hu
+       JOIN horaire_detail hd ON hd.horaire_id = hu.horaire_id
+       WHERE hu.user_id = ?
+         AND hd.jour_semaine = ?
+         AND hu.date_debut <= ?
+         AND (hu.date_fin IS NULL OR hu.date_fin >= ?)`,
+      [id_utilisateur, jourNom, dateISO, dateISO]
+    );
+
+    if (!planningRows.length) {
+      return res.status(403).json({
+        message: "Pointage interdit : aucun horaire actif"
+      });
+    }
+
+    const hd = planningRows[0];
+
+    const debutTravail = moment(
+      `${dateISO} ${hd.heure_debut}`,
+      "YYYY-MM-DD HH:mm:ss"
+    );
+
+    const finTravail = moment(
+      `${dateISO} ${hd.heure_fin}`,
+      "YYYY-MM-DD HH:mm:ss"
+    );
+
+    // 🔎 Vérifier jour férié
+    const ferieRows = await query(
+      `SELECT 1 FROM jours_feries WHERE date_ferie = ?`,
+      [dateISO]
+    );
+
+    if (ferieRows.length) {
+      return res.status(403).json({
+        message: "Pointage interdit : jour férié"
+      });
+    }
+
+    // 🔎 Vérifier absence validée
+    const absenceRows = await query(
+      `SELECT 1
+       FROM absences
+       WHERE id_utilisateur = ?
+         AND statut = 'VALIDEE'
+         AND ? BETWEEN date_debut AND date_fin`,
+      [id_utilisateur, dateISO]
+    );
+
+    if (absenceRows.length) {
+      return res.status(403).json({
+        message: "Pointage interdit : absence validée"
+      });
+    }
+
+    // 🔎 Vérifier présence existante
+    const presenceRows = await query(
+      `SELECT id_presence, heure_entree, heure_sortie, is_locked, statut_jour
+       FROM presences
+       WHERE id_utilisateur = ?
+         AND date_presence = ?
+       LIMIT 1`,
+      [id_utilisateur, dateISO]
+    );
+
+    const presence = presenceRows.length ? presenceRows[0] : null;
+
+    if (presence?.is_locked) {
+      return res.status(403).json({
+        message: "Présence verrouillée"
+      });
+    }
+
+    // 🔎 Calcul retard avec tolérance
+    const retardBrut = heurePointage.diff(debutTravail, "minutes");
+    const retard_minutes =
+      retardBrut > (hd.tolerance_retard || 0)
+        ? retardBrut
+        : 0;
+
+    // 🔄 ABSENT → PRESENT
+    if (presence?.statut_jour === "ABSENT" || 'JOUR_NON_TRAVAILLE') {
+      await query(
+        `UPDATE presences
+         SET heure_entree = ?,
+             statut_jour = 'PRESENT',
+             retard_minutes = ?
+         WHERE id_presence = ?`,
+        [
+          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          retard_minutes,
+          presence.id_presence
+        ]
+      );
+
+      return res.status(200).json({
+        message: "ABSENT corrigé en PRESENT",
+        retard_minutes
+      });
+    }
+
+    // 🟢 Nouvelle entrée
+    if (!presence) {
+      await query(
+        `INSERT INTO presences (
+          id_utilisateur,
+          site_id,
+          date_presence,
+          heure_entree,
+          retard_minutes,
+          heures_supplementaires,
+          source,
+          terminal_id,
+          device_sn,
+          statut_jour
+        ) VALUES (?, ?, ?, ?, ?, 0, 'HIKVISION', ?, ?, 'PRESENT')`,
+        [
+          id_utilisateur,
+          terminalAutorise.site_id,
+          dateISO,
+          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
+          retard_minutes,
+          terminalAutorise.id_terminal,
+          device_sn
+        ]
+      );
+
+      return res.status(201).json({
+        message: "Entrée enregistrée",
+        retard_minutes
+      });
+    }
+
+    // 🔁 Protection doublon (même minute)
+    if (
+      presence.heure_entree &&
+      !presence.heure_sortie &&
+      moment(presence.heure_entree).isSame(heurePointage, "minute")
+    ) {
+      return res.status(200).json({
+        message: "Scan déjà pris en compte"
+      });
+    }
+
+    // 🔵 Gestion sortie
+    if (!presence.heure_sortie) {
+      const autorisationRows = await query(
+        `SELECT 1 FROM attendance_adjustments
+         WHERE id_presence = ? AND type = 'AUTORISATION_SORTIE' AND statut = 'VALIDE'`,
+        [presence.id_presence]
+      );
+      const autorisation = autorisationRows?.length > 0;
+      if (heurePointage.isBefore(finTravail) && !autorisation) {
+        return res.status(403).json({
+          message: "Sortie anticipée non autorisée"
+        });
+      }
+
       let heures_supplementaires = 0;
 
       if (heurePointage.isAfter(finTravail)) {
