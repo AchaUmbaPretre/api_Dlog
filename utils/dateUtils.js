@@ -1,15 +1,8 @@
-/* const jourSemaineFR = (date) => {
-  const jours = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
-  const d = new Date(date);
-  return jours[d.getDay()];
-}; */
+const moment = require('moment');
 
 const jourSemaineFR = (date) => {
-  const jours = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
-  const d = new Date(date);
-  return jours[d.getDay()];
+  return moment(date).locale('fr').format('dddd').toUpperCase(); // LUNDI, MARDI ...
 };
-
 
 const formatDate = (date) => {
   const d = new Date(date);
