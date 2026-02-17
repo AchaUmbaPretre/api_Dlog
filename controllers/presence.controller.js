@@ -3,7 +3,7 @@ const moment = require("moment");
 require('moment/locale/fr');
 const util = require("util");
 const query = util.promisify(db.query).bind(db);
-const { jourSemaineFR, formatDate, mapJourSemaineFR, jourSemaineSQL } = require("../utils/dateUtils.js");
+const { jourSemaineFR, formatDate, } = require("../utils/dateUtils.js");
 const { auditPresence } = require("../utils/audit.js");
 const { encrypt } = require("../utils/encrypt.js");
 const WORK_DAY_HOURS = 8;
@@ -1114,7 +1114,7 @@ exports.getMonthlyPresenceReport = async (req, res) => {
 };
 
 
-exports.getLateEarlyLeaveReport = async (req, res) => {
+/* exports.getLateEarlyLeaveReport = async (req, res) => {
   try {
     let { startDate, endDate, site } = req.query;
 
@@ -1203,7 +1203,129 @@ exports.getLateEarlyLeaveReport = async (req, res) => {
       message: "Erreur serveur lors de la génération du rapport"
     });
   }
+}; */
+
+exports.getLateEarlyLeaveReport = async (req, res) => {
+  try {
+    let { startDate, endDate, site } = req.query;
+
+    if (!startDate || !endDate) {
+      startDate = moment().startOf("month").format("YYYY-MM-DD");
+      endDate = moment().endOf("month").format("YYYY-MM-DD");
+    }
+
+    // 🔹 Récupérer les utilisateurs
+    let usersQuery = `SELECT id_utilisateur, nom FROM utilisateur`;
+    const params = [];
+
+    if (site) {
+      usersQuery += `
+        JOIN user_sites us ON us.user_id = utilisateur.id_utilisateur
+        WHERE us.site_id = ?
+      `;
+      params.push(site);
+    }
+
+    const users = await query(usersQuery, params);
+    if (!users.length) return res.json({ startDate, endDate, site: site || null, total: 0, data: [] });
+
+    const userIds = users.map(u => u.id_utilisateur);
+
+    // 🔹 Récupérer les présences
+    const presences = await query(
+      `SELECT *
+       FROM presences
+       WHERE date_presence BETWEEN ? AND ?
+         AND id_utilisateur IN (${userIds.map(() => "?").join(",")})`,
+      [startDate, endDate, ...userIds]
+    );
+
+    // 🔹 Récupérer les horaires utilisateurs + détails
+    const horairesUsers = await query(
+      `SELECT hu.user_id, hu.horaire_id, hu.date_debut, hu.date_fin
+       FROM horaire_user hu
+       WHERE hu.user_id IN (${userIds.map(() => "?").join(",")})
+         AND (hu.date_fin IS NULL OR hu.date_fin >= ?) AND hu.date_debut <= ?`,
+      [...userIds, endDate, startDate]
+    );
+
+    const horairesDetails = await query(
+      `SELECT horaire_id, jour_semaine, heure_debut, heure_fin, tolerance_retard
+       FROM horaire_detail`
+    );
+
+    // 🔹 Créer mapping horaire par utilisateur/jour
+    const userHorairesMap = {};
+    horairesUsers.forEach(hu => {
+      const userId = hu.user_id;
+      if (!userHorairesMap[userId]) userHorairesMap[userId] = [];
+      const details = horairesDetails.filter(d => d.horaire_id === hu.horaire_id);
+      details.forEach(d => {
+        const jour = d.jour_semaine.toLowerCase();
+        userHorairesMap[userId][jour] = {
+          heure_debut: d.heure_debut,
+          heure_fin: d.heure_fin,
+          tolerance_retard: d.tolerance_retard || 0
+        };
+      });
+    });
+
+    // 🔹 Générer le rapport
+    const data = [];
+
+    presences.forEach(p => {
+      const user = users.find(u => u.id_utilisateur === p.id_utilisateur);
+      const jourSemaine = moment(p.date_presence).locale("fr").format("dddd").toLowerCase();
+
+      const horaire = userHorairesMap[p.id_utilisateur]?.[jourSemaine];
+
+      const heure_entree_prevue = horaire?.heure_debut || "08:00:00";
+      const heure_sortie_prevue = horaire?.heure_fin || "16:00:00";
+
+      const heure_entree_reelle = p.heure_entree ? moment(p.heure_entree).format("HH:mm:ss") : "-";
+      const heure_sortie_reelle = p.heure_sortie ? moment(p.heure_sortie).format("HH:mm:ss") : "-";
+
+      const retard_minutes = p.retard_minutes || 0;
+
+      const depart_anticipe_minutes =
+        p.heure_sortie && moment(p.heure_sortie).isBefore(moment(`${p.date_presence} ${heure_sortie_prevue}`))
+          ? moment(`${p.date_presence} ${heure_sortie_prevue}`).diff(moment(p.heure_sortie), "minutes")
+          : 0;
+
+      let commentaire = "Ponctuel";
+      if (retard_minutes > 0 && depart_anticipe_minutes > 0) commentaire = "Retard + Départ anticipé";
+      else if (retard_minutes > 0) commentaire = "Retard";
+      else if (depart_anticipe_minutes > 0) commentaire = "Départ anticipé";
+      else if (p.heures_supplementaires > 0) commentaire = "Heures supplémentaires";
+
+      data.push({
+        nom: user.nom,
+        date_presence: p.date_presence,
+        heure_entree_prevue,
+        heure_entree_reelle,
+        retard_minutes,
+        heure_sortie_prevue,
+        heure_sortie_reelle,
+        depart_anticipe_minutes,
+        heures_supplementaires: p.heures_supplementaires || 0,
+        commentaire
+      });
+    });
+
+    res.json({
+      startDate,
+      endDate,
+      site: site || null,
+      total: data.length,
+      data
+    });
+
+  } catch (err) {
+    console.error("Erreur getLateEarlyLeaveReport :", err);
+    res.status(500).json({ message: "Erreur serveur lors de la génération du rapport" });
+  }
 };
+
 
 exports.getHRGlobalReport = async (req, res) => {
   try {
@@ -2668,7 +2790,6 @@ exports.postPresenceFromHikvision = async (req, res) => {
 
     const id_utilisateur = users[0].id_utilisateur;
 
-    // --- Gestion du datetime ---
     // parseZone conserve le fuseau reçu
     const heurePointage = moment.parseZone(datetime);
     const dateISO = heurePointage.format("YYYY-MM-DD"); // pour DB et planning
@@ -4735,8 +4856,24 @@ const cronDailyAttendance = async () => {
       }
 
       /* =====================================================
-         5️⃣ Récupérer horaire actif
+        5️⃣ Vérifier existence horaire
       ===================================================== */
+
+      // 🔹 Vérifier s'il a AU MOINS un horaire dans l'historique
+      const hasAnyHoraire = await query(`
+        SELECT 1
+        FROM horaire_user
+        WHERE user_id = ?
+        LIMIT 1
+      `, [id_utilisateur]);
+
+      // ❌ Aucun horaire du tout → ABSENT
+      if (!hasAnyHoraire.length) {
+        await insertPresence(id_utilisateur, site_id, today, 'ABSENT');
+        continue;
+      }
+
+      // 🔹 Vérifier horaire actif aujourd'hui
       const horaireUser = await query(`
         SELECT hu.horaire_id
         FROM horaire_user hu
@@ -4746,8 +4883,8 @@ const cronDailyAttendance = async () => {
         LIMIT 1
       `, [id_utilisateur, today, today]);
 
+      // ✔ Il a des horaires mais pas actif aujourd’hui
       if (!horaireUser.length) {
-
         await insertPresence(id_utilisateur, site_id, today, 'JOUR_NON_TRAVAILLE');
         continue;
       }
