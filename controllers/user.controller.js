@@ -156,6 +156,58 @@ exports.deleteUser = (req, res) => {
   
 };
 
+exports.putIsActive = async (req, res) => {
+  const { id_utilisateur, is_active } = req.body; // attendre 0 ou 1
+
+  if (!id_utilisateur || (is_active !== 0 && is_active !== 1)) {
+    return res.status(400).json({ error: "Champs requis manquants ou invalides." });
+  }
+
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error("Erreur de début de transaction :", trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const sql = `
+          UPDATE utilisateur 
+          SET is_active = ?
+          WHERE id_utilisateur = ?
+        `;
+
+        const params = [is_active, id_utilisateur];
+
+        await queryPromise(connection, sql, params);
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur lors du commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors du commit." });
+          }
+
+          const msg = is_active ? "Utilisateur activé avec succès." : "Utilisateur désactivé avec succès.";
+          return res.status(200).json({ message: msg });
+        });
+      } catch (error) {
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur lors de la mise à jour :", error);
+          return res.status(500).json({ error: error.message || "Erreur inattendue." });
+        });
+      }
+    });
+  });
+};
+
 exports.putUserOne = async (req, res) => {
     const { id } = req.query;
   
@@ -490,6 +542,59 @@ exports.putVisiteurPietonRetour = async (req, res) => {
     });
   });
 };
+
+exports.putIsActive = async (req, res) => {
+  const { id_utilisateur, is_active } = req.body; // attendre 0 ou 1
+
+  if (!id_utilisateur || (is_active !== 0 && is_active !== 1)) {
+    return res.status(400).json({ error: "Champs requis manquants ou invalides." });
+  }
+
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error("Erreur de début de transaction :", trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const sql = `
+          UPDATE utilisateur 
+          SET is_active = ?
+          WHERE id_utilisateur = ?
+        `;
+
+        const params = [is_active, id_utilisateur];
+
+        await queryPromise(connection, sql, params);
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur lors du commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors du commit." });
+          }
+
+          const msg = is_active ? "Utilisateur activé avec succès." : "Utilisateur désactivé avec succès.";
+          return res.status(200).json({ message: msg });
+        });
+      } catch (error) {
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur lors de la mise à jour :", error);
+          return res.status(500).json({ error: error.message || "Erreur inattendue." });
+        });
+      }
+    });
+  });
+};
+
 
 //Visiteurs_véhicule
 /* exports.getVisiteurVehicule=  async (req, res) => {

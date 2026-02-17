@@ -3230,22 +3230,24 @@ exports.getPresenceDashboard = async (req, res) => {
 
     // Liste des employés du jour
     const employesPromise = query(`
-      SELECT 
-        u.nom,
-        u.prenom,
-        p.statut_jour,
-        p.heure_entree,
-        p.heure_sortie,
-        p.retard_minutes,
-        CASE
-          WHEN p.retard_minutes > 0 THEN 'RETARD'
-          WHEN p.statut_jour = 'PRESENT' THEN 'A_L_HEURE'
-          ELSE p.statut_jour
-        END AS statut_affiche
-      FROM presences p
-      JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
-      WHERE p.date_presence = CURDATE()
-      ORDER BY p.heure_entree ASC
+SELECT 
+    u.nom,
+    u.prenom,
+    p.statut_jour,
+    p.heure_entree,
+    p.heure_sortie,
+    p.retard_minutes,
+    CASE
+        WHEN p.statut_jour = 'PRESENT' AND p.retard_minutes > 0 THEN 'RETARD'
+        WHEN p.statut_jour = 'PRESENT' AND p.retard_minutes = 0 THEN 'A_L_HEURE'
+        ELSE NULL
+    END AS statut_affiche
+FROM presences p
+JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
+WHERE p.date_presence = CURDATE()
+ORDER BY 
+    CASE WHEN p.heure_entree IS NULL THEN 1 ELSE 0 END,
+    p.heure_entree ASC;
     `);
 
     // Top absences (30 derniers jours)

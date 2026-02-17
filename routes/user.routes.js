@@ -26,6 +26,9 @@ router.post('/', userController.registerUser)
 router.put('/', userController.putUser)
 router.put('/one', userController.putUserOne)
 router.delete('/:id', userController.deleteUser)
+
+router.put('/IsActive', userController.putIsActive);
+
  
 //Signature
 router.get('/signature', userController.getSignature);
