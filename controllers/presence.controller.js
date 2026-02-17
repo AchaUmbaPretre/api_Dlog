@@ -466,7 +466,7 @@ exports.getPresencePlanning = async (req, res) => {
         } else if (joursFeries.some(j => formatDate(j.date_ferie) === d.date)) {
           presencesByDate[d.date] = { statut: "FERIE", heure_entree: null, heure_sortie: null };
         } else if (!userHoraires.includes(jourSemaine)) {
-          presencesByDate[d.date] = { statut: "NON_TRAVAILLE", heure_entree: null, heure_sortie: null };
+          presencesByDate[d.date] = { statut: "JOUR_NON_TRAVAILLE", heure_entree: null, heure_sortie: null };
         } else {
           presencesByDate[d.date] = { statut: "ABSENT", heure_entree: null, heure_sortie: null };
         }
@@ -1430,101 +1430,6 @@ exports.getPresenceById = (req, res) => {
         return res.status(200).json(data);
     });
 };
-
-/* exports.postPresence = async (req, res) => {
-  try {
-    const {
-      id_utilisateur,
-      date_presence,
-      datetime, 
-      source,
-      device_sn
-    } = req.body;
-
-    if (!id_utilisateur || !date_presence) {
-      return res.status(400).json({
-        message: "Champs obligatoires manquants"
-      });
-    }
-
-    // Utilisation de moment pour normaliser
-    const dateISO = moment(date_presence).format("YYYY-MM-DD");
-    const heurePointage = datetime
-      ? moment(datetime).format("YYYY-MM-DD HH:mm:ss")
-      : moment().format("YYYY-MM-DD HH:mm:ss");
-
-    const jour = moment(date_presence).format("dddd"); // Nom du jour en anglais
-    const jourFR = jourSemaineFR(date_presence); // si tu as une fonction de conversion en FR
-
-    const nonTravaille = await query(
-      `SELECT 1 FROM jours_non_travailles WHERE jour_semaine = ?`,
-      [jourFR]
-    );
-    if (nonTravaille.length > 0) {
-      return res.status(403).json({
-        message: `Pointage interdit : ${jourFR} est un jour non travaillé`
-      });
-    }
-
-    const ferie = await query(
-      `SELECT 1 FROM jours_feries WHERE date_ferie = ?`,
-      [dateISO]
-    );
-    if (ferie.length > 0) {
-      return res.status(403).json({
-        message: "Pointage interdit : jour férié"
-      });
-    }
-
-    const presence = await query(
-      `SELECT id_presence, heure_entree, heure_sortie
-       FROM presences
-       WHERE id_utilisateur = ? AND date_presence = ?
-       LIMIT 1`,
-      [id_utilisateur, dateISO]
-    );
-
-    if (presence.length === 0) {
-      await query(
-        `INSERT INTO presences (
-          id_utilisateur,
-          date_presence,
-          heure_entree,
-          source,
-          device_sn
-        ) VALUES (?, ?, ?, ?, ?)`,
-        [id_utilisateur, dateISO, heurePointage, source, device_sn || null]
-      );
-
-      return res.status(201).json({
-        message: "Entrée enregistrée"
-      });
-    }
-
-    if (presence[0].heure_sortie === null) {
-      await query(
-        `UPDATE presences
-         SET heure_sortie = ?
-         WHERE id_presence = ?`,
-        [heurePointage, presence[0].id_presence]
-      );
-
-      return res.status(200).json({
-        message: "Sortie enregistrée"
-      });
-    }
-
-    return res.status(409).json({
-      message: "Présence déjà complète pour cette date"
-    });
-
-  } catch (error) {
-    console.error("Erreur postPresence :", error);
-    res.status(500).json({
-      message: "Erreur interne du serveur"
-    });
-  }
-}; */
 
 /* exports.postPresence = async (req, res) => {
   try {
