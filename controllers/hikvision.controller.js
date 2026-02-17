@@ -12,17 +12,17 @@ const PULL_INTERVAL_MS = 30 * 1000;
 
 // ===================== HANDLE HIKVISION PRESENCE =====================
   async function handleHikvisionPresence(event) {
-  const { employeeNoString, time, device_sn, serialNo, cardReaderNo } = event;
+    const { employeeNoString, time, device_sn, serialNo, cardReaderNo } = event;
 
-  if (!employeeNoString || !time || !device_sn || !serialNo) {
-    console.log("[SKIP] Données manquantes :", event);
-    return;
-  }
+    if (!employeeNoString || !time || !device_sn || !serialNo) {
+      console.log("[SKIP] Données manquantes :", event);
+      return;
+    }
 
-  const heurePointage = moment.parseZone(time);
-  const dateISO = heurePointage.format("YYYY-MM-DD");
+    const heurePointage = moment.parseZone(time);
+    const dateISO = heurePointage.format("YYYY-MM-DD");
 
-  console.log(`[INFO] Événement reçu : user=${employeeNoString}, time=${time}, device=${device_sn}`);
+    console.log(`[INFO] Événement reçu : user=${employeeNoString}, time=${time}, device=${device_sn}`);
 
   // Anti-doublon dans logs
   try {

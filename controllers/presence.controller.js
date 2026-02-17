@@ -1326,7 +1326,6 @@ exports.getLateEarlyLeaveReport = async (req, res) => {
   }
 };
 
-
 exports.getHRGlobalReport = async (req, res) => {
   try {
     let { startDate, endDate } = req.query;
