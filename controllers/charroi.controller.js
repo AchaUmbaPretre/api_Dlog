@@ -319,6 +319,39 @@ exports.getVehiculeOccupe = (req, res) => {
     });
 };
 
+exports.rendreVehiculeDispo = (req, res) => {
+  const { id_vehicule } = req.query;
+
+  if (!id_vehicule || isNaN(id_vehicule)) {
+    return res.status(400).json({ error: 'ID du véhicule fourni non valide' });
+  }
+
+  try {
+    const q = `
+      UPDATE vehicules
+      SET IsDispo = 1
+      WHERE id_vehicule = ?
+    `;
+
+    db.query(q, [id_vehicule], (error, result) => {
+      if (error) {
+        console.error('Erreur SQL:', error);
+        return res.status(500).json({ error: 'Impossible de rendre le véhicule disponible' });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'Véhicule non trouvé' });
+      }
+
+      return res.json({ message: 'Véhicule rendu disponible avec succès' });
+    });
+  } catch (err) {
+    console.error('Erreur serveur:', err);
+    return res.status(500).json({ error: 'Erreur serveur lors de la mise à jour' });
+  }
+};
+
+
 exports.getVehiculeOne = async (req, res) => {
     const { id_vehicule } = req.query;
 
@@ -627,7 +660,6 @@ exports.postSiteVehicule = (req, res) => {
 
     processVehicle(0);
 };
-
 
 //Chauffeur
 exports.getChauffeurCount = async(req, res) => {
