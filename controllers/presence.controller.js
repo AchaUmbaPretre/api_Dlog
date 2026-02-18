@@ -4723,6 +4723,7 @@ const cronDailyAttendance = async () => {
     const users = await query(`
       SELECT id_utilisateur
       FROM utilisateur
+      WHERE show_in_presence = 1
     `);
 
     for (const user of users) {
@@ -4864,6 +4865,7 @@ const cronDailyAttendance = async () => {
     console.error('[CRON] ERROR', error);
   }
 };
+
 
 const insertPresence = async (id_utilisateur, site_id, date, statut) => {
 

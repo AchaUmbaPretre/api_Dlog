@@ -595,6 +595,40 @@ exports.putIsActive = async (req, res) => {
   });
 };
 
+exports.putShowInPresence = async (req, res) => {
+  const { id_utilisateur, show_in_presence } = req.body;
+
+  if (typeof id_utilisateur !== "number" || ![0, 1].includes(show_in_presence)) {
+    return res.status(400).json({ error: "Champs requis manquants ou invalides." });
+  }
+
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    const sql = `
+      UPDATE utilisateur 
+      SET show_in_presence = ?
+      WHERE id_utilisateur = ?
+    `;
+
+    connection.query(sql, [show_in_presence, id_utilisateur], (err, results) => {
+      connection.release();
+      if (err) {
+        console.error("Erreur lors de la mise à jour :", err);
+        return res.status(500).json({ error: "Impossible de mettre à jour l'utilisateur." });
+      }
+
+      const msg = show_in_presence
+        ? "Utilisateur activé dans la liste de présence."
+        : "Utilisateur désactivé dans la liste de présence.";
+
+      return res.status(200).json({ message: msg });
+    });
+  });
+};
 
 //Visiteurs_véhicule
 /* exports.getVisiteurVehicule=  async (req, res) => {

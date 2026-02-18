@@ -28,6 +28,7 @@ router.put('/one', userController.putUserOne)
 router.delete('/:id', userController.deleteUser)
 
 router.put('/IsActive', userController.putIsActive);
+router.put('/ShowInpresence', userController.putShowInPresence);
 
  
 //Signature
