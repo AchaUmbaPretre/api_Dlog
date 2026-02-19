@@ -10,7 +10,6 @@ const WORK_DAY_HOURS = 8;
 const HALF_DAY_HOURS = 4;
 const INTERVAL_MS = 12 * 60 * 60 * 1000; // toutes les 12 heures
 
-
 exports.getPresence = (req, res) => {
   try {
     const { startDate, endDate, site } = req.query;
@@ -18,16 +17,13 @@ exports.getPresence = (req, res) => {
     let conditions = [];
     let values = [];
 
-    // ✅ Toujours afficher seulement les utilisateurs visibles
     conditions.push("u.show_in_presence = 1");
 
-    // ✅ Filtre période
     if (startDate && endDate) {
       conditions.push("p.date_presence BETWEEN ? AND ?");
       values.push(startDate, endDate);
     }
 
-    // ✅ Filtre site
     if (site) {
       conditions.push("p.site_id = ?");
       values.push(site);
@@ -58,7 +54,19 @@ exports.getPresence = (req, res) => {
           error
         });
       }
-      return res.status(200).json(data);
+
+      // ✅ Transformer après récupération
+      const presenceFixed = data.map(p => ({
+        ...p,
+        heure_entree: p.heure_entree
+          ? moment(p.heure_entree).format("YYYY-MM-DD HH:mm:ss")
+          : null,
+        heure_sortie: p.heure_sortie
+          ? moment(p.heure_sortie).format("YYYY-MM-DD HH:mm:ss")
+          : null
+      }));
+
+      return res.status(200).json(presenceFixed);
     });
 
   } catch (err) {
