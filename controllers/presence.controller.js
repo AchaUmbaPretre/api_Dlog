@@ -39,6 +39,8 @@ exports.getPresence = (req, res) => {
         p.heure_sortie, 
         p.statut_jour, 
         u.nom, 
+        u.prenom,
+        u.email,
         s.nom_site 
       FROM presences p
       LEFT JOIN utilisateur u ON p.id_utilisateur = u.id_utilisateur
@@ -73,7 +75,6 @@ exports.getPresence = (req, res) => {
     return res.status(500).json({ message: "Erreur serveur", err });
   }
 };
-
 
 /* exports.getPresencePlanning = async (req, res) => {
   try {
@@ -724,7 +725,6 @@ exports.getPresencePlanning = async (req, res) => {
     res.status(500).json({ message: "Erreur serveur planning" });
   }
 };
-
 
 /* exports.getMonthlyPresenceReport = async (req, res) => {
   try {
@@ -3813,6 +3813,7 @@ exports.getPresenceDashboard = async (req, res) => {
       SELECT 
           u.nom,
           u.prenom,
+          u.email,
           p.statut_jour,
           p.heure_entree,
           p.heure_sortie,
@@ -3837,6 +3838,7 @@ exports.getPresenceDashboard = async (req, res) => {
       SELECT 
         u.nom,
         u.prenom,
+        u.email,
         COUNT(*) AS total_absences
       FROM presences p
       JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
