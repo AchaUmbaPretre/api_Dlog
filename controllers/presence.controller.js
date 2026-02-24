@@ -5094,196 +5094,6 @@ exports.deleteUserTerminal = async (req, res) => {
   }
 };
 
-/* const cronDailyAttendance = async () => {
-
-  const today = moment().format('YYYY-MM-DD');
-
-  try {
-    const ferie = await query(
-      `SELECT 1 FROM jours_feries WHERE date_ferie = ? LIMIT 1`,
-      [today]
-    );
-    if (ferie.length) {
-      console.log('[CRON] Jour férié – aucun traitement');
-      return;
-    }
-
-      const jourNom = moment(dateISO).locale("fr").format("dddd").toUpperCase(); // LUNDI, MARDI...
-      const planningRows = await query(
-        `SELECT p.id_planning, pd.jour_semaine, pd.heure_debut, pd.heure_fin
-         FROM planning_employe p
-         JOIN planning_detail pd ON pd.planning_id = p.id_planning
-         WHERE p.user_id = ? AND p.actif = 1 AND pd.jour_semaine = ?`,
-        [id_utilisateur, jourNom]
-      );
-    
-      if (!planningRows.length) {
-        console.log(`[SKIP] Aucun planning actif pour cet utilisateur.`);
-        return;
-      }
-
-    await query(
-      `
-      UPDATE presences
-      SET
-        statut_jour = CASE
-          WHEN heure_entree IS NULL THEN 'ABSENT'
-          WHEN heure_sortie IS NULL THEN 'ABSENT'
-          WHEN TIMESTAMPDIFF(MINUTE, heure_entree, heure_sortie) >= ? THEN 'PRESENT'
-          WHEN TIMESTAMPDIFF(MINUTE, heure_entree, heure_sortie) >= ? THEN 'ABSENCE_JUSTIFIEE'
-          ELSE 'ABSENT'
-        END
-      WHERE date_presence = ?
-        AND statut_jour IN ('ABSENT', 'ABSENCE_JUSTIFIEE')
-    `,
-      [WORK_DAY_HOURS * 60, HALF_DAY_HOURS * 60, today]
-    );
-
-    const result = await query(
-      `
-      INSERT INTO presences (
-        id_utilisateur,
-        site_id,
-        date_presence,
-        statut_jour,
-        source,
-        created_at
-      )
-      SELECT
-        u.id_utilisateur,
-        us.site_id,
-        ?,
-        'ABSENT',
-        'API',
-        NOW()
-      FROM utilisateur u
-      LEFT JOIN user_sites us ON us.user_id = u.id_utilisateur
-
-      -- pas déjà présent pour cette date (quelle que soit la valeur)
-      WHERE NOT EXISTS (
-        SELECT 1 FROM presences p
-        WHERE p.id_utilisateur = u.id_utilisateur
-          AND p.date_presence = ?
-      )
-
-      -- pas en absence validée
-      AND NOT EXISTS (
-        SELECT 1 FROM absences a
-        WHERE a.id_utilisateur = u.id_utilisateur
-          AND a.statut = 'VALIDEE'
-          AND ? BETWEEN a.date_debut AND a.date_fin
-      )
-    `,
-      [today, today, today]
-    );
-
-    console.log(`[CRON] Absents créés : ${result.affectedRows}`);
-    console.log('[CRON] Daily attendance finished');
-
-  } catch (error) {
-    console.error('[CRON] ERROR', error);
-  }
-}; */
-
-/* const cronDailyAttendance = async () => {
-
-  const today = moment().format('YYYY-MM-DD');
-  const jourNom = moment().locale("fr").format("dddd").toUpperCase(); // LUNDI
-
-  try {
-
-    const ferie = await query(
-      `SELECT 1 FROM jours_feries WHERE date_ferie = ? LIMIT 1`,
-      [today]
-    );
-
-    if (ferie.length) {
-      console.log('[CRON] Jour férié – aucun traitement');
-      return;
-    }
-
-    const users = await query(`
-      SELECT 
-        u.id_utilisateur,
-        us.site_id,
-        p.id_planning
-      FROM utilisateur u
-      LEFT JOIN user_sites us ON us.user_id = u.id_utilisateur
-      INNER JOIN planning_employe p 
-        ON p.user_id = u.id_utilisateur 
-        AND p.actif = 1
-    `);
-
-    for (const user of users) {
-
-      const { id_utilisateur, site_id, id_planning } = user;
-
-      const planningDetail = await query(
-        `SELECT heure_debut, heure_fin
-         FROM planning_detail
-         WHERE planning_id = ?
-           AND jour_semaine = ?`,
-        [id_planning, jourNom]
-      );
-
-      // ❌ Pas travaillé ce jour → ignorer
-      if (!planningDetail.length) {
-        continue;
-      }
-
-      const { heure_debut, heure_fin } = planningDetail[0];
-
-      const debutTravail = moment(`${today} ${heure_debut}`, "YYYY-MM-DD HH:mm:ss");
-      const finTravail = moment(`${today} ${heure_fin}`, "YYYY-MM-DD HH:mm:ss");
-
-      const absence = await query(
-        `SELECT 1 FROM absences
-         WHERE id_utilisateur = ?
-           AND statut = 'VALIDEE'
-           AND ? BETWEEN date_debut AND date_fin`,
-        [id_utilisateur, today]
-      );
-
-      if (absence.length) continue;
-
-      const presenceRows = await query(
-        `SELECT id_presence, heure_entree, heure_sortie
-         FROM presences
-         WHERE id_utilisateur = ?
-           AND date_presence = ?
-         LIMIT 1`,
-        [id_utilisateur, today]
-      );
-
-      const presence = presenceRows[0];
-
-      // 🔴 CAS 1 : Pas de présence → créer ABSENT
-      if (!presence) {
-
-        await query(
-          `INSERT INTO presences (
-             id_utilisateur,
-             site_id,
-             date_presence,
-             statut_jour,
-             source,
-             created_at
-           )
-           VALUES (?, ?, ?, 'ABSENT', 'API', NOW())`,
-          [id_utilisateur, site_id, today]
-        );
-
-        continue;
-      }
-
-    }
-
-    console.log('[CRON] Daily attendance finished');
-
-  } catch (error) {
-    console.error('[CRON] ERROR', error);
-  }
-}; */
 
 const cronDailyAttendance = async () => {
 
@@ -5293,9 +5103,6 @@ const cronDailyAttendance = async () => {
 
   try {
 
-    /* =====================================================
-       1️⃣ Vérifier si jour férié global
-    ===================================================== */
     const ferie = await query(
       `SELECT 1 FROM jours_feries WHERE date_ferie = ? LIMIT 1`,
       [today]
@@ -5303,9 +5110,6 @@ const cronDailyAttendance = async () => {
 
     const isFerie = ferie.length > 0;
 
-    /* =====================================================
-       2️⃣ Récupérer tous les utilisateurs
-    ===================================================== */
     const users = await query(`
       SELECT id_utilisateur
       FROM utilisateur
@@ -5327,7 +5131,7 @@ const cronDailyAttendance = async () => {
       const site_id = siteUser.length ? siteUser[0].site_id : null;
 
       /* =====================================================
-         3️⃣ Vérifier si présence déjà créée
+         Vérifier si présence déjà créée
       ===================================================== */
       const existing = await query(`
         SELECT 1
@@ -5339,9 +5143,6 @@ const cronDailyAttendance = async () => {
 
       if (existing.length) continue;
 
-      /* =====================================================
-         4️⃣ Si jour férié → JOUR_FERIE
-      ===================================================== */
       if (isFerie) {
 
         await insertPresence(id_utilisateur, site_id, today, 'JOUR_FERIE');
@@ -5349,7 +5150,7 @@ const cronDailyAttendance = async () => {
       }
 
       /* =====================================================
-        5️⃣ Vérifier existence horaire
+        Vérifier existence horaire
       ===================================================== */
 
       // 🔹 Vérifier s'il a AU MOINS un horaire dans l'historique
