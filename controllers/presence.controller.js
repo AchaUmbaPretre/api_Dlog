@@ -6,6 +6,7 @@ const query = util.promisify(db.query).bind(db);
 const { jourSemaineFR, formatDate, } = require("../utils/dateUtils.js");
 const { auditPresence } = require("../utils/audit.js");
 const { encrypt } = require("../utils/encrypt.js");
+const { getSiteColor } = require("../utils/getSiteColor.js");
 const WORK_DAY_HOURS = 8;
 const HALF_DAY_HOURS = 4;
 const INTERVAL_MS = 12 * 60 * 60 * 1000; // toutes les 12 heures
@@ -3767,6 +3768,7 @@ exports.getPresenceDashboard = async (req, res) => {
         COUNT(*) AS total,
         SUM(p.statut_jour = 'PRESENT') AS presents,
         SUM(p.statut_jour IN ('ABSENT', 'ABSENCE_JUSTIFIEE')) AS absences_totales,
+
         SUM(p.retard_minutes > 0) AS retards,
         ROUND(
           (SUM(p.statut_jour = 'PRESENT') / NULLIF(COUNT(*), 0)) * 100,
@@ -4023,6 +4025,271 @@ exports.getPresentDashboardSiteDetailBySite = async (req, res) => {
   }
 };
 
+// controllers/dashboardController.js
+exports.getDashboardStastique = async (req, res) => {
+  try {
+    const siteId = req.query.site_id || null; // filtrage optionnel par site
+
+    const siteFilter = siteId ? `AND p.site_id = ${siteId}` : '';
+
+    // 1️⃣ Entrées / Sorties par heure
+    const entreeSortie = await query(`
+      SELECT 
+        HOUR(p.heure_entree) AS heure,
+        SUM(CASE WHEN p.statut_jour = 'PRESENT' THEN 1 ELSE 0 END) AS entrees,
+        SUM(CASE WHEN p.heure_sortie IS NOT NULL AND p.statut_jour = 'PRESENT' THEN 1 ELSE 0 END) AS sorties
+      FROM presences p
+      WHERE p.date_presence = CURDATE()
+        ${siteFilter}
+        AND p.heure_entree IS NOT NULL
+      GROUP BY HOUR(p.heure_entree)
+      ORDER BY heure
+    `);
+
+const alertes = await query(`
+  SELECT 
+    'Pointage hors géofence' as titre,
+    s.nom_site as location,
+    DATE_FORMAT(p.heure_entree, '%H:%i') as heure,
+    'GPS hors zone' as description,
+    'Ouvrir' as action,
+    CASE 
+      WHEN p.retard_minutes > 30 THEN 'critical'
+      WHEN p.retard_minutes > 15 THEN 'warning'
+      ELSE 'info'
+    END as type
+  FROM presences p
+  LEFT JOIN sites s ON p.site_id = s.id_site
+  WHERE p.date_presence = CURDATE()
+    AND p.retard_minutes > 15
+    AND p.statut_jour = 'PRESENT'
+
+  UNION ALL
+  
+  SELECT 
+    'Absence non signalée' as titre,
+    s.nom_site as location,
+    '08:20' as heure,
+    'Non notifié' as description,
+    'Examiner' as action,
+    'warning' as type
+  FROM presences p
+  LEFT JOIN sites s ON p.site_id = s.id_site
+  WHERE p.date_presence = CURDATE()
+    AND p.statut_jour = 'ABSENT'
+  
+  UNION ALL
+  
+  SELECT 
+    'Queue offline détectée' as titre,
+    COALESCE(s.nom_site, CONCAT('Terminal ', p.terminal_id)) as location,
+    DATE_FORMAT(p.created_at, '%H:%i') as heure,
+    CONCAT(p.retard_minutes, ' événements en attente') as description,
+    'Voir' as action,
+    'info' as type
+  FROM presences p
+  LEFT JOIN sites s ON p.site_id = s.id_site
+  WHERE p.date_presence = CURDATE()
+    AND p.updated_at > DATE_ADD(p.created_at, INTERVAL 1 HOUR)
+  LIMIT 3
+`);
+
+    // 3️⃣ Présence par site
+    const presenceSite = await query(`
+      SELECT 
+        s.id_site,
+        s.nom_site,
+        s.CodeSite,
+        s.IdVille,
+        COUNT(p.id_presence) AS total_presences,
+        ROUND(COUNT(p.id_presence) * 100.0 / (
+          SELECT COUNT(*) FROM presences 
+          WHERE date_presence = CURDATE()
+            AND statut_jour = 'PRESENT'
+            ${siteFilter}
+        ), 2) AS pourcentage
+      FROM sites s
+      LEFT JOIN presences p 
+        ON s.id_site = p.site_id 
+        AND p.date_presence = CURDATE()
+        AND p.statut_jour = 'PRESENT'
+        ${siteFilter}
+      GROUP BY s.id_site, s.nom_site, s.CodeSite, s.IdVille
+      ORDER BY total_presences DESC
+    `);
+
+    // 4️⃣ Statistiques globales
+    const [globalStats] = await query(`
+      SELECT 
+        COUNT(*) AS total_presences_jour,
+        SUM(CASE WHEN statut_jour = 'PRESENT' THEN 1 ELSE 0 END) AS presents,
+        SUM(CASE WHEN retard_minutes > 0 AND statut_jour = 'PRESENT' THEN 1 ELSE 0 END) AS retards,
+        SUM(CASE WHEN statut_jour = 'ABSENT' THEN 1 ELSE 0 END) AS absents,
+        (SELECT COUNT(*) FROM sites) AS total_sites
+      FROM presences p
+      WHERE p.date_presence = CURDATE()
+        ${siteFilter}
+    `);
+
+    // 5️⃣ Stats par ville
+    const statsParVille = await query(`
+      SELECT 
+        s.IdVille,
+        COUNT(p.id_presence) AS total_presences,
+        SUM(CASE WHEN p.statut_jour = 'PRESENT' THEN 1 ELSE 0 END) AS presents,
+        SUM(CASE WHEN p.retard_minutes > 0 THEN 1 ELSE 0 END) AS retards,
+        SUM(CASE WHEN p.statut_jour = 'ABSENT' THEN 1 ELSE 0 END) AS absents
+      FROM sites s
+      LEFT JOIN presences p 
+        ON s.id_site = p.site_id 
+        AND p.date_presence = CURDATE()
+        ${siteFilter}
+      GROUP BY s.IdVille
+    `);
+
+    // 6️⃣ Événements par heure
+    const evenements = await query(`
+      SELECT 
+        HOUR(p.created_at) AS heure,
+        SUM(CASE WHEN p.retard_minutes > 0 AND p.statut_jour = 'PRESENT' THEN 1 ELSE 0 END) AS retards,
+        SUM(CASE WHEN p.statut_jour = 'ABSENT' THEN 1 ELSE 0 END) AS absents
+      FROM presences p
+      WHERE p.date_presence = CURDATE()
+        ${siteFilter}
+      GROUP BY HOUR(p.created_at)
+      ORDER BY heure
+    `);
+
+    // 7️⃣ Présents maintenant
+    const presentsNow = await query(`
+      SELECT 
+        s.id_site,
+        s.nom_site,
+        s.CodeSite,
+        COUNT(p.id_presence) AS presents_par_site
+      FROM presences p
+      LEFT JOIN sites s ON p.site_id = s.id_site
+      WHERE p.date_presence = CURDATE()
+        AND p.heure_entree IS NOT NULL
+        AND p.heure_sortie IS NULL
+        AND p.statut_jour = 'PRESENT'
+        ${siteFilter}
+      GROUP BY s.id_site, s.nom_site, s.CodeSite
+    `);
+
+    // 8️⃣ Attendus par site
+    const attendus = await query(`
+      SELECT 
+        s.id_site,
+        s.nom_site,
+        COUNT(p.id_presence) AS attendus_par_site
+      FROM presences p
+      LEFT JOIN sites s ON p.site_id = s.id_site
+      WHERE p.date_presence = CURDATE()
+        ${siteFilter}
+      GROUP BY s.id_site, s.nom_site
+    `);
+
+    // 9️⃣ Top sites par présence
+    const topSites = await query(`
+      SELECT 
+        s.nom_site,
+        s.CodeSite,
+        s.adress,
+        COUNT(p.id_presence) AS total_presences,
+        ROUND(AVG(CASE WHEN p.retard_minutes > 0 THEN p.retard_minutes ELSE 0 END), 2) AS moyenne_retard
+      FROM sites s
+      LEFT JOIN presences p 
+        ON s.id_site = p.site_id 
+        AND p.date_presence = CURDATE()
+        AND p.statut_jour = 'PRESENT'
+        ${siteFilter}
+      GROUP BY s.id_site, s.nom_site, s.CodeSite, s.adress
+      HAVING total_presences > 0
+      ORDER BY total_presences DESC
+      LIMIT 5
+    `);
+
+    // 🔹 Formatage pour le front
+    const dashboardData = {
+      live: {
+        presentsNow: {
+          total: presentsNow.reduce((acc, curr) => acc + parseInt(curr.presents_par_site || 0, 10), 0),
+          parSite: presentsNow.map(item => ({
+            site: item.nom_site,
+            code: item.CodeSite,
+            count: parseInt(item.presents_par_site || 0, 10)
+          }))
+        },
+        attendus: {
+          total: attendus.reduce((acc, curr) => acc + parseInt(curr.attendus_par_site || 0, 10), 0),
+          parSite: attendus.map(item => ({
+            site: item.nom_site,
+            count: parseInt(item.attendus_par_site || 0, 10)
+          }))
+        }
+      },
+      entreeSortie: entreeSortie.map(item => ({
+        heure: `${item.heure.toString().padStart(2, '0')}:00`,
+        entrees: parseInt(item.entrees || 0, 10),
+        sorties: parseInt(item.sorties || 0, 10)
+      })),
+      alertes: alertes.map(a => ({
+        ...a,
+        location: a.location || 'Site inconnu'
+      })),
+      presenceSite: presenceSite.map(item => ({
+        id_site: item.id_site,
+        site: item.nom_site,
+        codeSite: item.CodeSite,
+        ville: item.IdVille,
+        value: parseInt(item.total_presences || 0, 10),
+        percentage: parseFloat(item.pourcentage || 0),
+        color: getSiteColor(item.id_site)
+      })),
+      globalStats: {
+        presents: parseInt(globalStats.presents || 0, 10),
+        retards: parseInt(globalStats.retards || 0, 10),
+        absents: parseInt(globalStats.absents || 0, 10),
+        totalPresences: parseInt(globalStats.total_presences_jour || 0, 10),
+        totalSites: parseInt(globalStats.total_sites || 0, 10)
+      },
+      statsParVille: statsParVille.map(item => ({
+        ville: item.IdVille || 'Non définie',
+        presents: parseInt(item.presents || 0, 10),
+        retards: parseInt(item.retards || 0, 10),
+        absents: parseInt(item.absents || 0, 10),
+        total: parseInt(item.total_presences || 0, 10)
+      })),
+      evenements: evenements.map(item => ({
+        heure: `${item.heure.toString().padStart(2, '0')}h`,
+        retards: parseInt(item.retards || 0, 10),
+        absents: parseInt(item.absents || 0, 10)
+      })),
+      topSites: topSites.map(item => ({
+        nom_site: item.nom_site,
+        codeSite: item.CodeSite,
+        adress: item.adress,
+        totalPresences: parseInt(item.total_presences || 0, 10),
+        moyenneRetard: parseFloat(item.moyenne_retard || 0)
+      }))
+    };
+
+    res.status(200).json({
+      success: true,
+      data: dashboardData
+    });
+
+  } catch (error) {
+    console.error('Erreur dashboard:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des données du dashboard',
+      error: error.message
+    });
+  }
+};
+
 //Congé
 exports.getConge = async (req, res) => {
   try {
@@ -4117,9 +4384,6 @@ exports.postConge = async (req, res) => {
       return res.status(403).json({ message: "Accès refusé (scope site)" });
     }
 
-    // ===============================
-    // 3️⃣ Insertion du congé
-    // ===============================
     const result = await query(
       `INSERT INTO conges (
         id_utilisateur,
@@ -4143,9 +4407,6 @@ exports.postConge = async (req, res) => {
 
     const insertedId = result.insertId;
 
-    // ===============================
-    // 4️⃣ Audit log
-    // ===============================
     await query(
       `INSERT INTO audit_logs_presence
        (user_id, action, entity, entity_id, new_value)
@@ -4159,9 +4420,6 @@ exports.postConge = async (req, res) => {
       ]
     );
 
-    // ===============================
-    // 5️⃣ Réponse
-    // ===============================
     return res.status(201).json({
       success: true,
       message: "Congé ajouté avec succès",
@@ -5148,7 +5406,7 @@ const cronDailyAttendance = async () => {
         await insertPresence(id_utilisateur, site_id, today, 'JOUR_FERIE');
         continue;
       }
-      
+
       // 🔹 Vérifier s'il a AU MOINS un horaire dans l'historique
       const hasAnyHoraire = await query(`
         SELECT 1
