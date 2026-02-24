@@ -5148,11 +5148,7 @@ const cronDailyAttendance = async () => {
         await insertPresence(id_utilisateur, site_id, today, 'JOUR_FERIE');
         continue;
       }
-
-      /* =====================================================
-        Vérifier existence horaire
-      ===================================================== */
-
+      
       // 🔹 Vérifier s'il a AU MOINS un horaire dans l'historique
       const hasAnyHoraire = await query(`
         SELECT 1
