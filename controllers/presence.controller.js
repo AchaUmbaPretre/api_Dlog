@@ -3419,7 +3419,6 @@ exports.postPresenceFromHikvision = async (req, res) => {
   }
 };
 
-
 exports.getAttendanceAdjustment = async (req, res) => {
   try {
     const {
@@ -4285,6 +4284,241 @@ const alertes = await query(`
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la récupération des données du dashboard',
+      error: error.message
+    });
+  }
+};
+
+exports.getDashboardPerformance = async (req, res) => {
+  try {
+    const { site_id, date_debut, date_fin } = req.query;
+    
+    // Définir la période d'analyse
+    const aujourdhui = new Date();
+    const debutMois = date_debut || new Date(aujourdhui.getFullYear(), aujourdhui.getMonth(), 1).toISOString().split('T')[0];
+    const finMois = date_fin || new Date(aujourdhui.getFullYear(), aujourdhui.getMonth() + 1, 0).toISOString().split('T')[0];
+    
+    // Calculer le nombre de jours dans la période
+    const joursOuvrables = Math.ceil((new Date(finMois) - new Date(debutMois)) / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Construire la condition site_id si fourni
+    const siteCondition = site_id ? `AND us.site_id = ${parseInt(site_id)}` : '';
+    
+    // 1. KPIs Globaux
+    const kpiQuery = `
+      SELECT 
+        COUNT(DISTINCT u.id_utilisateur) as total_employes,
+        SUM(CASE WHEN p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') THEN 1 ELSE 0 END) as presences_reelles,
+        SUM(CASE WHEN p.retard_minutes > 0 THEN 1 ELSE 0 END) as presences_avec_retard,
+        SUM(p.retard_minutes) as total_retards,
+        AVG(CASE WHEN p.retard_minutes > 0 THEN p.retard_minutes END) as retard_moyen,
+        SUM(p.heures_supplementaires) as total_heures_sup,
+        SUM(TIMESTAMPDIFF(HOUR, p.heure_entree, p.heure_sortie)) as total_heures_travaillees
+      FROM utilisateur u
+      LEFT JOIN user_sites us ON u.id_utilisateur = us.user_id
+      LEFT JOIN presences p ON u.id_utilisateur = p.id_utilisateur 
+        AND p.date_presence BETWEEN ? AND ?
+      WHERE u.show_in_presence = 1
+      ${siteCondition}
+    `;
+    
+    const kpiResults = await query(kpiQuery, [debutMois, finMois]);
+    const kpi = kpiResults[0] || {};
+    
+    // 2. KPIs mois précédent pour évolution
+    const dateDebutMois = new Date(debutMois);
+    const moisPrecedent = new Date(dateDebutMois.getFullYear(), dateDebutMois.getMonth() - 1, 1);
+    const finMoisPrecedent = new Date(dateDebutMois.getFullYear(), dateDebutMois.getMonth(), 0);
+    
+    const debutMoisPrecedent = moisPrecedent.toISOString().split('T')[0];
+    const finMoisPrecedentFormatted = finMoisPrecedent.toISOString().split('T')[0];
+    
+    const evolutionQuery = `
+      SELECT 
+        COUNT(DISTINCT u.id_utilisateur) as total_employes_prec,
+        SUM(CASE WHEN p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') THEN 1 ELSE 0 END) as presences_reelles_prec,
+        SUM(CASE WHEN p.retard_minutes > 0 THEN 1 ELSE 0 END) as presences_avec_retard_prec,
+        SUM(p.retard_minutes) as total_retards_prec,
+        SUM(TIMESTAMPDIFF(HOUR, p.heure_entree, p.heure_sortie)) as total_heures_travaillees_prec
+      FROM presences p
+      JOIN utilisateur u ON p.id_utilisateur = u.id_utilisateur
+      LEFT JOIN user_sites us ON u.id_utilisateur = us.user_id
+      WHERE p.date_presence BETWEEN ? AND ?
+      AND u.show_in_presence = 1
+      ${siteCondition}
+    `;
+    
+    const evolutionResults = await query(evolutionQuery, [debutMoisPrecedent, finMoisPrecedentFormatted]);
+    const evolution = evolutionResults[0] || {};
+    
+    // Calcul des taux pour la période actuelle
+    const tauxPresence = kpi.total_employes ? 
+      (kpi.presences_reelles / (kpi.total_employes * joursOuvrables) * 100) : 0;
+    
+    const tauxPonctualite = kpi.presences_reelles ? 
+      ((kpi.presences_reelles - kpi.presences_avec_retard) / kpi.presences_reelles * 100) : 0;
+    
+    const tauxActivite = kpi.total_employes ? 
+      (kpi.total_heures_travaillees / (kpi.total_employes * joursOuvrables * 8) * 100) : 0;
+    
+    // Calcul des taux pour la période précédente
+    const tauxPresencePrec = evolution.total_employes_prec ? 
+      (evolution.presences_reelles_prec / (evolution.total_employes_prec * joursOuvrables) * 100) : 0;
+    
+    const tauxPonctualitePrec = evolution.presences_reelles_prec ? 
+      ((evolution.presences_reelles_prec - evolution.presences_avec_retard_prec) / evolution.presences_reelles_prec * 100) : 0;
+    
+    const tauxActivitePrec = evolution.total_employes_prec ? 
+      (evolution.total_heures_travaillees_prec / (evolution.total_employes_prec * joursOuvrables * 8) * 100) : 0;
+    
+    // 3. Performances par site
+    const sitesQuery = `
+      SELECT 
+        s.id_site as site_id,
+        s.nom_site as site_nom,
+        COUNT(DISTINCT u.id_utilisateur) as employes_total,
+        COUNT(DISTINCT CASE WHEN p.date_presence = CURRENT_DATE() THEN u.id_utilisateur END) as employes_presents,
+        ROUND(
+          COALESCE(SUM(CASE WHEN p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') THEN 1 ELSE 0 END), 0) / 
+          NULLIF(COUNT(DISTINCT u.id_utilisateur) * ?, 0) * 100, 
+        1) as taux_presence,
+        COALESCE(SUM(CASE WHEN p.retard_minutes > 0 THEN 1 ELSE 0 END), 0) as total_retards,
+        ROUND(COALESCE(AVG(CASE WHEN p.retard_minutes > 0 THEN p.retard_minutes END), 0), 1) as retard_moyen,
+        ROUND(
+          (COALESCE(SUM(CASE WHEN p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') THEN 1 ELSE 0 END), 0) / 
+           NULLIF(COUNT(DISTINCT u.id_utilisateur) * ?, 0) * 100 * 0.6) +
+          ((100 - (COALESCE(AVG(CASE WHEN p.retard_minutes > 0 THEN p.retard_minutes END), 0) / 60 * 100)) * 0.4), 
+        1) as performance
+      FROM sites s
+      LEFT JOIN user_sites us ON s.id_site = us.site_id
+      LEFT JOIN utilisateur u ON us.user_id = u.id_utilisateur AND u.show_in_presence = 1
+      LEFT JOIN presences p ON u.id_utilisateur = p.id_utilisateur 
+        AND p.date_presence BETWEEN ? AND ?
+      GROUP BY s.id_site, s.nom_site
+      HAVING employes_total > 0
+      ORDER BY performance DESC
+    `;
+    
+    const sitesResults = await query(sitesQuery, [joursOuvrables, joursOuvrables, debutMois, finMois]);
+    
+    // 4. Top performeurs
+    const topQuery = `
+      SELECT 
+        u.id_utilisateur as id,
+        u.nom,
+        u.prenom,
+        COALESCE(s.nom_site, 'Non assigné') as site,
+        ROUND(COALESCE(COUNT(CASE WHEN p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') THEN 1 END), 0) / ? * 100, 1) as taux_presence,
+        COALESCE(COUNT(CASE WHEN p.retard_minutes > 0 THEN 1 END), 0) as jours_retard,
+        ROUND(COALESCE(AVG(CASE WHEN p.retard_minutes > 0 THEN p.retard_minutes END), 0), 1) as retard_moyen,
+        ROUND(COALESCE(SUM(p.heures_supplementaires), 0), 1) as heures_sup
+      FROM utilisateur u
+      LEFT JOIN user_sites us ON u.id_utilisateur = us.user_id
+      LEFT JOIN sites s ON us.site_id = s.id_site
+      LEFT JOIN presences p ON u.id_utilisateur = p.id_utilisateur 
+        AND p.date_presence BETWEEN ? AND ?
+      WHERE u.show_in_presence = 1
+      ${siteCondition}
+      GROUP BY u.id_utilisateur, u.nom, u.prenom, s.nom_site
+      HAVING taux_presence >= 98 AND (retard_moyen <= 5 OR retard_moyen = 0)
+      ORDER BY taux_presence DESC, retard_moyen ASC
+      LIMIT 5
+    `;
+    
+    const topResults = await query(topQuery, [joursOuvrables, debutMois, finMois]);
+    
+    // 5. Agents à problème
+    const problemeQuery = `
+      SELECT 
+        u.id_utilisateur as id,
+        u.nom,
+        u.prenom,
+        COALESCE(s.nom_site, 'Non assigné') as site,
+        ROUND(COALESCE(COUNT(CASE WHEN p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') THEN 1 END), 0) / ? * 100, 1) as taux_presence,
+        COALESCE(COUNT(CASE WHEN p.retard_minutes > 0 THEN 1 END), 0) as jours_retard,
+        COALESCE(SUM(p.retard_minutes), 0) as total_minutes_retard,
+        ROUND(COALESCE(AVG(CASE WHEN p.retard_minutes > 0 THEN p.retard_minutes END), 0), 1) as retard_moyen,
+        COALESCE(COUNT(CASE WHEN p.statut_jour = 'ABSENT' THEN 1 END), 0) as jours_absence
+      FROM utilisateur u
+      LEFT JOIN user_sites us ON u.id_utilisateur = us.user_id
+      LEFT JOIN sites s ON us.site_id = s.id_site
+      LEFT JOIN presences p ON u.id_utilisateur = p.id_utilisateur 
+        AND p.date_presence BETWEEN ? AND ?
+      WHERE u.show_in_presence = 1
+      ${siteCondition}
+      GROUP BY u.id_utilisateur, u.nom, u.prenom, s.nom_site
+      HAVING taux_presence < 80 OR retard_moyen > 30
+      ORDER BY taux_presence ASC, retard_moyen DESC
+      LIMIT 5
+    `;
+    
+    const problemeResults = await query(problemeQuery, [joursOuvrables, debutMois, finMois]);
+    
+    // 6. Statistiques supplémentaires
+    const statsQuery = `
+      SELECT 
+        COUNT(DISTINCT CASE WHEN p.statut_jour = 'ABSENT' THEN p.id_utilisateur END) as employes_absents,
+        COUNT(DISTINCT CASE WHEN p.retard_minutes > 30 THEN p.id_utilisateur END) as employes_gros_retard,
+        SUM(CASE WHEN p.statut_jour = 'ABSENCE_JUSTIFIEE' THEN 1 ELSE 0 END) as absences_justifiees,
+        SUM(p.heures_supplementaires) as total_heures_sup_periode
+      FROM presences p
+      JOIN utilisateur u ON p.id_utilisateur = u.id_utilisateur
+      LEFT JOIN user_sites us ON u.id_utilisateur = us.user_id
+      WHERE p.date_presence BETWEEN ? AND ?
+      AND u.show_in_presence = 1
+      ${siteCondition}
+    `;
+    
+    const statsResults = await query(statsQuery, [debutMois, finMois]);
+    const stats = statsResults[0] || {};
+    
+    // Construire la réponse avec toutes les évolutions
+    const response = {
+      success: true,
+      data: {
+        metadata: {
+          periode: {
+            debut: debutMois,
+            fin: finMois,
+            jours_ouvrables: joursOuvrables
+          },
+          date_generation: new Date().toISOString()
+        },
+        kpi_globaux: {
+          taux_presence: Math.round(tauxPresence * 10) / 10,
+          taux_ponctualite: Math.round(tauxPonctualite * 10) / 10,
+          taux_activite: Math.round(tauxActivite * 10) / 10,
+          total_retards: kpi.total_retards || 0,
+          retard_moyen: Math.round(kpi.retard_moyen || 0),
+          evolution_presence: Math.round((tauxPresence - tauxPresencePrec) * 10) / 10,
+          evolution_ponctualite: Math.round((tauxPonctualite - tauxPonctualitePrec) * 10) / 10,
+          evolution_activite: Math.round((tauxActivite - tauxActivitePrec) * 10) / 10,
+          total_heures_sup: stats.total_heures_sup_periode || 0,
+          employes_absents: stats.employes_absents || 0,
+          absences_justifiees: stats.absences_justifiees || 0
+        },
+        performances_sites: sitesResults.map(site => ({
+          ...site,
+          key: site.site_id
+        })),
+        top_performeurs: topResults.map(emp => ({
+          ...emp,
+          key: emp.id
+        })),
+        agents_probleme: problemeResults.map(emp => ({
+          ...emp,
+          key: emp.id
+        }))
+      }
+    };
+    
+    res.status(200).json(response);
+
+  } catch (error) {
+    console.error('Erreur dans getDashboardPerformance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des données de performance',
       error: error.message
     });
   }
