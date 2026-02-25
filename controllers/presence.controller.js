@@ -4292,6 +4292,8 @@ const alertes = await query(`
 exports.getDashboardPerformance = async (req, res) => {
   try {
     const { site_id, date_debut, date_fin } = req.query;
+
+    console.log(req.query)
     
     // Définir la période d'analyse
     const aujourdhui = new Date();
@@ -4304,20 +4306,31 @@ exports.getDashboardPerformance = async (req, res) => {
     // Construire la condition site_id si fourni
     const siteCondition = site_id ? `AND us.site_id = ${parseInt(site_id)}` : '';
     
-    // 1. KPIs Globaux
+    // 1. KPIs Globaux avec calcul des retards basé sur les horaires individuels
     const kpiQuery = `
       SELECT 
         COUNT(DISTINCT u.id_utilisateur) as total_employes,
         SUM(CASE WHEN p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') THEN 1 ELSE 0 END) as presences_reelles,
-        SUM(CASE WHEN p.retard_minutes > 0 THEN 1 ELSE 0 END) as presences_avec_retard,
+        SUM(CASE 
+          WHEN p.retard_minutes > 0 
+          OR (p.heure_entree > CONCAT(p.date_presence, ' ', COALESCE(hd.heure_debut, '08:00:00')))
+          THEN 1 ELSE 0 END) as presences_avec_retard,
         SUM(p.retard_minutes) as total_retards,
-        AVG(CASE WHEN p.retard_minutes > 0 THEN p.retard_minutes END) as retard_moyen,
+        AVG(CASE 
+          WHEN p.retard_minutes > 0 
+          OR (p.heure_entree > CONCAT(p.date_presence, ' ', COALESCE(hd.heure_debut, '08:00:00')))
+          THEN p.retard_minutes END) as retard_moyen,
         SUM(p.heures_supplementaires) as total_heures_sup,
         SUM(TIMESTAMPDIFF(HOUR, p.heure_entree, p.heure_sortie)) as total_heures_travaillees
       FROM utilisateur u
       LEFT JOIN user_sites us ON u.id_utilisateur = us.user_id
       LEFT JOIN presences p ON u.id_utilisateur = p.id_utilisateur 
         AND p.date_presence BETWEEN ? AND ?
+      LEFT JOIN horaire_user hu ON u.id_utilisateur = hu.user_id 
+        AND hu.date_debut <= p.date_presence 
+        AND (hu.date_fin IS NULL OR hu.date_fin >= p.date_presence)
+      LEFT JOIN horaire_detail hd ON hu.horaire_id = hd.horaire_id 
+        AND DAYNAME(p.date_presence) = hd.jour_semaine
       WHERE u.show_in_presence = 1
       ${siteCondition}
     `;
@@ -4337,12 +4350,20 @@ exports.getDashboardPerformance = async (req, res) => {
       SELECT 
         COUNT(DISTINCT u.id_utilisateur) as total_employes_prec,
         SUM(CASE WHEN p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') THEN 1 ELSE 0 END) as presences_reelles_prec,
-        SUM(CASE WHEN p.retard_minutes > 0 THEN 1 ELSE 0 END) as presences_avec_retard_prec,
+        SUM(CASE 
+          WHEN p.retard_minutes > 0 
+          OR (p.heure_entree > CONCAT(p.date_presence, ' ', COALESCE(hd.heure_debut, '08:00:00')))
+          THEN 1 ELSE 0 END) as presences_avec_retard_prec,
         SUM(p.retard_minutes) as total_retards_prec,
         SUM(TIMESTAMPDIFF(HOUR, p.heure_entree, p.heure_sortie)) as total_heures_travaillees_prec
       FROM presences p
       JOIN utilisateur u ON p.id_utilisateur = u.id_utilisateur
       LEFT JOIN user_sites us ON u.id_utilisateur = us.user_id
+      LEFT JOIN horaire_user hu ON u.id_utilisateur = hu.user_id 
+        AND hu.date_debut <= p.date_presence 
+        AND (hu.date_fin IS NULL OR hu.date_fin >= p.date_presence)
+      LEFT JOIN horaire_detail hd ON hu.horaire_id = hd.horaire_id 
+        AND DAYNAME(p.date_presence) = hd.jour_semaine
       WHERE p.date_presence BETWEEN ? AND ?
       AND u.show_in_presence = 1
       ${siteCondition}
@@ -4382,18 +4403,32 @@ exports.getDashboardPerformance = async (req, res) => {
           COALESCE(SUM(CASE WHEN p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') THEN 1 ELSE 0 END), 0) / 
           NULLIF(COUNT(DISTINCT u.id_utilisateur) * ?, 0) * 100, 
         1) as taux_presence,
-        COALESCE(SUM(CASE WHEN p.retard_minutes > 0 THEN 1 ELSE 0 END), 0) as total_retards,
-        ROUND(COALESCE(AVG(CASE WHEN p.retard_minutes > 0 THEN p.retard_minutes END), 0), 1) as retard_moyen,
+        COALESCE(SUM(CASE 
+          WHEN p.retard_minutes > 0 
+          OR (p.heure_entree > CONCAT(p.date_presence, ' ', COALESCE(hd.heure_debut, '08:00:00')))
+          THEN 1 ELSE 0 END), 0) as total_retards,
+        ROUND(COALESCE(AVG(CASE 
+          WHEN p.retard_minutes > 0 
+          OR (p.heure_entree > CONCAT(p.date_presence, ' ', COALESCE(hd.heure_debut, '08:00:00')))
+          THEN p.retard_minutes END), 0), 1) as retard_moyen,
         ROUND(
           (COALESCE(SUM(CASE WHEN p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') THEN 1 ELSE 0 END), 0) / 
            NULLIF(COUNT(DISTINCT u.id_utilisateur) * ?, 0) * 100 * 0.6) +
-          ((100 - (COALESCE(AVG(CASE WHEN p.retard_minutes > 0 THEN p.retard_minutes END), 0) / 60 * 100)) * 0.4), 
+          ((100 - (COALESCE(AVG(CASE 
+            WHEN p.retard_minutes > 0 
+            OR (p.heure_entree > CONCAT(p.date_presence, ' ', COALESCE(hd.heure_debut, '08:00:00')))
+            THEN p.retard_minutes END), 0) / 60 * 100)) * 0.4), 
         1) as performance
       FROM sites s
       LEFT JOIN user_sites us ON s.id_site = us.site_id
       LEFT JOIN utilisateur u ON us.user_id = u.id_utilisateur AND u.show_in_presence = 1
       LEFT JOIN presences p ON u.id_utilisateur = p.id_utilisateur 
         AND p.date_presence BETWEEN ? AND ?
+      LEFT JOIN horaire_user hu ON u.id_utilisateur = hu.user_id 
+        AND hu.date_debut <= p.date_presence 
+        AND (hu.date_fin IS NULL OR hu.date_fin >= p.date_presence)
+      LEFT JOIN horaire_detail hd ON hu.horaire_id = hd.horaire_id 
+        AND DAYNAME(p.date_presence) = hd.jour_semaine
       GROUP BY s.id_site, s.nom_site
       HAVING employes_total > 0
       ORDER BY performance DESC
@@ -4409,14 +4444,25 @@ exports.getDashboardPerformance = async (req, res) => {
         u.prenom,
         COALESCE(s.nom_site, 'Non assigné') as site,
         ROUND(COALESCE(COUNT(CASE WHEN p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') THEN 1 END), 0) / ? * 100, 1) as taux_presence,
-        COALESCE(COUNT(CASE WHEN p.retard_minutes > 0 THEN 1 END), 0) as jours_retard,
-        ROUND(COALESCE(AVG(CASE WHEN p.retard_minutes > 0 THEN p.retard_minutes END), 0), 1) as retard_moyen,
+        COALESCE(COUNT(CASE 
+          WHEN p.retard_minutes > 0 
+          OR (p.heure_entree > CONCAT(p.date_presence, ' ', COALESCE(hd.heure_debut, '08:00:00')))
+          THEN 1 END), 0) as jours_retard,
+        ROUND(COALESCE(AVG(CASE 
+          WHEN p.retard_minutes > 0 
+          OR (p.heure_entree > CONCAT(p.date_presence, ' ', COALESCE(hd.heure_debut, '08:00:00')))
+          THEN p.retard_minutes END), 0), 1) as retard_moyen,
         ROUND(COALESCE(SUM(p.heures_supplementaires), 0), 1) as heures_sup
       FROM utilisateur u
       LEFT JOIN user_sites us ON u.id_utilisateur = us.user_id
       LEFT JOIN sites s ON us.site_id = s.id_site
       LEFT JOIN presences p ON u.id_utilisateur = p.id_utilisateur 
         AND p.date_presence BETWEEN ? AND ?
+      LEFT JOIN horaire_user hu ON u.id_utilisateur = hu.user_id 
+        AND hu.date_debut <= p.date_presence 
+        AND (hu.date_fin IS NULL OR hu.date_fin >= p.date_presence)
+      LEFT JOIN horaire_detail hd ON hu.horaire_id = hd.horaire_id 
+        AND DAYNAME(p.date_presence) = hd.jour_semaine
       WHERE u.show_in_presence = 1
       ${siteCondition}
       GROUP BY u.id_utilisateur, u.nom, u.prenom, s.nom_site
@@ -4435,15 +4481,26 @@ exports.getDashboardPerformance = async (req, res) => {
         u.prenom,
         COALESCE(s.nom_site, 'Non assigné') as site,
         ROUND(COALESCE(COUNT(CASE WHEN p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') THEN 1 END), 0) / ? * 100, 1) as taux_presence,
-        COALESCE(COUNT(CASE WHEN p.retard_minutes > 0 THEN 1 END), 0) as jours_retard,
+        COALESCE(COUNT(CASE 
+          WHEN p.retard_minutes > 0 
+          OR (p.heure_entree > CONCAT(p.date_presence, ' ', COALESCE(hd.heure_debut, '08:00:00')))
+          THEN 1 END), 0) as jours_retard,
         COALESCE(SUM(p.retard_minutes), 0) as total_minutes_retard,
-        ROUND(COALESCE(AVG(CASE WHEN p.retard_minutes > 0 THEN p.retard_minutes END), 0), 1) as retard_moyen,
+        ROUND(COALESCE(AVG(CASE 
+          WHEN p.retard_minutes > 0 
+          OR (p.heure_entree > CONCAT(p.date_presence, ' ', COALESCE(hd.heure_debut, '08:00:00')))
+          THEN p.retard_minutes END), 0), 1) as retard_moyen,
         COALESCE(COUNT(CASE WHEN p.statut_jour = 'ABSENT' THEN 1 END), 0) as jours_absence
       FROM utilisateur u
       LEFT JOIN user_sites us ON u.id_utilisateur = us.user_id
       LEFT JOIN sites s ON us.site_id = s.id_site
       LEFT JOIN presences p ON u.id_utilisateur = p.id_utilisateur 
         AND p.date_presence BETWEEN ? AND ?
+      LEFT JOIN horaire_user hu ON u.id_utilisateur = hu.user_id 
+        AND hu.date_debut <= p.date_presence 
+        AND (hu.date_fin IS NULL OR hu.date_fin >= p.date_presence)
+      LEFT JOIN horaire_detail hd ON hu.horaire_id = hd.horaire_id 
+        AND DAYNAME(p.date_presence) = hd.jour_semaine
       WHERE u.show_in_presence = 1
       ${siteCondition}
       GROUP BY u.id_utilisateur, u.nom, u.prenom, s.nom_site
@@ -4458,12 +4515,20 @@ exports.getDashboardPerformance = async (req, res) => {
     const statsQuery = `
       SELECT 
         COUNT(DISTINCT CASE WHEN p.statut_jour = 'ABSENT' THEN p.id_utilisateur END) as employes_absents,
-        COUNT(DISTINCT CASE WHEN p.retard_minutes > 30 THEN p.id_utilisateur END) as employes_gros_retard,
+        COUNT(DISTINCT CASE 
+          WHEN p.retard_minutes > 30 
+          OR TIMESTAMPDIFF(MINUTE, CONCAT(p.date_presence, ' ', COALESCE(hd.heure_debut, '08:00:00')), p.heure_entree) > 30
+          THEN p.id_utilisateur END) as employes_gros_retard,
         SUM(CASE WHEN p.statut_jour = 'ABSENCE_JUSTIFIEE' THEN 1 ELSE 0 END) as absences_justifiees,
         SUM(p.heures_supplementaires) as total_heures_sup_periode
       FROM presences p
       JOIN utilisateur u ON p.id_utilisateur = u.id_utilisateur
       LEFT JOIN user_sites us ON u.id_utilisateur = us.user_id
+      LEFT JOIN horaire_user hu ON u.id_utilisateur = hu.user_id 
+        AND hu.date_debut <= p.date_presence 
+        AND (hu.date_fin IS NULL OR hu.date_fin >= p.date_presence)
+      LEFT JOIN horaire_detail hd ON hu.horaire_id = hd.horaire_id 
+        AND DAYNAME(p.date_presence) = hd.jour_semaine
       WHERE p.date_presence BETWEEN ? AND ?
       AND u.show_in_presence = 1
       ${siteCondition}
@@ -4472,7 +4537,7 @@ exports.getDashboardPerformance = async (req, res) => {
     const statsResults = await query(statsQuery, [debutMois, finMois]);
     const stats = statsResults[0] || {};
     
-    // Construire la réponse avec toutes les évolutions
+    // Construire la réponse
     const response = {
       success: true,
       data: {
