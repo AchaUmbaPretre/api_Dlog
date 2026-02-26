@@ -729,161 +729,6 @@ exports.getPresencePlanning = async (req, res) => {
 
 /* exports.getMonthlyPresenceReport = async (req, res) => {
   try {
-    const { month, year, site } = req.query || {};
-
-    if (!month || !year) {
-      return res.status(400).json({ message: "month et year requis" });
-    }
-
-    const monthInt = parseInt(month, 10);
-    const yearInt = parseInt(year, 10);
-
-    const startDate = moment(`${yearInt}-${monthInt.toString().padStart(2, "0")}-01`, "YYYY-MM-DD")
-      .startOf("month")
-      .format("YYYY-MM-DD");
-    const endDate = moment(startDate).endOf("month").format("YYYY-MM-DD");
-
-    // 1️⃣ Récupérer les utilisateurs
-    const users = await query(`
-      SELECT id_utilisateur, nom
-      FROM utilisateur
-      ORDER BY nom
-    `);
-
-    // 2️⃣ Récupérer les présences du mois
-    const presences = await query(
-      `SELECT id_utilisateur, date_presence, heure_entree, heure_sortie, heures_supplementaires, retard_minutes
-       FROM presences
-       WHERE date_presence BETWEEN ? AND ?`,
-      [startDate, endDate]
-    );
-
-    // 3️⃣ Récupérer les congés validés
-    const conges = await query(
-      `SELECT id_utilisateur, date_debut, date_fin
-       FROM conges
-       WHERE statut = 'VALIDE'
-         AND date_fin >= ?
-         AND date_debut <= ?`,
-      [startDate, endDate]
-    );
-
-    // 4️⃣ Récupérer les jours fériés
-    const joursFeries = await query(
-      `SELECT date_ferie FROM jours_feries WHERE date_ferie BETWEEN ? AND ?`,
-      [startDate, endDate]
-    );
-
-    // 5️⃣ Récupérer les jours non travaillés
-    const joursNonTrav = await query(`SELECT jour_semaine FROM jours_non_travailles`);
-    const joursNonTravSet = new Set(
-      joursNonTrav.map(j => mapJourSemaineFR[j.jour_semaine.toLowerCase()])
-    );
-
-    // 6️⃣ Préparer les maps pour performance
-    const presencesMap = new Map();
-    presences.forEach(p => {
-      presencesMap.set(`${p.id_utilisateur}_${moment(p.date_presence).format("YYYY-MM-DD")}`, p);
-    });
-
-    const congesMap = new Map();
-    conges.forEach(c => {
-      if (!congesMap.has(c.id_utilisateur)) congesMap.set(c.id_utilisateur, []);
-      congesMap.get(c.id_utilisateur).push({
-        debut: moment(c.date_debut),
-        fin: moment(c.date_fin)
-      });
-    });
-
-    const joursFeriesSet = new Set(joursFeries.map(j => moment(j.date_ferie).format("YYYY-MM-DD")));
-
-    // 7️⃣ Générer toutes les dates du mois
-    const dates = [];
-    let d = moment(startDate);
-    while (d.isSameOrBefore(endDate)) {
-      dates.push(d.format("YYYY-MM-DD"));
-      d.add(1, "day");
-    }
-
-    // 8️⃣ Construire le rapport par utilisateur
-    const report = users.map(u => {
-      let joursTravailles = 0,
-          absences = 0,
-          retards = 0,
-          heuresSupp = 0,
-          congesPayes = 0,
-          joursFerie = 0,
-          nonTravaille = 0;
-
-      const presMap = {};
-
-      dates.forEach(dateStr => {
-        let statut = "ABSENT";
-        const dayOfWeek = moment(dateStr).day(); // 0 = dimanche, 1 = lundi ...
-
-        // Jour férié
-        if (joursFeriesSet.has(dateStr)) {
-          statut = "FERIE";
-          joursFerie++;
-        }
-        // Jour non travaillé
-        else if (joursNonTravSet.has(dayOfWeek)) {
-          statut = "NON_TRAVAILLE";
-          nonTravaille++;
-        }
-        // Congé
-        else if (congesMap.has(u.id_utilisateur)) {
-          const cong = congesMap.get(u.id_utilisateur).find(c => moment(dateStr).isBetween(c.debut, c.fin, null, "[]"));
-          if (cong) {
-            statut = "CONGE";
-            congesPayes++;
-          }
-        }
-
-        // Présence
-        const pKey = `${u.id_utilisateur}_${dateStr}`;
-        if (presencesMap.has(pKey)) {
-          statut = "PRESENT";
-          joursTravailles++;
-          const p = presencesMap.get(pKey);
-          heuresSupp += Number(p.heures_supplementaires || 0);
-          retards += Number(p.retard_minutes || 0);
-        }
-
-        if (statut === "ABSENT") absences++;
-
-        presMap[dateStr] = presencesMap.get(pKey) || { statut };
-      });
-
-      return {
-        id_utilisateur: u.id_utilisateur,
-        nom: u.nom,
-        joursTravailles,
-        absences,
-        retards,
-        heuresSupp,
-        congesPayes,
-        joursFerie,
-        nonTravaille,
-        presences: presMap
-      };
-    });
-
-    res.json({
-      startDate,
-      endDate,
-      dates,
-      report
-    });
-
-  } catch (err) {
-    console.error("Erreur getMonthlyAttendanceReport:", err);
-    res.status(500).json({ message: "Erreur serveur lors de la génération du rapport mensuel" });
-  }
-}; */
-
-/* exports.getMonthlyPresenceReport = async (req, res) => {
-  try {
     const { month, year, site } = req.query;
 
     if (!month || !year) {
@@ -4539,7 +4384,13 @@ exports.getDashboardPerformance = async (req, res) => {
     
     const statsResults = await query(statsQuery, [debutMois, finMois]);
     const stats = statsResults[0] || {};
-    
+
+    // 7. Utilisateur
+    const userQuery = `SELECT u.id_utilisateur, u.nom, u.prenom
+                          FROM utilisateur u WHERE u.show_in_presence = 1`;
+
+    const userResults = await query(userQuery);
+
     // Construire la réponse
     const response = {
       success: true,
@@ -4576,7 +4427,8 @@ exports.getDashboardPerformance = async (req, res) => {
         agents_probleme: problemeResults.map(emp => ({
           ...emp,
           key: emp.id
-        }))
+        })),
+        userResults
       }
     };
     
