@@ -3761,7 +3761,6 @@ exports.validateAttendanceAdjustment = async (req, res) => {
 exports.getPresenceDashboard = async (req, res) => {
   try {
 
-    /* ================= KPI JOUR ================= */
     const kpiPromise = query(`
       SELECT
         COUNT(*) AS total,
@@ -4045,53 +4044,53 @@ exports.getDashboardStastique = async (req, res) => {
       ORDER BY heure
     `);
 
-const alertes = await query(`
-  SELECT 
-    'Pointage hors géofence' as titre,
-    s.nom_site as location,
-    DATE_FORMAT(p.heure_entree, '%H:%i') as heure,
-    'GPS hors zone' as description,
-    'Ouvrir' as action,
-    CASE 
-      WHEN p.retard_minutes > 30 THEN 'critical'
-      WHEN p.retard_minutes > 15 THEN 'warning'
-      ELSE 'info'
-    END as type
-  FROM presences p
-  LEFT JOIN sites s ON p.site_id = s.id_site
-  WHERE p.date_presence = CURDATE()
-    AND p.retard_minutes > 15
-    AND p.statut_jour = 'PRESENT'
+    const alertes = await query(`
+      SELECT 
+        'Pointage hors géofence' as titre,
+        s.nom_site as location,
+        DATE_FORMAT(p.heure_entree, '%H:%i') as heure,
+        'GPS hors zone' as description,
+        'Ouvrir' as action,
+        CASE 
+          WHEN p.retard_minutes > 30 THEN 'critical'
+          WHEN p.retard_minutes > 15 THEN 'warning'
+          ELSE 'info'
+        END as type
+      FROM presences p
+      LEFT JOIN sites s ON p.site_id = s.id_site
+      WHERE p.date_presence = CURDATE()
+        AND p.retard_minutes > 15
+        AND p.statut_jour = 'PRESENT'
 
-  UNION ALL
-  
-  SELECT 
-    'Absence non signalée' as titre,
-    s.nom_site as location,
-    '08:20' as heure,
-    'Non notifié' as description,
-    'Examiner' as action,
-    'warning' as type
-  FROM presences p
-  LEFT JOIN sites s ON p.site_id = s.id_site
-  WHERE p.date_presence = CURDATE()
-    AND p.statut_jour = 'ABSENT'
-  
-  UNION ALL
-  
-  SELECT 
-    'Queue offline détectée' as titre,
-    COALESCE(s.nom_site, CONCAT('Terminal ', p.terminal_id)) as location,
-    DATE_FORMAT(p.created_at, '%H:%i') as heure,
-    CONCAT(p.retard_minutes, ' événements en attente') as description,
-    'Voir' as action,
-    'info' as type
-  FROM presences p
-  LEFT JOIN sites s ON p.site_id = s.id_site
-  WHERE p.date_presence = CURDATE()
-    AND p.updated_at > DATE_ADD(p.created_at, INTERVAL 1 HOUR)
-  LIMIT 3
-`);
+      UNION ALL
+      
+      SELECT 
+        'Absence non signalée' as titre,
+        s.nom_site as location,
+        '08:20' as heure,
+        'Non notifié' as description,
+        'Examiner' as action,
+        'warning' as type
+      FROM presences p
+      LEFT JOIN sites s ON p.site_id = s.id_site
+      WHERE p.date_presence = CURDATE()
+        AND p.statut_jour = 'ABSENT'
+      
+      UNION ALL
+      
+      SELECT 
+        'Queue offline détectée' as titre,
+        COALESCE(s.nom_site, CONCAT('Terminal ', p.terminal_id)) as location,
+        DATE_FORMAT(p.created_at, '%H:%i') as heure,
+        CONCAT(p.retard_minutes, ' événements en attente') as description,
+        'Voir' as action,
+        'info' as type
+      FROM presences p
+      LEFT JOIN sites s ON p.site_id = s.id_site
+      WHERE p.date_presence = CURDATE()
+        AND p.updated_at > DATE_ADD(p.created_at, INTERVAL 1 HOUR)
+      LIMIT 3
+    `);
 
     // 3️⃣ Présence par site
     const presenceSite = await query(`
@@ -4292,13 +4291,17 @@ const alertes = await query(`
 exports.getDashboardPerformance = async (req, res) => {
   try {
     const { site_id, date_debut, date_fin } = req.query;
-
-    console.log(req.query)
     
-    // Définir la période d'analyse
+    // Définir la période d'analyse - CORRECTION: utiliser des formats ISO valides
     const aujourdhui = new Date();
-    const debutMois = date_debut || new Date(aujourdhui.getFullYear(), aujourdhui.getMonth(), 1).toISOString().split('T')[0];
-    const finMois = date_fin || new Date(aujourdhui.getFullYear(), aujourdhui.getMonth() + 1, 0).toISOString().split('T')[0];
+    
+    // Formatage des dates en YYYY-MM-DD (format ISO valide)
+    const formatDateISO = (date) => {
+      return date.toISOString().split('T')[0];
+    };
+    
+    const debutMois = date_debut || formatDateISO(new Date(aujourdhui.getFullYear(), aujourdhui.getMonth(), 1));
+    const finMois = date_fin || formatDateISO(new Date(aujourdhui.getFullYear(), aujourdhui.getMonth() + 1, 0));
     
     // Calculer le nombre de jours dans la période
     const joursOuvrables = Math.ceil((new Date(finMois) - new Date(debutMois)) / (1000 * 60 * 60 * 24)) + 1;
@@ -4339,12 +4342,12 @@ exports.getDashboardPerformance = async (req, res) => {
     const kpi = kpiResults[0] || {};
     
     // 2. KPIs mois précédent pour évolution
-    const dateDebutMois = new Date(debutMois);
+    const dateDebutMois = new Date(debutMois + 'T00:00:00'); // Ajout du T pour format ISO
     const moisPrecedent = new Date(dateDebutMois.getFullYear(), dateDebutMois.getMonth() - 1, 1);
     const finMoisPrecedent = new Date(dateDebutMois.getFullYear(), dateDebutMois.getMonth(), 0);
     
-    const debutMoisPrecedent = moisPrecedent.toISOString().split('T')[0];
-    const finMoisPrecedentFormatted = finMoisPrecedent.toISOString().split('T')[0];
+    const debutMoisPrecedent = formatDateISO(moisPrecedent);
+    const finMoisPrecedentFormatted = formatDateISO(finMoisPrecedent);
     
     const evolutionQuery = `
       SELECT 
