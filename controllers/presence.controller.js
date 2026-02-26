@@ -3763,9 +3763,8 @@ exports.validateAttendanceAdjustment = async (req, res) => {
   }
 }; */
 
-exports.getPresenceDashboard = async (req, res) => {
+/* exports.getPresenceDashboard = async (req, res) => {
   try {
-
     const kpiPromise = query(`
       SELECT
         COUNT(*) AS total,
@@ -3787,7 +3786,6 @@ exports.getPresenceDashboard = async (req, res) => {
         AND u.show_in_presence = 1
     `);
 
-    /* ================= RÉPARTITION PAR STATUT ================= */
     const statutsPromise = query(`
       SELECT 
         p.statut_jour AS label, 
@@ -3799,7 +3797,6 @@ exports.getPresenceDashboard = async (req, res) => {
       GROUP BY p.statut_jour
     `);
 
-    /* ================= ÉVOLUTION 7 DERNIERS JOURS ================= */
     const evolutionPromise = query(`
       SELECT 
         p.date_presence AS date,
@@ -3813,7 +3810,6 @@ exports.getPresenceDashboard = async (req, res) => {
       ORDER BY p.date_presence
     `);
 
-    /* ================= EMPLOYÉS DU JOUR ================= */
     const employesPromise = query(`
       SELECT 
           u.nom,
@@ -3838,7 +3834,6 @@ exports.getPresenceDashboard = async (req, res) => {
           p.heure_entree ASC
     `);
 
-    /* ================= TOP ABSENCES (30 JOURS) ================= */
     const topAbsencesPromise = query(`
       SELECT 
         u.nom,
@@ -3894,9 +3889,252 @@ exports.getPresenceDashboard = async (req, res) => {
       message: 'Erreur chargement dashboard présence'
     });
   }
+}; */
+
+exports.getPresenceDashboard = async (req, res) => {
+  try {
+    const { period, userIds, siteIds, departementIds } = req.query;
+
+    // Fonction utilitaire pour construire les conditions WHERE
+    const buildWhereConditions = (dateField = 'p.date_presence', additionalConditions = []) => {
+      let conditions = ['u.show_in_presence = 1'];
+      
+      // Filtre période
+      if (period) {
+        switch(period) {
+          case 'TODAY':
+            conditions.push(`${dateField} = CURDATE()`);
+            break;
+          case 'WEEK':
+            conditions.push(`${dateField} >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`);
+            break;
+          case 'MONTH':
+            conditions.push(`${dateField} >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`);
+            break;
+          case 'YEAR':
+            conditions.push(`${dateField} >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)`);
+            break;
+          default:
+            conditions.push(`${dateField} = CURDATE()`);
+        }
+      } else {
+        conditions.push(`${dateField} = CURDATE()`);
+      }
+      
+      // Filtre utilisateurs
+      if (userIds && userIds.split(',').length > 0) {
+        const userIdList = userIds.split(',').map(id => parseInt(id)).join(',');
+        conditions.push(`p.id_utilisateur IN (${userIdList})`);
+      }
+      
+      // Filtre sites - via table user_sites
+      if (siteIds && siteIds.split(',').length > 0) {
+        const siteIdList = siteIds.split(',').map(id => parseInt(id)).join(',');
+        conditions.push(`EXISTS (
+          SELECT 1 FROM user_sites us 
+          WHERE us.user_id = p.id_utilisateur 
+          AND us.site_id IN (${siteIdList})
+        )`);
+      }
+      
+      // Filtre départements
+      if (departementIds && departementIds.split(',').length > 0) {
+        const deptIdList = departementIds.split(',').map(id => parseInt(id)).join(',');
+        conditions.push(`u.id_departement IN (${deptIdList})`);
+      }
+      
+      if (additionalConditions.length > 0) {
+        conditions = [...conditions, ...additionalConditions];
+      }
+      
+      return conditions.join(' AND ');
+    };
+
+    // KPI avec filtres - SUPPLEMENTAIRE compté comme présent
+    const kpiPromise = query(`
+      SELECT
+        COUNT(*) AS total,
+        SUM(p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE')) AS presents,
+        SUM(p.statut_jour IN ('ABSENT', 'ABSENCE_JUSTIFIEE')) AS absences_totales,
+        SUM(p.retard_minutes > 0 AND p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE')) AS retards,
+        ROUND(
+          (SUM(p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE')) / NULLIF(COUNT(*), 0)) * 100,
+          2
+        ) AS taux_presence,
+        ROUND(
+          AVG(CASE WHEN p.retard_minutes > 0 AND p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') THEN p.retard_minutes END),
+          2
+        ) AS retard_moyen
+      FROM presences p
+      JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
+      WHERE ${buildWhereConditions()}
+    `);
+
+    // Répartition par statut avec filtres
+    const statutsPromise = query(`
+      SELECT 
+        p.statut_jour AS label, 
+        COUNT(*) AS value
+      FROM presences p
+      JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
+      WHERE ${buildWhereConditions()}
+      GROUP BY p.statut_jour
+    `);
+
+    // Évolution avec filtres - SUPPLEMENTAIRE compté comme présent
+    const evolutionPromise = query(`
+      SELECT 
+        p.date_presence AS date,
+        SUM(p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE')) AS presents,
+        SUM(p.statut_jour IN ('ABSENT', 'ABSENCE_JUSTIFIEE')) AS absents
+      FROM presences p
+      JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
+      WHERE ${buildWhereConditions('p.date_presence')}
+      GROUP BY p.date_presence
+      ORDER BY p.date_presence
+    `);
+
+    // Employés avec filtres
+    const employesPromise = query(`
+      SELECT 
+          u.nom,
+          u.prenom,
+          u.email,
+          u.id_departement,
+          p.statut_jour,
+          p.heure_entree,
+          p.heure_sortie,
+          p.retard_minutes,
+          CASE
+              WHEN p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') AND p.retard_minutes > 0 THEN 'RETARD'
+              WHEN p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') AND p.retard_minutes = 0 THEN 'A_L_HEURE'
+              WHEN p.statut_jour = 'SUPPLEMENTAIRE' THEN 'SUPPLEMENTAIRE'
+              ELSE p.statut_jour
+          END AS statut_affiche,
+          (SELECT GROUP_CONCAT(s.nom_site SEPARATOR ', ')
+           FROM user_sites us
+           JOIN sites s ON s.id_site = us.site_id
+           WHERE us.user_id = u.id_utilisateur) AS sites
+      FROM presences p
+      JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
+      WHERE ${buildWhereConditions()}
+      ORDER BY 
+          CASE WHEN p.heure_entree IS NULL THEN 1 ELSE 0 END,
+          p.heure_entree ASC
+    `);
+
+    // Top absences avec filtres
+    const topAbsencesPromise = query(`
+      SELECT 
+        u.nom,
+        u.prenom,
+        u.email,
+        u.id_departement,
+        COUNT(*) AS total_absences,
+        (SELECT GROUP_CONCAT(s.nom_site SEPARATOR ', ')
+         FROM user_sites us
+         JOIN sites s ON s.id_site = us.site_id
+         WHERE us.user_id = u.id_utilisateur) AS sites
+      FROM presences p
+      JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
+      WHERE p.statut_jour IN ('ABSENT', 'ABSENCE_JUSTIFIEE')
+        AND p.date_presence >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+        AND u.show_in_presence = 1
+        ${userIds ? `AND p.id_utilisateur IN (${userIds.split(',').map(id => parseInt(id)).join(',')})` : ''}
+        ${siteIds ? `AND EXISTS (
+          SELECT 1 FROM user_sites us 
+          WHERE us.user_id = p.id_utilisateur 
+          AND us.site_id IN (${siteIds.split(',').map(id => parseInt(id)).join(',')})
+        )` : ''}
+        ${departementIds ? `AND u.id_departement IN (${departementIds.split(',').map(id => parseInt(id)).join(',')})` : ''}
+      GROUP BY p.id_utilisateur
+      ORDER BY total_absences DESC
+      LIMIT 5
+    `);
+
+    const [
+      kpiRows,
+      statutsRows,
+      evolutionRows,
+      employesRows,
+      topAbsencesRows
+    ] = await Promise.all([
+      kpiPromise,
+      statutsPromise,
+      evolutionPromise,
+      employesPromise,
+      topAbsencesPromise
+    ]);
+
+    // Calculer les tendances si période > 1 jour
+    let trends = null;
+    if (period && period !== 'TODAY') {
+      const trendsPromise = query(`
+        SELECT
+          AVG(presents) AS avg_presents,
+          AVG(absents) AS avg_absents,
+          AVG(retards) AS avg_retards
+        FROM (
+          SELECT 
+            p.date_presence,
+            SUM(p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE')) AS presents,
+            SUM(p.statut_jour IN ('ABSENT', 'ABSENCE_JUSTIFIEE')) AS absents,
+            SUM(p.retard_minutes > 0 AND p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE')) AS retards
+          FROM presences p
+          JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
+          WHERE ${buildWhereConditions('p.date_presence')}
+          GROUP BY p.date_presence
+        ) AS daily_stats
+      `);
+      
+      const trendsData = await trendsPromise;
+      if (trendsData[0]) {
+        trends = {
+          avg_presents: Number(trendsData[0].avg_presents) || 0,
+          avg_absents: Number(trendsData[0].avg_absents) || 0,
+          avg_retards: Number(trendsData[0].avg_retards) || 0
+        };
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        kpi: {
+          total: kpiRows[0]?.total || 0,
+          presents: kpiRows[0]?.presents || 0,
+          absencesTotales: kpiRows[0]?.absences_totales || 0,
+          retards: kpiRows[0]?.retards || 0,
+          tauxPresence: kpiRows[0]?.taux_presence || 0,
+          retardMoyen: kpiRows[0]?.retard_moyen || 0,
+          trends: trends
+        },
+        statuts: statutsRows,
+        evolution: evolutionRows,
+        employes: employesRows,
+        topAbsences: topAbsencesRows
+      },
+      meta: {
+        period: period || 'TODAY',
+        filters_applied: {
+          period: period || 'TODAY',
+          userIds: userIds ? userIds.split(',').length : 0,
+          siteIds: siteIds ? siteIds.split(',').length : 0,
+          departementIds: departementIds ? departementIds.split(',').length : 0
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Dashboard error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur chargement dashboard présence'
+    });
+  }
 };
 
-exports.getPresentDashboardSiteDetail = async (req, res) => {
+/* exports.getPresentDashboardSiteDetail = async (req, res) => {
   try {
     const today = moment().format('YYYY-MM-DD');
 
@@ -3967,6 +4205,281 @@ exports.getPresentDashboardSiteDetail = async (req, res) => {
   } catch (error) {
     console.error('[DASHBOARD] ERROR', error);
     return res.status(500).json({ success: false, message: 'Erreur serveur', error: error.message });
+  }
+}; */
+
+exports.getPresentDashboardSiteDetail = async (req, res) => {
+  try {
+    const { period, userIds, siteIds, departementIds } = req.query;
+    const today = moment().format('YYYY-MM-DD');
+
+    // Construire la condition de date en fonction de la période
+    let dateCondition;
+    if (period) {
+      switch(period) {
+        case 'TODAY':
+          dateCondition = "p.date_presence = CURDATE()";
+          break;
+        case 'WEEK':
+          dateCondition = "p.date_presence >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
+          break;
+        case 'MONTH':
+          dateCondition = "p.date_presence >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
+          break;
+        case 'YEAR':
+          dateCondition = "p.date_presence >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)";
+          break;
+        default:
+          dateCondition = "p.date_presence = CURDATE()";
+      }
+    } else {
+      dateCondition = "p.date_presence = CURDATE()";
+    }
+
+    // Construire les filtres pour les utilisateurs
+    let userFilters = ['u.show_in_presence = 1'];
+    let userJoinConditions = '';
+    
+    if (userIds && userIds.split(',').length > 0) {
+      const userIdList = userIds.split(',').map(id => parseInt(id)).join(',');
+      userFilters.push(`u.id_utilisateur IN (${userIdList})`);
+    }
+    
+    if (departementIds && departementIds.split(',').length > 0) {
+      const deptIdList = departementIds.split(',').map(id => parseInt(id)).join(',');
+      userFilters.push(`u.id_departement IN (${deptIdList})`);
+    }
+    
+    const userWhereClause = userFilters.join(' AND ');
+
+    // Construire le filtre pour les sites
+    let siteFilter = '';
+    if (siteIds && siteIds.split(',').length > 0) {
+      const siteIdList = siteIds.split(',').map(id => parseInt(id)).join(',');
+      siteFilter = `AND us.site_id IN (${siteIdList})`;
+    }
+
+    // 1️⃣ Récupérer tous les sites avec leurs utilisateurs via la table user_sites
+    const sitesWithUsers = await query(`
+      SELECT DISTINCT 
+        s.id_site, 
+        s.nom_site, 
+        u.id_utilisateur as user_id
+      FROM sites s
+      LEFT JOIN user_sites us ON s.id_site = us.site_id
+      LEFT JOIN utilisateur u ON us.user_id = u.id_utilisateur 
+        AND ${userWhereClause}
+      WHERE 1=1
+      ${siteFilter}
+      ORDER BY s.nom_site
+    `);
+
+    // Grouper utilisateurs par site
+    const siteMap = {};
+    sitesWithUsers.forEach(row => {
+      if (!siteMap[row.id_site]) {
+        siteMap[row.id_site] = {
+          site_id: row.id_site,
+          site_name: row.nom_site,
+          users: []
+        };
+      }
+      if (row.user_id) siteMap[row.id_site].users.push(row.user_id);
+    });
+
+    const allUserIds = sitesWithUsers.map(u => u.user_id).filter(Boolean);
+
+    // 2️⃣ Récupérer toutes les présences pour la période avec les filtres
+    const presences = allUserIds.length
+      ? await query(`
+          SELECT 
+            p.id_utilisateur, 
+            us.site_id, 
+            p.statut_jour, 
+            p.retard_minutes,
+            p.date_presence
+          FROM presences p
+          JOIN user_sites us ON us.user_id = p.id_utilisateur
+          JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
+          WHERE p.id_utilisateur IN (${allUserIds.join(',')})
+            AND ${dateCondition}
+            AND u.show_in_presence = 1
+            ${userIds ? `AND p.id_utilisateur IN (${userIds})` : ''}
+            ${departementIds ? `AND u.id_departement IN (${departementIds})` : ''}
+            ${siteIds ? `AND us.site_id IN (${siteIds})` : ''}
+      `)
+      : [];
+
+    // 3️⃣ Construire résultat avec agrégation par site
+    const result = Object.values(siteMap).map(site => {
+      const totalUsers = site.users.length;
+      
+      // Filtrer les présences pour ce site
+      const sitePresences = presences.filter(p => p.site_id === site.site_id);
+
+      // Si on a une période > 1 jour, on agrège différemment
+      if (period && period !== 'TODAY') {
+        // Pour les périodes étendues, on calcule des moyennes
+        const uniqueDays = [...new Set(sitePresences.map(p => {
+          const date = new Date(p.date_presence);
+          return date.toISOString().split('T')[0];
+        }))];
+        const daysCount = uniqueDays.length || 1;
+
+        let totalPresent = 0, totalRetard = 0, totalAbsent = 0, totalJustifie = 0, totalSupplementaire = 0;
+
+        sitePresences.forEach(p => {
+          if (p.statut_jour === 'PRESENT' || p.statut_jour === 'SUPPLEMENTAIRE') {
+            totalPresent++;
+            if (p.retard_minutes > 0) totalRetard++;
+            if (p.statut_jour === 'SUPPLEMENTAIRE') totalSupplementaire++;
+          } else if (p.statut_jour === 'ABSENT') {
+            totalAbsent++;
+          } else if (p.statut_jour === 'ABSENCE_JUSTIFIEE') {
+            totalJustifie++;
+          }
+        });
+
+        // Moyennes par jour
+        const avgPresent = totalPresent / daysCount;
+        const avgRetard = totalRetard / daysCount;
+        const avgAbsent = totalAbsent / daysCount;
+        const avgJustifie = totalJustifie / daysCount;
+        const avgSupplementaire = totalSupplementaire / daysCount;
+        const avgTotalAbsences = (totalAbsent + totalJustifie) / daysCount;
+
+        const presentPct = totalUsers ? ((avgPresent / totalUsers) * 100).toFixed(2) : 0;
+        const retardPct = avgPresent ? ((avgRetard / avgPresent) * 100).toFixed(2) : 0;
+        const absencePct = totalUsers ? ((avgTotalAbsences / totalUsers) * 100).toFixed(2) : 0;
+        const supplementairePct = totalUsers ? ((avgSupplementaire / totalUsers) * 100).toFixed(2) : 0;
+
+        return {
+          site_id: site.site_id,
+          site_name: site.site_name,
+          total_users: totalUsers,
+          period: period,
+          present: { 
+            count: Math.round(avgPresent * 10) / 10,
+            pct: Number(presentPct) 
+          },
+          retard: { 
+            count: Math.round(avgRetard * 10) / 10,
+            pct: Number(retardPct) 
+          },
+          supplementaire: {
+            count: Math.round(avgSupplementaire * 10) / 10,
+            pct: Number(supplementairePct)
+          },
+          absence: { 
+            absent: Math.round(avgAbsent * 10) / 10, 
+            justifie: Math.round(avgJustifie * 10) / 10, 
+            total: Math.round(avgTotalAbsences * 10) / 10,
+            pct: Number(absencePct) 
+          }
+        };
+      } else {
+        // Pour une journée spécifique
+        let presentCount = 0, retardCount = 0, absentCount = 0, justifieCount = 0, supplementaireCount = 0;
+
+        sitePresences.forEach(p => {
+          if (p.statut_jour === 'PRESENT' || p.statut_jour === 'SUPPLEMENTAIRE') {
+            presentCount++;
+            if (p.retard_minutes > 0) retardCount++;
+            if (p.statut_jour === 'SUPPLEMENTAIRE') supplementaireCount++;
+          } else if (p.statut_jour === 'ABSENT') {
+            absentCount++;
+          } else if (p.statut_jour === 'ABSENCE_JUSTIFIEE') {
+            justifieCount++;
+          }
+        });
+
+        const presentPct = totalUsers ? ((presentCount / totalUsers) * 100).toFixed(2) : 0;
+        const retardPct = presentCount ? ((retardCount / presentCount) * 100).toFixed(2) : 0;
+        const absencePct = totalUsers ? (((absentCount + justifieCount) / totalUsers) * 100).toFixed(2) : 0;
+        const supplementairePct = totalUsers ? ((supplementaireCount / totalUsers) * 100).toFixed(2) : 0;
+
+        return {
+          site_id: site.site_id,
+          site_name: site.site_name,
+          total_users: totalUsers,
+          present: { 
+            count: presentCount, 
+            pct: Number(presentPct),
+            details: {
+              normal: presentCount - supplementaireCount,
+              supplementaire: supplementaireCount
+            }
+          },
+          retard: { 
+            count: retardCount, 
+            pct: Number(retardPct) 
+          },
+          supplementaire: {
+            count: supplementaireCount,
+            pct: Number(supplementairePct)
+          },
+          absence: { 
+            absent: absentCount, 
+            justifie: justifieCount, 
+            total: absentCount + justifieCount,
+            pct: Number(absencePct) 
+          }
+        };
+      }
+    });
+
+    // Filtrer les sites sans utilisateurs si nécessaire
+    const filteredResult = result.filter(site => site.total_users > 0);
+
+    // Calculer les totaux globaux
+    const globalTotals = filteredResult.reduce((acc, site) => {
+      if (period && period !== 'TODAY') {
+        acc.total_presents += site.present.count;
+        acc.total_retards += site.retard.count;
+        acc.total_supplementaire += site.supplementaire?.count || 0;
+        acc.total_absences += site.absence.total || site.absence.absent + site.absence.justifie;
+      } else {
+        acc.total_presents += site.present.count;
+        acc.total_retards += site.retard.count;
+        acc.total_supplementaire += site.supplementaire.count;
+        acc.total_absences += site.absence.total;
+      }
+      acc.total_users += site.total_users;
+      return acc;
+    }, { total_presents: 0, total_retards: 0, total_supplementaire: 0, total_absences: 0, total_users: 0 });
+
+    return res.json({ 
+      success: true, 
+      data: filteredResult,
+      summary: {
+        total_users: globalTotals.total_users,
+        total_presents: Math.round(globalTotals.total_presents * 10) / 10,
+        total_retards: Math.round(globalTotals.total_retards * 10) / 10,
+        total_supplementaire: Math.round(globalTotals.total_supplementaire * 10) / 10,
+        total_absences: Math.round(globalTotals.total_absences * 10) / 10,
+        taux_presence_global: globalTotals.total_users ? 
+          Number(((globalTotals.total_presents / globalTotals.total_users) * 100).toFixed(2)) : 0
+      },
+      meta: {
+        period: period || 'TODAY',
+        total_sites: filteredResult.length,
+        total_users: allUserIds.length,
+        filters_applied: {
+          period: period || 'TODAY',
+          userIds: userIds ? userIds.split(',').length : 0,
+          siteIds: siteIds ? siteIds.split(',').length : 0,
+          departementIds: departementIds ? departementIds.split(',').length : 0
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('[DASHBOARD SITE DETAIL] ERROR', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur', 
+      error: error.message 
+    });
   }
 };
 
