@@ -5843,6 +5843,10 @@ exports.getRapportPresenceByDepartement = async (req, res) => {
   }
 };
 
+exports.getAuditLogsPresence = async(req, res) => {
+  
+}
+
 //Terminal
 exports.getTerminal = (req, res) => {
   const q = `
