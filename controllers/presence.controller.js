@@ -4761,7 +4761,7 @@ exports.getDashboardPerformance = async (req, res) => {
     const kpi = kpiResults[0] || {};
     
     // 2. KPIs mois précédent pour évolution
-    const dateDebutMois = new Date(debutMois + 'T00:00:00'); // Ajout du T pour format ISO
+    const dateDebutMois = new Date(debutMois + 'T00:00:00');
     const moisPrecedent = new Date(dateDebutMois.getFullYear(), dateDebutMois.getMonth() - 1, 1);
     const finMoisPrecedent = new Date(dateDebutMois.getFullYear(), dateDebutMois.getMonth(), 0);
     
@@ -5017,6 +5017,7 @@ exports.getDashboardPerformance = async (req, res) => {
     });
   }
 };
+
 
 //Congé
 exports.getConge = async (req, res) => {
@@ -5843,9 +5844,6 @@ exports.getRapportPresenceByDepartement = async (req, res) => {
   }
 };
 
-exports.getAuditLogsPresence = async(req, res) => {
-  
-}
 
 //Terminal
 exports.getTerminal = (req, res) => {
