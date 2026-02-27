@@ -2846,7 +2846,7 @@ exports.getPresentDashboardSiteDetailBySite = async (req, res) => {
   }
 };
 
-// controllers/dashboardController.js
+// Dashboard
 exports.getDashboardStastique = async (req, res) => {
   try {
     const siteId = req.query.site_id || null; // filtrage optionnel par site
@@ -4485,7 +4485,6 @@ exports.deleteUserTerminal = async (req, res) => {
     });
   }
 };
-
 
 const cronDailyAttendance = async () => {
 
