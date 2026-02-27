@@ -3422,7 +3422,6 @@ exports.getDashboardPerformance = async (req, res) => {
   }
 };
 
-
 //Congé
 exports.getConge = async (req, res) => {
   try {
@@ -4086,7 +4085,7 @@ exports.createHoraire = async (req, res) => {
   }
 };
 
-// POST /horaire_user
+//Horaire_user
 exports.postHoraireUser = async (req, res) => {
   const { user_ids, horaire_id } = req.body;
 
