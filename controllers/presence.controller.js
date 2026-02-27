@@ -2313,8 +2313,6 @@ exports.postPresence = async (req, res) => {
       permissions = [],
     } = req.body;
 
-    const actingUserId = req.abac?.user_id || 0;
-
     // 0️⃣ Vérification RBAC
     if (!permissions.includes("attendance.events.approve")) {
       return res.status(403).json({ message: "Permission refusée" });
@@ -2507,177 +2505,6 @@ exports.postPresence = async (req, res) => {
     return res.status(500).json({ message: "Erreur interne du serveur" });
   }
 };
-
-
-/* exports.postPresenceFromHikvision = async (req, res) => {
-  try {
-    const payload = req.body;
-    const user_code =
-      payload.employeeNoString ||
-      payload?.AcsEvent?.employeeNoString ||
-      payload?.AcsEvent?.info?.[0]?.employeeNoString;
-
-    const datetime =
-      payload.time ||
-      payload?.AcsEvent?.time ||
-      payload?.AcsEvent?.info?.[0]?.time;
-
-    const device_sn =
-      payload.device_sn ||
-      payload.deviceSerialNo ||
-      payload?.AcsEvent?.deviceSerialNo ||
-      payload?.AcsEvent?.info?.[0]?.deviceSerialNo;
-
-
-    if (!device_sn || !user_code || !datetime) {
-      return res.status(400).json({
-        message: "device_sn, user_code et datetime requis"
-      });
-    }
-
-    const users = await query(
-      `SELECT id_utilisateur
-       FROM utilisateur
-       WHERE matricule = ?`,
-      [user_code]
-    );
-
-    if (!users.length) {
-      return res.status(404).json({
-        message: "Utilisateur inconnu"
-      });
-    }
-
-    const id_utilisateur = users[0].id_utilisateur;
-    const dateISO = moment(datetime).format("YYYY-MM-DD");
-    const heurePointage = moment(datetime);
-
-    const terminals = await query(
-      `SELECT t.id_terminal, t.site_id, t.device_sn
-       FROM user_terminals ut
-       JOIN terminals t ON ut.terminal_id = t.id_terminal
-       JOIN utilisateur u ON ut.user_id = u.id_utilisateur
-       WHERE u.matricule = ?`,
-      [user_code]
-    );
-
-    if (!terminals.length) {
-      return res.status(403).json({
-        message: "Aucun terminal autorisé pour cet utilisateur"
-      });
-    }
-
-    const terminalAutorise = terminals.find(
-      t => t.device_sn === device_sn
-    );
-
-    if (!terminalAutorise) {
-      return res.status(403).json({
-        message: "Terminal non autorisé pour cet utilisateur"
-      });
-    }
-
-    const presenceRows = await query(
-      `SELECT id_presence, heure_entree, heure_sortie, is_locked
-       FROM presences
-       WHERE id_utilisateur = ?
-         AND date_presence = ?
-       LIMIT 1`,
-      [id_utilisateur, dateISO]
-    );
-
-    const presence = presenceRows.length ? presenceRows[0] : null;
-
-    if (presence?.is_locked) {
-      return res.status(403).json({
-        message: "Présence verrouillée"
-      });
-    }
-
-    const debutTravail = moment(`${dateISO} 08:00:00`);
-    const finTravail   = moment(`${dateISO} 16:00:00`);
-
-    if (!presence) {
-      const retard_minutes = heurePointage.isAfter(debutTravail)
-        ? heurePointage.diff(debutTravail, "minutes")
-        : 0;
-
-      await query(
-        `INSERT INTO presences (
-          id_utilisateur,
-          site_id,
-          date_presence,
-          heure_entree,
-          retard_minutes,
-          source,
-          terminal_id,
-          device_sn
-        ) VALUES (?, ?, ?, ?, ?, 'HIKVISION', ?, ?)`,
-        [
-          id_utilisateur,
-          terminalAutorise.site_id,
-          dateISO,
-          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
-          retard_minutes,
-          terminalAutorise.id_terminal,
-          device_sn
-        ]
-      );
-
-      return res.status(201).json({
-        message: "Entrée enregistrée",
-        retard_minutes
-      });
-    }
-
-    if (
-      presence.heure_entree &&
-      !presence.heure_sortie &&
-      moment(presence.heure_entree).isSame(heurePointage, "minute")
-    ) {
-      return res.status(200).json({
-        message: "Scan déjà pris en compte"
-      });
-    }
-
-    if (!presence.heure_sortie) {
-      let heures_supplementaires = 0;
-
-      if (heurePointage.isAfter(finTravail)) {
-        heures_supplementaires = Number(
-          (heurePointage.diff(finTravail, "minutes") / 60).toFixed(2)
-        );
-      }
-
-      await query(
-        `UPDATE presences
-         SET heure_sortie = ?,
-             heures_supplementaires = ?
-         WHERE id_presence = ?`,
-        [
-          heurePointage.format("YYYY-MM-DD HH:mm:ss"),
-          heures_supplementaires,
-          presence.id_presence
-        ]
-      );
-
-      return res.status(200).json({
-        message: "Sortie enregistrée",
-        heures_supplementaires
-      });
-    }
-
-    return res.status(409).json({
-      message: "Présence déjà complète"
-    });
-
-  } catch (error) {
-    console.error("postPresenceFromHikvision:", error);
-    return res.status(500).json({
-      message: "Erreur interne serveur"
-    });
-  }
-}; */
 
 /* exports.postPresenceFromHikvision = async (req, res) => {
   try {
@@ -3173,7 +3000,6 @@ exports.getAttendanceAdjustment = async (req, res) => {
       values.push(id_utilisateur);
     }
 
-    // 🔹 Filtre mois / année
     if (month && year) {
       where += " AND MONTH(p.date_presence) = ? AND YEAR(p.date_presence) = ?";
       values.push(month, year);
@@ -3760,84 +3586,9 @@ exports.getPresenceDashboard = async (req, res) => {
   }
 };
 
-/* exports.getPresentDashboardSiteDetail = async (req, res) => {
-  try {
-    const today = moment().format('YYYY-MM-DD');
-
-    // 1️⃣ Récupérer tous les sites avec leurs utilisateurs
-    const sitesWithUsers = await query(`
-      SELECT s.id_site, s.nom_site, us.user_id
-      FROM sites s
-      LEFT JOIN user_sites us ON s.id_site = us.site_id
-    `);
-
-    // Grouper utilisateurs par site
-    const siteMap = {};
-    sitesWithUsers.forEach(row => {
-      if (!siteMap[row.id_site]) {
-        siteMap[row.id_site] = {
-          site_id: row.id_site,
-          site_name: row.nom_site,
-          users: []
-        };
-      }
-      if (row.user_id) siteMap[row.id_site].users.push(row.user_id);
-    });
-
-    const allUserIds = sitesWithUsers.map(u => u.user_id).filter(Boolean);
-
-    // 2️⃣ Récupérer toutes les présences du jour pour tous les utilisateurs d'un coup
-    const presences = allUserIds.length
-      ? await query(`
-          SELECT id_utilisateur, site_id, statut_jour, retard_minutes
-          FROM presences
-          WHERE date_presence = ?
-        `, [today])
-      : [];
-
-    // 3️⃣ Construire résultat
-    const result = Object.values(siteMap).map(site => {
-      const totalUsers = site.users.length;
-      const sitePresences = presences.filter(p => p.site_id === site.site_id);
-
-      let presentCount = 0, retardCount = 0, absentCount = 0, justifieCount = 0;
-
-      sitePresences.forEach(p => {
-        if (p.statut_jour === 'PRESENT') {
-          presentCount++;
-          if (p.retard_minutes > 0) retardCount++;
-        } else if (p.statut_jour === 'ABSENT') {
-          absentCount++;
-        } else if (p.statut_jour === 'ABSENCE_JUSTIFIEE') {
-          justifieCount++;
-        }
-      });
-
-      const presentPct = totalUsers ? ((presentCount / totalUsers) * 100).toFixed(2) : 0;
-      const retardPct = presentCount ? ((retardCount / presentCount) * 100).toFixed(2) : 0;
-      const absencePct = totalUsers ? (((absentCount + justifieCount) / totalUsers) * 100).toFixed(2) : 0;
-
-      return {
-        site_id: site.site_id,
-        site_name: site.site_name,
-        total_users: totalUsers,
-        present: { count: presentCount, pct: Number(presentPct) },
-        retard: { count: retardCount, pct: Number(retardPct) },
-        absence: { absent: absentCount, justifie: justifieCount, pct: Number(absencePct) }
-      };
-    });
-
-    return res.json({ success: true, data: result });
-  } catch (error) {
-    console.error('[DASHBOARD] ERROR', error);
-    return res.status(500).json({ success: false, message: 'Erreur serveur', error: error.message });
-  }
-}; */
-
 exports.getPresentDashboardSiteDetail = async (req, res) => {
   try {
     const { period, userIds, siteIds, departementIds } = req.query;
-    const today = moment().format('YYYY-MM-DD');
 
     // Construire la condition de date en fonction de la période
     let dateCondition;
@@ -3864,7 +3615,6 @@ exports.getPresentDashboardSiteDetail = async (req, res) => {
 
     // Construire les filtres pour les utilisateurs
     let userFilters = ['u.show_in_presence = 1'];
-    let userJoinConditions = '';
     
     if (userIds && userIds.split(',').length > 0) {
       const userIdList = userIds.split(',').map(id => parseInt(id)).join(',');
@@ -5961,7 +5711,6 @@ const cronDailyAttendance = async () => {
     console.error('[CRON] ERROR', error);
   }
 };
-
 
 const insertPresence = async (id_utilisateur, site_id, date, statut) => {
 
