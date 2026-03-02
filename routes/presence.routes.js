@@ -4,6 +4,9 @@ const presence = require('./../controllers/presence.controller');
 const { authorize } = require("../midllewares/authorize");
 
 router.get('/', presence.getPresence);
+router.get('/absence_today', presence.getAbsenceToday);
+router.get('/retard_today', presence.getRetardToday);
+
 router.get('/planning', authorize('attendance.events.read'), presence.getPresencePlanning);
 router.get('/month', presence.getMonthlyPresenceReport);
 router.get('/lateEarly', presence.getLateEarlyLeaveReport);
@@ -51,6 +54,7 @@ router.get('/rapport_presense_departement', presence.getRapportPresenceByDeparte
 
 //TERMINAL
 router.get('/terminal', presence.getTerminal);
+router.get('/terminalById', presence.getTerminalById);
 router.post('/terminal', presence.postTerminal);
 
 //USER TERMINAL

@@ -75,6 +75,198 @@ exports.getPresence = (req, res) => {
   }
 };
 
+exports.getAbsenceToday = (req, res) => {
+  try {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const formattedToday = `${year}-${month}-${day}`;
+    
+    const q = `
+      SELECT 
+        p.id_presence, 
+        p.date_presence, 
+        p.heure_entree, 
+        p.heure_sortie, 
+        p.statut_jour,
+        p.retard_minutes,
+        p.heures_supplementaires,
+        p.source,
+        u.id_utilisateur,
+        u.nom, 
+        u.prenom,
+        u.email,
+        s.nom_site,
+        s.id_site
+      FROM presences p
+      INNER JOIN utilisateur u ON p.id_utilisateur = u.id_utilisateur
+      LEFT JOIN sites s ON p.site_id = s.id_site
+      WHERE p.statut_jour IN ('ABSENT', 'ABSENCE_JUSTIFIEE')
+        AND p.date_presence = ?
+      ORDER BY 
+        CASE 
+          WHEN p.statut_jour = 'ABSENT' THEN 1
+          WHEN p.statut_jour = 'ABSENCE_JUSTIFIEE' THEN 2
+        END,
+        u.nom ASC, 
+        u.prenom ASC
+    `;
+
+    db.query(q, [formattedToday], (error, data) => {
+      if (error) {
+        console.error("Erreur SQL:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Erreur lors de la récupération des absences",
+          error: error.message
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        date: formattedToday,
+        count: data.length,
+        absents: data,
+        stats: {
+          non_justifies: data.filter(item => item.statut_jour === 'ABSENT').length,
+          justifies: data.filter(item => item.statut_jour === 'ABSENCE_JUSTIFIEE').length
+        }
+      });
+    });
+
+  } catch (err) {
+    console.error("Erreur serveur:", err);
+    return res.status(500).json({ 
+      success: false,
+      message: "Erreur serveur", 
+      error: err.message 
+    });
+  }
+};
+
+exports.getRetardToday = (req, res) => {
+  try {
+    const q = `
+      SELECT 
+          p.id_presence,
+          p.date_presence,
+          DATE_FORMAT(p.heure_entree, '%H:%i:%s') AS heure_entree,
+          DATE_FORMAT(p.heure_sortie, '%H:%i:%s') AS heure_sortie,
+          p.retard_minutes,
+          p.statut_jour,
+          p.source,
+          u.id_utilisateur,
+          u.nom,
+          u.prenom,
+          u.email,
+          s.nom_site,
+          s.id_site,
+          CASE 
+              WHEN p.retard_minutes <= 5 THEN 'Léger'
+              WHEN p.retard_minutes <= 15 THEN 'Moyen'
+              WHEN p.retard_minutes <= 30 THEN 'Important'
+              ELSE 'Critique'
+          END AS niveau_retard,
+          CASE 
+              WHEN p.retard_minutes <= 5 THEN '#52c41a'  /* Vert */
+              WHEN p.retard_minutes <= 15 THEN '#faad14' /* Orange */
+              WHEN p.retard_minutes <= 30 THEN '#fa8c16' /* Orange foncé */
+              ELSE '#f5222d' /* Rouge */
+          END AS couleur_retard
+      FROM presences p
+      INNER JOIN utilisateur u ON p.id_utilisateur = u.id_utilisateur
+      LEFT JOIN sites s ON p.site_id = s.id_site
+      WHERE p.date_presence = CURDATE()
+          AND p.statut_jour = 'PRESENT'
+          AND p.retard_minutes > 0
+      ORDER BY p.retard_minutes DESC
+    `;
+
+    db.query(q, (error, data) => {
+      if (error) {
+        console.error("Erreur SQL:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Erreur lors de la récupération des retards",
+          error: error.message
+        });
+      }
+
+      // Calcul des statistiques avancées
+      const totalMinutes = data.reduce((acc, curr) => acc + (curr.retard_minutes || 0), 0);
+      
+      const stats = {
+        total_retards: data.length,
+        total_minutes: totalMinutes,
+        moyenne_retard: data.length > 0 ? Math.round(totalMinutes / data.length) : 0,
+        retard_max: data.length > 0 ? Math.max(...data.map(d => d.retard_minutes || 0)) : 0,
+        retard_min: data.length > 0 ? Math.min(...data.map(d => d.retard_minutes || 0)) : 0,
+        
+        // Répartition par niveau
+        par_niveau: {
+          leger: data.filter(d => d.retard_minutes <= 5).length,
+          moyen: data.filter(d => d.retard_minutes > 5 && d.retard_minutes <= 15).length,
+          important: data.filter(d => d.retard_minutes > 15 && d.retard_minutes <= 30).length,
+          critique: data.filter(d => d.retard_minutes > 30).length
+        },
+        
+        // Pourcentage par niveau
+        pourcentage_niveau: {
+          leger: data.length > 0 ? Math.round((data.filter(d => d.retard_minutes <= 5).length / data.length) * 100) : 0,
+          moyen: data.length > 0 ? Math.round((data.filter(d => d.retard_minutes > 5 && d.retard_minutes <= 15).length / data.length) * 100) : 0,
+          important: data.length > 0 ? Math.round((data.filter(d => d.retard_minutes > 15 && d.retard_minutes <= 30).length / data.length) * 100) : 0,
+          critique: data.length > 0 ? Math.round((data.filter(d => d.retard_minutes > 30).length / data.length) * 100) : 0
+        },
+        
+        // Statistiques par site
+        par_site: data.reduce((acc, curr) => {
+          const site = curr.nom_site || 'Non assigné';
+          if (!acc[site]) {
+            acc[site] = {
+              count: 0,
+              total_minutes: 0,
+              moyenne: 0
+            };
+          }
+          acc[site].count++;
+          acc[site].total_minutes += curr.retard_minutes || 0;
+          acc[site].moyenne = Math.round(acc[site].total_minutes / acc[site].count);
+          return acc;
+        }, {})
+      };
+
+      // Top 5 des plus grands retards
+      const topRetards = [...data]
+        .sort((a, b) => b.retard_minutes - a.retard_minutes)
+        .slice(0, 5)
+        .map(d => ({
+          nom: `${d.prenom} ${d.nom}`,
+          minutes: d.retard_minutes,
+          site: d.nom_site
+        }));
+
+      return res.status(200).json({
+        success: true,
+        date: new Date().toLocaleDateString('fr-FR'),
+        date_iso: new Date().toISOString().split('T')[0],
+        count: data.length,
+        stats: stats,
+        top_retards: topRetards,
+        retards: data
+      });
+    });
+
+  } catch (err) {
+    console.error("Erreur serveur:", err);
+    return res.status(500).json({ 
+      success: false,
+      message: "Erreur serveur", 
+      error: err.message 
+    });
+  }
+};
+
 /* exports.getPresencePlanning = async (req, res) => {
   try {
     const { month, year, user_id: queryUserId } = req.query;
@@ -548,13 +740,14 @@ exports.getMonthlyPresenceReport = async (req, res) => {
     /* ===================== 1️⃣ UTILISATEURS ===================== */
     let usersSql = `SELECT u.id_utilisateur, u.nom, u.prenom 
                     FROM utilisateur u 
-                    WHERE u.show_in_presence = 1`; // 🔹 uniquement visibles en présence
+                    WHERE u.show_in_presence = 1`;
     const usersParams = [];
 
     if (site) {
-      usersSql += ` 
-        JOIN user_sites us ON us.user_id = u.id_utilisateur 
-        WHERE u.show_in_presence = 1 AND us.site_id = ?`; 
+      usersSql = `SELECT u.id_utilisateur, u.nom, u.prenom 
+                  FROM utilisateur u 
+                  JOIN user_sites us ON us.user_id = u.id_utilisateur 
+                  WHERE u.show_in_presence = 1 AND us.site_id = ?`; 
       usersParams.push(site);
     }
 
@@ -584,7 +777,8 @@ exports.getMonthlyPresenceReport = async (req, res) => {
 
     /* ===================== 3️⃣ PRÉSENCES ===================== */
     let presencesSql = `SELECT p.id_utilisateur, p.date_presence, p.heure_entree,
-                             p.heure_sortie, p.heures_supplementaires, p.statut_jour
+                             p.heure_sortie, p.heures_supplementaires, p.statut_jour,
+                             p.retard_minutes
                         FROM presences p`;
 
     const presParams = [];
@@ -648,7 +842,7 @@ exports.getMonthlyPresenceReport = async (req, res) => {
           congesPayes = 0,
           joursFerie = 0,
           nonTravaille = 0,
-          joursSupplementaires = 0; // NOUVELLE VARIABLE
+          joursSupplementaires = 0;
 
       const presMap = {};
 
@@ -674,18 +868,49 @@ exports.getMonthlyPresenceReport = async (req, res) => {
           nonTravaille++;
         } else if (presencesMap.has(pKey)) {
           const p = presencesMap.get(pKey);
-          statut = p.statut || "PRESENT";
+          statut = p.statut_jour || "PRESENT";
+          
           if (statut === "PRESENT") joursTravailles++;
-          if (statut === "SUPPLEMENTAIRE") heuresSupp += Number(p.heures_supplementaires || 0);
-          // Calcul retard
-          if (p.heure_entree && horaireJour) {
-            const heureEntree = moment(`${dateStr} ${p.heure_entree}`);
-            const heureDebut = moment(`${dateStr} ${horaireJour.heure_debut}`)
-                                .add(horaireJour.tolerance_retard || 0, "minutes");
-            if (heureEntree.isAfter(heureDebut)) {
-              retards += heureEntree.diff(heureDebut, "minutes");
+          
+          // Calcul des heures supplémentaires
+          if (p.heures_supplementaires) {
+            heuresSupp += Number(p.heures_supplementaires);
+          }
+          
+          // CORRECTION: Calcul des retards avec le champ DATETIME
+          if (p.heure_entree && horaireJour && horaireJour.heure_debut) {
+            try {
+              // p.heure_entree est déjà un DATETIME complet (ex: "2026-02-27 09:15:00")
+              const heureEntree = moment(p.heure_entree);
+              
+              // Construire l'heure de début prévue à partir de la date et de l'heure théorique
+              const [heures, minutes] = horaireJour.heure_debut.split(':').map(Number);
+              const heureDebut = moment(dateStr)
+                .hour(heures)
+                .minute(minutes)
+                .second(0)
+                .add(horaireJour.tolerance_retard || 0, "minutes");
+              
+              // Calculer le retard si l'heure d'entrée est après l'heure prévue
+              if (heureEntree.isValid() && heureDebut.isValid() && heureEntree.isAfter(heureDebut)) {
+                const retard = heureEntree.diff(heureDebut, "minutes");
+                if (retard > 0) {
+                  retards += retard;
+                }
+              }
+            } catch (error) {
+              console.error(`Erreur calcul retard pour ${u.nom} le ${dateStr}:`, error);
             }
           }
+          
+          // Alternative: Utiliser directement retard_minutes si disponible
+          // Décommentez cette partie si vous préférez utiliser la colonne retard_minutes
+          /*
+          if (p.retard_minutes && p.retard_minutes > 0) {
+            retards += p.retard_minutes;
+          }
+          */
+          
         } else if (isConge) {
           statut = "ABSENCE_JUSTIFIEE";
           congesPayes++;
@@ -697,17 +922,9 @@ exports.getMonthlyPresenceReport = async (req, res) => {
           absences++;
         }
 
-        // NOUVELLE LOGIQUE : Compter les jours supplémentaires
-        // Un jour est considéré comme supplémentaire si :
-        // 1. C'est un jour non travaillé (pas d'horaire) ET
-        // 2. L'utilisateur a pointé ce jour (présence existe)
+        // Vérifier si c'est un jour supplémentaire (présence un jour non travaillé)
         if (!isJourTravail && presencesMap.has(pKey)) {
           joursSupplementaires++;
-          // Optionnel : Ajouter aussi les heures supplémentaires si présentes
-          const p = presencesMap.get(pKey);
-          if (p.heures_supplementaires) {
-            heuresSupp += Number(p.heures_supplementaires);
-          }
         }
 
         presMap[dateStr] = presencesMap.get(pKey) || { statut };
@@ -720,8 +937,8 @@ exports.getMonthlyPresenceReport = async (req, res) => {
         joursPrestation,
         joursTravailles,
         absences,
-        retards,
-        heuresSupp,
+        retards: Math.round(retards), // Arrondir pour éviter les décimales
+        heuresSupp: Number(heuresSupp.toFixed(2)), // Formater à 2 décimales
         congesPayes,
         joursFerie,
         nonTravaille,
@@ -4258,6 +4475,29 @@ exports.getTerminal = (req, res) => {
   `;
 
   db.query(q, (error, data) => {
+    if (error) {
+      console.error(error);
+      return res.status(500).json({
+        message: "Erreur lors de la récupération des absences"
+      });
+    }
+    return res.status(200).json(data);
+  });
+};
+
+exports.getTerminalById = (req, res) => {
+  const { id_terminal } = req.query;
+  console.log(id_terminal)
+
+  const q = `
+    SELECT 
+      t.*, s.nom_site
+    FROM terminals t
+    LEFT JOIN sites s ON t.site_id = s.id_site
+    WHERE t.id_terminal = ?
+  `;
+
+  db.query(q, [id_terminal], (error, data) => {
     if (error) {
       console.error(error);
       return res.status(500).json({
