@@ -4589,6 +4589,82 @@ exports.postTerminal = async (req, res) => {
   }
 };
 
+exports.putTerminal = async (req, res) => {
+  const {
+    site_id,
+    name,
+    location_zone,
+    device_model,
+    device_sn,
+    ip_address,
+    port = 80,
+    usage_mode = "ATTENDANCE",
+    id_terminal
+  } = req.body;
+
+  // Validation de l'ID du terminal
+  if (!id_terminal || isNaN(id_terminal)) {
+    return res.status(400).json({ error: "ID de terminal invalide" });
+  }
+
+  try {
+    const q = `
+      UPDATE terminals
+      SET
+        site_id = ?,
+        name = ?,
+        location_zone = ?,
+        device_model = ?,
+        device_sn = ?,
+        ip_address = ?,
+        port = ?,
+        usage_mode = ?
+      WHERE id_terminal = ?
+    `;
+    
+    const values = [
+      site_id,
+      name,
+      location_zone,
+      device_model,
+      device_sn,
+      ip_address,
+      port,  // Correction: ne pas réaffecter la valeur
+      usage_mode,
+      id_terminal
+    ];
+
+    // Promisification de la requête pour utiliser async/await
+    const result = await new Promise((resolve, reject) => {
+      db.query(q, values, (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      });
+    });
+
+    // Vérification si l'enregistrement a été mis à jour
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Terminal non trouvé' });
+    }
+
+    // Succès
+    return res.status(200).json({ 
+      message: 'Terminal mis à jour avec succès',
+      affectedRows: result.affectedRows 
+    });
+
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du terminal :", error);
+    return res.status(500).json({ 
+      error: 'Échec de la mise à jour du terminal',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 //User Terminal
 exports.getUserTerminal = (req, res) => {
   const q = `
