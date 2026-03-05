@@ -240,7 +240,7 @@ async function hikvisionRequest(terminal, credentials, payload) {
   const uri = "/ISAPI/AccessControl/AcsEvent";
   const path = `${uri}?format=json`;
   const jsonBody = JSON.stringify(payload);
-
+                                       
   const makeRequest = (auth = null) => new Promise((resolve, reject) => {
     const req = protocol.request({
       hostname: terminal.ip_address,
