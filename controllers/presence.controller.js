@@ -508,13 +508,13 @@ exports.getPresencePlanning = async (req, res) => {
     }
 
     // 🔹 Charger utilisateurs selon rôle
-        let usersQuery = `SELECT DISTINCT u.id_utilisateur, u.nom, u.prenom, u.id_departement
-                          FROM utilisateur u`;
-        const usersValues = [];
-        const userWhere = [];
+    let usersQuery = `SELECT DISTINCT u.id_utilisateur, u.nom, u.prenom, u.id_departement
+                        FROM utilisateur u`;
+    const usersValues = [];
+    const userWhere = [];
 
-        // Filtrer uniquement les utilisateurs activés pour la présence
-        userWhere.push("u.show_in_presence = 1");
+    // Filtrer uniquement les utilisateurs activés pour la présence
+    userWhere.push("u.show_in_presence = 1");
         
         if (role === "Owner" || role === "Employé") {
           if (!queryUserId) {
@@ -544,7 +544,7 @@ exports.getPresencePlanning = async (req, res) => {
         }
         
         if (userWhere.length) {
-          usersQuery += " WHERE " + userWhere.join(" AND "); // ✅ utiliser AND pour combiner
+          usersQuery += " WHERE " + userWhere.join(" AND ");
         }
 
     const users = await query(usersQuery, usersValues);
