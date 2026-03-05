@@ -56,6 +56,7 @@ router.get('/rapport_presense_departement', presence.getRapportPresenceByDeparte
 router.get('/terminal', presence.getTerminal);
 router.get('/terminalById', presence.getTerminalById);
 router.post('/terminal', presence.postTerminal);
+router.put('/terminal', presence.putTerminal)
 
 //USER TERMINAL
 router.get('/user-terminal', presence.getUserTerminal);

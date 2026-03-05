@@ -499,7 +499,6 @@ exports.getPresencePlanning = async (req, res) => {
     const lastDay = new Date(year, month, 0).getDate();
     const fin = `${year}-${monthPadded}-${String(lastDay).padStart(2, "0")}`;
 
-    // 🔹 Déterminer l'utilisateur ciblé
     let userId = abacUserId;
     if (role === "Owner" || role === "Employé") {
       if (!queryUserId) {
@@ -547,7 +546,6 @@ exports.getPresencePlanning = async (req, res) => {
         if (userWhere.length) {
           usersQuery += " WHERE " + userWhere.join(" AND "); // ✅ utiliser AND pour combiner
         }
-
 
     const users = await query(usersQuery, usersValues);
     if (!users.length) {
