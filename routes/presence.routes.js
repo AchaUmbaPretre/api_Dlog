@@ -11,7 +11,15 @@ router.get('/planning', authorize('attendance.events.read'), presence.getPresenc
 router.get('/month', presence.getMonthlyPresenceReport);
 router.get('/lateEarly', presence.getLateEarlyLeaveReport);
 router.get('/hrglobal', presence.getHRGlobalReport);
+
+//Routes Mobile
 router.get('/presenceById', presence.getPresenceById);
+router.get('/hebdomadaireById', presence.getHebdomadaireById);
+router.get('/historiqueById', presence.getHistoriqueById);
+router.get('/rapportPresenceById', presence.getRapportPresenceById);
+router.get('/activitesRecentes', presence.getActivitesRecentes);
+router.get('/semainePresenceById', presence.getSemainePresence);
+
 router.post('/', presence.postPresence);
 router.post('/hikvision', presence.postPresenceFromHikvision);
 

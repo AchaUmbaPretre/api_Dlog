@@ -5,6 +5,7 @@ const util = require("util");
 const query = util.promisify(db.query).bind(db);
 const { encrypt } = require("../utils/encrypt.js");
 const { getSiteColor } = require("../utils/getSiteColor.js");
+const { getPeriodLabel } = require("../utils/dateUtils.js");
 const WORK_DAY_HOURS = 8;
 const HALF_DAY_HOURS = 4;
 const INTERVAL_MS = 12 * 60 * 60 * 1000; // toutes les 12 heures
@@ -1174,6 +1175,7 @@ exports.getHRGlobalReport = async (req, res) => {
   }
 };
 
+//Partie mobile
 exports.getPresenceById = (req, res) => {
     const { id_utilisateur } = req.query;
 
@@ -1194,6 +1196,768 @@ exports.getPresenceById = (req, res) => {
         return res.status(200).json(data);
     });
 };
+
+exports.getHebdomadaireById = (req, res) => {
+  const { id } = req.query;
+
+  const query = `
+SELECT 
+    COALESCE(SUM(p.retard_minutes),0) AS retard,
+    COALESCE(SUM(p.heures_supplementaires),0) AS supplementaires,
+
+    -- heures réellement travaillées
+    COALESCE(
+        SUM(TIMESTAMPDIFF(MINUTE, p.heure_entree, p.heure_sortie))/60
+    ,0) AS objectifAtteint,
+
+    -- objectif hebdomadaire depuis l'horaire
+    (
+        SELECT 
+            SUM(TIMESTAMPDIFF(MINUTE, hd.heure_debut, hd.heure_fin))/60
+        FROM horaire_detail hd
+        JOIN horaire_user hu ON hu.horaire_id = hd.horaire_id
+        WHERE hu.user_id = ?
+        AND (hu.date_fin IS NULL OR hu.date_fin >= CURDATE())
+    ) AS objectif
+
+FROM presences p
+WHERE p.id_utilisateur = ?
+AND YEARWEEK(p.date_presence,1) = YEARWEEK(CURDATE(),1)
+`;
+
+  db.query(query, [id, id], (err, results) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({
+        success: false,
+        message: "Erreur serveur"
+      });
+    }
+
+    const data = results[0] || {};
+
+    res.json({
+      retard: Number(data.retard) || 0,
+      supplementaires: Number(data.supplementaires) || 0,
+      objectif: Number(data.objectif) || 35,
+      objectifAtteint: Number(data.objectifAtteint) || 0
+    });
+  });
+};
+
+exports.getHistoriqueById = (req, res) => {
+  const { userId, startDate, endDate, page = 1, limit = 20, status } = req.query;
+  const offset = (page - 1) * limit;
+
+  const whereConditions = ['p.id_utilisateur = ?'];
+  const params = [userId];
+
+  if (startDate) {
+    whereConditions.push('p.date_presence >= ?');
+    params.push(startDate);
+  }
+
+  if (endDate) {
+    whereConditions.push('p.date_presence <= ?');
+    params.push(endDate);
+  }
+
+  if (status) {
+    const statusList = status.split(',');
+    whereConditions.push(`p.statut_jour IN (${statusList.map(() => '?').join(',')})`);
+    params.push(...statusList);
+  }
+
+  const whereClause = whereConditions.length > 0 
+    ? 'WHERE ' + whereConditions.join(' AND ')
+    : '';
+
+  const dataQuery = `
+    SELECT 
+      p.id_presence as id,
+      p.date_presence as date,
+      DATE_FORMAT(p.heure_entree, '%H:%i') as heure_entree,
+      DATE_FORMAT(p.heure_sortie, '%H:%i') as heure_sortie,
+      p.retard_minutes,
+      CAST(p.heures_supplementaires AS DECIMAL(5,2)) as heures_supplementaires,
+      p.statut_jour as statut,
+      p.source,
+      p.is_locked,
+      
+      -- UNIQUEMENT le nom du site
+      COALESCE(s.nom_site, t.name, 'Site inconnu') as site_name,
+      
+      -- Informations utilisateur minimales
+      u.nom as user_nom,
+      u.prenom as user_prenom,
+
+      -- Calculs supplémentaires
+      CASE 
+        WHEN p.heure_entree IS NOT NULL AND p.heure_sortie IS NOT NULL 
+        THEN TIMESTAMPDIFF(HOUR, p.heure_entree, p.heure_sortie)
+        ELSE 0
+      END as heures_travaillees
+
+    FROM presences p
+    LEFT JOIN utilisateur u ON u.id_utilisateur = p.id_utilisateur
+    LEFT JOIN terminals t ON t.id_terminal = p.terminal_id
+    LEFT JOIN sites s ON s.id_site = p.site_id
+    
+    ${whereClause}
+    
+    ORDER BY p.date_presence DESC, p.heure_entree DESC
+    
+    LIMIT ? OFFSET ?
+  `;
+
+  // Ajouter les paramètres de pagination
+  const dataParams = [...params, parseInt(limit), parseInt(offset)];
+
+  // Requête pour les statistiques globales (simplifiée aussi)
+  const statsQuery = `
+    SELECT 
+      COUNT(DISTINCT p.date_presence) as total_jours,
+      
+      -- Présents (inclut PRESENT, SUPPLEMENTAIRE, et JOUR_NON_TRAVAILLE avec heures sup)
+      SUM(CASE 
+        WHEN p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') 
+          OR (p.statut_jour = 'JOUR_NON_TRAVAILLE' AND p.heures_supplementaires > 0) 
+        THEN 1 ELSE 0 
+      END) as total_presents,
+      
+      -- Absents (UNIQUEMENT le statut ABSENT)
+      SUM(CASE 
+        WHEN p.statut_jour = 'ABSENT' THEN 1 ELSE 0 
+      END) as total_absents,
+      
+      -- Retards
+      SUM(CASE 
+        WHEN p.retard_minutes > 0 THEN 1 ELSE 0 
+      END) as total_retards,
+      
+      -- Jours non travaillés (sans heures)
+      SUM(CASE 
+        WHEN p.statut_jour = 'JOUR_NON_TRAVAILLE' AND p.heures_supplementaires = 0 THEN 1 ELSE 0 
+      END) as total_non_travailles,
+      
+      -- Jours fériés
+      SUM(CASE 
+        WHEN p.statut_jour = 'JOUR_FERIE' THEN 1 ELSE 0 
+      END) as total_feries,
+      
+      -- Absences justifiées
+      SUM(CASE 
+        WHEN p.statut_jour = 'ABSENCE_JUSTIFIEE' THEN 1 ELSE 0 
+      END) as total_justifies,
+      
+      SUM(p.heures_supplementaires) as total_heures_supp,
+      
+      AVG(
+        CASE 
+          WHEN p.heure_entree IS NOT NULL AND p.heure_sortie IS NOT NULL 
+          THEN TIMESTAMPDIFF(HOUR, p.heure_entree, p.heure_sortie)
+          ELSE 0
+        END
+      ) as moyenne_heures,
+      
+      SUM(p.retard_minutes) as total_retard_minutes,
+      
+      -- Dernière présence
+      MAX(p.date_presence) as derniere_presence
+
+    FROM presences p
+    WHERE p.id_utilisateur = ?
+      ${startDate ? 'AND p.date_presence >= ?' : ''}
+      ${endDate ? 'AND p.date_presence <= ?' : ''}
+  `;
+
+  const statsParams = [userId];
+  if (startDate) statsParams.push(startDate);
+  if (endDate) statsParams.push(endDate);
+
+  // Requête pour le comptage total (pagination)
+  const countQuery = `
+    SELECT COUNT(*) as total
+    FROM presences p
+    ${whereClause}
+  `;
+
+  // Exécuter les requêtes
+  Promise.all([
+    new Promise((resolve, reject) => {
+      db.query(dataQuery, dataParams, (err, results) => {
+        if (err) reject(err);
+        else resolve(results);
+      });
+    }),
+    new Promise((resolve, reject) => {
+      db.query(statsQuery, statsParams, (err, results) => {
+        if (err) reject(err);
+        else resolve(results[0]);
+      });
+    }),
+    new Promise((resolve, reject) => {
+      db.query(countQuery, params, (err, results) => {
+        if (err) reject(err);
+        else resolve(results[0]?.total || 0);
+      });
+    })
+  ])
+  .then(([historique, stats, total]) => {
+    res.json({
+      success: true,
+      data: {
+        historique: historique.map(row => ({
+          id: row.id,
+          date: row.date,
+          heure_entree: row.heure_entree,
+          heure_sortie: row.heure_sortie,
+          retard_minutes: parseInt(row.retard_minutes) || 0,
+          heures_supplementaires: parseFloat(row.heures_supplementaires) || 0,
+          statut: row.statut,
+          source: row.source,
+          is_locked: row.is_locked === 1,
+          
+          site: row.site_name,
+          
+          // Détails supplémentaires minimaux
+          details: {
+            heures_travaillees: row.heures_travaillees,
+            utilisateur: row.user_nom ? `${row.user_prenom || ''} ${row.user_nom}`.trim() : null
+          }
+        })),
+        
+        stats: {
+        total_jours: parseInt(stats.total_jours) || 0,
+        total_presents: parseInt(stats.total_presents) || 0,
+        total_absents: parseInt(stats.total_absents) || 0,
+        total_retards: parseInt(stats.total_retards) || 0,
+        total_non_travailles: parseInt(stats.total_non_travailles) || 0, // ← NOUVEAU
+        total_feries: parseInt(stats.total_feries) || 0,                 // ← NOUVEAU
+        total_justifies: parseInt(stats.total_justifies) || 0,           // ← NOUVEAU
+        total_heures_supp: parseFloat(stats.total_heures_supp) || 0,
+        moyenne_heures: parseFloat(stats.moyenne_heures) || 0,
+        total_retard_minutes: parseInt(stats.total_retard_minutes) || 0,
+        objectif_hebdo: 35,
+        objectif_atteint: parseFloat(stats.total_heures_supp) || 0,
+        derniere_presence: stats.derniere_presence,
+        
+        repartition: {
+          present: parseInt(stats.count_present) || 0,
+          absent: parseInt(stats.count_absent) || 0,
+          justifie: parseInt(stats.count_justifie) || 0,
+          ferie: parseInt(stats.count_ferie) || 0,
+          non_travaille: parseInt(stats.count_non_travaille) || 0,
+          supplementaire: parseInt(stats.count_supplementaire) || 0
+        }
+      }
+      },
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  })
+  .catch(error => {
+    console.error('Erreur:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur lors de la récupération de l'historique"
+    });
+  });
+};
+
+exports.getRapportPresenceById = (req, res) => {
+  const { userId, period = 'month', startDate, endDate, year, month } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({
+      success: false,
+      message: "L'ID utilisateur est requis"
+    });
+  }
+
+  // Déterminer les dates selon la période
+  let dateStart, dateEnd;
+  const now = new Date();
+
+  if (period === 'custom' && startDate && endDate) {
+    dateStart = startDate;
+    dateEnd = endDate;
+  } else if (period === 'day') {
+    dateStart = now.toISOString().split('T')[0];
+    dateEnd = dateStart;
+  } else if (period === 'week') {
+    const firstDay = new Date(now.setDate(now.getDate() - now.getDay()));
+    const lastDay = new Date(now.setDate(now.getDate() - now.getDay() + 6));
+    dateStart = firstDay.toISOString().split('T')[0];
+    dateEnd = lastDay.toISOString().split('T')[0];
+  } else if (period === 'month') {
+    const selectedMonth = month || now.getMonth() + 1;
+    const selectedYear = year || now.getFullYear();
+    dateStart = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+    const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+    dateEnd = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${lastDay}`;
+  } else if (period === 'quarter') {
+    const quarter = Math.floor((now.getMonth()) / 3) + 1;
+    const startMonth = (quarter - 1) * 3 + 1;
+    const endMonth = quarter * 3;
+    dateStart = `${now.getFullYear()}-${String(startMonth).padStart(2, '0')}-01`;
+    const lastDay = new Date(now.getFullYear(), endMonth, 0).getDate();
+    dateEnd = `${now.getFullYear()}-${String(endMonth).padStart(2, '0')}-${lastDay}`;
+  } else if (period === 'year') {
+    dateStart = `${year || now.getFullYear()}-01-01`;
+    dateEnd = `${year || now.getFullYear()}-12-31`;
+  }
+
+  // Requête pour le résumé (ReportSummaryCards)
+  const summaryQuery = `
+    SELECT 
+      COUNT(DISTINCT p.date_presence) as total_jours,
+      
+      SUM(CASE 
+        WHEN p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') 
+          OR (p.heure_entree IS NOT NULL) 
+        THEN 1 ELSE 0 
+      END) as total_presents,
+      
+      SUM(CASE 
+        WHEN p.statut_jour = 'ABSENT' THEN 1 ELSE 0 
+      END) as total_absents,
+      
+      SUM(CASE 
+        WHEN p.retard_minutes > 0 THEN 1 ELSE 0 
+      END) as total_retards,
+      
+      SUM(p.heures_supplementaires) as total_heures_supp,
+      
+      SUM(p.retard_minutes) as total_retard_minutes,
+      
+      AVG(
+        CASE 
+          WHEN p.heure_entree IS NOT NULL AND p.heure_sortie IS NOT NULL 
+          THEN TIMESTAMPDIFF(HOUR, p.heure_entree, p.heure_sortie)
+          ELSE 0
+        END
+      ) as moyenne_heures,
+      
+      ROUND(
+        (SUM(CASE 
+          WHEN p.statut_jour IN ('PRESENT', 'SUPPLEMENTAIRE') 
+            OR p.heure_entree IS NOT NULL 
+          THEN 1 ELSE 0 
+        END) / COUNT(DISTINCT p.date_presence)) * 100
+      ) as taux_presence,
+      
+      SUM(CASE 
+        WHEN p.statut_jour = 'JOUR_NON_TRAVAILLE' THEN 1 ELSE 0 
+      END) as total_non_travailles,
+      
+      SUM(CASE 
+        WHEN p.statut_jour = 'JOUR_FERIE' THEN 1 ELSE 0 
+      END) as total_feries,
+      
+      SUM(CASE 
+        WHEN p.statut_jour = 'ABSENCE_JUSTIFIEE' THEN 1 ELSE 0 
+      END) as total_justifies
+
+    FROM presences p
+    WHERE p.id_utilisateur = ?
+      AND p.date_presence BETWEEN ? AND ?
+  `;
+
+  // Requête pour les données du graphique (ReportChart)
+  const chartQuery = `
+    SELECT 
+      p.date_presence as date,
+      SUM(CASE WHEN p.heure_entree IS NOT NULL THEN 1 ELSE 0 END) as presents,
+      SUM(CASE WHEN p.statut_jour = 'ABSENT' THEN 1 ELSE 0 END) as absents,
+      SUM(CASE WHEN p.retard_minutes > 0 THEN 1 ELSE 0 END) as retards,
+      SUM(p.heures_supplementaires) as heures_supp
+    FROM presences p
+    WHERE p.id_utilisateur = ?
+      AND p.date_presence BETWEEN ? AND ?
+    GROUP BY p.date_presence
+    ORDER BY p.date_presence ASC
+  `;
+
+  // Requête pour le tableau détaillé (ReportStatsTable)
+  const tableQuery = `
+    SELECT 
+      p.id_presence as id,
+      p.date_presence as date,
+      SUM(CASE WHEN p.heure_entree IS NOT NULL THEN 1 ELSE 0 END) as present,
+      SUM(CASE WHEN p.statut_jour = 'ABSENT' THEN 1 ELSE 0 END) as absent,
+      SUM(CASE WHEN p.retard_minutes > 0 THEN 1 ELSE 0 END) as retard,
+      SUM(CASE WHEN p.statut_jour = 'CONGE' THEN 1 ELSE 0 END) as conge,
+      SUM(CASE WHEN p.statut_jour = 'MISSION' THEN 1 ELSE 0 END) as mission,
+      SUM(CASE WHEN p.statut_jour = 'MALADIE' THEN 1 ELSE 0 END) as maladie
+    FROM presences p
+    WHERE p.id_utilisateur = ?
+      AND p.date_presence BETWEEN ? AND ?
+    GROUP BY p.date_presence, p.id_presence
+    ORDER BY p.date_presence DESC
+    LIMIT 30
+  `;
+
+  const params = [userId, dateStart, dateEnd];
+
+  // Exécuter toutes les requêtes en parallèle
+  Promise.all([
+    new Promise((resolve, reject) => {
+      db.query(summaryQuery, params, (err, results) => {
+        if (err) reject(err);
+        else resolve(results[0] || {});
+      });
+    }),
+    new Promise((resolve, reject) => {
+      db.query(chartQuery, params, (err, results) => {
+        if (err) reject(err);
+        else resolve(results || []);
+      });
+    }),
+    new Promise((resolve, reject) => {
+      db.query(tableQuery, params, (err, results) => {
+        if (err) reject(err);
+        else resolve(results || []);
+      });
+    })
+  ])
+  .then(([summary, chartData, tableData]) => {
+    
+    // Formater les données pour le graphique (compatible ReportChart)
+    const chartLabels = chartData.map(d => 
+      new Date(d.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+    );
+
+    // ✅ STRUCTURE SANS COLORS (les couleurs seront définies côté frontend)
+    const formattedChartData = {
+      labels: chartLabels,
+      datasets: [
+        {
+          data: chartData.map(d => d.presents || 0),
+          label: 'Présents'
+        },
+        {
+          data: chartData.map(d => d.absents || 0),
+          label: 'Absents'
+        },
+        {
+          data: chartData.map(d => d.retards || 0),
+          label: 'Retards'
+        }
+      ]
+    };
+
+    // ✅ Structure compatible avec votre composant ReportSummaryCards
+    const formattedSummary = {
+      total_presents: parseInt(summary.total_presents) || 0,
+      total_absents: parseInt(summary.total_absents) || 0,
+      total_retards: parseInt(summary.total_retards) || 0,
+      total_heures_supp: parseFloat(summary.total_heures_supp) || 0,
+      total_retard_minutes: parseInt(summary.total_retard_minutes) || 0,
+      moyenne_heures: parseFloat(summary.moyenne_heures) || 0,
+      taux_presence: parseInt(summary.taux_presence) || 0,
+      total_non_travailles: parseInt(summary.total_non_travailles) || 0,
+      total_feries: parseInt(summary.total_feries) || 0,
+      total_justifies: parseInt(summary.total_justifies) || 0
+    };
+
+    // ✅ Structure compatible avec votre composant ReportStatsTable
+    const formattedTableData = tableData.map(row => ({
+      id: row.id,
+      date: row.date,
+      present: row.present || 0,
+      absent: row.absent || 0,
+      retard: row.retard || 0,
+      conge: row.conge || 0,
+      mission: row.mission || 0,
+      maladie: row.maladie || 0
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        periode: {
+          debut: dateStart,
+          fin: dateEnd,
+          libelle: getPeriodLabel(period, dateStart, dateEnd)
+        },
+        summary: formattedSummary,
+        chartData: formattedChartData,
+        tableData: formattedTableData,
+        generatedAt: new Date().toISOString()
+      }
+    });
+  })
+  .catch(error => {
+    console.error('❌ Erreur génération rapport:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur lors de la génération du rapport"
+    });
+  });
+};
+
+exports.getActivitesRecentes = (req, res) => {
+  const { userId, limit = 5 } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({
+      success: false,
+      message: "L'ID utilisateur est requis"
+    });
+  }
+
+  const query = `
+    SELECT 
+      p.id_presence as id,
+      p.date_presence as date,
+      p.statut_jour,
+      p.heure_entree,
+      p.heure_sortie,
+      p.retard_minutes,
+      
+      -- Mapping des statuts vers les types du composant
+      CASE 
+        WHEN p.heure_entree IS NOT NULL AND p.heure_sortie IS NULL THEN 'arrival'
+        WHEN p.heure_entree IS NOT NULL AND p.heure_sortie IS NOT NULL THEN 'departure'
+        WHEN p.statut_jour = 'PRESENT' AND p.heure_entree IS NULL THEN 'arrival'
+        WHEN p.statut_jour = 'ABSENT' THEN 'absent'
+        WHEN p.statut_jour = 'ABSENCE_JUSTIFIEE' THEN 'justifie'
+        WHEN p.statut_jour = 'JOUR_FERIE' THEN 'ferie'
+        WHEN p.statut_jour = 'JOUR_NON_TRAVAILLE' THEN 'non_travaille'
+        WHEN p.statut_jour = 'SUPPLEMENTAIRE' THEN 'supplementaire'
+        ELSE 'break'
+      END as type,
+      
+      -- Heure formatée
+      CASE
+        WHEN p.heure_entree IS NOT NULL AND p.heure_sortie IS NULL 
+          THEN DATE_FORMAT(p.heure_entree, '%H:%i')
+        WHEN p.heure_entree IS NOT NULL AND p.heure_sortie IS NOT NULL
+          THEN CONCAT(
+            DATE_FORMAT(p.heure_entree, '%H:%i'), ' - ',
+            DATE_FORMAT(p.heure_sortie, '%H:%i')
+          )
+        ELSE '-'
+      END as time,
+      
+      -- Statut formaté pour l'affichage
+      CASE 
+        WHEN p.retard_minutes > 0 THEN CONCAT('Retard: ', p.retard_minutes, 'min')
+        WHEN p.heure_entree IS NOT NULL AND p.heure_sortie IS NOT NULL 
+          THEN CONCAT(
+            FLOOR(TIMESTAMPDIFF(MINUTE, p.heure_entree, p.heure_sortie) / 60), 'h ',
+            TIMESTAMPDIFF(MINUTE, p.heure_entree, p.heure_sortie) % 60, 'min'
+          )
+        WHEN p.statut_jour = 'PRESENT' THEN 'Présent'
+        WHEN p.statut_jour = 'ABSENT' THEN 'Absent'
+        WHEN p.statut_jour = 'ABSENCE_JUSTIFIEE' THEN 'Justifié'
+        WHEN p.statut_jour = 'JOUR_FERIE' THEN 'Férié'
+        WHEN p.statut_jour = 'JOUR_NON_TRAVAILLE' THEN 'Non travaillé'
+        WHEN p.statut_jour = 'SUPPLEMENTAIRE' THEN 'Suppl.'
+        ELSE p.statut_jour
+      END as status
+
+    FROM presences p
+    WHERE p.id_utilisateur = ?
+    ORDER BY p.date_presence DESC, p.heure_entree DESC
+    LIMIT ?
+  `;
+
+  db.query(query, [userId, parseInt(limit)], (err, results) => {
+    if (err) {
+      console.error('❌ Erreur récupération activités:', err);
+      return res.status(500).json({
+        success: false,
+        message: "Erreur serveur"
+      });
+    }
+
+    // Debug : afficher la distribution des types
+    const distribution = results.reduce((acc, row) => {
+      acc[row.type] = (acc[row.type] || 0) + 1;
+      return acc;
+    }, {});
+
+    res.json({
+      success: true,
+      data: results.map(row => ({
+        id: row.id.toString(),
+        type: row.type,
+        time: row.time,
+        status: row.status,
+        date: row.date,
+        retard: row.retard_minutes || 0,
+        heures_supp: 0
+      })),
+      total: results.length
+    });
+  });
+};
+
+exports.getSemainePresence = (req, res) => {
+  const { userId, startDate, endDate } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({
+      success: false,
+      message: "L'ID utilisateur est requis"
+    });
+  }
+
+  // Si pas de dates fournies, prendre la semaine courante (lundi à dimanche)
+  let dateDebut = startDate;
+  let dateFin = endDate;
+
+  if (!dateDebut || !dateFin) {
+    const today = new Date();
+    const firstDay = new Date(today.setDate(today.getDate() - today.getDay() + 1)); // Lundi
+    const lastDay = new Date(today.setDate(today.getDate() - today.getDay() + 7)); // Dimanche
+    
+    dateDebut = firstDay.toISOString().split('T')[0];
+    dateFin = lastDay.toISOString().split('T')[0];
+  }
+
+  const query = `
+    SELECT 
+      -- Jours de la semaine
+      jours.jour_semaine,
+      jours.date_jour,
+      jours.lettre,
+      
+      -- Informations de présence
+      COALESCE(p.present, 0) as present,
+      COALESCE(p.partial, 0) as partial,
+      COALESCE(p.heures_jour, 0) as heures,
+      
+      -- Horaires théoriques
+      hd.heure_debut,
+      hd.heure_fin,
+      hd.tolerance_retard,
+      
+      -- Statut calculé
+      CASE 
+        WHEN p.present = 1 AND p.partial = 0 THEN 'present'
+        WHEN p.present = 1 AND p.partial = 1 THEN 'partial'
+        ELSE 'absent'
+      END as status
+
+    FROM (
+      -- Générer tous les jours de la semaine
+      SELECT 
+        DATE_ADD(?, INTERVAL seq DAY) as date_jour,
+        CASE DAYNAME(DATE_ADD(?, INTERVAL seq DAY))
+          WHEN 'Monday' THEN 'LUNDI'
+          WHEN 'Tuesday' THEN 'MARDI'
+          WHEN 'Wednesday' THEN 'MERCREDI'
+          WHEN 'Thursday' THEN 'JEUDI'
+          WHEN 'Friday' THEN 'VENDREDI'
+          WHEN 'Saturday' THEN 'SAMEDI'
+          WHEN 'Sunday' THEN 'DIMANCHE'
+        END as jour_semaine,
+        CASE DAYOFWEEK(DATE_ADD(?, INTERVAL seq DAY))
+          WHEN 2 THEN 'L'
+          WHEN 3 THEN 'M'
+          WHEN 4 THEN 'M'
+          WHEN 5 THEN 'J'
+          WHEN 6 THEN 'V'
+          WHEN 7 THEN 'S'
+          WHEN 1 THEN 'D'
+        END as lettre,
+        seq
+      FROM (
+        SELECT 0 as seq UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 
+        UNION SELECT 4 UNION SELECT 5 UNION SELECT 6
+      ) days
+    ) jours
+    
+    LEFT JOIN (
+      -- Présences de l'utilisateur
+      SELECT 
+        p.date_presence,
+        MAX(CASE 
+          WHEN p.heure_entree IS NOT NULL THEN 1 ELSE 0 
+        END) as present,
+        MAX(CASE 
+          WHEN p.retard_minutes > 0 THEN 1 ELSE 0 
+        END) as partial,
+        SUM(
+          CASE 
+            WHEN p.heure_entree IS NOT NULL AND p.heure_sortie IS NOT NULL 
+            THEN TIMESTAMPDIFF(HOUR, p.heure_entree, p.heure_sortie)
+            ELSE 0
+          END
+        ) as heures_jour
+      FROM presences p
+      WHERE p.id_utilisateur = ?
+        AND p.date_presence BETWEEN ? AND ?
+      GROUP BY p.date_presence
+    ) p ON p.date_presence = jours.date_jour
+    
+    LEFT JOIN horaire_user hu ON hu.user_id = ?
+      AND hu.date_debut <= jours.date_jour
+      AND (hu.date_fin IS NULL OR hu.date_fin >= jours.date_jour)
+    LEFT JOIN horaire h ON h.id_horaire = hu.horaire_id
+    LEFT JOIN horaire_detail hd ON hd.horaire_id = h.id_horaire
+      AND hd.jour_semaine = jours.jour_semaine
+    
+    ORDER BY jours.seq
+  `;
+
+  db.query(
+    query, 
+    [dateDebut, dateDebut, dateDebut, userId, dateDebut, dateFin, userId], 
+    (err, results) => {
+      if (err) {
+        console.error('❌ Erreur récupération semaine:', err);
+        return res.status(500).json({
+          success: false,
+          message: "Erreur serveur"
+        });
+      }
+
+      // Statistiques de la semaine
+      const stats = results.reduce((acc, day) => {
+        if (day.status === 'present') acc.present++;
+        if (day.status === 'partial') acc.partial++;
+        return acc;
+      }, { present: 0, partial: 0 });
+
+      res.json({
+        success: true,
+        data: {
+          jours: results.map(row => ({
+            letter: row.lettre,
+            present: row.present === 1,
+            partial: row.partial === 1,
+            date: row.date_jour,
+            heures: parseFloat(row.heures) || 0,
+            status: row.status,
+            horaire: row.heure_debut ? {
+              debut: row.heure_debut.substring(0, 5),
+              fin: row.heure_fin.substring(0, 5),
+              tolerance: row.tolerance_retard
+            } : null
+          })),
+          stats: {
+            present: stats.present,
+            partial: stats.partial,
+            total: results.length
+          },
+          periode: {
+            debut: dateDebut,
+            fin: dateFin
+          }
+        }
+      });
+    }
+  );
+};
+
 
 /* exports.postPresence = async (req, res) => {
   try {

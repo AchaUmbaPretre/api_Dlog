@@ -42,10 +42,36 @@ const jourSemaineSQL = (dateISO) => {
   return map[jour];
 };
 
+const getPeriodLabel = (period, startDate, endDate) => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  if (period === 'day') {
+    return start.toLocaleDateString('fr-FR', { 
+      weekday: 'long', 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    });
+  } else if (period === 'week') {
+    return `Semaine du ${start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} au ${end.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+  } else if (period === 'month') {
+    return start.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  } else if (period === 'quarter') {
+    const quarter = Math.floor(start.getMonth() / 3) + 1;
+    return `T${quarter} ${start.getFullYear()}`;
+  } else if (period === 'year') {
+    return `Année ${start.getFullYear()}`;
+  } else {
+    return `Du ${start.toLocaleDateString('fr-FR')} au ${end.toLocaleDateString('fr-FR')}`;
+  }
+}
+
 
 module.exports = {
   jourSemaineFR,
   formatDate,
   mapJourSemaineFR,
-  jourSemaineSQL
+  jourSemaineSQL,
+  getPeriodLabel
 };

@@ -83,6 +83,7 @@ router.post('/site_user', charroiController.postSitesUser)
 
 //Zones
 router.get('/zone', charroiController.getZones)
+router.post('/zone', charroiController.postZones)
 
 //Controle technique
 router.get('/controle_technique', charroiController.getControleTechnique)

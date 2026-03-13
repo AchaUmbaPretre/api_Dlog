@@ -944,6 +944,39 @@ exports.getZones = (req, res) => {
     });
 };
 
+exports.postZones = async(req, res) => {
+  try {
+    const {
+      NomZone,
+      site_id,
+      state,
+      type_zone,
+      latitude,
+      longitude,
+      rayon_metres,
+      precision_minimale
+    } = req.body;
+
+    const queryZone = `INSERT zones(NomZone, site_id, state, type_zone, latitude, longitude, rayon_metres) VALUES(?,?,?,?,?,?,?)`
+    const values = [
+      NomZone,
+      site_id,
+      state,
+      type_zone,
+      latitude,
+      longitude,
+      rayon_metres,
+      precision_minimale
+    ];
+
+    await db.query(queryZone, values);
+    return res.status(201).json({ message: 'La zone a été ajoutée avec succès'});
+  } catch (error) {
+    console.error('Erreur lors de l\'ajout de nouvelle zone:', error);
+    return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la zone" });
+  }
+}
+
 //Affectation
 exports.getAffectation = async (req, res) => {
 
