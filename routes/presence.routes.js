@@ -19,6 +19,7 @@ router.get('/historiqueById', presence.getHistoriqueById);
 router.get('/rapportPresenceById', presence.getRapportPresenceById);
 router.get('/activitesRecentes', presence.getActivitesRecentes);
 router.get('/semainePresenceById', presence.getSemainePresence);
+router.get('/verifierZone', presence.verifierZone);
 
 router.post('/', presence.postPresence);
 router.post('/hikvision', presence.postPresenceFromHikvision);

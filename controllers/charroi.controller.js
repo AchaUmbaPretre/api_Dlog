@@ -930,7 +930,6 @@ exports.postSitesUser = async (req, res) => {
   }
 };
 
-
 //Zone
 exports.getZones = (req, res) => {
 
@@ -1049,6 +1048,30 @@ exports.updateZone = async (req, res) => {
     console.error('Erreur lors de la modification de la zone:', error);
     return res.status(500).json({ 
       error: "Une erreur s'est produite lors de la modification de la zone" 
+    });
+  }
+};
+
+
+// =====================================================
+// 2. Récupérer toutes les zones
+// =====================================================
+exports.getAllZones = async (req, res) => {
+  try {
+    const [zones] = await db.query(
+      `SELECT * FROM zones ORDER BY created_at DESC`
+    );
+
+    res.json({
+      success: true,
+      data: zones
+    });
+
+  } catch (error) {
+    console.error("❌ Erreur récupération zones:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur"
     });
   }
 };

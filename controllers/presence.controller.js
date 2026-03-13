@@ -1958,6 +1958,125 @@ exports.getSemainePresence = (req, res) => {
   );
 };
 
+exports.verifierZone = async (req, res) => {
+  const { userId, latitude, longitude, precision } = req.body;
+
+  if (!userId || !latitude || !longitude) {
+    return res.status(400).json({
+      success: false,
+      message: "userId, latitude et longitude requis"
+    });
+  }
+
+  try {
+    // 1. Récupérer les sites auxquels l'utilisateur a accès
+    const userSites = await query(
+      `SELECT site_id, role_scope 
+       FROM user_sites 
+       WHERE user_id = ?`,
+      [userId]
+    );
+
+    if (userSites.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: "Cet utilisateur n'est assigné à aucun site"
+      });
+    }
+
+    const siteIds = userSites.map(s => s.site_id);
+    
+    // 2. Récupérer UNIQUEMENT les zones des sites de l'utilisateur
+    const zones = await query(
+      `SELECT z.*, s.nom_site 
+       FROM zones z
+       JOIN sites s ON s.id_site = z.site_id
+       WHERE z.est_active = 1 
+       AND z.type_zone IN ('géofencé', 'normal')
+       AND z.site_id IN (?)`,
+      [siteIds]
+    );
+
+    if (zones.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Aucune zone active trouvée pour vos sites"
+      });
+    }
+
+    // 3. Calculer la distance pour chaque zone
+    const resultats = zones.map(zone => {
+      const R = 6371e3;
+      const φ1 = latitude * Math.PI/180;
+      const φ2 = zone.latitude * Math.PI/180;
+      const Δφ = (zone.latitude - latitude) * Math.PI/180;
+      const Δλ = (zone.longitude - longitude) * Math.PI/180;
+
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const distance = Math.round(R * c);
+
+      const dansZone = distance <= zone.rayon_metres;
+      const precisionOK = precision <= zone.precision_minimale;
+
+      // Déterminer si c'est un site principal pour l'utilisateur
+      const userSite = userSites.find(us => us.site_id === zone.site_id);
+      const estPrincipal = userSite?.role_scope === 'PRIMARY';
+
+      return {
+        id_zone: zone.id,
+        nom_zone: zone.NomZone,
+        site_id: zone.site_id,
+        nom_site: zone.nom_site,
+        distance,
+        rayon: zone.rayon_metres,
+        dans_zone: dansZone,
+        precision_requise: zone.precision_minimale,
+        precision_actuelle: precision,
+        precision_ok: precisionOK,
+        valide: dansZone && precisionOK,
+        type_zone: zone.type_zone,
+        est_principal: estPrincipal
+      };
+    });
+
+    // 4. Priorité : d'abord les zones valides, ensuite les plus proches
+    const zonesValides = resultats.filter(r => r.valide);
+    
+    // Trier par priorité : principal d'abord, puis distance
+    const zonesTriees = zonesValides.sort((a, b) => {
+      if (a.est_principal && !b.est_principal) return -1;
+      if (!a.est_principal && b.est_principal) return 1;
+      return a.distance - b.distance;
+    });
+
+    const zoneValide = zonesTriees[0] || null;
+
+    // 5. Trouver la zone la plus proche (même si non valide)
+    const zonePlusProche = resultats.sort((a, b) => a.distance - b.distance)[0];
+
+    res.json({
+      success: true,
+      data: {
+        dans_zone: !!zoneValide,
+        zone: zoneValide,
+        zone_plus_proche: zonePlusProche,
+        zones_utilisateur: resultats,
+        sites_autorises: userSites.map(s => s.site_id),
+        timestamp: new Date()
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Erreur vérification zone:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur"
+    });
+  }
+};
 
 /* exports.postPresence = async (req, res) => {
   try {
