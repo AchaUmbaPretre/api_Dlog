@@ -944,12 +944,27 @@ exports.getZones = (req, res) => {
     });
 };
 
+exports.getZonesById = (req, res) => {
+  const { id } = req.query;
+    if(!id) {
+      return res.status(400).json({ error : 'Id zone manquant'})
+    }
+
+    const q = `SELECT * FROM zones WHERE id =?`;
+
+    db.query(q, [id], (error, data) => {
+      if (error) {
+        return res.status(500).send(error);
+      }
+      return res.status(200).json(data);
+    });
+};
+
 exports.postZones = async(req, res) => {
   try {
     const {
       NomZone,
       site_id,
-      state,
       type_zone,
       latitude,
       longitude,
@@ -957,11 +972,10 @@ exports.postZones = async(req, res) => {
       precision_minimale
     } = req.body;
 
-    const queryZone = `INSERT zones(NomZone, site_id, state, type_zone, latitude, longitude, rayon_metres) VALUES(?,?,?,?,?,?,?)`
+    const queryZone = `INSERT zones(NomZone, site_id, type_zone, latitude, longitude, rayon_metres) VALUES(?,?,?,?,?,?)`
     const values = [
       NomZone,
       site_id,
-      state,
       type_zone,
       latitude,
       longitude,
@@ -976,6 +990,68 @@ exports.postZones = async(req, res) => {
     return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la zone" });
   }
 }
+
+exports.updateZone = async (req, res) => {
+  try {
+    const {
+      NomZone,
+      site_id,
+      type_zone,
+      latitude,
+      longitude,
+      rayon_metres,
+      precision_minimale,
+      id
+    } = req.body;
+
+    // Vérification que l'ID est fourni
+    if (!id) {
+      return res.status(400).json({ error: "L'ID de la zone est requis" });
+    }
+
+    // Construction de la requête UPDATE
+    const queryZone = `
+      UPDATE zones 
+      SET 
+        NomZone = ?,
+        site_id = ?,
+        type_zone = ?,
+        latitude = ?,
+        longitude = ?,
+        rayon_metres = ?,
+        precision_minimale = ?
+      WHERE id = ?
+    `;
+    
+    const values = [
+      NomZone,
+      site_id,
+      type_zone,
+      latitude,
+      longitude,
+      rayon_metres,
+      precision_minimale,
+      id
+    ];
+
+    const result = await db.query(queryZone, values);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Zone non trouvée" });
+    }
+
+    return res.status(200).json({ 
+      message: 'La zone a été modifiée avec succès',
+      data: { id, ...req.body }
+    });
+
+  } catch (error) {
+    console.error('Erreur lors de la modification de la zone:', error);
+    return res.status(500).json({ 
+      error: "Une erreur s'est produite lors de la modification de la zone" 
+    });
+  }
+};
 
 //Affectation
 exports.getAffectation = async (req, res) => {
