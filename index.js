@@ -56,16 +56,6 @@ if (environment === 'development') {
   app.use(morgan('dev'));
 }
 
-/* const corsOptions = {
-  origin: 'http://localhost:3000',
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  preflightContinue: false,
-  optionsSuccessStatus: 204,
-  allowedHeaders: 'Origin, X-Requested-With, Content-Type, Accept, Authorization',
-  credentials: true
-};
- */
-
 const allowedOrigins = ['https://dlog.loginsmart-cd.com', 'http://localhost:3000'];
 const corsOptions = {
   origin: (origin, callback) => {

@@ -30,7 +30,6 @@ router.delete('/:id', userController.deleteUser)
 router.put('/IsActive', userController.putIsActive);
 router.put('/ShowInpresence', userController.putShowInPresence);
 
- 
 //Signature
 router.get('/signature', userController.getSignature);
 router.post('/signature', upload.any(),userController.postSignature);
