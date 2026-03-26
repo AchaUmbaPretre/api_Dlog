@@ -61,7 +61,6 @@ exports.getPresence = (req, res) => {
         });
       }
 
-      // ✅ Transformer après récupération
       const presenceFixed = data.map(p => ({
         ...p,
         heure_entree: p.heure_entree
@@ -1865,6 +1864,26 @@ exports.verifierZone = async (req, res) => {
   }
 };
 
+exports.generateQRAll = async (req, res) => {
+
+  const q = `SELECT q.*, u.nom, u.prenom, z.NomZone, s.nom_site
+       FROM qr_static q
+       LEFT JOIN utilisateur u ON u.id_utilisateur = q.created_by
+       LEFT JOIN zones z ON z.id = q.zone_id
+       LEFT JOIN sites s ON s.id_site = q.site_id
+       ORDER BY q.created_at DESC`;
+
+  db.query(q, (error, data) => {
+    if(error) {
+      return res.status(500).json({
+        message: 'Erreur lors de la recuperation des codes QR.',
+        error
+      })
+    }
+    return res.status(200).json(data)
+  });
+}
+
 exports.generateStaticQR = async (req, res) => {
   try {
     const { site_id, zone_id, type_pointage, role, user_id } = req.body;
@@ -1874,7 +1893,6 @@ exports.generateStaticQR = async (req, res) => {
       return res.status(403).json({ message: "Permission refusée" });
     }
 
-    // Vérifier que le site existe
     const site = await query(
       `SELECT * FROM sites WHERE id_site = ?`,
       [site_id]
@@ -1884,7 +1902,6 @@ exports.generateStaticQR = async (req, res) => {
       return res.status(404).json({ message: "Site non trouvé" });
     }
 
-    // Vérifier la zone si spécifiée
     if (zone_id) {
       const zone = await query(
         `SELECT * FROM zones WHERE id = ? AND site_id = ?`,
@@ -2121,12 +2138,15 @@ exports.validateStaticQR = async (req, res) => {
       message: zoneMessage ? `${responseMessage}\n${zoneMessage}` : responseMessage,
       data: {
         type_scan,
-        site: qrData.nom_site,
-        zone: qrData.NomZone,
+        site_id: qrData.site_id,
+        site_name: qrData.nom_site,
+        zone_id: qrData.zone_id,
+        zone_name: qrData.NomZone,
         is_within_zone: isWithinZone,
         distance: Math.round(distance),
         scan_time: nowStr,
-        presence: presenceResult
+        qr_code: code,
+        qr_type: qrData.type_pointage
       }
     });
 
@@ -4947,7 +4967,6 @@ exports.getTerminal = (req, res) => {
 
 exports.getTerminalById = (req, res) => {
   const { id_terminal } = req.query;
-  console.log(id_terminal)
 
   const q = `
     SELECT 

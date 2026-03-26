@@ -22,11 +22,11 @@ router.get('/semainePresenceById', presence.getSemainePresence);
 router.get('/verifierZone', presence.verifierZone);
 
 //ROUTES MOBILE QR CODE
+router.get('/qr/generateAll', presence.generateQRAll)
 router.post('/qr/generate', presence.generateStaticQR);
 router.post('/qr/validate', authorize('attendance.events.read'), presence.validateStaticQR);
 router.get('/qr/site/:site_id', authorize('attendance.events.read'), presence.getSiteQRs);
 router.delete('/qr/:qr_id', authorize('attendance.events.read'), presence.deactivateQR);
-
 
 router.post('/', presence.postPresence);
 router.post('/hikvision', presence.postPresenceFromHikvision);
