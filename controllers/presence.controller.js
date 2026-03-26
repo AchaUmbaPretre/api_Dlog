@@ -1948,14 +1948,12 @@ exports.validateStaticQR = async (req, res) => {
 
     console.log('=== VALIDATE STATIC QR START ===');
     console.log('User ID:', user_id);
-    console.log('Raw coordinates:', { latitude, longitude, accuracy });
-    console.log('Coordinate types:', { 
-      latType: typeof latitude, 
-      lonType: typeof longitude 
-    });
+    console.log('QR Code:', code);
 
     const now = new Date();
     const today = now.toISOString().split('T')[0];
+    const nowStr = now.toISOString().slice(0, 19).replace('T', ' ');
+    const currentTime = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
     // 1️⃣ Récupérer le QR statique
     const qr = await query(
@@ -1977,17 +1975,8 @@ exports.validateStaticQR = async (req, res) => {
     }
 
     const qrData = qr[0];
-    console.log('QR Data:', {
-      id: qrData.id_qr,
-      site: qrData.nom_site,
-      zone: qrData.NomZone,
-      zone_lat_raw: qrData.zone_lat,
-      zone_lon_raw: qrData.zone_lon,
-      zone_lat_type: typeof qrData.zone_lat,
-      zone_lon_type: typeof qrData.zone_lon
-    });
 
-    // 2️⃣ Vérifier que l'utilisateur a accès au site
+    // 2️⃣ Vérifier accès au site
     const userSite = await query(
       `SELECT * FROM user_sites WHERE user_id = ? AND site_id = ?`,
       [user_id, qrData.site_id]
@@ -2001,45 +1990,20 @@ exports.validateStaticQR = async (req, res) => {
       });
     }
 
-    // 3️⃣ Vérifier la zone (géofencing) - CORRECTION PRINCIPALE
+    // 3️⃣ Vérifier géofencing
     let isWithinZone = true;
     let zoneMessage = '';
     let distance = 0;
 
     if (qrData.zone_id && latitude && longitude) {
       if (qrData.zone_lat && qrData.zone_lon) {
-        // PARSER CORRECTEMENT LES COORDONNÉES
-        const userLat = parseCoordinate(latitude, 'User latitude');
-        const userLon = parseCoordinate(longitude, 'User longitude');
-        const zoneLat = parseCoordinate(qrData.zone_lat, 'Zone latitude');
-        const zoneLon = parseCoordinate(qrData.zone_lon, 'Zone longitude');
+        const userLat = parseCoordinate(latitude);
+        const userLon = parseCoordinate(longitude);
+        const zoneLat = parseCoordinate(qrData.zone_lat);
+        const zoneLon = parseCoordinate(qrData.zone_lon);
         
-        console.log('Parsed coordinates:', {
-          userLat, userLon,
-          zoneLat, zoneLon,
-          isValid: userLat !== null && userLon !== null && zoneLat !== null && zoneLon !== null
-        });
-        
-        if (userLat === null || userLon === null || zoneLat === null || zoneLon === null) {
-          console.error('Invalid coordinates detected');
-          zoneMessage = "⚠️ Coordonnées invalides pour le calcul de distance";
-        } else {
-          // CALCULER LA DISTANCE AVEC LE BON ORDRE DES PARAMÈTRES
+        if (userLat !== null && userLon !== null && zoneLat !== null && zoneLon !== null) {
           distance = calculateDistance(userLat, userLon, zoneLat, zoneLon);
-          
-          // CALCUL DE VÉRIFICATION (distance approximative en mètres)
-          const latDiffMeters = Math.abs(userLat - zoneLat) * 111320;
-          const lonDiffMeters = Math.abs(userLon - zoneLon) * 111320 * Math.cos(userLat * Math.PI / 180);
-          const approxDistance = Math.sqrt(latDiffMeters * latDiffMeters + lonDiffMeters * lonDiffMeters);
-          
-          console.log('Distance calculation:', {
-            exactDistance: Math.round(distance),
-            approxDistance: Math.round(approxDistance),
-            latDiff: (userLat - zoneLat).toFixed(8),
-            lonDiff: (userLon - zoneLon).toFixed(8),
-            rayon: qrData.rayon_metres || 100
-          });
-          
           const rayon = qrData.rayon_metres || 100;
           isWithinZone = distance <= rayon;
           
@@ -2052,12 +2016,7 @@ exports.validateStaticQR = async (req, res) => {
                 code: 'OUT_OF_ZONE',
                 message: zoneMessage,
                 distance: Math.round(distance),
-                max_distance: rayon,
-                debug: process.env.NODE_ENV === 'development' ? {
-                  user_coords: { lat: userLat, lon: userLon },
-                  zone_coords: { lat: zoneLat, lon: zoneLon },
-                  diff: { lat: userLat - zoneLat, lon: userLon - zoneLon }
-                } : undefined
+                max_distance: rayon
               });
             }
           } else {
@@ -2067,38 +2026,140 @@ exports.validateStaticQR = async (req, res) => {
       }
     }
 
-    // 4️⃣ Déterminer le type de pointage (ENTREE ou SORTIE)
-    let type_scan = null;
+    // 4️⃣ Vérifier jour férié
+    const ferieRows = await query(`SELECT 1 FROM jours_feries WHERE date_ferie = ?`, [today]);
+    if (ferieRows?.length) {
+      return res.status(403).json({ 
+        success: false, 
+        code: 'FERIE',
+        message: "Pointage interdit : jour férié" 
+      });
+    }
+
+    // 5️⃣ Vérifier absence validée
+    const absenceRows = await query(
+      `SELECT a.id_absence, t.code, a.date_debut, a.date_fin
+       FROM absences a
+       JOIN absence_types t ON t.id_absence_type = a.id_absence_type
+       WHERE a.id_utilisateur = ? AND a.statut = 'VALIDEE' 
+         AND ? BETWEEN a.date_debut AND a.date_fin`,
+      [user_id, today]
+    );
     
-    if (qrData.type_pointage === 'ENTREE') {
-      type_scan = 'ENTREE';
-    } else if (qrData.type_pointage === 'SORTIE') {
-      type_scan = 'SORTIE';
-    } else {
-      // ENTREE_SORTIE - vérifier la présence du jour
-      const presence = await query(
-        `SELECT * FROM presences 
+    if (absenceRows?.length) {
+      const absence = absenceRows[0];
+      return res.status(403).json({
+        success: false,
+        code: 'ABSENCE_VALIDEE',
+        message: `Pointage interdit : absence validée (${absence.code}) du ${moment(absence.date_debut).format('DD/MM/YYYY')} au ${moment(absence.date_fin).format('DD/MM/YYYY')}`,
+        details: absence
+      });
+    }
+
+    // 6️⃣ Vérifier jour travaillé selon planning
+    const jourNom = moment(today).locale('fr').format('dddd').toUpperCase();
+    
+    const planningRows = await query(
+      `SELECT 
+          hu.id_horaire_user,
+          hd.jour_semaine,
+          hd.heure_debut,
+          hd.heure_fin,
+          hd.tolerance_retard
+      FROM horaire_user hu
+      JOIN horaire_detail hd ON hd.horaire_id = hu.horaire_id
+      WHERE hu.user_id = ? AND hd.jour_semaine = ? 
+        AND hu.date_debut <= ? AND (hu.date_fin IS NULL OR hu.date_fin >= ?)`,
+      [user_id, jourNom, today, today]
+    );
+
+    const jourNonTravaille = planningRows.length === 0;
+    const hd = planningRows[0]; // undefined si jour non travaillé
+
+    const debutTravail = hd ? moment(`${today} ${hd.heure_debut}`, "YYYY-MM-DD HH:mm:ss") : null;
+    const finTravail = hd ? moment(`${today} ${hd.heure_fin}`, "YYYY-MM-DD HH:mm:ss") : null;
+
+    // 7️⃣ Récupérer ou créer la présence
+    let presence = await query(
+      `SELECT id_presence, heure_entree, heure_sortie, statut_jour, retard_minutes
+       FROM presences 
+       WHERE id_utilisateur = ? AND date_presence = ?`,
+      [user_id, today]
+    );
+
+    let presenceRecord = presence[0];
+    let isNewRecord = false;
+
+    if (!presenceRecord) {
+      console.log('Aucune présence trouvée, création d\'un nouveau record');
+      
+      const statutInitial = jourNonTravaille ? 'JOUR_NON_TRAVAILLE' : 'ABSENT';
+      
+      const insertResult = await query(
+        `INSERT INTO presences (id_utilisateur, site_id, date_presence, statut_jour, source)
+         VALUES (?, ?, ?, ?, ?)`,
+        [user_id, qrData.site_id, today, statutInitial, 'QR']
+      );
+      
+      presence = await query(
+        `SELECT id_presence, heure_entree, heure_sortie, statut_jour, retard_minutes
+         FROM presences 
          WHERE id_utilisateur = ? AND date_presence = ?`,
         [user_id, today]
       );
       
-      if (!presence.length) {
+      presenceRecord = presence[0];
+      isNewRecord = true;
+    }
+
+    // 8️⃣ Déterminer le type de scan (ENTREE ou SORTIE)
+    let type_scan = null;
+    
+    if (qrData.type_pointage === 'ENTREE') {
+      if (presenceRecord.heure_entree) {
+        return res.status(409).json({
+          success: false,
+          code: 'ALREADY_CHECKED_IN',
+          message: "Vous avez déjà pointé votre entrée aujourd'hui"
+        });
+      }
+      type_scan = 'ENTREE';
+      
+    } else if (qrData.type_pointage === 'SORTIE') {
+      if (!presenceRecord.heure_entree) {
+        return res.status(409).json({
+          success: false,
+          code: 'NO_CHECK_IN',
+          message: "Vous n'avez pas encore pointé votre entrée"
+        });
+      }
+      if (presenceRecord.heure_sortie) {
+        return res.status(409).json({
+          success: false,
+          code: 'ALREADY_CHECKED_OUT',
+          message: "Vous avez déjà pointé votre sortie aujourd'hui"
+        });
+      }
+      type_scan = 'SORTIE';
+      
+    } else {
+      // QR polyvalent
+      if (!presenceRecord.heure_entree) {
         type_scan = 'ENTREE';
-      } else if (presence[0].heure_entree && !presence[0].heure_sortie) {
+      } else if (presenceRecord.heure_entree && !presenceRecord.heure_sortie) {
         type_scan = 'SORTIE';
       } else {
         return res.status(409).json({
           success: false,
           code: 'ALREADY_COMPLETE',
-          message: "✅ Pointage déjà complété pour aujourd'hui"
+          message: "Pointage déjà complété pour aujourd'hui"
         });
       }
     }
 
-    // 5️⃣ Enregistrer le scan QR
+    // 9️⃣ Enregistrer le scan QR
     const deviceInfo = `${req.headers['user-agent'] || ''}`.substring(0, 255);
     const ip = req.ip || req.connection.remoteAddress;
-    const nowStr = now.toISOString().slice(0, 19).replace('T', ' ');
 
     await query(
       `INSERT INTO qr_scans (qr_id, user_id, type_scan, latitude, longitude, accuracy, device_info, ip_address, status)
@@ -2106,33 +2167,76 @@ exports.validateStaticQR = async (req, res) => {
       [qrData.id_qr, user_id, type_scan, latitude, longitude, accuracy, deviceInfo, ip, 'SUCCESS']
     );
 
-    // 6️⃣ Appeler la logique de présence (réutiliser le module)
-    const presenceData = {
-      id_utilisateur: user_id,
-      date_presence: today,
-      datetime: nowStr.split(' ')[1], // Heure uniquement HH:MM:SS
-      source: 'QR',
-      device_sn: deviceInfo.substring(0, 50),
-      site_id: qrData.site_id
-    };
+    // 🔟 Gestion du pointage (inspirée de postPresence)
+    let responseMessage = '';
+    let retard_minutes = 0;
+    let heures_supplementaires = 0;
 
-    let presenceResult;
-    try {
-      presenceResult = await handlePresenceLogic(presenceData, qrData, type_scan);
-    } catch (presenceError) {
-      console.error('Presence logic error:', presenceError);
-      return res.status(400).json({
-        success: false,
-        code: 'PRESENCE_ERROR',
-        message: presenceError.message
-      });
+    // Calcul du retard et statut (comme dans postPresence)
+    if (type_scan === 'ENTREE') {
+      if (!jourNonTravaille && hd && moment(nowStr).isAfter(debutTravail)) {
+        const diff = moment(nowStr).diff(debutTravail, "minutes");
+        retard_minutes = diff > (hd.tolerance_retard || 0) ? diff : 0;
+      }
+      
+      const statutJour = jourNonTravaille ? 'SUPPLEMENTAIRE' : 'PRESENT';
+      
+      // ABSENT → PRESENT (comme dans postPresence)
+      if (["ABSENT", "JOUR_NON_TRAVAILLE"].includes(presenceRecord.statut_jour)) {
+        await query(
+          `UPDATE presences
+           SET heure_entree = ?, statut_jour = ?, retard_minutes = ?, 
+               source = ?, device_sn = ?, site_id = ?
+           WHERE id_presence = ?`,
+          [nowStr, statutJour, retard_minutes, 'QR', deviceInfo.substring(0, 50), qrData.site_id, presenceRecord.id_presence]
+        );
+        
+        responseMessage = `✅ ABSENT corrigé - Entrée enregistrée sur ${qrData.nom_site}`;
+        if (retard_minutes > 0) {
+          responseMessage += ` avec ${retard_minutes} minute(s) de retard`;
+        }
+      } 
+      // Nouvelle entrée (cas où présence existe mais pas d'heure d'entrée)
+      else if (!presenceRecord.heure_entree) {
+        await query(
+          `UPDATE presences
+           SET heure_entree = ?, retard_minutes = ?, source = ?, device_sn = ?, site_id = ?
+           WHERE id_presence = ?`,
+          [nowStr, retard_minutes, 'QR', deviceInfo.substring(0, 50), qrData.site_id, presenceRecord.id_presence]
+        );
+        
+        responseMessage = `✅ Entrée enregistrée sur ${qrData.nom_site}`;
+        if (retard_minutes > 0) {
+          responseMessage += ` avec ${retard_minutes} minute(s) de retard`;
+        }
+      }
+      
+    } else if (type_scan === 'SORTIE') {
+      // Calcul des heures supplémentaires (comme dans postPresence)
+      if (jourNonTravaille && presenceRecord.heure_entree) {
+        heures_supplementaires = Number(
+          moment(nowStr).diff(moment(presenceRecord.heure_entree), "hours", true).toFixed(2)
+        );
+      } else if (hd && moment(nowStr).isAfter(finTravail) && presenceRecord.heure_entree) {
+        heures_supplementaires = Number(
+          (moment(nowStr).diff(finTravail, "minutes") / 60).toFixed(2)
+        );
+      }
+      
+      await query(
+        `UPDATE presences
+         SET heure_sortie = ?, heures_supplementaires = ?
+         WHERE id_presence = ?`,
+        [nowStr, heures_supplementaires, presenceRecord.id_presence]
+      );
+      
+      responseMessage = `✅ Sortie enregistrée sur ${qrData.nom_site}`;
+      if (heures_supplementaires > 0) {
+        responseMessage += ` avec ${heures_supplementaires} heure(s) supplémentaire(s)`;
+      }
     }
 
-    // 7️⃣ Retourner le résultat
-    const responseMessage = type_scan === 'ENTREE' 
-      ? `✅ Entrée enregistrée sur ${qrData.nom_site}`
-      : `✅ Sortie enregistrée sur ${qrData.nom_site}`;
-
+    // 1️⃣1️⃣ Retourner le résultat
     res.json({
       success: true,
       message: zoneMessage ? `${responseMessage}\n${zoneMessage}` : responseMessage,
@@ -2146,7 +2250,11 @@ exports.validateStaticQR = async (req, res) => {
         distance: Math.round(distance),
         scan_time: nowStr,
         qr_code: code,
-        qr_type: qrData.type_pointage
+        qr_type: qrData.type_pointage,
+        retard_minutes: type_scan === 'ENTREE' ? retard_minutes : undefined,
+        heures_supplementaires: type_scan === 'SORTIE' ? heures_supplementaires : undefined,
+        jour_non_travaille: jourNonTravaille,
+        is_new_record: isNewRecord
       }
     });
 
