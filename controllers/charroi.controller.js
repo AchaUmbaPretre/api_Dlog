@@ -1052,13 +1052,9 @@ exports.updateZone = async (req, res) => {
   }
 };
 
-
-// =====================================================
-// 2. Récupérer toutes les zones
-// =====================================================
 exports.getAllZones = async (req, res) => {
   try {
-    const [zones] = await db.query(
+    const zones = await query(
       `SELECT * FROM zones ORDER BY created_at DESC`
     );
 

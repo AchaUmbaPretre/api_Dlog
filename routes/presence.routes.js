@@ -4,6 +4,7 @@ const presence = require('./../controllers/presence.controller');
 const { authorize } = require("../midllewares/authorize");
 
 router.get('/', presence.getPresence);
+router.get('/user/:userId/today', presence.getPresenceByUserIdToday);
 router.get('/absence_today', presence.getAbsenceToday);
 router.get('/retard_today', presence.getRetardToday);
 

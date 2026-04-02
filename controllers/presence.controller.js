@@ -7,7 +7,6 @@ const query = util.promisify(db.query).bind(db);
 const { encrypt } = require("../utils/encrypt.js");
 const { getSiteColor } = require("../utils/getSiteColor.js");
 const { getPeriodLabel } = require("../utils/dateUtils.js");
-const { handlePresenceLogic } = require("../utils/handlePresenceLogic.js");
 const { calculateDistance } = require("../utils/calculateDistance.js");
 const { parseCoordinate } = require("../utils/parseCoordinate.js");
 const WORK_DAY_HOURS = 8;
@@ -76,6 +75,89 @@ exports.getPresence = (req, res) => {
 
   } catch (err) {
     return res.status(500).json({ message: "Erreur serveur", err });
+  }
+};
+
+exports.getPresenceByUserIdToday = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Vérifier que l'utilisateur existe
+    const userCheck = await query(
+      `SELECT id_utilisateur FROM utilisateur WHERE id_utilisateur = ? AND is_active = 1`,
+      [userId]
+    );
+    
+    if (!userCheck.length) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Utilisateur non trouvé" 
+      });
+    }
+    
+    const today = moment().format("YYYY-MM-DD");
+    
+    const presence = await query(
+      `SELECT 
+        p.id_presence, 
+        p.date_presence, 
+        p.heure_entree, 
+        p.heure_sortie, 
+        p.statut_jour,
+        p.retard_minutes,
+        p.heures_supplementaires,
+        p.site_id,
+        s.nom_site
+      FROM presences p
+      LEFT JOIN sites s ON p.site_id = s.id_site
+      WHERE p.id_utilisateur = ? AND p.date_presence = ?`,
+      [userId, today]
+    );
+    
+    if (!presence.length) {
+      // Pas de présence enregistrée pour aujourd'hui
+      return res.status(200).json({
+        success: true,
+        data: {
+          heure_entree: null,
+          heure_sortie: null,
+          retard_minutes: 0,
+          heures_supplementaires: 0,
+          statut_jour: null,
+          site_id: null,
+          site_name: null
+        }
+      });
+    }
+    
+    const record = presence[0];
+    
+    return res.status(200).json({
+      success: true,
+      data: {
+        id_presence: record.id_presence,
+        date_presence: record.date_presence,
+        heure_entree: record.heure_entree 
+          ? moment(record.heure_entree).format("HH:mm") 
+          : null,
+        heure_sortie: record.heure_sortie 
+          ? moment(record.heure_sortie).format("HH:mm") 
+          : null,
+        retard_minutes: record.retard_minutes || 0,
+        heures_supplementaires: record.heures_supplementaires || 0,
+        statut_jour: record.statut_jour,
+        site_id: record.site_id,
+        site_name: record.nom_site
+      }
+    });
+    
+  } catch (error) {
+    console.error("Erreur getPresenceByUserIdToday:", error);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Erreur serveur",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -1563,12 +1645,6 @@ exports.getActivitesRecentes = (req, res) => {
       });
     }
 
-    // Debug : afficher la distribution des types
-    const distribution = results.reduce((acc, row) => {
-      acc[row.type] = (acc[row.type] || 0) + 1;
-      return acc;
-    }, {});
-
     res.json({
       success: true,
       data: results.map(row => ({
@@ -1584,6 +1660,172 @@ exports.getActivitesRecentes = (req, res) => {
     });
   });
 };
+
+/* exports.getSemainePresence = (req, res) => {
+  const { userId, startDate, endDate } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({
+      success: false,
+      message: "L'ID utilisateur est requis"
+    });
+  }
+
+  // Si pas de dates fournies, prendre la semaine courante (lundi à dimanche)
+  let dateDebut = startDate;
+  let dateFin = endDate;
+
+  if (!dateDebut || !dateFin) {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 = dimanche, 1 = lundi, ...
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Lundi de cette semaine
+    
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + diffToMonday);
+    
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    
+    dateDebut = monday.toISOString().split('T')[0];
+    dateFin = sunday.toISOString().split('T')[0];
+  }
+
+  const query = `
+    SELECT 
+      -- Jours de la semaine
+      jours.jour_semaine,
+      jours.date_jour,
+      jours.lettre,
+      
+      -- Informations de présence
+      COALESCE(p.present, 0) as present,
+      COALESCE(p.partial, 0) as partial,
+      COALESCE(p.heures_jour, 0) as heures,
+      
+      -- Horaires théoriques
+      hd.heure_debut,
+      hd.heure_fin,
+      hd.tolerance_retard,
+      
+      -- Statut calculé
+      CASE 
+        WHEN p.present = 1 AND p.partial = 0 THEN 'present'
+        WHEN p.present = 1 AND p.partial = 1 THEN 'partial'
+        ELSE 'absent'
+      END as status
+
+    FROM (
+      -- Générer tous les jours de la semaine
+      SELECT 
+        DATE_ADD(?, INTERVAL seq DAY) as date_jour,
+        CASE DAYNAME(DATE_ADD(?, INTERVAL seq DAY))
+          WHEN 'Monday' THEN 'LUNDI'
+          WHEN 'Tuesday' THEN 'MARDI'
+          WHEN 'Wednesday' THEN 'MERCREDI'
+          WHEN 'Thursday' THEN 'JEUDI'
+          WHEN 'Friday' THEN 'VENDREDI'
+          WHEN 'Saturday' THEN 'SAMEDI'
+          WHEN 'Sunday' THEN 'DIMANCHE'
+        END as jour_semaine,
+        CASE DAYOFWEEK(DATE_ADD(?, INTERVAL seq DAY))
+          WHEN 2 THEN 'L'
+          WHEN 3 THEN 'M'
+          WHEN 4 THEN 'M'
+          WHEN 5 THEN 'J'
+          WHEN 6 THEN 'V'
+          WHEN 7 THEN 'S'
+          WHEN 1 THEN 'D'
+        END as lettre,
+        seq
+      FROM (
+        SELECT 0 as seq UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 
+        UNION SELECT 4 UNION SELECT 5 UNION SELECT 6
+      ) days
+    ) jours
+    
+    LEFT JOIN (
+      -- Présences de l'utilisateur
+      SELECT 
+        p.date_presence,
+        MAX(CASE 
+          WHEN p.heure_entree IS NOT NULL THEN 1 ELSE 0 
+        END) as present,
+        MAX(CASE 
+          WHEN p.retard_minutes > 0 THEN 1 ELSE 0 
+        END) as partial,
+        SUM(
+          CASE 
+            WHEN p.heure_entree IS NOT NULL AND p.heure_sortie IS NOT NULL 
+            THEN TIMESTAMPDIFF(HOUR, p.heure_entree, p.heure_sortie)
+            ELSE 0
+          END
+        ) as heures_jour
+      FROM presences p
+      WHERE p.id_utilisateur = ?
+        AND p.date_presence BETWEEN ? AND ?
+      GROUP BY p.date_presence
+    ) p ON p.date_presence = jours.date_jour
+    
+    LEFT JOIN horaire_user hu ON hu.user_id = ?
+      AND hu.date_debut <= jours.date_jour
+      AND (hu.date_fin IS NULL OR hu.date_fin >= jours.date_jour)
+    LEFT JOIN horaire h ON h.id_horaire = hu.horaire_id
+    LEFT JOIN horaire_detail hd ON hd.horaire_id = h.id_horaire
+      AND hd.jour_semaine = jours.jour_semaine
+    
+    ORDER BY jours.seq
+  `;
+
+  // ✅ Correction: 6 paramètres au lieu de 7
+  db.query(
+    query, 
+    [dateDebut, dateDebut, dateDebut, userId, dateDebut, dateFin, userId], 
+    (err, results) => {
+      if (err) {
+        console.error('❌ Erreur récupération semaine:', err);
+        return res.status(500).json({
+          success: false,
+          message: "Erreur serveur"
+        });
+      }
+
+      // Statistiques de la semaine
+      const stats = results.reduce((acc, day) => {
+        if (day.status === 'present') acc.present++;
+        if (day.status === 'partial') acc.partial++;
+        return acc;
+      }, { present: 0, partial: 0 });
+
+      res.json({
+        success: true,
+        data: {
+          jours: results.map(row => ({
+            letter: row.lettre,
+            present: row.present === 1,
+            partial: row.partial === 1,
+            date: row.date_jour,
+            heures: parseFloat(row.heures) || 0,
+            status: row.status,
+            horaire: row.heure_debut ? {
+              debut: row.heure_debut.substring(0, 5),
+              fin: row.heure_fin.substring(0, 5),
+              tolerance: row.tolerance_retard
+            } : null
+          })),
+          stats: {
+            present: stats.present,
+            partial: stats.partial,
+            total: results.length
+          },
+          periode: {
+            debut: dateDebut,
+            fin: dateFin
+          }
+        }
+      });
+    }
+  );
+}; */
 
 exports.getSemainePresence = (req, res) => {
   const { userId, startDate, endDate } = req.query;
@@ -1946,14 +2188,10 @@ exports.validateStaticQR = async (req, res) => {
     const { code, latitude, longitude, accuracy } = req.body;
     const { user_id } = req.abac || {};
 
-    console.log('=== VALIDATE STATIC QR START ===');
-    console.log('User ID:', user_id);
-    console.log('QR Code:', code);
 
     const now = new Date();
     const today = now.toISOString().split('T')[0];
     const nowStr = now.toISOString().slice(0, 19).replace('T', ' ');
-    const currentTime = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
     // 1️⃣ Récupérer le QR statique
     const qr = await query(
@@ -2205,7 +2443,7 @@ exports.validateStaticQR = async (req, res) => {
           [nowStr, retard_minutes, 'QR', deviceInfo.substring(0, 50), qrData.site_id, presenceRecord.id_presence]
         );
         
-        responseMessage = `✅ Entrée enregistrée sur ${qrData.nom_site}`;
+        responseMessage = `Entrée enregistrée sur ${qrData.nom_site}`;
         if (retard_minutes > 0) {
           responseMessage += ` avec ${retard_minutes} minute(s) de retard`;
         }
@@ -2230,7 +2468,7 @@ exports.validateStaticQR = async (req, res) => {
         [nowStr, heures_supplementaires, presenceRecord.id_presence]
       );
       
-      responseMessage = `✅ Sortie enregistrée sur ${qrData.nom_site}`;
+      responseMessage = `Sortie enregistrée sur ${qrData.nom_site}`;
       if (heures_supplementaires > 0) {
         responseMessage += ` avec ${heures_supplementaires} heure(s) supplémentaire(s)`;
       }
@@ -2313,7 +2551,6 @@ exports.deactivateQR = async (req, res) => {
   }
 };
 
-
 exports.postPresence = async (req, res) => {
   try {
     const {
@@ -2326,7 +2563,8 @@ exports.postPresence = async (req, res) => {
       permissions = [],
     } = req.body;
 
-    // 0️⃣ Vérification RBAC
+    console.log(req.body)
+
     if (!permissions.includes("attendance.events.approve")) {
       return res.status(403).json({ message: "Permission refusée" });
     }
@@ -2335,9 +2573,6 @@ exports.postPresence = async (req, res) => {
       return res.status(400).json({ message: "Champs obligatoires manquants" });
     }
 
-    // =========================
-    // Heure exacte pour MANUEL
-    // =========================
     const dateISO = moment(date_presence).format("YYYY-MM-DD");
     const heurePointage = datetime
       ? moment.parseZone(`${dateISO} ${moment(datetime, "HH:mm:ss").format("HH:mm:ss")}`)
@@ -4292,16 +4527,10 @@ exports.postConge = async (req, res) => {
       scope_sites = []
     } = req.body;
 
-    // ===============================
-    // 0️⃣ RBAC – vérification des permissions depuis JWT
-    // ===============================
     if (!permissions.includes('attendance.events.read')) {
       return res.status(403).json({ message: "Permission refusée" });
     }
 
-    // ===============================
-    // 1️⃣ Validation des champs obligatoires
-    // ===============================
     if (!id_utilisateur || !date_debut || !date_fin || !type_conge) {
       return res.status(400).json({
         message: "Champs obligatoires manquants"
