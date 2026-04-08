@@ -444,7 +444,7 @@ exports.deleteUpdatedArticle = (req, res) => {
         
       return res.json(data);
     });
-  }
+};
 
 exports.deleteUpdatedOffres = (req, res) => {
     const { id } = req.query;

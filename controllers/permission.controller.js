@@ -1,5 +1,4 @@
 const { db } = require("./../config/database");
-const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const nodemailer = require('nodemailer');
 
@@ -749,7 +748,6 @@ exports.postPermissionDeclaration = (req, res) => {
         });
         
       } else {
-        // Insérez une nouvelle ligne
         const qInsert = `
           INSERT INTO permissions_declaration  (id_template, id_user, id_client, id_ville, can_view, can_edit, can_comment, can_delete) 
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -771,7 +769,6 @@ exports.postPermissionDeclaration = (req, res) => {
   }
 };
 
-
 //Permission projet
 exports.getPermissionProjet = (req, res) => {
   const { userId } = req.query;
@@ -784,7 +781,7 @@ exports.getPermissionProjet = (req, res) => {
     }
     return res.status(200).json(data);
   });
-}
+};
 
 exports.postPermissionProjet = (req, res) => {
   const { id_projet, id_user, can_view, can_edit, can_comment, can_delete, user_cr } = req.body;
