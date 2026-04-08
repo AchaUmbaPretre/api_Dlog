@@ -10,7 +10,7 @@ function queryPromise(connection, sql, params) {
         resolve([results]);
       }); 
     });
-  }
+}
 
 const queryAsync = (query, values = []) =>
     new Promise((resolve, reject) => {

@@ -1,7 +1,6 @@
 const util = require('util');
 const http = require('http');
 const { db } = require('./../config/database');
-const query = util.promisify(db.query).bind(db);
 const dotenv = require('dotenv');
 dotenv.config();
 const ONE_DAY_MS = 24 * 60 * 60 * 1000; // Exécution chaque jour à minuit (24h)
@@ -315,4 +314,3 @@ exports.updateGeofences = async (req, res) => {
     });
   }
 };
-
