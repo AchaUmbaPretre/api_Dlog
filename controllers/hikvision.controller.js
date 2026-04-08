@@ -24,7 +24,6 @@ const PULL_INTERVAL_MS = 30 * 1000;
 
     console.log(`[INFO] Événement reçu : user=${employeeNoString}, time=${time}, device=${device_sn}`);
 
-  // Anti-doublon dans logs
   try {
     await query(
       `INSERT INTO presence_logs (device_sn, serial_no, employee_no, event_time, reader_no)
@@ -60,7 +59,7 @@ const PULL_INTERVAL_MS = 30 * 1000;
   const jourNom = moment(dateISO)
     .locale("fr")
     .format("dddd")
-    .toUpperCase(); // LUNDI, MARDI...
+    .toUpperCase();
 
   const horaireRows = await query(
     `SELECT 
@@ -351,5 +350,4 @@ setInterval(() => {
     .catch(err => console.error("[AutoSync] Erreur:", err.message));
 }, PULL_INTERVAL_MS);
 
-// ===================== EXPORT =====================
 module.exports = { startPullScheduler: pullAllHikvisionTerminals };

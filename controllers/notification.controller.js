@@ -11,7 +11,7 @@ async function sendPushNotification(expoPushToken, title, body, data = {}) {
   }
 
   const message = {
-    to: expoPushToken,
+    to: expoPushToken,   
     sound: 'default',
     title: title,
     body: body,
@@ -87,7 +87,7 @@ async function sendMultiplePushNotifications(messages) {
 exports.postNotifications = async (req, res) => {
     const { token, platform, device_name } = req.body;
     const { user_id : userId } = req.abac || {};
-    
+
     if (!token) {
         return res.status(400).json({ success: false, message: 'Token requis' });
     }
