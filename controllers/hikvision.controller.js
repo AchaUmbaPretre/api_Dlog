@@ -10,7 +10,6 @@ const { getDigestHeader } = require("../utils/hikvisionUtils");
 
 const PULL_INTERVAL_MS = 30 * 1000;
 
-// ===================== HANDLE HIKVISION PRESENCE =====================
   async function handleHikvisionPresence(event) {
     const { employeeNoString, time, device_sn, serialNo, cardReaderNo } = event;
 
