@@ -116,7 +116,6 @@ exports.getGeofencesFalcon = (req, res) => {
     });
 };
 
-
 exports.getGeofencesDlog = (req, res) => {
     
     let q = `SELECT 

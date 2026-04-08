@@ -133,112 +133,6 @@ exports.getOffreArticle = (req, res) => {
     });
 };
 
-/* exports.getOffreArticleOne = (req, res) => {
-    const { id_offre } = req.query;
-
-    // Préparez la requête SQL
-    const query = `
-                SELECT besoin_offre.*, besoins.description, offres.nom_offre FROM besoin_offre
-            LEFT JOIN besoins ON besoin_offre.id_besoin = besoins.id_besoin
-            LEFT JOIN offres ON besoin_offre.id_offre = offres.id_offre
-            WHERE offres.id_offre = ?
-            `;
-
-    // Exécutez la requête SQL
-    db.query(query, [id_offre || null], (err, results) => {
-        if (err) {
-            console.error("Database query error:", err);
-            return res.status(500).json({ error: "Internal server error" });
-        }
-        return res.status(200).json(results);
-    });
-}; */
-
-/* exports.postOffres = (req, res) => {
-    const articles = req.body.articles;
-
-    const q = 'INSERT INTO offres(`id_fournisseur`,`id_projet`, `id_batiment`, `nom_offre`, `description`) VALUES(?,?,?,?,?)';
-    const qOffre_article = 'INSERT INTO offre_article(`id_offre`,`id_article`,`prix`, `quantite`) VALUES(?,?,?,?)';
-    const qBesoin_offre = 'INSERT INTO besoin_offre(`id_besoin`,`id_offre`,`prix`, `quantite`) VALUES(?,?,?,?)';
-
-    const values = [
-        req.body.id_fournisseur,
-        req.body.id_projet,
-        req.body.id_batiment,
-        req.body.nom_offre,
-        req.body.description
-    ];
-    db.getConnection((err, connection) => {
-        if (err) {
-            console.error('Erreur de connexion :', err);
-            return res.status(500).json({ error: "Une erreur s'est produite lors de la connexion à la base de données." });
-        }
-
-        // Commencez la transaction
-        connection.beginTransaction((err) => {
-            if (err) {
-                console.error('Erreur lors du début de la transaction :', err);
-                connection.release();
-                return res.status(500).json({ error: "Une erreur s'est produite lors du début de la transaction." });
-            }
-
-            // Insérez l'offre
-            connection.query(q, values, (err, result) => {
-                if (err) {
-                    return connection.rollback(() => {
-                        console.error('Erreur lors de l\'ajout de l\'offre :', err);
-                        connection.release();
-                        res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de l'offre." });
-                    });
-                }
-
-                const insertID = result.insertId;
-
-                // Insérez les articles
-                const insertArticleQueries = articles.map(article => {
-                    const articleValues = [
-                        insertID,
-                        article.id_article,
-                        article.prix,
-                        article.quantite
-                    ];
-
-                    return new Promise((resolve, reject) => {
-                        connection.query(qOffre_article, articleValues, (err) => {
-                            if (err) {
-                                return reject(err);
-                            }
-                            resolve();
-                        });
-                    });
-                });
-
-                Promise.all(insertArticleQueries)
-                    .then(() => {
-                        connection.commit((err) => {
-                            if (err) {
-                                return connection.rollback(() => {
-                                    console.error('Erreur lors de la validation de la transaction :', err);
-                                    connection.release();
-                                    res.status(500).json({ error: "Une erreur s'est produite lors de la validation de la transaction." });
-                                });
-                            }
-                            connection.release();
-                            res.status(201).json({ message: 'Offre ajoutée avec succès' });
-                        });
-                    })
-                    .catch((error) => {
-                        connection.rollback(() => {
-                            console.error('Erreur lors de l\'ajout des articles :', error);
-                            connection.release();
-                            res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout des articles." });
-                        });
-                    });
-            });
-        });
-    });
-}; */
-
 exports.postOffres = (req, res) => {
     const articles = req.body.articles;
 
@@ -338,7 +232,6 @@ exports.postOffres = (req, res) => {
         });
     });
 };
-
 
 exports.postOffres = (req, res) => {
     const articles = req.body.articles;
