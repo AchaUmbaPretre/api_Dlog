@@ -275,7 +275,6 @@ exports.postGenerateur = async (req, res) => {
             user_cr
         } = req.body;
 
-        // Vérification des champs obligatoires
         if (!id_modele || !puissance || !id_type_gen ) {
             return res.status(400).json({
                 message: "Veuillez remplir tous les champs obligatoires pour la logistique."
@@ -461,7 +460,6 @@ exports.updateGenerateur = async (req, res) => {
     }
 };
 
-//Relier générateur à un fichier excel
 exports.putRelierGenerateurFichierExcel = async (req, res) => {
   try {
     const { id_generateur } = req.query;

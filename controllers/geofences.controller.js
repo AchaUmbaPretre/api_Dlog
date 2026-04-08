@@ -252,7 +252,6 @@ exports.updateGeofences = async (req, res) => {
       actif = 0,
     } = req.body;
 
-    // Vérification du falcon_id
     if (!falcon_id) {
       return res.status(400).json({ error: "Le falcon_id est obligatoire." });
     }
