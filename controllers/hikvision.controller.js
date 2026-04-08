@@ -10,7 +10,7 @@ const { getDigestHeader } = require("../utils/hikvisionUtils");
 
 const PULL_INTERVAL_MS = 30 * 1000;
 
-  async function handleHikvisionPresence(event) {
+async function handleHikvisionPresence(event) {
     const { employeeNoString, time, device_sn, serialNo, cardReaderNo } = event;
 
     if (!employeeNoString || !time || !device_sn || !serialNo) {
@@ -231,7 +231,6 @@ const PULL_INTERVAL_MS = 30 * 1000;
   console.log(`[INFO] Présence déjà complète pour ${employeeNoString} le ${dateISO}`);
 }
 
-
 // ===================== HIKVISION REQUEST =====================
 async function hikvisionRequest(terminal, credentials, payload) { 
   const protocol = terminal.port === 443 ? https : http;
@@ -342,7 +341,6 @@ async function pullAllHikvisionTerminals() {
   for (const terminal of terminals) await pullSingleTerminal(terminal);
 }
 
-// ===================== AUTO-SYNC =====================
 setInterval(() => {
   pullAllHikvisionTerminals()
     .then(() => console.log("[AutoSync] Terminaux pullés"))
