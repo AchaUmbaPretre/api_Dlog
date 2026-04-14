@@ -1,6 +1,6 @@
 const { db } = require("./../config/database");
+const batimentService = require("./../services/batiment.service");
 
-// ðŸ“¦ Petite helper function pour convertir mysql en Promises
 function queryPromise(connection, sql, params) {
     return new Promise((resolve, reject) => {
       connection.query(sql, params, (err, results) => {
@@ -10,64 +10,59 @@ function queryPromise(connection, sql, params) {
     });
   }
 
-exports.getEquipement = (req, res) => {
-
-    const q = `
-                SELECT equipments.model, equipments.num_serie, 
-                    equipments.id_equipement, equipments.installation_date, 
-                    equipments.maintenance_date, equipments.date_prochaine_maintenance, bins.nom AS location, batiment.nom_batiment, statut_equipement.nom_statut, articles.nom_article FROM equipments 
-                    LEFT JOIN batiment ON equipments.id_batiment = batiment.id_batiment
-                    LEFT JOIN statut_equipement ON equipments.status = statut_equipement.id_statut_equipement
-                    LEFT JOIN articles ON equipments.id_type_equipement = articles.id_article
-                    LEFT JOIN bins ON equipments.id_bin = bins.id
-            `;
-
-    db.query(q, (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
-    });
+exports.getEquipement = async (req, res) => {
+  try {
+    const data = await batimentService.getEquipements();
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
-exports.getEquipementOneV = (req, res) => {
-    const {id} = req.query;
+exports.getEquipementOneV = async (req, res) => {
+    try {
+        const { id } = req.query;
 
-    const q = `
-            SELECT * FROM equipments 
-            WHERE 
-                equipments.id_equipement= ?
-            `;
-
-    db.query(q,[id],(error, data) => {
-        if (error) {
-            return res.status(500).send(error);
+        if (!id) {
+            return res.status(400).json({ message: "id requis" });
         }
+
+        const data = await batimentService.getEquipementById(id);
+
+        if (!data || data.length === 0) {
+            return res.status(404).json({ message: "Equipement introuvable" });
+        }
+
         return res.status(200).json(data);
-    });
+    } catch (error) {
+        return res.status(500).json({
+            message: "Erreur serveur",
+            error: error.message,
+        });
+    }
 };
 
-exports.getEquipementOne = (req, res) => {
-    const {id} = req.query;
-
-    const q = `
-            SELECT equipments.model, equipments.num_serie, 
-                equipments.id_equipement, equipments.installation_date, 
-                equipments.maintenance_date, equipments.date_prochaine_maintenance, bins.nom AS location, batiment.nom_batiment, statut_equipement.nom_statut, articles.nom_article FROM equipments 
-                INNER JOIN batiment ON equipments.id_batiment = batiment.id_batiment
-                INNER JOIN statut_equipement ON equipments.status = statut_equipement.id_statut_equipement
-                INNER JOIN articles ON equipments.id_type_equipement = articles.id_article
-                INNER JOIN bins ON equipments.id_bin = bins.id
-            WHERE 
-                equipments.id_batiment= ?
-            `;
-
-    db.query(q,[id],(error, data) => {
-        if (error) {
-            return res.status(500).send(error);
+exports.getEquipementOne = async (req, res) => {
+    try {
+        const {id} = req.query;
+        
+        if (!id) {
+            return res.status(400).json({ message: "id requis" });
         }
+
+        const data = await batimentService.getEquipementOne(id);
+        
+        if (!data || data.length === 0) {
+            return res.status(404).json({ message: "Equipement introuvable" });
+        }
+
         return res.status(200).json(data);
-    });
+    } catch (error) {
+        return res.status(500).json({
+            message: "Erreur serveur",
+            error: error.message,
+        });
+    }
 };
 
 exports.postEquipement = async (req, res) => {
