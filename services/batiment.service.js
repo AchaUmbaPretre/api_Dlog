@@ -87,7 +87,6 @@ exports.updateEquipement = async (id, data) => {
             maintenance_date = ?,
             date_prochaine_maintenance = ?,
             location = ?,
-            type_stockage = ?,
             status = ?
         WHERE id_equipement = ?
     `;
@@ -99,7 +98,6 @@ exports.updateEquipement = async (id, data) => {
         data.maintenance_date,
         data.date_prochaine_maintenance,
         data.location,
-        data.type_stockage,
         data.status,
         id
     ];
