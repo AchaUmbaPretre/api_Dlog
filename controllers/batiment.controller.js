@@ -66,72 +66,71 @@ exports.getEquipementOne = async (req, res) => {
 };
 
 exports.postEquipement = async (req, res) => {
-
     try {
-        const q = 'INSERT INTO equipments(`id_bureau`,`id_bin`,`id_batiment`, `id_type_equipement`, `model`, `num_serie`, `installation_date`, `maintenance_date`,`date_prochaine_maintenance`, `location`, `status`) VALUES(?,?,?,?,?,?,?,?,?,?,?)';
-
-        const values = [
-            req.body.id_bureau,
-            req.body.id_bin,
-            req.body.id_batiment,
-            req.body.id_type_equipement,
-            req.body.model,
-            req.body.num_serie,
-            req.body.installation_date,
-            req.body.maintenance_date,
-            req.body.date_prochaine_maintenance,
-            req.body.location,
-            req.body.status
+        const requiredFields = [
+            "id_bureau",
+            "id_bin",
+            "id_batiment",
+            "id_type_equipement",
+            "model",
+            "num_serie",
+            "installation_date",
+            "maintenance_date",
+            "date_prochaine_maintenance",
+            "location",
+            "status",
         ];
 
-
-        db.query(q, values, (error, data)=> {
-            if(error) {
-                console.log(error)
+        for (const field of requiredFields) {
+            if (!req.body[field]) {
+                return res.status(400).json({ message: `${field} est requis` });
             }
-            return res.status(201).json({ message: 'Equipement ajoutÃ© avec succÃ¨s' });
-        })
+        }
+  
+        await batimentService.createEquipement(req.body);
+
+        return res.status(201).json({
+            message: "Equipement ajouté avec succès",
+        });
+
     } catch (error) {
-        console.error('Erreur lors de l\'ajout de la tÃ¢che :', error.message);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout de la tÃ¢che." });
+        return res.status(500).json({
+            message: "Erreur serveur",
+            error: error.message,
+        });
     }
 };
 
 exports.putEquipement = async (req, res) => {
-    const { id_equipement  } = req.query;
-    const { model, num_serie, installation_date, maintenance_date, date_prochaine_maintenance, location, status} = req.body;
-
-    if (!id || isNaN(id)) {
-        return res.status(400).json({ error: 'ID de bins fourni non valide' });
-    }
-
     try {
-        const q = `
-            UPDATE equipments 
-            SET 
-                model = ?,
-                num_serie = ?,
-                installation_date = ?,
-                maintenance_date = ?,
-                date_prochaine_maintenance = ?,
-                location = ?,
-                type_stockage = ?,
-                status = ?
-            WHERE id_equipement  = ?
-        `;
-      
-        const values = [ model, num_serie, installation_date, maintenance_date, date_prochaine_maintenance, location, status, id_equipement ]
+        const { id_equipement } = req.query;
 
-        db.query(q, values, (error, data)=>{
-            if(error){
-                console.log(error)
-                return res.status(404).json({ error: 'Bins record not found' });
-            }
-            return res.json({ message: 'Bins record updated successfully' });
-        })
-    } catch (err) {
-        console.error("Error updating bins:", err);
-        return res.status(500).json({ error: 'Failed to update bins record' });
+        if (!id_equipement || isNaN(id_equipement)) {
+            return res.status(400).json({
+                message: "ID equipement invalide"
+            });
+        }
+
+        const result = await batimentService.updateEquipement(
+            id_equipement,
+            req.body
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                message: "Equipement introuvable"
+            });
+        }
+
+        return res.status(200).json({
+            message: "Equipement mis à jour avec succès"
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            message: "Erreur serveur",
+            error: error.message
+        });
     }
 };
 

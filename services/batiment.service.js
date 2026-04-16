@@ -39,3 +39,71 @@ exports.getEquipementOne = async(id) => {
     const result = await queryAsync(sql, [id]);
     return result;
 }
+
+exports.createEquipement = async (data) => {
+    const sql = `
+        INSERT INTO equipments
+        (
+            id_bureau,
+            id_bin,
+            id_batiment,
+            id_type_equipement,
+            model,
+            num_serie,
+            installation_date, 
+            maintenance_date,
+            date_prochaine_maintenance,
+            location,
+            status
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+      
+    const values = [
+        data.id_bureau,
+        data.id_bin,
+        data.id_batiment,
+        data.id_type_equipement,
+        data.model,
+        data.num_serie,
+        data.installation_date,
+        data.maintenance_date,
+        data.date_prochaine_maintenance,
+        data.location,
+        data.status
+    ];
+
+    const result = await queryAsync(sql, values);
+    return result;
+};
+
+exports.updateEquipement = async (id, data) => {
+    const sql = `
+        UPDATE equipments 
+        SET 
+            model = ?,
+            num_serie = ?,
+            installation_date = ?,
+            maintenance_date = ?,
+            date_prochaine_maintenance = ?,
+            location = ?,
+            type_stockage = ?,
+            status = ?
+        WHERE id_equipement = ?
+    `;
+
+    const values = [
+        data.model,
+        data.num_serie,
+        data.installation_date,
+        data.maintenance_date,
+        data.date_prochaine_maintenance,
+        data.location,
+        data.type_stockage,
+        data.status,
+        id
+    ];
+
+    const result = await queryAsync(sql, values);
+    return result;
+};
