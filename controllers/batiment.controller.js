@@ -175,7 +175,6 @@ exports.postBatimentPlans = async (req, res) => {
     try {
         const { id_batiment, nom_document, type_document } = req.body;
 
-        // 🔒 validations
         if (!id_batiment || isNaN(id_batiment)) {
             return res.status(400).json({ message: "ID bâtiment invalide" });
         }
@@ -184,7 +183,6 @@ exports.postBatimentPlans = async (req, res) => {
             return res.status(400).json({ message: "Aucun fichier téléchargé" });
         }
 
-        // 📂 mapping fichiers → objets DB
         const documents = req.files.map(file => ({
             chemin_document: file.path.replace(/\\/g, '/'),
             id_batiment,
