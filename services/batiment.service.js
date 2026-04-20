@@ -139,14 +139,12 @@ exports.getBatimentPlans = async (filters) => {
     const limit = parseInt(pageSize);
     const offset = (parseInt(currentPage) - 1) * limit;
 
-    // 🔢 Total
     const countSql = `
         SELECT COUNT(*) AS total 
         FROM batiment_plans bp 
         ${whereClause}
     `;
 
-    // 📊 Data
     const dataSql = `
         SELECT bp.*
         FROM batiment_plans bp
@@ -164,4 +162,22 @@ exports.getBatimentPlans = async (filters) => {
         rows: data,
         total: countResult[0].total
     };
+};
+
+exports.getBatimentPlansByBatimentId = async (id_batiment) => {
+    const sql = `
+        SELECT 
+            bp.nom_document,
+            bp.type_document,
+            bp.chemin_document,
+            bp.date_ajout,
+            b.nom_batiment
+        FROM batiment_plans bp
+        INNER JOIN batiment b 
+            ON bp.id_batiment = b.id_batiment
+        WHERE bp.id_batiment = ?
+    `;
+
+    const result = await queryAsync(sql, [id_batiment]);
+    return result;
 };

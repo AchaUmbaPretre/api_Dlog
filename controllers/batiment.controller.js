@@ -149,22 +149,26 @@ exports.getBatimentPlans = async (req, res) => {
     }
 };
 
-exports.getBatimentPlansOne = (req, res) => {
-    const {id_batiment} = req.query;
-    const q = `
-                SELECT batiment_plans.nom_document, batiment_plans.type_document, batiment_plans.chemin_document, batiment_plans.date_ajout, batiment.nom_batiment 
-                    FROM 
-                batiment_plans 
-                    INNER JOIN batiment ON batiment_plans.id_batiment = batiment.id_batiment
-                    WHERE batiment_plans.id_batiment = ?
-            `;
+exports.getBatimentPlansOne = async (req, res) => {
+    try {
+        const { id_batiment } = req.query;
 
-    db.query(q, [id_batiment], (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
+        if (!id_batiment || isNaN(id_batiment)) {
+            return res.status(400).json({
+                message: "ID bâtiment invalide"
+            });
         }
+
+        const data = await batimentService.getBatimentPlansByBatimentId(id_batiment);
+
         return res.status(200).json(data);
-    });
+
+    } catch (error) {
+        return res.status(500).json({
+            message: "Erreur serveur",
+            error: error.message
+        });
+    }
 };
 
 exports.postBatimentPlans = async (req, res) => {
