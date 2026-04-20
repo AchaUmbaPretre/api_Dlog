@@ -172,39 +172,37 @@ exports.getBatimentPlansOne = async (req, res) => {
 };
 
 exports.postBatimentPlans = async (req, res) => {
-    const { id_batiment, nom_document, type_document } = req.body;
-
-    if (!req.files || req.files.length === 0) {
-        return res.status(400).json({ message: 'Aucun fichier tÃ©lÃ©chargÃ©' });
-    }
-
-    const documents = req.files.map(file => ({
-        chemin_document: file.path.replace(/\\/g, '/'),
-        id_batiment,
-        nom_document,
-        type_document
-    }));
-
     try {
-        await Promise.all(
-            documents.map((doc) => {
-                return new Promise((resolve, reject) => {
-                    const query = 'INSERT INTO batiment_plans(`id_batiment`, `nom_document`, `type_document`, `chemin_document`) VALUES(?,?,?,?)';
-                    db.query(query, [doc.id_batiment, doc.nom_document, doc.type_document, doc.chemin_document], (err, result) => {
-                        if (err) {
-                            console.error('Erreur lors de l\'insertion du document:', err);
-                            reject(err); // Rejeter la promesse en cas d'erreur
-                        } else {
-                            resolve(result); 
-                        }
-                    });
-                });
-            })
-        );
+        const { id_batiment, nom_document, type_document } = req.body;
 
-        res.status(200).json({ message: 'Documents ajoutÃ©s avec succÃ¨s' });
+        // 🔒 validations
+        if (!id_batiment || isNaN(id_batiment)) {
+            return res.status(400).json({ message: "ID bâtiment invalide" });
+        }
+
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ message: "Aucun fichier téléchargé" });
+        }
+
+        // 📂 mapping fichiers → objets DB
+        const documents = req.files.map(file => ({
+            chemin_document: file.path.replace(/\\/g, '/'),
+            id_batiment,
+            nom_document,
+            type_document
+        }));
+
+        await batimentService.createBatimentPlans(documents);
+
+        return res.status(201).json({
+            message: "Documents ajoutés avec succès"
+        });
+
     } catch (error) {
-        res.status(500).json({ message: 'Erreur interne du serveur', error });
+        return res.status(500).json({
+            message: "Erreur serveur",
+            error: error.message
+        });
     }
 };
 

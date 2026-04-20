@@ -181,3 +181,21 @@ exports.getBatimentPlansByBatimentId = async (id_batiment) => {
     const result = await queryAsync(sql, [id_batiment]);
     return result;
 };
+
+exports.createBatimentPlans = async (documents) => {
+    const sql = `
+        INSERT INTO batiment_plans
+        (id_batiment, nom_document, type_document, chemin_document)
+        VALUES ?
+    `;
+
+    const values = documents.map(doc => ([
+        doc.id_batiment,
+        doc.nom_document,
+        doc.type_document,
+        doc.chemin_document
+    ]));
+
+    const result = await queryAsync(sql, [values]);
+    return result;
+};
