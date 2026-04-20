@@ -2,9 +2,6 @@ const { db } = require("./../config/database");
 const moment = require('moment');
 const util = require('util');
 const nodemailer = require('nodemailer');
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
 const connection = db;
 
 function queryPromise(connection, sql, params) {
@@ -80,32 +77,31 @@ exports.getMarque = (req, res) => {
 };
 
 exports.postMarque = async (req, res) => {
-    try {
-        const q = 'INSERT INTO marque(`nom_marque`) VALUES(?)';
+  try {
+    const q = 'INSERT INTO marque(`nom_marque`) VALUES(?)';
 
-        const values = [
-            req.body.nom_marque
-        ];
+    const values = [
+      req.body.nom_marque
+    ];
 
-        await db.query(q, values);
-        return res.json('Processus réussi');
-    } catch (error) {
+    await db.query(q, values);
+    return res.json('Processus réussi');
+  } catch (error) {
         console.error(error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du vehicule." });
-    }
+  }
 }
 
 exports.deleteMarque = (req, res) => {
-    const id_marque = req.params.id;
+  const id_marque = req.params.id;
   
-    const q = "DELETE marque WHERE id_marque= ?";
+  const q = "DELETE marque WHERE id_marque= ?";
   
-    db.query(q, [id_marque], (err, data) => {
-      if (err) return res.send(err);
-      return res.json(data);
-    });
-  
-  }
+  db.query(q, [id_marque], (err, data) => {
+    if (err) return res.send(err);
+    return res.json(data);
+  });
+};
   
 exports.getModeleAll = (req, res) => {
 
@@ -131,10 +127,10 @@ exports.getModele = (req, res) => {
     const q = `SELECT * FROM modeles WHERE id_marque = ?`;
 
     db.query(q, [id_marque], (error, data) => {
-        if (error) {
-            return res.status(500).send(error);
-        }
-        return res.status(200).json(data);
+      if (error) {
+        return res.status(500).send(error);
+      }
+      return res.status(200).json(data);
     });
 };
 

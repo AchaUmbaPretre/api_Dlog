@@ -38,7 +38,7 @@ exports.getEquipementOne = async(id) => {
             `;
     const result = await queryAsync(sql, [id]);
     return result;
-}
+};
 
 exports.createEquipement = async (data) => {
     const sql = `
@@ -104,4 +104,64 @@ exports.updateEquipement = async (id, data) => {
 
     const result = await queryAsync(sql, values);
     return result;
+};
+
+//Plan
+exports.getBatimentPlans = async (filters) => {
+    const {
+        searchValue,
+        selectedBatiment,
+        currentPage = 1,
+        pageSize = 10
+    } = filters;
+
+    let whereClauses = [];
+    let values = [];
+
+    if (searchValue) {
+        whereClauses.push(`bp.nom_document LIKE ?`);
+        values.push(`%${searchValue}%`);
+    }
+
+    if (selectedBatiment && (Array.isArray(selectedBatiment) ? selectedBatiment.length : true)) {
+        const ids = Array.isArray(selectedBatiment)
+            ? selectedBatiment
+            : [selectedBatiment];
+
+        whereClauses.push(`bp.id_batiment IN (${ids.map(() => '?').join(', ')})`);
+        values.push(...ids);
+    }
+
+    const whereClause = whereClauses.length
+        ? `WHERE ${whereClauses.join(' AND ')}`
+        : '';
+
+    const limit = parseInt(pageSize);
+    const offset = (parseInt(currentPage) - 1) * limit;
+
+    // 🔢 Total
+    const countSql = `
+        SELECT COUNT(*) AS total 
+        FROM batiment_plans bp 
+        ${whereClause}
+    `;
+
+    // 📊 Data
+    const dataSql = `
+        SELECT bp.*
+        FROM batiment_plans bp
+        ${whereClause}
+        ORDER BY bp.date_ajout DESC
+        LIMIT ? OFFSET ?
+    `;
+
+    const [countResult, data] = await Promise.all([
+        queryAsync(countSql, values),
+        queryAsync(dataSql, [...values, limit, offset])
+    ]);
+
+    return {
+        rows: data,
+        total: countResult[0].total
+    };
 };
