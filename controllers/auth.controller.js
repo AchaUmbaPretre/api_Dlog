@@ -183,7 +183,6 @@ exports.loginController = async (req, res) => {
   );
 
   if (!users.length) {
-    // Email inexistant
     return res.status(404).json({ message: "Aucun compte n'est associé à cet email." });
   }
 

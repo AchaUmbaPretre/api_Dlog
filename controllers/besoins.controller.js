@@ -1,5 +1,4 @@
 const { db } = require("./../config/database");
-const cheerio = require('cheerio'); // Ajoutez cheerio pour le parsing HTML
 
 exports.getBesoinCount = (req, res) => {
     
@@ -13,7 +12,7 @@ exports.getBesoinCount = (req, res) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
-}
+};
 
 exports.getBesoin = (req, res) => {
 
@@ -46,7 +45,7 @@ exports.getBesoinOne = (req, res) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
-}
+};
 
 exports.getBesoinInactif = (req, res) => {
 
@@ -62,7 +61,7 @@ exports.getBesoinInactif = (req, res) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
-}
+};
 
 exports.postBesoins = async (req, res) => {
 
@@ -94,7 +93,6 @@ exports.postBesoins = async (req, res) => {
     }
 };
 
-
 exports.deleteBesoins = (req, res) => {
     const id = req.params.id;
   
@@ -104,4 +102,4 @@ exports.deleteBesoins = (req, res) => {
       if (err) return res.send(err);
       return res.json(data);
     });
-  }
+};

@@ -8,7 +8,7 @@ function queryPromise(connection, sql, params) {
         resolve([results]);
       });
     });
-  }
+}
 
 exports.getEquipement = async (req, res) => {
   try {
@@ -1070,7 +1070,7 @@ exports.postBureaux = (req, res) => {
       }
       res.status(200).send('Bureau ajoutÃ© avec succÃ¨s');
     });
-  };
+};
   
 exports.putBureaux = (req, res) => {
     const { id_bureau } = req.query;
@@ -1106,7 +1106,7 @@ exports.putBureaux = (req, res) => {
         console.error("Error updating Bureau:", err);
         return res.status(500).json({ error: 'Failed to update bureau record' });
     }
-}
+};
 
 exports.deleteUpdateBureaux = (req, res) => {
     const {id} = req.query;
@@ -1120,7 +1120,7 @@ exports.deleteUpdateBureaux = (req, res) => {
       return res.json(data);
     });
   
-  }
+};
   
 //Niveau batiment
 exports.getNiveauCount = (req, res) => {
@@ -1244,7 +1244,7 @@ exports.putNiveau = (req, res) => {
         console.error("Error updating niveau:", err);
         return res.status(500).json({ error: 'Failed to update bins record' });
     }
-}
+};
 
 exports.deleteUpdateNiveau = (req, res) => {
     const {id} = req.query;
@@ -1258,7 +1258,7 @@ exports.deleteUpdateNiveau = (req, res) => {
       return res.json(data);
     });
   
-  }
+};
 
 //Denomination batiment
 exports.getDenominationCount = (req, res) => {
@@ -1375,7 +1375,7 @@ exports.putDenomination = (req, res) => {
         console.error("Error updating niveau:", err);
         return res.status(500).json({ error: 'Failed to update bins record' });
     }
-}
+};
 
 exports.deleteUpdateDenomination = (req, res) => {
     const {id} = req.query;
@@ -1389,7 +1389,7 @@ exports.deleteUpdateDenomination = (req, res) => {
       return res.json(data);
     });
   
-  }
+};
 
 //WHSE FACT
 exports.getWHSE_FACT = (req, res) => {
@@ -1450,7 +1450,7 @@ exports.postWHSE_FACT = (req, res) => {
       }
       res.status(200).send('Bureau ajoutÃ© avec succÃ¨s');
     });
-  };
+};
   
 //Adresse
 exports.getAdresse = (req, res) => {
@@ -1944,7 +1944,7 @@ exports.deleteUpdateInspections = (req, res) => {
       return res.json(data);
     });
   
-  }
+};
 
 exports.getTypeInstruction = (req, res) => {
     const q = `
@@ -1961,10 +1961,7 @@ exports.getTypeInstruction = (req, res) => {
 };
 
 exports.getType_photo = (req, res) => {
-    const q = `
-                SELECT *
-                FROM type_photo
-            `;
+    const q = `SELECT *FROM type_photo`;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -1975,10 +1972,7 @@ exports.getType_photo = (req, res) => {
 };
 
 exports.getCatInspection = (req, res) => {
-    const q = `
-                SELECT *
-                FROM cat_inspection
-            `;
+    const q = `SELECT * FROM cat_inspection`;
 
     db.query(q, (error, data) => {
         if (error) {
@@ -2047,7 +2041,7 @@ exports.putCatInspection = async (req, res) => {
         console.error("Error updating Categorie inspection:", err);
         return res.status(500).json({ error: 'Failed to update Categorie inspection record' });
     }
-}
+};
 
 exports.deleteCatInspection = (req, res) => {
     const id = req.params.id;
@@ -2058,4 +2052,4 @@ exports.deleteCatInspection = (req, res) => {
       if (err) return res.send(err);
       return res.json(data);
     });
-}
+};

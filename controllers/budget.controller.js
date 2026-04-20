@@ -50,7 +50,7 @@ exports.getBudgetOne = (req, res) => {
         if (error) res.status(500).send(error);
         return res.status(200).json(data);
     });
-}
+};
 
 exports.postBudget = async (req, res) => {
     try {
@@ -126,7 +126,7 @@ exports.deleteUpdateBudget = (req, res) => {
         
       return res.json(data);
     });
-  };
+};
 
 exports.deleteBudget = (req, res) => {
     const {id} = req.params;
@@ -138,4 +138,4 @@ exports.deleteBudget = (req, res) => {
       return res.json(data);
     });
   
-  }
+}

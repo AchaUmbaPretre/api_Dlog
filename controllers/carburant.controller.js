@@ -5,7 +5,6 @@ const { promisify } = require("util");
 const query = promisify(db.query).bind(db);
 const moment = require('moment');
 
-//Vehicule carburant
 exports.getVehiculeCarburant = (req, res) => {
 
     const q = `SELECT 
@@ -1538,42 +1537,35 @@ exports.getCarburantAnnee = (req, res) => {
 exports.getRapportCatPeriode = (req, res) => {
   const { month, id_vehicule, id_site, date_start, date_end, cat } = req.query;
 
-  // Validation
   if (!month && !(date_start && date_end)) {
     return res.status(400).json({
       message: "Vous devez fournir 'month' ou bien 'date_start' et 'date_end'.",
     });
   }
 
-  // Construction dynamique du WHERE
   const where = [];
   const params = [];
 
-  // Filtre mensuel si pas de période
   if (month && !(date_start && date_end)) {
     where.push("DATE_FORMAT(c.date_operation, '%Y-%m') = ?");
     params.push(month);
   }
 
-  // Filtre période
   if (date_start && date_end) {
     where.push("DATE(c.date_operation) BETWEEN ? AND ?");
     params.push(date_start, date_end);
   }
 
-  // Catégorie
   if (cat) {
     where.push("cat.id_cat_vehicule = ?");
     params.push(cat);
   }
 
-  // Véhicule
   if (id_vehicule) {
     where.push("c.id_vehicule = ?");
     params.push(id_vehicule);
   }
 
-  // Site
   if (id_site) {
     where.push("s.id_site = ?");
     params.push(id_site);
@@ -1581,7 +1573,6 @@ exports.getRapportCatPeriode = (req, res) => {
 
   const whereClause = where.length ? "WHERE " + where.join(" AND ") : "";
 
-  // 🔥 Requête SQL corrigée
   const q = `
     SELECT 
       DATE(c.date_operation) AS date_jour,
