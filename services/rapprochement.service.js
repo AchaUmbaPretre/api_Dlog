@@ -53,7 +53,7 @@ class RapprochementService {
     const debut = ref.clone().subtract(fenetre.avant, 'hours').format('YYYY-MM-DD HH:mm:ss');
     const fin = ref.clone().add(fenetre.apres, 'hours').format('YYYY-MM-DD HH:mm:ss');
     
-    const [rows] = await db.query(`
+    const rows = await queryAsync(`
       SELECT bs.*, v.immatriculation
       FROM bande_sortie bs
       JOIN vehicule v ON bs.id_vehicule = v.id_vehicule
@@ -75,7 +75,7 @@ class RapprochementService {
     const debut = ref.clone().subtract(fenetre.avant, 'minutes').format('YYYY-MM-DD HH:mm:ss');
     const fin = ref.clone().add(fenetre.apres, 'minutes').format('YYYY-MM-DD HH:mm:ss');
     
-    const [rows] = await db.query(`
+    const rows = await queryAsync(`
       SELECT bs.*, v.immatriculation
       FROM bande_sortie bs
       JOIN vehicule v ON bs.id_vehicule = v.id_vehicule
@@ -97,7 +97,7 @@ class RapprochementService {
     const debut = ref.clone().subtract(fenetre.avant, 'minutes').format('YYYY-MM-DD HH:mm:ss');
     const fin = ref.clone().add(fenetre.apres, 'minutes').format('YYYY-MM-DD HH:mm:ss');
     
-    const [rows] = await db.query(`
+    const rows = await queryAsync(`
       SELECT *
       FROM vehicle_events
       WHERE device_name LIKE CONCAT('%', ?, '%')
@@ -113,7 +113,7 @@ class RapprochementService {
   // Vérifier si la sortie GPS est réelle (évite faux positifs)
   async isRealGPSExit(deviceName, eventTime, latitude, longitude) {
     // Récupérer la zone du véhicule
-    const [zone] = await db.query(`
+    const zone = await queryAsync(`
       SELECT g.coordinates
       FROM vehicule_geofence vg
       JOIN geofences_dlog gd ON vg.id_geo_dlog = gd.id_geo_dlog
@@ -128,7 +128,7 @@ class RapprochementService {
     // Vérifier les 5 minutes suivantes
     const cinqMinutesApres = moment(eventTime).add(5, 'minutes').format('YYYY-MM-DD HH:mm:ss');
     
-    const [positions] = await db.query(`
+    const positions = await queryAsync(`
       SELECT COUNT(*) as count
       FROM vehicle_events
       WHERE device_name LIKE CONCAT('%', ?, '%')
@@ -142,6 +142,7 @@ class RapprochementService {
   
   // Traiter un événement GPS zone_out de Falcon
   async traiterZoneOut(eventData) {
+    console.log(eventData)
     const { device_name, event_time, latitude, longitude, device_id, speed } = eventData;
     
     // Extraire l'immatriculation
@@ -184,7 +185,7 @@ class RapprochementService {
     console.log(`📊 Résultat: ${statut} (BS:${hasBS}, Tab:${hasTablette}, GPS:${hasGPS})`);
     
     // Sauvegarder dans controle_sorties
-    const [result] = await db.query(`
+    const result = await queryAsync(`
       INSERT INTO controle_sorties 
       (immatriculation, bon_id, tablette_id, gps_id,
        bon_heure, tablette_heure, gps_heure,
@@ -224,7 +225,7 @@ class RapprochementService {
   async getControles(date) {
     const dateFilter = date || moment().format('YYYY-MM-DD');
     
-    const [rows] = await db.query(`
+    const rows = await queryAsync(`
       SELECT 
         cs.*,
         bs.numero_bon_sortie,
@@ -244,7 +245,7 @@ class RapprochementService {
   async getStatistiques(date) {
     const dateFilter = date || moment().format('YYYY-MM-DD');
     
-    const [stats] = await db.query(`
+    const [stats] = await queryAsync(`
       SELECT 
         COUNT(*) as total,
         SUM(CASE WHEN statut = 'CONFORME' THEN 1 ELSE 0 END) as conformes,
@@ -262,7 +263,7 @@ class RapprochementService {
   
   // Régulariser une sortie sans bon
   async regulariser(id, idBonSortie, commentaire, userId) {
-    await db.query(`
+    await queryAsync(`
       UPDATE controle_sorties 
       SET bon_id = ?,
           a_bon = 1,
