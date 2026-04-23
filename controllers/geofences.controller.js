@@ -331,14 +331,7 @@ exports.getGeofencesVehicule = async (req, res) => {
       WHERE vg.id_geo_dlog = ?
     `;
 
-    // 🔹 Exécution de la requête avec promise
-    const [data] = await queryAsync(query, [id_geo_dlog]);
-
-    if (!data || data.length === 0) {
-      return res.status(404).json({
-        error: `Aucun geofence trouvé avec l'id_geo_dlog = ${id_geo_dlog}.`,
-      });
-    }
+    const data = await queryAsync(query, [id_geo_dlog]);
 
     // ✅ Réponse réussie
     return res.status(200).json({
@@ -445,6 +438,47 @@ exports.putGeofencesVehicule = async (req, res) => {
       })
 
   } catch (error) {
-    
+    console.error("❌ Erreur lors de la mise à jour du geofence véhicule:", error);
+    return res.status(500).json({
+      error: "Une erreur s'est produite lors de la mise à jour du geofence véhicule.",
+      details: error.message,
+    });
   }
-}
+};
+
+exports.deleteGeofenceVehicule = async (req, res) => {
+  try {
+    const { id } = req.query;
+
+    if (!id) {
+      return res.status(400).json({
+        error: "Le paramètre 'id' est obligatoire.",
+      });
+    }
+
+    const query = `
+      DELETE FROM vehicule_geofence
+      WHERE id_vehicule_geofence = ?
+    `;
+
+    const result = await queryAsync(query, [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        error: "Aucun enregistrement trouvé pour cet id.",
+      });
+    }
+
+    return res.status(200).json({
+      message: "✅ Geofence véhicule supprimé avec succès",
+      id_deleted: id
+    });
+
+  } catch (error) {
+    console.error("❌ Erreur suppression geofence véhicule:", error);
+    return res.status(500).json({
+      error: "Erreur lors de la suppression.",
+      details: error.message,
+    });
+  }
+};
