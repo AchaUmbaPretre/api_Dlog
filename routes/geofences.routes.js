@@ -9,4 +9,8 @@ router.get('/one', geofencesController.getGeofencesDlogOne)
 router.post('/', geofencesController.postGeofences)
 router.put('/', geofencesController.updateGeofences)
 
+//Geofence vehicule
+router.get('/geofence_vehicule', geofencesController.getGeofencesVehicule);
+router.post('/geofence_vehicule', geofencesController.postGeofencesVehicule)
+
 module.exports = router;

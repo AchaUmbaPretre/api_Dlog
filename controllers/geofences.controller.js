@@ -1,6 +1,6 @@
 const util = require('util');
 const http = require('http');
-const { db } = require('./../config/database');
+const { db, queryAsync } = require('./../config/database');
 const dotenv = require('dotenv');
 dotenv.config();
 const ONE_DAY_MS = 24 * 60 * 60 * 1000; // Exécution chaque jour à minuit (24h)
@@ -313,3 +313,138 @@ exports.updateGeofences = async (req, res) => {
     });
   }
 };
+
+//GEOFENCES VEHICULES
+exports.getGeofencesVehicule = async (req, res) => {
+  try {
+    const { id_geo_dlog  } = req.query;
+
+    if (!id_geo_dlog) {
+      return res.status(400).json({
+        error: "Le paramètre 'id_geo_dlog' est obligatoire.",
+      });
+    }
+
+    const query = `
+      SELECT *
+      FROM vehicule_geofence AS vg
+      WHERE vg.id_geo_dlog = ?
+    `;
+
+    // 🔹 Exécution de la requête avec promise
+    const [data] = await queryAsync(query, [id_geo_dlog]);
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({
+        error: `Aucun geofence trouvé avec l'id_geo_dlog = ${id_geo_dlog}.`,
+      });
+    }
+
+    // ✅ Réponse réussie
+    return res.status(200).json({
+      message: "Geofence vehicule récupéré avec succès.",
+      data: data
+    });
+  } catch (error) {
+    console.error("❌ Erreur getGeofencesDlogOne:", error);
+    return res.status(500).json({
+      error: "Une erreur est survenue lors de la récupération du geofence.",
+      details: error.message,
+    });
+  }
+};
+
+exports.postGeofencesVehicule = async (req, res) => {
+  try {
+    const {
+      id_vehicule,
+      id_geo_dlog,
+      autorise_sans_bs
+    } = req.body;
+
+    if (!id_vehicule || !id_geo_dlog) {
+      return res.status(400).json({ error: "Les champs obligatoires sont manquants." })
+    }
+
+    const query = `INSERT INTO vehicule_geofence(	id_vehicule, id_geo_dlog, autorise_sans_bs) VALUES (?,?,?)`;
+
+    const values = [
+      id_vehicule,
+      id_geo_dlog,
+      autorise_sans_bs
+    ];
+
+    await queryAsync(query, values);
+
+    return res.status(201).json({
+      message: "✅ Geofence véhicule ajouté avec succès",
+      data: {
+        id_vehicule,
+        id_geo_dlog,
+        autorise_sans_bs
+      }
+    })
+
+  } catch (error) {
+    console.error("❌ Erreur lors de l'ajout du geofence:", error);
+    return res.status(500).json({
+      error: "Une erreur s'est produite lors de l'ajout du geofence.",
+      details: error.message,
+    });
+  }
+};
+
+exports.putGeofencesVehicule = async (req, res) => {
+  try {
+    const {
+      id_vehicule_geofence,
+      id_vehicule,
+      id_geo_dlog,
+      autorise_sans_bs
+    } = req.body;
+
+    if(!id_vehicule_geofence) {
+      return res.status(400).json({ error: "Le id_vehicule_geofence  est obligatoire." });
+    }
+
+    if (!id_vehicule || !id_geo_dlog ) {
+      return res.status(400).json({
+        error: "Les champs véhicule, id_geo_dlog sont obligatoires.",
+      });
+    }
+
+    const updateQuery = `
+      UPDATE vehicule_geofence 
+      SET id_vehicule = ?,
+      id_geo_dlog = ?,
+      autorise_sans_bs = ?
+      WHERE id_vehicule_geofence = ?
+      `;
+
+      const values = [
+        id_vehicule,
+        id_geo_dlog,
+        autorise_sans_bs,
+        id_vehicule_geofence
+      ];
+
+      const result = await queryAsync(updateQuery, values);
+
+      if(result.affectedRows === 0) {
+        return res.status(404).json({ error : "Aucun geofence véhicule trouvé avec pour cet id" })
+      }
+
+      return res.status(200).json({
+        message: 'Geofence véhicule a été mise à jour avec succès',
+        data : {
+          id_vehicule,
+          id_geo_dlog,
+          autorise_sans_bs,
+          id_vehicule_geofence,
+        }
+      })
+
+  } catch (error) {
+    
+  }
+}
