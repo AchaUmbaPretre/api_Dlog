@@ -240,9 +240,15 @@ exports.postEvent = async (req, res) => {
       [external_id, device_id, device_name, type, message, speed, latitude, longitude, formattedEventTime]
     );
     const payload = {
-       device_name, event_time : formattedEventTime, latitude, longitude
+      device_name, event_time : formattedEventTime, latitude, longitude, external_id
     }
-    await rapprochementService.traiterZoneOut(payload);
+
+    if (type === 'zone_exit') {
+      await rapprochementService.traiterZoneOut(payload);
+    } 
+    else if (type === 'zone_entry') {
+      console.log(`ℹ️ Entrée dans zone ignorée: ${payload.device_name}`);
+    }
 
     const event_id = result.insertId;
     const alerts = [];

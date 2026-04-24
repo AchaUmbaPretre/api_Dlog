@@ -325,8 +325,8 @@ async function pullSingleTerminal(terminal) {
 
     console.log(`✅ Terminal ${terminal.device_sn} synchronisé`);
   } catch (err) {
-    console.error(`❌ Terminal ${terminal.device_sn} :`, err.message);
-  }
+/*     console.error(`❌ Terminal ${terminal.device_sn} :`, err.message);
+ */  }
 }
 
 // ===================== PULL ALL TERMINALS =====================

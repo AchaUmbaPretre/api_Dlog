@@ -29,19 +29,31 @@ router.post('/webhook/zone_out', async (req, res) => {
   }
 });
 
+router.get('/statistiques', async (req, res) => {
+  try {
+    const { date } = req.query;
+    const stats = await rapprochementService.getStatistiques(date);
+    
+    res.json({
+      success: true,
+      ...stats
+    });
+    
+  } catch (error) {
+    console.error('Erreur récupération statistiques:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Récupérer les contrôles du jour
 router.get('/controles', async (req, res) => {
   try {
     const { date } = req.query;
-    const [controles, stats] = await Promise.all([
-      rapprochementService.getControles(date),
-      rapprochementService.getStatistiques(date)
-    ]);
+    const controles = await rapprochementService.getControles(date);
     
     res.json({
       success: true,
-      data: controles,
-      stats: stats
+      data: controles
     });
     
   } catch (error) {
