@@ -243,7 +243,7 @@ exports.postEvent = async (req, res) => {
       device_name, event_time : formattedEventTime, latitude, longitude, external_id
     }
 
-    if (type === 'zone_exit') {
+    if (type === 'zone_out') {
       await rapprochementService.traiterZoneOut(payload);
     } 
     else if (type === 'zone_entry') {
