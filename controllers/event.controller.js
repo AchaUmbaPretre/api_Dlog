@@ -4,7 +4,7 @@ const http = require('http');
 const { db } = require('./../config/database');
 const query = util.promisify(db.query).bind(db);
 const dotenv = require('dotenv');
-const rapprochementService = require('./../services/rapprochement.service')
+const rapprochementService = require('../services/controleSortieGps.service')
 dotenv.config();
 
 const FETCH_INTERVAL_MINUTES = 10;

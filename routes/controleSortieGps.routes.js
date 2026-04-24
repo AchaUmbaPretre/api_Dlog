@@ -1,33 +1,6 @@
-// routes/controleRoutes.js
 const express = require('express');
 const router = express.Router();
-const rapprochementService = require('../services/rapprochement.service');
-
-// Webhook Falcon - appelé quand un véhicule quitte sa zone
-router.post('/webhook/zone_out', async (req, res) => {
-  try {
-    const eventData = req.body;
-    
-    // Vérifier les données obligatoires
-    if (!eventData.device_name || !eventData.event_time) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'device_name et event_time requis' 
-      });
-    }
-    
-    const resultat = await rapprochementService.traiterZoneOut(eventData);
-    
-    res.json({
-      success: true,
-      ...resultat
-    });
-    
-  } catch (error) {
-    console.error('Erreur webhook zone_out:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+const rapprochementService = require('../services/controleSortieGps.service');
 
 router.get('/statistiques', async (req, res) => {
   try {

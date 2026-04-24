@@ -34,7 +34,7 @@ const sortieEamFmpRoutes = require('./routes/sortieEamFmp.routes');
 const presenceRoutes = require('./routes/presence.routes');
 const hikvisionRoutes = require('./routes/hikvision.routes');
 const notificationsRoutes = require('./routes/notification.routes');
-const controleGpsRoutes = require('./routes/controleGps.routes');
+const controleGpsRoutes = require('./routes/controleSortieGps.routes');
 
 const https = require('https');
 const http = require('http');
