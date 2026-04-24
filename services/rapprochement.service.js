@@ -1,5 +1,6 @@
-const db = require('../config/database');
+// services/rapprochementService.js
 const moment = require('moment');
+const { queryAsync } = require('../config/database');
 
 class RapprochementService {
   
@@ -25,73 +26,72 @@ class RapprochementService {
   
   // Moteur de décision - 6 cas
   determinerStatut(hasBS, hasTablette, hasGPS) {
-    // Cas 1: BS + Tablette + GPS
     if (hasBS && hasTablette && hasGPS) return 'CONFORME';
-    
-    // Cas 2: Tablette + GPS sans BS
     if (!hasBS && hasTablette && hasGPS) return 'SORTIE_SANS_BON';
-    
-    // Cas 3: BS + GPS sans tablette
     if (hasBS && !hasTablette && hasGPS) return 'SORTIE_NON_POINTEE';
-    
-    // Cas 4: BS + tablette sans GPS
     if (hasBS && hasTablette && !hasGPS) return 'ANOMALIE_A_VERIFIER';
-    
-    // Cas 5: BS seul
     if (hasBS && !hasTablette && !hasGPS) return 'BON_NON_EXECUTE';
-    
-    // Cas 6: GPS seul
     if (!hasBS && !hasTablette && hasGPS) return 'SORTIE_NON_AUTORISEE';
-    
     return 'A_VERIFIER';
   }
   
+  // Trouver le véhicule à partir du device_name Falcon
+  async trouverVehiculeParDeviceName(deviceName) {
+    const rows = await queryAsync(`
+      SELECT id_vehicule, immatriculation, name_capteur
+      FROM vehicules
+      WHERE name_capteur = ?
+        AND est_supprime = 0
+      LIMIT 1
+    `, [deviceName]);
+    
+    return rows[0] || null;
+  }
+  
   // Chercher un bon de sortie dans la fenêtre -12h / +2h
-  async chercherBon(immatriculation, referenceTime) {
+  async chercherBon(idVehicule, referenceTime) {
     const ref = moment(referenceTime);
     const fenetre = this.getFenetres().bon;
     const debut = ref.clone().subtract(fenetre.avant, 'hours').format('YYYY-MM-DD HH:mm:ss');
     const fin = ref.clone().add(fenetre.apres, 'hours').format('YYYY-MM-DD HH:mm:ss');
     
     const rows = await queryAsync(`
-      SELECT bs.*, v.immatriculation
+      SELECT bs.*
       FROM bande_sortie bs
-      JOIN vehicule v ON bs.id_vehicule = v.id_vehicule
-      WHERE v.immatriculation = ?
+      WHERE bs.id_vehicule = ?
         AND bs.statut = 1
         AND bs.est_supprime = 0
         AND COALESCE(bs.sortie_time, bs.date_prevue) BETWEEN ? AND ?
       ORDER BY COALESCE(bs.sortie_time, bs.date_prevue) DESC
       LIMIT 1
-    `, [immatriculation, debut, fin]);
+    `, [idVehicule, debut, fin]);
     
     return rows[0] || null;
   }
   
   // Chercher un pointage tablette dans la fenêtre -30min / +30min
-  async chercherTablette(immatriculation, referenceTime) {
+  async chercherTablette(idVehicule, referenceTime) {
     const ref = moment(referenceTime);
     const fenetre = this.getFenetres().tablette;
     const debut = ref.clone().subtract(fenetre.avant, 'minutes').format('YYYY-MM-DD HH:mm:ss');
     const fin = ref.clone().add(fenetre.apres, 'minutes').format('YYYY-MM-DD HH:mm:ss');
     
     const rows = await queryAsync(`
-      SELECT bs.*, v.immatriculation
+      SELECT bs.*
       FROM bande_sortie bs
-      JOIN vehicule v ON bs.id_vehicule = v.id_vehicule
-      WHERE v.immatriculation = ?
+      WHERE bs.id_vehicule = ?
         AND bs.sortie_time IS NOT NULL
         AND bs.sortie_time BETWEEN ? AND ?
         AND bs.statut = 1
       ORDER BY bs.sortie_time DESC
       LIMIT 1
-    `, [immatriculation, debut, fin]);
+    `, [idVehicule, debut, fin]);
     
     return rows[0] || null;
   }
   
   // Chercher une sortie GPS dans la fenêtre -30min / +30min
-  async chercherGPS(immatriculation, referenceTime) {
+  async chercherGPS(deviceName, referenceTime) {
     const ref = moment(referenceTime);
     const fenetre = this.getFenetres().gps;
     const debut = ref.clone().subtract(fenetre.avant, 'minutes').format('YYYY-MM-DD HH:mm:ss');
@@ -100,28 +100,28 @@ class RapprochementService {
     const rows = await queryAsync(`
       SELECT *
       FROM vehicle_events
-      WHERE device_name LIKE CONCAT('%', ?, '%')
+      WHERE device_name = ?
         AND type = 'zone_out'
         AND event_time BETWEEN ? AND ?
       ORDER BY event_time DESC
       LIMIT 1
-    `, [immatriculation, debut, fin]);
+    `, [deviceName, debut, fin]);
     
     return rows[0] || null;
   }
   
   // Vérifier si la sortie GPS est réelle (évite faux positifs)
   async isRealGPSExit(deviceName, eventTime, latitude, longitude) {
-    // Récupérer la zone du véhicule
+    // Récupérer la zone du véhicule via name_capteur
     const zone = await queryAsync(`
       SELECT g.coordinates
-      FROM vehicule_geofence vg
+      FROM vehicules v
+      JOIN vehicule_geofence vg ON v.id_vehicule = vg.id_vehicule
       JOIN geofences_dlog gd ON vg.id_geo_dlog = gd.id_geo_dlog
       JOIN geofences g ON gd.nom_falcon = g.name
-      JOIN vehicule v ON vg.id_vehicule = v.id_vehicule
-      WHERE v.immatriculation = ? OR v.numero_serie = ?
+      WHERE v.name_capteur = ?
       LIMIT 1
-    `, [deviceName, deviceName]);
+    `, [deviceName]);
     
     if (!zone.length) return true; // Par défaut, on considère vrai
     
@@ -131,7 +131,7 @@ class RapprochementService {
     const positions = await queryAsync(`
       SELECT COUNT(*) as count
       FROM vehicle_events
-      WHERE device_name LIKE CONCAT('%', ?, '%')
+      WHERE device_name = ?
         AND event_time BETWEEN ? AND ?
         AND type IN ('movement', 'position', 'zone_out')
     `, [deviceName, eventTime, cinqMinutesApres]);
@@ -142,36 +142,39 @@ class RapprochementService {
   
   // Traiter un événement GPS zone_out de Falcon
   async traiterZoneOut(eventData) {
-    console.log(eventData)
+    console.log('📡 Événement reçu:', eventData);
+    
     const { device_name, event_time, latitude, longitude, device_id, speed } = eventData;
     
-    // Extraire l'immatriculation
-    let immatriculation = device_name;
-    if (immatriculation && immatriculation.toUpperCase().startsWith('GTM-')) {
-      immatriculation = immatriculation.substring(4);
+    // 1. Trouver le véhicule via name_capteur
+    const vehicule = await this.trouverVehiculeParDeviceName(device_name);
+    
+    if (!vehicule) {
+      console.log(`❌ Véhicule non trouvé pour device_name: ${device_name}`);
+      return { ignore: true, raison: 'vehicule_non_trouve', device_name };
     }
     
-    console.log(`📍 Zone out détecté: ${immatriculation} - ${event_time}`);
+    console.log(`🚗 Véhicule trouvé: ${vehicule.immatriculation} (ID: ${vehicule.id_vehicule})`);
     
-    // Vérifier si c'est une vraie sortie (évite faux positifs)
+    // 2. Vérifier si c'est une vraie sortie (évite faux positifs)
     const isReal = await this.isRealGPSExit(device_name, event_time, latitude, longitude);
     if (!isReal) {
-      console.log(`⚠️ Faux positif ignoré: ${immatriculation}`);
-      return { ignore: true, raison: 'faux_positif', immatriculation };
+      console.log(`⚠️ Faux positif ignoré: ${vehicule.immatriculation}`);
+      return { ignore: true, raison: 'faux_positif', immatriculation: vehicule.immatriculation };
     }
     
-    // Chercher les correspondances
+    // 3. Chercher les correspondances
     const [bon, tablette, gpsExistant] = await Promise.all([
-      this.chercherBon(immatriculation, event_time),
-      this.chercherTablette(immatriculation, event_time),
-      this.chercherGPS(immatriculation, event_time)
+      this.chercherBon(vehicule.id_vehicule, event_time),
+      this.chercherTablette(vehicule.id_vehicule, event_time),
+      this.chercherGPS(device_name, event_time)
     ]);
     
     const hasBS = !!bon;
     const hasTablette = !!tablette;
-    const hasGPS = !!gpsExistant || true; // L'événement actuel compte comme GPS
+    const hasGPS = !!gpsExistant || true;
     
-    // Calculer l'écart entre tablette et GPS si les deux existent
+    // 4. Calculer l'écart entre tablette et GPS
     let ecartMinutes = null;
     if (hasTablette && hasGPS) {
       const heureTablette = moment(tablette.sortie_time);
@@ -179,21 +182,23 @@ class RapprochementService {
       ecartMinutes = Math.abs(heureGPS.diff(heureTablette, 'minutes'));
     }
     
+    // 5. Déterminer statut et score
     const statut = this.determinerStatut(hasBS, hasTablette, hasGPS);
     const score = this.calculerScore(hasBS, hasTablette, hasGPS, ecartMinutes);
     
     console.log(`📊 Résultat: ${statut} (BS:${hasBS}, Tab:${hasTablette}, GPS:${hasGPS})`);
     
-    // Sauvegarder dans controle_sorties
+    // 6. Sauvegarder dans controle_sorties
     const result = await queryAsync(`
       INSERT INTO controle_sorties 
-      (immatriculation, bon_id, tablette_id, gps_id,
+      (immatriculation, id_vehicule, bon_id, tablette_id, gps_id,
        bon_heure, tablette_heure, gps_heure,
        a_bon, a_tablette, a_gps, statut, score,
-       gps_latitude, gps_longitude)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       gps_latitude, gps_longitude, device_name)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      immatriculation,
+      vehicule.immatriculation,
+      vehicule.id_vehicule,
       bon?.id_bande_sortie || null,
       tablette?.id_bande_sortie || null,
       eventData.id || null,
@@ -206,12 +211,13 @@ class RapprochementService {
       statut,
       score,
       latitude,
-      longitude
+      longitude,
+      device_name
     ]);
     
     return {
       id: result.insertId,
-      immatriculation,
+      immatriculation: vehicule.immatriculation,
       statut,
       score,
       hasBS,
@@ -245,7 +251,7 @@ class RapprochementService {
   async getStatistiques(date) {
     const dateFilter = date || moment().format('YYYY-MM-DD');
     
-    const [stats] = await queryAsync(`
+    const stats = await queryAsync(`
       SELECT 
         COUNT(*) as total,
         SUM(CASE WHEN statut = 'CONFORME' THEN 1 ELSE 0 END) as conformes,
@@ -258,7 +264,10 @@ class RapprochementService {
       WHERE DATE(created_at) = ?
     `, [dateFilter]);
     
-    return stats[0];
+    return stats[0] || {
+      total: 0, conformes: 0, sans_bon: 0, non_pointees: 0,
+      bon_non_execute: 0, non_autorisees: 0, score_moyen: 0
+    };
   }
   
   // Régulariser une sortie sans bon

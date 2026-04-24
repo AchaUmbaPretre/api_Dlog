@@ -343,8 +343,8 @@ async function pullAllHikvisionTerminals() {
 
 setInterval(() => {
   pullAllHikvisionTerminals()
-    .then(() => console.log("[AutoSync] Terminaux pullés"))
-    .catch(err => console.error("[AutoSync] Erreur:", err.message));
+/*     .then(() => console.log("[AutoSync] Terminaux pullés"))
+    .catch(err => console.error("[AutoSync] Erreur:", err.message)); */
 }, PULL_INTERVAL_MS);
 
 module.exports = { startPullScheduler: pullAllHikvisionTerminals };
