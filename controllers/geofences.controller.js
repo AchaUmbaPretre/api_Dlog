@@ -390,11 +390,12 @@ exports.postGeofencesVehicule = async (req, res) => {
 exports.putGeofencesVehicule = async (req, res) => {
   try {
     const {
-      id_vehicule_geofence,
       id_vehicule,
       id_geo_dlog,
       autorise_sans_bs
     } = req.body;
+
+    const { id_vehicule_geofence } = req.query;
 
     if(!id_vehicule_geofence) {
       return res.status(400).json({ error: "Le id_vehicule_geofence  est obligatoire." });

@@ -30,8 +30,8 @@ class RapprochementService {
     return 'ELEVE';
   }
   
+  // Moteur de décision
   determinerStatut(hasBS, hasTablette, hasGPS, autoriseSansBS = false) {
-    // hasTablette ne peut pas être true sans hasBS
     if (hasTablette && !hasBS) return 'INCOHERENT';
     
     if (!hasBS && autoriseSansBS && hasGPS) {
@@ -44,6 +44,105 @@ class RapprochementService {
     if (!hasBS && !hasTablette && hasGPS) return 'SORTIE_NON_AUTORISEE';
     
     return 'A_VERIFIER';
+  }
+  
+  // === CAS PARTICULIER A: Même véhicule plusieurs sorties ===
+  async chercherBonParCreneau(idVehicule, referenceTime, idBonSpecifique = null) {
+    const ref = moment(referenceTime);
+    const fenetre = this.getFenetres().bon;
+    const debut = ref.clone().subtract(fenetre.avant, 'hours').format('YYYY-MM-DD HH:mm:ss');
+    const fin = ref.clone().add(fenetre.apres, 'hours').format('YYYY-MM-DD HH:mm:ss');
+    
+    let query = `
+      SELECT 
+        bs.id_bande_sortie,
+        bs.date_prevue,
+        bs.sortie_time,
+        bs.id_vehicule,
+        bs.id_chauffeur
+      FROM bande_sortie bs
+      WHERE bs.id_vehicule = ?
+        AND bs.statut = 4
+        AND bs.est_supprime = 0
+        AND COALESCE(bs.sortie_time, bs.date_prevue) BETWEEN ? AND ?
+    `;
+    const params = [idVehicule, debut, fin];
+    
+    if (idBonSpecifique) {
+      query += ` AND bs.id_bande_sortie = ?`;
+      params.push(idBonSpecifique);
+    }
+    
+    query += ` ORDER BY COALESCE(bs.sortie_time, bs.date_prevue) DESC LIMIT 1`;
+    
+    const rows = await queryAsync(query, params);
+    
+    if (rows.length > 1) {
+      const meilleurMatch = rows.sort((a, b) => {
+        const ecartA = Math.abs(moment(referenceTime).diff(moment(a.sortie_time || a.date_prevue), 'minutes'));
+        const ecartB = Math.abs(moment(referenceTime).diff(moment(b.sortie_time || b.date_prevue), 'minutes'));
+        return ecartA - ecartB;
+      });
+      return meilleurMatch[0];
+    }
+    
+    return rows[0] || null;
+  }
+  
+  // === CAS PARTICULIER B: Matching souple pour plaque mal saisie ===
+  async trouverVehiculeParMatchingSouple(deviceName, tabletteImmatriculation = null) {
+    // 1. Match exact par name_capteur
+    let vehicule = await this.trouverVehiculeParDeviceName(deviceName);
+    if (vehicule) return vehicule;
+    
+    // 2. Match par immatriculation
+    if (tabletteImmatriculation) {
+      const rows = await queryAsync(`
+        SELECT id_vehicule, immatriculation, name_capteur
+        FROM vehicules
+        WHERE immatriculation = ?
+          AND est_supprime = 0
+        LIMIT 1
+      `, [tabletteImmatriculation]);
+      
+      if (rows.length > 0) return rows[0];
+      
+      // 3. Proximité approximative
+      const similarite = await queryAsync(`
+        SELECT id_vehicule, immatriculation, name_capteur
+        FROM vehicules
+        WHERE est_supprime = 0
+          AND (immatriculation LIKE CONCAT('%', ?, '%')
+            OR name_capteur LIKE CONCAT('%', ?, '%'))
+        LIMIT 1
+      `, [tabletteImmatriculation.substring(0, 4), deviceName.substring(0, 4)]);
+      
+      if (similarite.length > 0) return similarite[0];
+    }
+    
+    return null;
+  }
+  
+  // === CAS PARTICULIER C: GPS muet ===
+  async verifierGPSMuet(deviceName, dateDebut, dateFin) {
+    const events = await queryAsync(`
+      SELECT COUNT(*) as count
+      FROM vehicle_events
+      WHERE device_name = ?
+        AND event_time BETWEEN ? AND ?
+        AND type IN ('zone_out', 'movement', 'position')
+    `, [deviceName, dateDebut, dateFin]);
+    
+    return events[0].count === 0;
+  }
+  
+  async marquerGPSIndisponible(vehicule, date) {
+    await queryAsync(`
+      UPDATE controle_sorties 
+      SET statut = 'GPS_INDISPONIBLE',
+          commentaire = CONCAT(IFNULL(commentaire, ''), ' - Aucune donnée GPS reçue sur cette période')
+      WHERE id_vehicule = ? AND DATE(created_at) = ? AND a_gps = 0
+    `, [vehicule.id_vehicule, date]);
   }
   
   // Récupérer la zone de base du véhicule
@@ -120,7 +219,7 @@ class RapprochementService {
     return resteDehors;
   }
   
-  // Trouver le véhicule
+  // Trouver le véhicule par device_name
   async trouverVehiculeParDeviceName(deviceName) {
     const rows = await queryAsync(`
       SELECT id_vehicule, immatriculation, name_capteur
@@ -135,26 +234,10 @@ class RapprochementService {
   
   // Chercher un bon de sortie (statut = 4 = BS validé)
   async chercherBon(idVehicule, referenceTime) {
-    const ref = moment(referenceTime);
-    const fenetre = this.getFenetres().bon;
-    const debut = ref.clone().subtract(fenetre.avant, 'hours').format('YYYY-MM-DD HH:mm:ss');
-    const fin = ref.clone().add(fenetre.apres, 'hours').format('YYYY-MM-DD HH:mm:ss');
-    
-    const rows = await queryAsync(`
-      SELECT bs.*
-      FROM bande_sortie bs
-      WHERE bs.id_vehicule = ?
-        AND bs.statut = 4
-        AND bs.est_supprime = 0
-        AND COALESCE(bs.sortie_time, bs.date_prevue) BETWEEN ? AND ?
-      ORDER BY COALESCE(bs.sortie_time, bs.date_prevue) DESC
-      LIMIT 1
-    `, [idVehicule, debut, fin]);
-    
-    return rows[0] || null;
+    return this.chercherBonParCreneau(idVehicule, referenceTime, null);
   }
   
-  // Chercher le pointage tablette (dans bande_sortie.sortie_time)
+  // Chercher le pointage tablette (dans sortie_time)
   async chercherTablette(idVehicule, referenceTime) {
     const ref = moment(referenceTime);
     const fenetre = this.getFenetres().tablette;
@@ -162,13 +245,16 @@ class RapprochementService {
     const fin = ref.clone().add(fenetre.apres, 'minutes').format('YYYY-MM-DD HH:mm:ss');
     
     const rows = await queryAsync(`
-      SELECT bs.*
-      FROM bande_sortie bs
-      WHERE bs.id_vehicule = ?
-        AND bs.sortie_time IS NOT NULL
-        AND bs.sortie_time BETWEEN ? AND ?
-        AND bs.statut = 4
-      ORDER BY bs.sortie_time DESC
+      SELECT 
+        id_bande_sortie,
+        sortie_time as tablette_heure
+      FROM bande_sortie
+      WHERE id_vehicule = ?
+        AND sortie_time IS NOT NULL
+        AND sortie_time BETWEEN ? AND ?
+        AND statut = 4
+        AND est_supprime = 0
+      ORDER BY sortie_time DESC
       LIMIT 1
     `, [idVehicule, debut, fin]);
     
@@ -183,9 +269,12 @@ class RapprochementService {
     
     const bons = await queryAsync(`
       SELECT 
-        bs.*,
-        v.immatriculation,
-        v.id_vehicule
+        bs.id_bande_sortie,
+        bs.date_prevue,
+        bs.sortie_time,
+        bs.id_vehicule,
+        bs.id_chauffeur,
+        v.immatriculation
       FROM bande_sortie bs
       JOIN vehicules v ON bs.id_vehicule = v.id_vehicule
       WHERE bs.statut = 4
@@ -220,7 +309,7 @@ class RapprochementService {
             WHERE id = ?
           `, [existe[0].id]);
           updated++;
-          console.log(`📝 Mise à jour BS ${bon.numero_bon_sortie} -> BON_NON_EXECUTE`);
+          console.log(`📝 Mise à jour BS ID ${bon.id_bande_sortie} -> BON_NON_EXECUTE`);
         }
       } else {
         await queryAsync(`
@@ -242,7 +331,7 @@ class RapprochementService {
           'BS validé sans sortie GPS détectée'
         ]);
         created++;
-        console.log(`✅ BON_NON_EXECUTE créé pour BS ${bon.numero_bon_sortie}`);
+        console.log(`✅ BON_NON_EXECUTE créé pour BS ID ${bon.id_bande_sortie}`);
       }
     }
     
@@ -251,7 +340,7 @@ class RapprochementService {
     return { created, updated, total: bons.length };
   }
   
-  // TRAITEMENT PRINCIPAL : Enregistre UNIQUEMENT les vraies sorties
+  // TRAITEMENT PRINCIPAL
   async traiterZoneOut(eventData) {
     console.log('📡 Événement reçu:', eventData);
     
@@ -269,14 +358,24 @@ class RapprochementService {
       return { ignore: true, raison: 'deja_traite', id: existeDeja[0].id };
     }
     
-    // 2. Trouver le véhicule
-    const vehicule = await this.trouverVehiculeParDeviceName(device_name);
+    // 2. Trouver le véhicule (avec matching souple)
+    const vehicule = await this.trouverVehiculeParMatchingSouple(device_name);
     if (!vehicule) {
       console.log(`❌ Véhicule non trouvé pour: ${device_name}`);
       return { ignore: true, raison: 'vehicule_non_trouve', device_name };
     }
     
-    // 3. Récupérer SA zone de base
+    // 3. Vérifier GPS muet
+    const debutPeriode = moment(event_time).subtract(1, 'hour').format('YYYY-MM-DD HH:mm:ss');
+    const finPeriode = moment(event_time).add(1, 'hour').format('YYYY-MM-DD HH:mm:ss');
+    const gpsMuet = await this.verifierGPSMuet(device_name, debutPeriode, finPeriode);
+    
+    if (gpsMuet) {
+      console.log(`⚠️ GPS muet détecté pour: ${vehicule.immatriculation}`);
+      await this.marquerGPSIndisponible(vehicule, moment(event_time).format('YYYY-MM-DD'));
+    }
+    
+    // 4. Récupérer SA zone de base
     const zoneBase = await this.getZoneBaseVehicule(device_name);
     if (!zoneBase) {
       console.log(`⚠️ ${vehicule.immatriculation} n'a pas de zone de base`);
@@ -287,7 +386,7 @@ class RapprochementService {
     console.log(`🗺️ Zone de base: ${zoneBase.zone_nom}`);
     console.log(`📌 Position: ${latitude}, ${longitude}`);
     
-    // 4. Vérifier si c'est une SORTIE de zone
+    // 5. Vérifier si c'est une SORTIE de zone
     const estDansSaZone = this.pointDansPolygone(latitude, longitude, zoneBase.coordinates);
     
     if (estDansSaZone) {
@@ -297,14 +396,14 @@ class RapprochementService {
     
     console.log(`🚪 SORTIE DÉTECTÉE: ${vehicule.immatriculation} a quitté ${zoneBase.zone_nom}`);
     
-    // 5. Vérifier que c'est une vraie sortie
+    // 6. Vérifier que c'est une vraie sortie
     const isReal = await this.isRealExit(device_name, event_time, latitude, longitude, zoneBase.coordinates);
     if (!isReal) {
       console.log(`⚠️ Faux positif: ${vehicule.immatriculation} (retour rapide dans la zone)`);
       return { ignore: true, raison: 'faux_positif', immatriculation: vehicule.immatriculation };
     }
     
-    // 6. C'EST UNE VRAIE SORTIE
+    // 7. C'EST UNE VRAIE SORTIE
     const bon = await this.chercherBon(vehicule.id_vehicule, event_time);
     const tablette = await this.chercherTablette(vehicule.id_vehicule, event_time);
     
@@ -316,9 +415,9 @@ class RapprochementService {
     let ecartMinutes = null;
     if (hasTablette) {
       const heureGPS = moment(event_time);
-      const heureTab = moment(tablette.sortie_time);
+      const heureTab = moment(tablette.tablette_heure);
       ecartMinutes = Math.abs(heureGPS.diff(heureTab, 'minutes'));
-      console.log(`📊 Écart tablette/GPS: ${ecartMinutes} minutes`);
+      console.log(`📊 Écart tablette/GPS: ${ecartMinutes} minutos`);
     }
     
     const statut = this.determinerStatut(hasBS, hasTablette, hasGPS, zoneBase.autorise_sans_bs);
@@ -327,7 +426,7 @@ class RapprochementService {
     
     console.log(`📊 Résultat: ${statut} (Score: ${score}, Risque: ${niveauRisque})`);
     
-    // 7. Vérifier si une entrée BON_NON_EXECUTE existe
+    // 8. Vérifier si una entrée BON_NON_EXECUTE existe
     let existingId = null;
     if (hasBS) {
       const existing = await queryAsync(`
@@ -378,7 +477,7 @@ class RapprochementService {
         tablette?.id_bande_sortie || null,
         external_id || null,
         bon?.date_prevue || null,
-        tablette?.sortie_time || null,
+        tablette?.tablette_heure || null,
         event_time,
         hasBS ? 1 : 0,
         hasTablette ? 1 : 0,
@@ -396,9 +495,9 @@ class RapprochementService {
       console.log(`✅ Nouvelle sortie enregistrée (ID: ${result.insertId})`);
     }
     
-    // 8. Alerte si sortie sans bon non autorisée
-    if (statut === 'SORTIE_SANS_BON' && !zoneBase.autorise_sans_bs) {
-      await this.creerAlerteSortieSansBon(vehicule, zoneBase, eventData);
+    // 9. Alerte si sortie sauvage
+    if (statut === 'SORTIE_NON_AUTORISEE') {
+      await this.creerAlerteSortieSauvage(vehicule, zoneBase, eventData);
     }
     
     return {
@@ -411,22 +510,22 @@ class RapprochementService {
       hasBS,
       hasTablette,
       gps_heure: event_time,
-      tablette_heure: tablette?.sortie_time,
+      tablette_heure: tablette?.tablette_heure,
       ecart_minutes: ecartMinutes,
       zone: zoneBase.zone_nom
     };
   }
   
-  // Créer une alerte
-  async creerAlerteSortieSansBon(vehicule, zoneBase, eventData) {
+  // Alerte pour sortie sauvage
+  async creerAlerteSortieSauvage(vehicule, zoneBase, eventData) {
     await queryAsync(`
       INSERT INTO vehicle_alerts 
       (device_id, device_name, alert_type, alert_level, alert_message, alert_time, latitude, longitude)
-      VALUES (?, ?, 'SORTIE_SANS_BON', 'CRITICAL', ?, ?, ?, ?)
+      VALUES (?, ?, 'SORTIE_SAUVAGE', 'CRITICAL', ?, ?, ?, ?)
     `, [
       eventData.device_id || null,
       eventData.device_name,
-      `🚨 SORTIE SANS BON: ${vehicule.immatriculation} a quitté sa zone (${zoneBase.zone_nom}) sans bon de sortie valide à ${moment(eventData.event_time).format('HH:mm')}`,
+      `🚨 SORTIE SAUVAGE: ${vehicule.immatriculation} a quitté sa zone (${zoneBase.zone_nom}) sans aucun justificatif (ni BS, ni pointage) à ${moment(eventData.event_time).format('HH:mm')}`,
       eventData.event_time,
       eventData.latitude,
       eventData.longitude
@@ -440,7 +539,6 @@ class RapprochementService {
     const rows = await queryAsync(`
       SELECT 
         cs.*,
-        bs.numero_bon_sortie,
         c.nom as chauffeur_nom,
         c.prenom as chauffeur_prenom
       FROM controle_sorties cs
@@ -461,11 +559,11 @@ class RapprochementService {
       SELECT 
         COUNT(*) as total,
         SUM(CASE WHEN statut = 'CONFORME' THEN 1 ELSE 0 END) as conformes,
-        SUM(CASE WHEN statut = 'SORTIE_SANS_BON' THEN 1 ELSE 0 END) as sans_bon,
-        SUM(CASE WHEN statut = 'SORTIE_AUTORISEE_SANS_BS' THEN 1 ELSE 0 END) as autorisees_sans_bs,
         SUM(CASE WHEN statut = 'SORTIE_NON_POINTEE' THEN 1 ELSE 0 END) as non_pointees,
         SUM(CASE WHEN statut = 'BON_NON_EXECUTE' THEN 1 ELSE 0 END) as bon_non_execute,
         SUM(CASE WHEN statut = 'SORTIE_NON_AUTORISEE' THEN 1 ELSE 0 END) as non_autorisees,
+        SUM(CASE WHEN statut = 'ANOMALIE_A_VERIFIER' THEN 1 ELSE 0 END) as anomalies,
+        SUM(CASE WHEN statut = 'GPS_INDISPONIBLE' THEN 1 ELSE 0 END) as gps_indisponible,
         AVG(score) as score_moyen,
         AVG(ecart_minutes) as ecart_moyen
       FROM controle_sorties
@@ -473,16 +571,16 @@ class RapprochementService {
     `, [dateFilter]);
     
     return stats[0] || { 
-      total: 0, conformes: 0, sans_bon: 0, autorisees_sans_bs: 0, 
-      non_pointees: 0, bon_non_execute: 0, non_autorisees: 0, 
+      total: 0, conformes: 0, non_pointees: 0, bon_non_execute: 0, 
+      non_autorisees: 0, anomalies: 0, gps_indisponible: 0,
       score_moyen: 0, ecart_moyen: null 
     };
   }
   
-  // Régulariser une sortie sans bon
+  // Régulariser une sortie
   async regulariser(id, idBonSortie, commentaire, userId) {
     const bon = await queryAsync(`
-      SELECT sortie_time, date_prevue FROM bande_sortie WHERE id_bande_sortie = ?
+      SELECT date_prevue, sortie_time FROM bande_sortie WHERE id_bande_sortie = ?
     `, [idBonSortie]);
     
     const heureBon = bon[0]?.sortie_time || bon[0]?.date_prevue;
