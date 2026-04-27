@@ -23,9 +23,15 @@ class RapprochementService {
     return Math.max(0, Math.min(100, score));
   }
   
-  // Moteur de décision
+  // Déterminer le niveau de risque selon le score
+  getNiveauRisque(score) {
+    if (score >= 90) return 'FAIBLE';
+    if (score >= 60) return 'MOYEN';
+    return 'ELEVE';
+  }
+  
   determinerStatut(hasBS, hasTablette, hasGPS, autoriseSansBS = false) {
-    // Cas impossible logiquement
+    // hasTablette ne peut pas être true sans hasBS
     if (hasTablette && !hasBS) return 'INCOHERENT';
     
     if (!hasBS && autoriseSansBS && hasGPS) {
@@ -36,6 +42,7 @@ class RapprochementService {
     if (hasBS && hasTablette && !hasGPS) return 'ANOMALIE_A_VERIFIER';
     if (hasBS && !hasTablette && !hasGPS) return 'BON_NON_EXECUTE';
     if (!hasBS && !hasTablette && hasGPS) return 'SORTIE_NON_AUTORISEE';
+    
     return 'A_VERIFIER';
   }
   
@@ -168,13 +175,12 @@ class RapprochementService {
     return rows[0] || null;
   }
   
-  // === NOUVEAU : Générer les BON_NON_EXECUTE à partir des BS validés sans sortie GPS ===
+  // Générer les BON_NON_EXECUTE à partir des BS validés sans sortie GPS
   async genererBonsNonExecutes(date) {
     const dateFilter = date || moment().format('YYYY-MM-DD');
     
     console.log(`🔍 Recherche des BS validés sans sortie GPS pour le ${dateFilter}`);
     
-    // Récupérer tous les BS validés du jour sans sortie GPS associée
     const bons = await queryAsync(`
       SELECT 
         bs.*,
@@ -198,19 +204,18 @@ class RapprochementService {
     let updated = 0;
     
     for (const bon of bons) {
-      // Vérifier si une entrée existe déjà pour ce bon
       const existe = await queryAsync(`
         SELECT id, statut FROM controle_sorties 
         WHERE bon_id = ?
       `, [bon.id_bande_sortie]);
       
       if (existe.length > 0) {
-        // Si l'entrée existe mais n'a pas de GPS, on met à jour le statut
         if (existe[0].statut !== 'BON_NON_EXECUTE' && existe[0].statut !== 'CONFORME') {
           await queryAsync(`
             UPDATE controle_sorties 
             SET statut = 'BON_NON_EXECUTE',
-                score = 20,
+                score = 50,
+                niveau_risque = 'MOYEN',
                 commentaire = 'BS validé sans sortie GPS détectée'
             WHERE id = ?
           `, [existe[0].id]);
@@ -218,26 +223,23 @@ class RapprochementService {
           console.log(`📝 Mise à jour BS ${bon.numero_bon_sortie} -> BON_NON_EXECUTE`);
         }
       } else {
-        // Créer une nouvelle entrée
         await queryAsync(`
           INSERT INTO controle_sorties 
           (id_vehicule, immatriculation, bon_id, 
            bon_heure, tablette_heure,
            a_bon, a_tablette, a_gps, 
-           statut, score, commentaire, id_zone, zone_nom)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'BON_NON_EXECUTE', 20, ?, ?, ?)
+           statut, score, niveau_risque, commentaire)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'BON_NON_EXECUTE', 50, 'MOYEN', ?)
         `, [
           bon.id_vehicule,
           bon.immatriculation,
           bon.id_bande_sortie,
           bon.date_prevue,
           bon.sortie_time,
-          1, // a_bon
-          bon.sortie_time ? 1 : 0, // a_tablette
-          0, // a_gps
-          'BS validé sans sortie GPS détectée',
-          bon.id_geo_dlog || null,
-          bon.zone_nom || null
+          1,
+          bon.sortie_time ? 1 : 0,
+          0,
+          'BS validé sans sortie GPS détectée'
         ]);
         created++;
         console.log(`✅ BON_NON_EXECUTE créé pour BS ${bon.numero_bon_sortie}`);
@@ -249,7 +251,7 @@ class RapprochementService {
     return { created, updated, total: bons.length };
   }
   
-  // === TRAITEMENT PRINCIPAL : Enregistre UNIQUEMENT les vraies sorties ===
+  // TRAITEMENT PRINCIPAL : Enregistre UNIQUEMENT les vraies sorties
   async traiterZoneOut(eventData) {
     console.log('📡 Événement reçu:', eventData);
     
@@ -267,14 +269,14 @@ class RapprochementService {
       return { ignore: true, raison: 'deja_traite', id: existeDeja[0].id };
     }
     
-    // 2. Trouver le véhicule - Si non trouvé, on ignore
+    // 2. Trouver le véhicule
     const vehicule = await this.trouverVehiculeParDeviceName(device_name);
     if (!vehicule) {
       console.log(`❌ Véhicule non trouvé pour: ${device_name}`);
       return { ignore: true, raison: 'vehicule_non_trouve', device_name };
     }
     
-    // 3. Récupérer SA zone de base - Si pas de zone, on ignore
+    // 3. Récupérer SA zone de base
     const zoneBase = await this.getZoneBaseVehicule(device_name);
     if (!zoneBase) {
       console.log(`⚠️ ${vehicule.immatriculation} n'a pas de zone de base`);
@@ -285,7 +287,7 @@ class RapprochementService {
     console.log(`🗺️ Zone de base: ${zoneBase.zone_nom}`);
     console.log(`📌 Position: ${latitude}, ${longitude}`);
     
-    // 4. Vérifier si c'est une SORTIE de zone (point hors zone)
+    // 4. Vérifier si c'est une SORTIE de zone
     const estDansSaZone = this.pointDansPolygone(latitude, longitude, zoneBase.coordinates);
     
     if (estDansSaZone) {
@@ -295,16 +297,14 @@ class RapprochementService {
     
     console.log(`🚪 SORTIE DÉTECTÉE: ${vehicule.immatriculation} a quitté ${zoneBase.zone_nom}`);
     
-    // 5. Vérifier que c'est une vraie sortie (resté dehors 5+ minutes)
+    // 5. Vérifier que c'est une vraie sortie
     const isReal = await this.isRealExit(device_name, event_time, latitude, longitude, zoneBase.coordinates);
     if (!isReal) {
       console.log(`⚠️ Faux positif: ${vehicule.immatriculation} (retour rapide dans la zone)`);
       return { ignore: true, raison: 'faux_positif', immatriculation: vehicule.immatriculation };
     }
     
-    // 6. === C'EST UNE VRAIE SORTIE : ON ENREGISTRE ===
-    
-    // Chercher le bon et le pointage tablette associés
+    // 6. C'EST UNE VRAIE SORTIE
     const bon = await this.chercherBon(vehicule.id_vehicule, event_time);
     const tablette = await this.chercherTablette(vehicule.id_vehicule, event_time);
     
@@ -312,23 +312,22 @@ class RapprochementService {
     const hasTablette = !!tablette;
     const hasGPS = true;
     
-    // Calculer l'écart entre tablette et GPS
+    // Calculer l'écart
     let ecartMinutes = null;
-    let heureTablette = null;
     if (hasTablette) {
-      heureTablette = tablette.sortie_time;
       const heureGPS = moment(event_time);
       const heureTab = moment(tablette.sortie_time);
       ecartMinutes = Math.abs(heureGPS.diff(heureTab, 'minutes'));
-      console.log(`📊 Écart tablette/GPS: ${ecartMinutes} minutes (Tablette: ${heureTablette}, GPS: ${event_time})`);
+      console.log(`📊 Écart tablette/GPS: ${ecartMinutes} minutes`);
     }
     
     const statut = this.determinerStatut(hasBS, hasTablette, hasGPS, zoneBase.autorise_sans_bs);
     const score = this.calculerScore(hasBS, hasTablette, hasGPS, ecartMinutes);
+    const niveauRisque = this.getNiveauRisque(score);
     
-    console.log(`📊 Résultat: ${statut} (BS:${hasBS}, Tablette:${hasTablette}, Autorisé sans BS:${zoneBase.autorise_sans_bs})`);
+    console.log(`📊 Résultat: ${statut} (Score: ${score}, Risque: ${niveauRisque})`);
     
-    // 7. Vérifier si une entrée BON_NON_EXECUTE existe pour ce bon (mise à jour)
+    // 7. Vérifier si une entrée BON_NON_EXECUTE existe
     let existingId = null;
     if (hasBS) {
       const existing = await queryAsync(`
@@ -344,7 +343,6 @@ class RapprochementService {
     
     let result;
     if (existingId) {
-      // Mettre à jour l'entrée existante
       await queryAsync(`
         UPDATE controle_sorties 
         SET gps_heure = ?,
@@ -353,25 +351,25 @@ class RapprochementService {
             a_gps = 1,
             statut = ?,
             score = ?,
+            niveau_risque = ?,
             ecart_minutes = ?,
             updated_at = NOW()
         WHERE id = ?
-      `, [event_time, latitude, longitude, statut, score, ecartMinutes, existingId]);
+      `, [event_time, latitude, longitude, statut, score, niveauRisque, ecartMinutes, existingId]);
       
       result = { insertId: existingId };
-      console.log(`✅ Entrée existante #${existingId} mise à jour -> ${statut}`);
+      console.log(`✅ Entrée #${existingId} mise à jour -> ${statut}`);
     } else {
-      // Créer une nouvelle entrée
       result = await queryAsync(`
         INSERT INTO controle_sorties 
         (immatriculation, id_vehicule, device_name,
          bon_id, tablette_id, gps_id,
          bon_heure, tablette_heure, gps_heure,
          a_bon, a_tablette, a_gps,
-         statut, score, ecart_minutes,
+         statut, score, niveau_risque, ecart_minutes,
          gps_latitude, gps_longitude,
          id_zone, zone_nom, autorise_sans_bs)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         vehicule.immatriculation,
         vehicule.id_vehicule,
@@ -387,6 +385,7 @@ class RapprochementService {
         hasGPS ? 1 : 0,
         statut,
         score,
+        niveauRisque,
         ecartMinutes,
         latitude,
         longitude,
@@ -408,6 +407,7 @@ class RapprochementService {
       immatriculation: vehicule.immatriculation,
       statut,
       score,
+      niveauRisque,
       hasBS,
       hasTablette,
       gps_heure: event_time,
@@ -494,6 +494,7 @@ class RapprochementService {
           a_bon = 1,
           statut = 'CONFORME',
           score = 100,
+          niveau_risque = 'FAIBLE',
           commentaire = CONCAT(IFNULL(commentaire, ''), ' - Régularisé par user ', ?),
           regularise_par = ?,
           regularise_le = NOW(),
