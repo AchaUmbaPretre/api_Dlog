@@ -25,11 +25,13 @@ class RapprochementService {
   
   // Moteur de décision
   determinerStatut(hasBS, hasTablette, hasGPS, autoriseSansBS = false) {
-    if (!hasBS && autoriseSansBS && (hasTablette || hasGPS)) {
+    // Cas impossible logiquement
+    if (hasTablette && !hasBS) return 'INCOHERENT';
+    
+    if (!hasBS && autoriseSansBS && hasGPS) {
       return 'SORTIE_AUTORISEE_SANS_BS';
     }
     if (hasBS && hasTablette && hasGPS) return 'CONFORME';
-    if (!hasBS && hasTablette && hasGPS) return 'SORTIE_SANS_BON';
     if (hasBS && !hasTablette && hasGPS) return 'SORTIE_NON_POINTEE';
     if (hasBS && hasTablette && !hasGPS) return 'ANOMALIE_A_VERIFIER';
     if (hasBS && !hasTablette && !hasGPS) return 'BON_NON_EXECUTE';
@@ -124,7 +126,7 @@ class RapprochementService {
     return rows[0] || null;
   }
   
-  // Chercher un bon de sortie
+  // Chercher un bon de sortie (statut = 4 = BS validé)
   async chercherBon(idVehicule, referenceTime) {
     const ref = moment(referenceTime);
     const fenetre = this.getFenetres().bon;
@@ -135,7 +137,7 @@ class RapprochementService {
       SELECT bs.*
       FROM bande_sortie bs
       WHERE bs.id_vehicule = ?
-        AND bs.statut = 1
+        AND bs.statut = 4
         AND bs.est_supprime = 0
         AND COALESCE(bs.sortie_time, bs.date_prevue) BETWEEN ? AND ?
       ORDER BY COALESCE(bs.sortie_time, bs.date_prevue) DESC
@@ -158,12 +160,93 @@ class RapprochementService {
       WHERE bs.id_vehicule = ?
         AND bs.sortie_time IS NOT NULL
         AND bs.sortie_time BETWEEN ? AND ?
-        AND bs.statut = 1
+        AND bs.statut = 4
       ORDER BY bs.sortie_time DESC
       LIMIT 1
     `, [idVehicule, debut, fin]);
     
     return rows[0] || null;
+  }
+  
+  // === NOUVEAU : Générer les BON_NON_EXECUTE à partir des BS validés sans sortie GPS ===
+  async genererBonsNonExecutes(date) {
+    const dateFilter = date || moment().format('YYYY-MM-DD');
+    
+    console.log(`🔍 Recherche des BS validés sans sortie GPS pour le ${dateFilter}`);
+    
+    // Récupérer tous les BS validés du jour sans sortie GPS associée
+    const bons = await queryAsync(`
+      SELECT 
+        bs.*,
+        v.immatriculation,
+        v.id_vehicule
+      FROM bande_sortie bs
+      JOIN vehicules v ON bs.id_vehicule = v.id_vehicule
+      WHERE bs.statut = 4
+        AND bs.est_supprime = 0
+        AND DATE(COALESCE(bs.sortie_time, bs.date_prevue)) = ?
+        AND NOT EXISTS (
+          SELECT 1 FROM controle_sorties cs 
+          WHERE cs.bon_id = bs.id_bande_sortie 
+            AND cs.a_gps = 1
+        )
+    `, [dateFilter]);
+    
+    console.log(`📋 ${bons.length} BS validés sans sortie GPS trouvés`);
+    
+    let created = 0;
+    let updated = 0;
+    
+    for (const bon of bons) {
+      // Vérifier si une entrée existe déjà pour ce bon
+      const existe = await queryAsync(`
+        SELECT id, statut FROM controle_sorties 
+        WHERE bon_id = ?
+      `, [bon.id_bande_sortie]);
+      
+      if (existe.length > 0) {
+        // Si l'entrée existe mais n'a pas de GPS, on met à jour le statut
+        if (existe[0].statut !== 'BON_NON_EXECUTE' && existe[0].statut !== 'CONFORME') {
+          await queryAsync(`
+            UPDATE controle_sorties 
+            SET statut = 'BON_NON_EXECUTE',
+                score = 20,
+                commentaire = 'BS validé sans sortie GPS détectée'
+            WHERE id = ?
+          `, [existe[0].id]);
+          updated++;
+          console.log(`📝 Mise à jour BS ${bon.numero_bon_sortie} -> BON_NON_EXECUTE`);
+        }
+      } else {
+        // Créer une nouvelle entrée
+        await queryAsync(`
+          INSERT INTO controle_sorties 
+          (id_vehicule, immatriculation, bon_id, 
+           bon_heure, tablette_heure,
+           a_bon, a_tablette, a_gps, 
+           statut, score, commentaire, id_zone, zone_nom)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'BON_NON_EXECUTE', 20, ?, ?, ?)
+        `, [
+          bon.id_vehicule,
+          bon.immatriculation,
+          bon.id_bande_sortie,
+          bon.date_prevue,
+          bon.sortie_time,
+          1, // a_bon
+          bon.sortie_time ? 1 : 0, // a_tablette
+          0, // a_gps
+          'BS validé sans sortie GPS détectée',
+          bon.id_geo_dlog || null,
+          bon.zone_nom || null
+        ]);
+        created++;
+        console.log(`✅ BON_NON_EXECUTE créé pour BS ${bon.numero_bon_sortie}`);
+      }
+    }
+    
+    console.log(`📊 Résultat: ${created} créés, ${updated} mis à jour`);
+    
+    return { created, updated, total: bons.length };
   }
   
   // === TRAITEMENT PRINCIPAL : Enregistre UNIQUEMENT les vraies sorties ===
@@ -184,7 +267,7 @@ class RapprochementService {
       return { ignore: true, raison: 'deja_traite', id: existeDeja[0].id };
     }
     
-    // 2. Trouver le véhicule - Si non trouvé, on ignore (pas d'enregistrement)
+    // 2. Trouver le véhicule - Si non trouvé, on ignore
     const vehicule = await this.trouverVehiculeParDeviceName(device_name);
     if (!vehicule) {
       console.log(`❌ Véhicule non trouvé pour: ${device_name}`);
@@ -206,7 +289,6 @@ class RapprochementService {
     const estDansSaZone = this.pointDansPolygone(latitude, longitude, zoneBase.coordinates);
     
     if (estDansSaZone) {
-      // Pas une sortie, le véhicule est encore dans sa zone
       console.log(`ℹ️ ${vehicule.immatriculation} est encore dans sa zone - pas une sortie`);
       return { ignore: true, raison: 'toujours_dans_zone', zone: zoneBase.zone_nom };
     }
@@ -246,41 +328,74 @@ class RapprochementService {
     
     console.log(`📊 Résultat: ${statut} (BS:${hasBS}, Tablette:${hasTablette}, Autorisé sans BS:${zoneBase.autorise_sans_bs})`);
     
-    // 7. Sauvegarde dans controle_sorties
-    const result = await queryAsync(`
-      INSERT INTO controle_sorties 
-      (immatriculation, id_vehicule, device_name,
-       bon_id, tablette_id, gps_id,
-       bon_heure, tablette_heure, gps_heure,
-       a_bon, a_tablette, a_gps,
-       statut, score, ecart_minutes,
-       gps_latitude, gps_longitude,
-       id_zone, zone_nom, autorise_sans_bs)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-      vehicule.immatriculation,
-      vehicule.id_vehicule,
-      device_name,
-      bon?.id_bande_sortie || null,
-      tablette?.id_bande_sortie || null,
-      external_id || null,
-      bon?.date_prevue || null,
-      tablette?.sortie_time || null,
-      event_time,
-      hasBS ? 1 : 0,
-      hasTablette ? 1 : 0,
-      hasGPS ? 1 : 0,
-      statut,
-      score,
-      ecartMinutes,
-      latitude,
-      longitude,
-      zoneBase.id_geo_dlog,
-      zoneBase.zone_nom,
-      zoneBase.autorise_sans_bs ? 1 : 0
-    ]);
+    // 7. Vérifier si une entrée BON_NON_EXECUTE existe pour ce bon (mise à jour)
+    let existingId = null;
+    if (hasBS) {
+      const existing = await queryAsync(`
+        SELECT id FROM controle_sorties 
+        WHERE bon_id = ? AND statut = 'BON_NON_EXECUTE'
+        LIMIT 1
+      `, [bon.id_bande_sortie]);
+      
+      if (existing.length > 0) {
+        existingId = existing[0].id;
+      }
+    }
     
-    console.log(`✅ Sortie enregistrée (ID: ${result.insertId}) - Heure GPS: ${event_time} - Heure Tablette: ${tablette?.sortie_time || 'N/A'}`);
+    let result;
+    if (existingId) {
+      // Mettre à jour l'entrée existante
+      await queryAsync(`
+        UPDATE controle_sorties 
+        SET gps_heure = ?,
+            gps_latitude = ?,
+            gps_longitude = ?,
+            a_gps = 1,
+            statut = ?,
+            score = ?,
+            ecart_minutes = ?,
+            updated_at = NOW()
+        WHERE id = ?
+      `, [event_time, latitude, longitude, statut, score, ecartMinutes, existingId]);
+      
+      result = { insertId: existingId };
+      console.log(`✅ Entrée existante #${existingId} mise à jour -> ${statut}`);
+    } else {
+      // Créer une nouvelle entrée
+      result = await queryAsync(`
+        INSERT INTO controle_sorties 
+        (immatriculation, id_vehicule, device_name,
+         bon_id, tablette_id, gps_id,
+         bon_heure, tablette_heure, gps_heure,
+         a_bon, a_tablette, a_gps,
+         statut, score, ecart_minutes,
+         gps_latitude, gps_longitude,
+         id_zone, zone_nom, autorise_sans_bs)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        vehicule.immatriculation,
+        vehicule.id_vehicule,
+        device_name,
+        bon?.id_bande_sortie || null,
+        tablette?.id_bande_sortie || null,
+        external_id || null,
+        bon?.date_prevue || null,
+        tablette?.sortie_time || null,
+        event_time,
+        hasBS ? 1 : 0,
+        hasTablette ? 1 : 0,
+        hasGPS ? 1 : 0,
+        statut,
+        score,
+        ecartMinutes,
+        latitude,
+        longitude,
+        zoneBase.id_geo_dlog,
+        zoneBase.zone_nom,
+        zoneBase.autorise_sans_bs ? 1 : 0
+      ]);
+      console.log(`✅ Nouvelle sortie enregistrée (ID: ${result.insertId})`);
+    }
     
     // 8. Alerte si sortie sans bon non autorisée
     if (statut === 'SORTIE_SANS_BON' && !zoneBase.autorise_sans_bs) {
@@ -289,6 +404,7 @@ class RapprochementService {
     
     return {
       id: result.insertId,
+      misAJour: !!existingId,
       immatriculation: vehicule.immatriculation,
       statut,
       score,
