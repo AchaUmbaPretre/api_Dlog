@@ -1,4 +1,3 @@
-// fetch_events.js
 const { fetchAndStoreEvents } = require("./controllers/event.controller");
 
 (async () => {

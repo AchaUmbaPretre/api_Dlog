@@ -4,7 +4,7 @@ const http = require('http');
 const { db } = require('./../config/database');
 const query = util.promisify(db.query).bind(db);
 const dotenv = require('dotenv');
-const rapprochementService = require('../services/controleSortieGps.service')
+const rapprochementService = require('./../services/controleSortieGps.service')
 dotenv.config();
 
 const FETCH_INTERVAL_MINUTES = 10;
@@ -176,7 +176,7 @@ const generateDailySnapshot = async () => {
  /*      console.log(
         `✅ ${d.name}: ${status} (${alertType}) → score du jour = ${newScore}%`
       ); */
-    }
+    }          
 
 /*     console.log(
       `[${now.format("YYYY-MM-DD HH:mm:ss")}] ✅ Snapshot généré avec succès (${devices.length} traceurs)`
@@ -562,47 +562,6 @@ const fetchEvents = (fromTime, toTime) => {
 };
 
 // Fonction principale pour fetch et stocker les events
-/* const fetchAndStoreEvents = async () => {
-    try {
-        const [lastEventRow] = await query(`SELECT MAX(event_time) AS last_time FROM vehicle_events`);
-        const fromTime = lastEventRow?.last_time
-            ? moment.utc(lastEventRow.last_time)
-            : moment.utc().subtract(FETCH_INTERVAL_MINUTES, 'minutes');
-        const toTime = moment.utc();
-
-        const response = await fetchEvents(fromTime, toTime);
-
-        if (!response?.items?.data?.length) {
-            console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] Aucun nouvel événement à stocker.`);
-            return;
-        }
-
-        const events = response.items.data;
-        // Traiter les événements séquentiellement
-        for (const e of events) {
-            try {
-                await exports.postEvent({
-                    body: {
-                        external_id: e.id,
-                        device_id: e.device_id,
-                        device_name: e.device_name,
-                        type: e.type,
-                        message: e.message || e.name,
-                        speed: e.speed || 0,
-                        latitude: e.latitude,
-                        longitude: e.longitude,
-                        event_time: e.time
-                    }
-                }, null);
-            } catch (err) {
-                console.error(`Erreur postEvent pour device ${e.device_id}:`, err.message);
-            }
-        }
-  } catch (err) {
-        console.error(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] Erreur fetchAndStoreEvents:`, err.message);
-    }
-}; */
-
 let isFetching = false;
 
 const fetchAndStoreEvents = async () => {
@@ -628,8 +587,6 @@ const fetchAndStoreEvents = async () => {
     }
 
     const events = response.items.data;
-/*     console.log(`[${moment().format('YYYY-MM-DD HH:mm:ss')}] ${events.length} événements reçus.`);
- */
     for (const e of events) {
       try {
         await exports.postEvent({
