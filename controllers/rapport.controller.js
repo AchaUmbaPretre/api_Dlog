@@ -2148,6 +2148,7 @@ exports.getRapportCharroiVehicule = async(req, res) => {
               v.id_capteur,
               v.name_capteur,
               m.nom_marque,
+              g.coordinates,
 
               -- Durée réelle en minutes depuis le départ
               CASE 
@@ -2175,6 +2176,8 @@ exports.getRapportCharroiVehicule = async(req, res) => {
               LEFT JOIN service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
               LEFT JOIN destination l ON ad.id_destination = l.id_destination
               INNER JOIN statut_bs bs ON ad.statut = bs.id_statut_bs
+              LEFT JOIN geofences_dlog gd ON gd.destination_id = l.id_destination
+              LEFT JOIN geofences g ON g.id_geofence = gd.falcon_id
           WHERE ad.statut = 5 AND ad.est_supprime = 0
           ORDER BY ad.created_at DESC;
           `;
