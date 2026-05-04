@@ -684,8 +684,8 @@ class RapprochementService {
     `, [dateFilter]);
     
     return stats[0] || { total: 0, conformes: 0, non_pointees: 0, bon_non_execute: 0, 
-                         non_autorisees: 0, anomalies: 0, score_moyen: 0, ecart_moyen: null };
-  }
+      non_autorisees: 0, anomalies: 0, score_moyen: 0, ecart_moyen: null };
+    }
   
   // === RÉGULARISATION ===
   async regulariser(id, idBonSortie, commentaire, userId) {
