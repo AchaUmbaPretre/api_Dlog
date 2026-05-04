@@ -3,7 +3,6 @@ const { queryAsync } = require('../config/database');
 
 class RapprochementService {
   
-  // Fenêtres temporelles
   getFenetres() {
     return {
       bon: { avant: 12, apres: 4 },      // heures
