@@ -510,7 +510,6 @@ class RapprochementService {
     // 1. Trouver le véhicule
     const vehicule = await this.trouverVehiculeParMatchingSouple(device_name);
     if (!vehicule) {
-      console.log(`❌ Véhicule non trouvé pour: ${device_name}`);
       return { ignore: true, raison: 'vehicule_non_trouve', device_name };
     }
     

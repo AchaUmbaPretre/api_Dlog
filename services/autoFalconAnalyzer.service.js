@@ -354,7 +354,6 @@ class AutoFalconAnalyzer {
   }
 
   // Enregistrer une sortie avec vérification des doublons
-// Dans enregistrerSortie, ajoute cette conversion au début
 async enregistrerSortie(data) {
   const {
     immatriculation,
@@ -569,7 +568,6 @@ async enregistrerSortie(data) {
       
       try {
         const currentDate = moment().format('YYYY-MM-DD');
-        console.log(`\n⏰ [SCHEDULER] Début analyse à ${moment().format('HH:mm:ss')}`);
         await this.analyserTousVehicules(currentDate);
       } catch (error) {
         console.error('❌ Erreur analyse:', error.message);
