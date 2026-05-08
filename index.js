@@ -35,6 +35,7 @@ const presenceRoutes = require('./routes/presence.routes');
 const hikvisionRoutes = require('./routes/hikvision.routes');
 const notificationsRoutes = require('./routes/notification.routes');
 const controleGpsRoutes = require('./routes/controleSortieGps.routes');
+const autoFalconAnalyzer = require('./services/autoFalconAnalyzer.service');
 
 const https = require('https');
 const http = require('http');
@@ -73,6 +74,8 @@ const corsOptions = {
   preflightContinue: false,
   optionsSuccessStatus: 204,
 };
+
+autoFalconAnalyzer.startContinuousAnalysis(15);
 
 app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: '50mb' }));
