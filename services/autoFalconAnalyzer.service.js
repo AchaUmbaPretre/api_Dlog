@@ -19,119 +19,124 @@ class AutoFalconAnalyzer {
     };
   }
 
-  // === SOURCE 1: Récupérer les positions depuis la base de données (vehicle_events) ===
-  async getPositionsFromDatabase(deviceName, date) {
+    // === SOURCE 1: Récupérer les positions depuis la base de données (vehicle_events) ===
+    async getPositionsFromDatabase(deviceName, date) {
     const fromDate = moment(date).format('YYYY-MM-DD');
     
     const rows = await queryAsync(`
-      SELECT 
+        SELECT 
         event_time as time,
         latitude,
         longitude,
         speed,
         'db' as source
-      FROM vehicle_events
-      WHERE device_name = ?
+        FROM vehicle_events
+        WHERE device_name = ?
         AND DATE(event_time) = ?
         AND type IN ('position', 'movement', 'zone_out', 'zone_in')
-      ORDER BY event_time ASC
+        ORDER BY event_time ASC
     `, [deviceName, fromDate]);
     
-    console.log(`📍 Positions DB pour ${deviceName}: ${rows.length}`);
-    return rows;
-  }
+    const formattedRows = rows.map(row => ({
+        ...row,
+        time: moment(row.time).format('YYYY-MM-DD HH:mm:ss')
+    }));
+    
+    console.log(`📍 Positions DB pour ${deviceName}: ${formattedRows.length}`);
+    return formattedRows;
+    }
 
-  // === SOURCE 2: Récupérer l'historique depuis Falcon API ===
-  fetchHistory(deviceId, date) {
-    return new Promise((resolve, reject) => {
-      const fromDate = moment(date).format('YYYY-MM-DD');
-      const toDate = moment(date).format('YYYY-MM-DD');
-      
-      const params = new URLSearchParams({
-        device_id: deviceId,
-        from_date: fromDate,
-        from_time: '00:00:00',
-        to_date: toDate,
-        to_time: '23:59:59',
-        lang: 'fr',
-        limit: 15000,
-        user_api_hash: this.apiHash
-      }).toString();
-
-      const options = {
-        hostname: this.falconHostname,
-        port: 80,
-        path: `/api/get_history?${params}`,
-        method: 'GET',
-        timeout: 30000
-      };
-
-      const req = http.request(options, (res) => {
-        let data = '';
+    // === SOURCE 2: Récupérer l'historique depuis Falcon API ===
+    fetchHistory(deviceId, date) {
+        return new Promise((resolve, reject) => {
+        const fromDate = moment(date).subtract(3, 'days').format('YYYY-MM-DD');
+        const toDate = moment(date).format('YYYY-MM-DD');
         
-        res.on('data', (chunk) => {
-          data += chunk;
+        const params = new URLSearchParams({
+            device_id: deviceId,
+            from_date: fromDate,
+            from_time: '00:00:00',
+            to_date: toDate,
+            to_time: '23:59:59',
+            lang: 'fr',
+            limit: 15000,
+            user_api_hash: this.apiHash
+        }).toString();
+
+        const options = {
+            hostname: this.falconHostname,
+            port: 80,
+            path: `/api/get_history?${params}`,
+            method: 'GET',
+            timeout: 30000
+        };
+
+        const req = http.request(options, (res) => {
+            let data = '';
+            
+            res.on('data', (chunk) => {
+            data += chunk;
+            });
+            
+            res.on('end', () => {
+            try {
+                const json = JSON.parse(data);
+                resolve(json);
+            } catch (e) {
+                reject(new Error(`Erreur JSON: ${e.message}`));
+            }
+            });
         });
-        
-        res.on('end', () => {
-          try {
-            const json = JSON.parse(data);
-            resolve(json);
-          } catch (e) {
-            reject(new Error(`Erreur JSON: ${e.message}`));
-          }
+
+        req.on('error', (err) => {
+            reject(err);
         });
-      });
 
-      req.on('error', (err) => {
-        reject(err);
-      });
+        req.on('timeout', () => {
+            req.destroy();
+            reject(new Error('Timeout de la requête Falcon'));
+        });
 
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('Timeout de la requête Falcon'));
-      });
+        req.end();
+        });
+    }
 
-      req.end();
-    });
-  }
-
-  // Extraire les positions de l'historique Falcon
-  extrairePositionsFalcon(historyData) {
+    // Extraire les positions de l'historique Falcon
+    extrairePositionsFalcon(historyData) {
     const positions = [];
     
     if (!historyData?.items) return positions;
     
     for (const segment of historyData.items) {
-      if (segment.items && Array.isArray(segment.items)) {
+        if (segment.items && Array.isArray(segment.items)) {
         for (const point of segment.items) {
-          const time = point.raw_time || point.time;
-          const lat = point.latitude || point.lat;
-          const lng = point.longitude || point.lng;
-          
-          if (lat && lng && time) {
+            const time = point.raw_time || point.time;
+            const lat = point.latitude || point.lat;
+            const lng = point.longitude || point.lng;
+            
+            if (lat && lng && time) {
             positions.push({
-              time: time,
-              latitude: lat,
-              longitude: lng,
-              speed: point.speed || 0,
-              source: 'falcon'
+                time: moment(time).format('YYYY-MM-DD HH:mm:ss'),  // 🔥 FORMATER ICI
+                latitude: lat,
+                longitude: lng,
+                speed: point.speed || 0,
+                source: 'falcon'
             });
-          }
+            }
         }
-      }
+        }
     }
     
     positions.sort((a, b) => moment(a.time).unix() - moment(b.time).unix());
     
     console.log(`📍 Positions Falcon: ${positions.length}`);
     if (positions.length > 0) {
-      console.log(`🕐 Falcon - Première: ${positions[0].time}`);
-      console.log(`🕐 Falcon - Dernière: ${positions[positions.length-1].time}`);
+        console.log(`🕐 Falcon - Première: ${positions[0].time}`);
+        console.log(`🕐 Falcon - Dernière: ${positions[positions.length-1].time}`);
     }
     
     return positions;
-  }
+    }
 
   // === FUSIONNER LES DEUX SOURCES ===
   async fusionnerPositions(deviceName, deviceId, date) {
@@ -173,8 +178,6 @@ class AutoFalconAnalyzer {
       FROM vehicules
       WHERE est_supprime = 0 
         AND id_capteur IS NOT NULL
-        AND id_capteur > 0
-        AND IsDispo = 1
       ORDER BY id_vehicule
     `);
     

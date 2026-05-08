@@ -1,4 +1,3 @@
-// services/controleSortieGps.service.js
 const moment = require('moment');
 const { queryAsync } = require('../config/database');
 
@@ -505,7 +504,6 @@ class RapprochementService {
   
   // === TRAITEMENT PRINCIPAL ===
   async traiterZoneOut(eventData) {
-    console.log('📡 Événement reçu:', eventData);
     
     const { device_name, event_time, latitude, longitude, external_id, speed } = eventData;
     
