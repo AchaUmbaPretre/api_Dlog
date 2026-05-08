@@ -1,4 +1,4 @@
-// services/autoFalconAnalyzer.js
+// services/autoFalconAnalyzer.js - Version complète avec getNiveauRisque
 const moment = require('moment');
 const { queryAsync } = require('../config/database');
 const http = require('http');
@@ -19,124 +19,131 @@ class AutoFalconAnalyzer {
     };
   }
 
-    // === SOURCE 1: Récupérer les positions depuis la base de données (vehicle_events) ===
-    async getPositionsFromDatabase(deviceName, date) {
+  // === AJOUTER CETTE MÉTHODE ===
+  getNiveauRisque(score) {
+    if (score >= 90) return 'FAIBLE';
+    if (score >= 60) return 'MOYEN';
+    return 'ELEVE';
+  }
+
+  // === SOURCE 1: Récupérer les positions depuis la base de données (vehicle_events) ===
+  async getPositionsFromDatabase(deviceName, date) {
     const fromDate = moment(date).format('YYYY-MM-DD');
     
     const rows = await queryAsync(`
-        SELECT 
+      SELECT 
         event_time as time,
         latitude,
         longitude,
         speed,
         'db' as source
-        FROM vehicle_events
-        WHERE device_name = ?
+      FROM vehicle_events
+      WHERE device_name = ?
         AND DATE(event_time) = ?
         AND type IN ('position', 'movement', 'zone_out', 'zone_in')
-        ORDER BY event_time ASC
+      ORDER BY event_time ASC
     `, [deviceName, fromDate]);
     
     const formattedRows = rows.map(row => ({
-        ...row,
-        time: moment(row.time).format('YYYY-MM-DD HH:mm:ss')
+      ...row,
+      time: moment(row.time).format('YYYY-MM-DD HH:mm:ss')
     }));
     
     console.log(`📍 Positions DB pour ${deviceName}: ${formattedRows.length}`);
     return formattedRows;
-    }
+  }
 
-    // === SOURCE 2: Récupérer l'historique depuis Falcon API ===
-    fetchHistory(deviceId, date) {
-        return new Promise((resolve, reject) => {
-        const fromDate = moment(date).subtract(3, 'days').format('YYYY-MM-DD');
-        const toDate = moment(date).format('YYYY-MM-DD');
+  // === SOURCE 2: Récupérer l'historique depuis Falcon API ===
+  fetchHistory(deviceId, date) {
+    return new Promise((resolve, reject) => {
+      const fromDate = moment(date).subtract(3, 'days').format('YYYY-MM-DD');
+      const toDate = moment(date).format('YYYY-MM-DD');
+      
+      const params = new URLSearchParams({
+        device_id: deviceId,
+        from_date: fromDate,
+        from_time: '00:00:00',
+        to_date: toDate,
+        to_time: '23:59:59',
+        lang: 'fr',
+        limit: 15000,
+        user_api_hash: this.apiHash
+      }).toString();
+
+      const options = {
+        hostname: this.falconHostname,
+        port: 80,
+        path: `/api/get_history?${params}`,
+        method: 'GET',
+        timeout: 30000
+      };
+
+      const req = http.request(options, (res) => {
+        let data = '';
         
-        const params = new URLSearchParams({
-            device_id: deviceId,
-            from_date: fromDate,
-            from_time: '00:00:00',
-            to_date: toDate,
-            to_time: '23:59:59',
-            lang: 'fr',
-            limit: 15000,
-            user_api_hash: this.apiHash
-        }).toString();
-
-        const options = {
-            hostname: this.falconHostname,
-            port: 80,
-            path: `/api/get_history?${params}`,
-            method: 'GET',
-            timeout: 30000
-        };
-
-        const req = http.request(options, (res) => {
-            let data = '';
-            
-            res.on('data', (chunk) => {
-            data += chunk;
-            });
-            
-            res.on('end', () => {
-            try {
-                const json = JSON.parse(data);
-                resolve(json);
-            } catch (e) {
-                reject(new Error(`Erreur JSON: ${e.message}`));
-            }
-            });
+        res.on('data', (chunk) => {
+          data += chunk;
         });
-
-        req.on('error', (err) => {
-            reject(err);
+        
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            resolve(json);
+          } catch (e) {
+            reject(new Error(`Erreur JSON: ${e.message}`));
+          }
         });
+      });
 
-        req.on('timeout', () => {
-            req.destroy();
-            reject(new Error('Timeout de la requête Falcon'));
-        });
+      req.on('error', (err) => {
+        reject(err);
+      });
 
-        req.end();
-        });
-    }
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Timeout de la requête Falcon'));
+      });
 
-    // Extraire les positions de l'historique Falcon
-    extrairePositionsFalcon(historyData) {
+      req.end();
+    });
+  }
+
+  // Extraire les positions de l'historique Falcon
+  extrairePositionsFalcon(historyData) {
     const positions = [];
     
     if (!historyData?.items) return positions;
     
     for (const segment of historyData.items) {
-        if (segment.items && Array.isArray(segment.items)) {
+      if (segment.items && Array.isArray(segment.items)) {
         for (const point of segment.items) {
-            const time = point.raw_time || point.time;
-            const lat = point.latitude || point.lat;
-            const lng = point.longitude || point.lng;
-            
-            if (lat && lng && time) {
+          const time = point.raw_time || point.time;
+          const lat = point.latitude || point.lat;
+          const lng = point.longitude || point.lng;
+          
+          if (lat && lng && time) {
             positions.push({
-                time: moment(time).format('YYYY-MM-DD HH:mm:ss'),  // 🔥 FORMATER ICI
-                latitude: lat,
-                longitude: lng,
-                speed: point.speed || 0,
-                source: 'falcon'
+              time: moment(time).format('YYYY-MM-DD HH:mm:ss'),
+              latitude: lat,
+              longitude: lng,
+              speed: point.speed || 0,
+              source: 'falcon'
             });
-            }
+          }
         }
-        }
+      }
     }
     
     positions.sort((a, b) => moment(a.time).unix() - moment(b.time).unix());
     
     console.log(`📍 Positions Falcon: ${positions.length}`);
     if (positions.length > 0) {
-        console.log(`🕐 Falcon - Première: ${positions[0].time}`);
-        console.log(`🕐 Falcon - Dernière: ${positions[positions.length-1].time}`);
+      console.log(`🕐 Falcon - Première: ${positions[0].time}`);
+      console.log(`🕐 Falcon - Dernière: ${positions[positions.length-1].time}`);
     }
     
     return positions;
-    }
+  }
 
   // === FUSIONNER LES DEUX SOURCES ===
   async fusionnerPositions(deviceName, deviceId, date) {
@@ -353,83 +360,86 @@ class AutoFalconAnalyzer {
     return rows[0] || null;
   }
 
-  // Enregistrer une sortie avec vérification des doublons
-async enregistrerSortie(data) {
-  const {
-    immatriculation,
-    id_vehicule,
-    device_name,
-    gps_heure,
-    gps_latitude,
-    gps_longitude,
-    duree_minutes,
-    a_bon,
-    a_tablette,
-    tablette_heure,
-    bon_id,
-    bon_heure,
-    id_zone,
-    zone_nom,
-    statut,
-    score
-  } = data;
-  
-  // 🔥 CONVERSION DU FORMAT DE DATE
-  let gpsHeureFormatted = gps_heure;
-  if (typeof gps_heure === 'string' && gps_heure.includes('GMT')) {
-    gpsHeureFormatted = moment(gps_heure).format('YYYY-MM-DD HH:mm:ss');
-    console.log(`📅 Conversion date: ${gps_heure} → ${gpsHeureFormatted}`);
+  // Enregistrer une sortie avec vérification des doublons et niveau de risque
+  async enregistrerSortie(data) {
+    const {
+      immatriculation,
+      id_vehicule,
+      device_name,
+      gps_heure,
+      gps_latitude,
+      gps_longitude,
+      duree_minutes,
+      a_bon,
+      a_tablette,
+      tablette_heure,
+      bon_id,
+      bon_heure,
+      id_zone,
+      zone_nom,
+      statut,
+      score
+    } = data;
+    
+    // Calculer le niveau de risque
+    const niveauRisque = this.getNiveauRisque(score);
+    
+    // Conversion des dates
+    let gpsHeureFormatted = gps_heure;
+    if (typeof gps_heure === 'string' && gps_heure.includes('GMT')) {
+      gpsHeureFormatted = moment(gps_heure).format('YYYY-MM-DD HH:mm:ss');
+      console.log(`📅 Conversion date: ${gps_heure} → ${gpsHeureFormatted}`);
+    }
+    
+    let tabletteHeureFormatted = tablette_heure;
+    if (tabletteHeureFormatted && typeof tabletteHeureFormatted === 'string' && tabletteHeureFormatted.includes('GMT')) {
+      tabletteHeureFormatted = moment(tabletteHeureFormatted).format('YYYY-MM-DD HH:mm:ss');
+    }
+    
+    let bonHeureFormatted = bon_heure;
+    if (bonHeureFormatted && typeof bonHeureFormatted === 'string' && bonHeureFormatted.includes('GMT')) {
+      bonHeureFormatted = moment(bonHeureFormatted).format('YYYY-MM-DD HH:mm:ss');
+    }
+    
+    // Vérification doublon
+    const existe = await queryAsync(`
+      SELECT id FROM controle_sorties 
+      WHERE id_vehicule = ? 
+        AND DATE(gps_heure) = DATE(?)
+        AND ABS(TIMESTAMPDIFF(MINUTE, gps_heure, ?)) < 60
+        AND a_gps = 1
+      LIMIT 1
+    `, [id_vehicule, gpsHeureFormatted, gpsHeureFormatted]);
+    
+    if (existe.length > 0) {
+      console.log(`⚠️ Doublon ignoré pour ${immatriculation} à ${gpsHeureFormatted}`);
+      return existe[0].id;
+    }
+    
+    // Insertion avec niveau_risque
+    const result = await queryAsync(`
+      INSERT INTO controle_sorties 
+      (immatriculation, id_vehicule, device_name,
+       bon_id, bon_heure, tablette_heure, gps_heure,
+       a_bon, a_tablette, a_gps,
+       statut, score, niveau_risque, ecart_minutes,
+       gps_latitude, gps_longitude,
+       id_zone, zone_nom, commentaire)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      immatriculation, id_vehicule, device_name,
+      bon_id, bonHeureFormatted, tabletteHeureFormatted, gpsHeureFormatted,
+      a_bon ? 1 : 0, a_tablette ? 1 : 0, 1,
+      statut, score, niveauRisque,
+      tabletteHeureFormatted ? Math.abs(moment(gpsHeureFormatted).diff(moment(tabletteHeureFormatted), 'minutes')) : null,
+      gps_latitude, gps_longitude,
+      id_zone, zone_nom,
+      `Sortie détectée - Hors zone: ${duree_minutes} min`
+    ]);
+    
+    console.log(`✅ Sortie enregistrée: ${immatriculation} - ${statut} (Score: ${score}, Risque: ${niveauRisque}) à ${gpsHeureFormatted}`);
+    return result.insertId;
   }
-  
-  let tabletteHeureFormatted = tablette_heure;
-  if (tabletteHeureFormatted && typeof tabletteHeureFormatted === 'string' && tabletteHeureFormatted.includes('GMT')) {
-    tabletteHeureFormatted = moment(tabletteHeureFormatted).format('YYYY-MM-DD HH:mm:ss');
-  }
-  
-  let bonHeureFormatted = bon_heure;
-  if (bonHeureFormatted && typeof bonHeureFormatted === 'string' && bonHeureFormatted.includes('GMT')) {
-    bonHeureFormatted = moment(bonHeureFormatted).format('YYYY-MM-DD HH:mm:ss');
-  }
-  
-  // Vérification doublon avec le bon format
-  const existe = await queryAsync(`
-    SELECT id FROM controle_sorties 
-    WHERE id_vehicule = ? 
-      AND DATE(gps_heure) = DATE(?)
-      AND ABS(TIMESTAMPDIFF(MINUTE, gps_heure, ?)) < 60
-      AND a_gps = 1
-    LIMIT 1
-  `, [id_vehicule, gpsHeureFormatted, gpsHeureFormatted]);
-  
-  if (existe.length > 0) {
-    console.log(`⚠️ Doublon ignoré pour ${immatriculation} à ${gpsHeureFormatted}`);
-    return existe[0].id;
-  }
-  
-  // Insertion avec le bon format
-  const result = await queryAsync(`
-    INSERT INTO controle_sorties 
-    (immatriculation, id_vehicule, device_name,
-     bon_id, bon_heure, tablette_heure, gps_heure,
-     a_bon, a_tablette, a_gps,
-     statut, score, ecart_minutes,
-     gps_latitude, gps_longitude,
-     id_zone, zone_nom, commentaire)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [
-    immatriculation, id_vehicule, device_name,
-    bon_id, bonHeureFormatted, tabletteHeureFormatted, gpsHeureFormatted,
-    a_bon ? 1 : 0, a_tablette ? 1 : 0, 1,
-    statut, score,
-    tabletteHeureFormatted ? Math.abs(moment(gpsHeureFormatted).diff(moment(tabletteHeureFormatted), 'minutes')) : null,
-    gps_latitude, gps_longitude,
-    id_zone, zone_nom,
-    `Sortie détectée - Hors zone: ${duree_minutes} min`
-  ]);
-  
-  console.log(`✅ Sortie enregistrée: ${immatriculation} - ${statut} à ${gpsHeureFormatted}`);
-  return result.insertId;
-}
 
   // Analyser un véhicule
   async analyserVehicule(vehicule, date) {
@@ -559,7 +569,7 @@ async enregistrerSortie(data) {
     }
   }
 
-  // === MÉTHODE AVEC setTimeout RÉCURSIF (SANS DEPENDANCE) ===
+  // === MÉTHODE AVEC setTimeout RÉCURSIF ===
   startContinuousAnalysis(intervalMinutes = 15) {
     console.log(`🚀 Démarrage analyse continue toutes les ${intervalMinutes} minutes`);
     
@@ -568,12 +578,12 @@ async enregistrerSortie(data) {
       
       try {
         const currentDate = moment().format('YYYY-MM-DD');
+        console.log(`\n⏰ [SCHEDULER] Début analyse à ${moment().format('HH:mm:ss')}`);
         await this.analyserTousVehicules(currentDate);
       } catch (error) {
         console.error('❌ Erreur analyse:', error.message);
       }
       
-      // Planifier la prochaine exécution
       if (this.isRunning) {
         this.timeoutId = setTimeout(() => {
           scheduleNext();
@@ -581,7 +591,6 @@ async enregistrerSortie(data) {
       }
     };
     
-    // Lancer la première analyse immédiatement
     scheduleNext();
   }
 
