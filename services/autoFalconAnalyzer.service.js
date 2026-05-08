@@ -361,87 +361,98 @@ class AutoFalconAnalyzer {
   }
 
   // Enregistrer une sortie avec vérification des doublons et niveau de risque
-  async enregistrerSortie(data) {
+    async enregistrerSortie(data) {
     const {
-      immatriculation,
-      id_vehicule,
-      device_name,
-      gps_heure,
-      gps_latitude,
-      gps_longitude,
-      duree_minutes,
-      a_bon,
-      a_tablette,
-      tablette_heure,
-      bon_id,
-      bon_heure,
-      id_zone,
-      zone_nom,
-      statut,
-      score
+        immatriculation,
+        id_vehicule,
+        device_name,
+        gps_heure,
+        gps_latitude,
+        gps_longitude,
+        duree_minutes,
+        a_bon,
+        a_tablette,
+        tablette_heure,
+        bon_id,
+        bon_heure,
+        id_zone,
+        zone_nom,
+        statut,
+        score
     } = data;
     
-    // Calculer le niveau de risque
     const niveauRisque = this.getNiveauRisque(score);
     
     // Conversion des dates
     let gpsHeureFormatted = gps_heure;
     if (typeof gps_heure === 'string' && gps_heure.includes('GMT')) {
-      gpsHeureFormatted = moment(gps_heure).format('YYYY-MM-DD HH:mm:ss');
-      console.log(`📅 Conversion date: ${gps_heure} → ${gpsHeureFormatted}`);
+        gpsHeureFormatted = moment(gps_heure).format('YYYY-MM-DD HH:mm:ss');
     }
     
     let tabletteHeureFormatted = tablette_heure;
     if (tabletteHeureFormatted && typeof tabletteHeureFormatted === 'string' && tabletteHeureFormatted.includes('GMT')) {
-      tabletteHeureFormatted = moment(tabletteHeureFormatted).format('YYYY-MM-DD HH:mm:ss');
+        tabletteHeureFormatted = moment(tabletteHeureFormatted).format('YYYY-MM-DD HH:mm:ss');
     }
     
     let bonHeureFormatted = bon_heure;
     if (bonHeureFormatted && typeof bonHeureFormatted === 'string' && bonHeureFormatted.includes('GMT')) {
-      bonHeureFormatted = moment(bonHeureFormatted).format('YYYY-MM-DD HH:mm:ss');
+        bonHeureFormatted = moment(bonHeureFormatted).format('YYYY-MM-DD HH:mm:ss');
     }
     
-    // Vérification doublon
+    // Vérification 1: doublon par heure (60 minutes)
     const existe = await queryAsync(`
-      SELECT id FROM controle_sorties 
-      WHERE id_vehicule = ? 
+        SELECT id FROM controle_sorties 
+        WHERE id_vehicule = ? 
         AND DATE(gps_heure) = DATE(?)
         AND ABS(TIMESTAMPDIFF(MINUTE, gps_heure, ?)) < 60
         AND a_gps = 1
-      LIMIT 1
+        LIMIT 1
     `, [id_vehicule, gpsHeureFormatted, gpsHeureFormatted]);
     
     if (existe.length > 0) {
-      console.log(`⚠️ Doublon ignoré pour ${immatriculation} à ${gpsHeureFormatted}`);
-      return existe[0].id;
+        console.log(`⚠️ Doublon ignoré pour ${immatriculation} à ${gpsHeureFormatted}`);
+        return existe[0].id;
     }
     
-    // Insertion avec niveau_risque
+    // Vérification 2: MÊME BS ne doit pas être associé à plusieurs sorties
+    if (bon_id) {
+        const bsExistant = await queryAsync(`
+        SELECT id, gps_heure FROM controle_sorties 
+        WHERE bon_id = ? 
+        LIMIT 1
+        `, [bon_id]);
+        
+        if (bsExistant.length > 0) {
+        console.log(`⚠️ BS ${bon_id} déjà associé à une sortie (${bsExistant[0].gps_heure}), ignoré`);
+        return bsExistant[0].id;
+        }
+    }
+    
+    // Insertion
     const result = await queryAsync(`
-      INSERT INTO controle_sorties 
-      (immatriculation, id_vehicule, device_name,
-       bon_id, bon_heure, tablette_heure, gps_heure,
-       a_bon, a_tablette, a_gps,
-       statut, score, niveau_risque, ecart_minutes,
-       gps_latitude, gps_longitude,
-       id_zone, zone_nom, commentaire)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO controle_sorties 
+        (immatriculation, id_vehicule, device_name,
+        bon_id, bon_heure, tablette_heure, gps_heure,
+        a_bon, a_tablette, a_gps,
+        statut, score, niveau_risque, ecart_minutes,
+        gps_latitude, gps_longitude,
+        id_zone, zone_nom, commentaire)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      immatriculation, id_vehicule, device_name,
-      bon_id, bonHeureFormatted, tabletteHeureFormatted, gpsHeureFormatted,
-      a_bon ? 1 : 0, a_tablette ? 1 : 0, 1,
-      statut, score, niveauRisque,
-      tabletteHeureFormatted ? Math.abs(moment(gpsHeureFormatted).diff(moment(tabletteHeureFormatted), 'minutes')) : null,
-      gps_latitude, gps_longitude,
-      id_zone, zone_nom,
-      `Sortie détectée - Hors zone: ${duree_minutes} min`
+        immatriculation, id_vehicule, device_name,
+        bon_id, bonHeureFormatted, tabletteHeureFormatted, gpsHeureFormatted,
+        a_bon ? 1 : 0, a_tablette ? 1 : 0, 1,
+        statut, score, niveauRisque,
+        tabletteHeureFormatted ? Math.abs(moment(gpsHeureFormatted).diff(moment(tabletteHeureFormatted), 'minutes')) : null,
+        gps_latitude, gps_longitude,
+        id_zone, zone_nom,
+        `Sortie détectée - Hors zone: ${duree_minutes} min`
     ]);
     
     console.log(`✅ Sortie enregistrée: ${immatriculation} - ${statut} (Score: ${score}, Risque: ${niveauRisque}) à ${gpsHeureFormatted}`);
     return result.insertId;
-  }
+    }
 
-  // Analyser un véhicule
   async analyserVehicule(vehicule, date) {
     console.log(`\n🔍 Analyse ${vehicule.immatriculation} (device_id: ${vehicule.id_capteur})`);
     
