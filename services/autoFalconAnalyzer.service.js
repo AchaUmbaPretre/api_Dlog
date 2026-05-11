@@ -49,7 +49,6 @@ class AutoFalconAnalyzer {
       time: moment(row.time).format('YYYY-MM-DD HH:mm:ss')
     }));
     
-    console.log(`📍 Positions DB pour ${deviceName}: ${formattedRows.length}`);
     return formattedRows;
   }
 
@@ -136,11 +135,11 @@ class AutoFalconAnalyzer {
     
     positions.sort((a, b) => moment(a.time).unix() - moment(b.time).unix());
     
-    console.log(`📍 Positions Falcon: ${positions.length}`);
+/*     console.log(`📍 Positions Falcon: ${positions.length}`);
     if (positions.length > 0) {
       console.log(`🕐 Falcon - Première: ${positions[0].time}`);
       console.log(`🕐 Falcon - Dernière: ${positions[positions.length-1].time}`);
-    }
+    } */
     
     return positions;
   }
@@ -169,8 +168,8 @@ class AutoFalconAnalyzer {
     
     allPositions.sort((a, b) => moment(a.time).unix() - moment(b.time).unix());
     
-    console.log(`📍 Total positions fusionnées: ${allPositions.length}`);
-    return allPositions;
+/*     console.log(`📍 Total positions fusionnées: ${allPositions.length}`);
+ */    return allPositions;
   }
 
   // Récupérer tous les véhicules avec id_capteur valide
@@ -188,8 +187,8 @@ class AutoFalconAnalyzer {
       ORDER BY id_vehicule
     `);
     
-    console.log(`📋 ${rows.length} véhicules actifs trouvés avec ID capteur`);
-    return rows;
+/*     console.log(`📋 ${rows.length} véhicules actifs trouvés avec ID capteur`);
+ */    return rows;
   }
 
   // Récupérer la zone de base du véhicule
@@ -244,21 +243,21 @@ class AutoFalconAnalyzer {
   analyserSorties(positions, zoneCoordinates, zoneNom, targetDate) {
     if (positions.length === 0) return [];
     
-    console.log(`\n🔍 Analyse des sorties pour ${zoneNom}`);
+/*     console.log(`\n🔍 Analyse des sorties pour ${zoneNom}`);
     console.log(`📍 ${positions.length} positions à analyser`);
     console.log(`📅 Date cible: ${targetDate}`);
-    
+     */
     const sorties = [];
     let etat = null;
     let debutSortie = null;
     let positionSortie = null;
     
-    console.log(`\n📊 APERÇU DES 5 PREMIÈRES POSITIONS:`);
-    for (let i = 0; i < Math.min(5, positions.length); i++) {
+/*     console.log(`\n📊 APERÇU DES 5 PREMIÈRES POSITIONS:`);
+ */    for (let i = 0; i < Math.min(5, positions.length); i++) {
       const pos = positions[i];
       const dansZone = this.pointDansPolygone(pos.latitude, pos.longitude, zoneCoordinates);
-      console.log(`  ${i+1}. ${pos.time} - (${pos.latitude}, ${pos.longitude}) - ${dansZone ? '✅ DANS ZONE' : '❌ HORS ZONE'} [${pos.source || 'db'}]`);
-    }
+/*       console.log(`  ${i+1}. ${pos.time} - (${pos.latitude}, ${pos.longitude}) - ${dansZone ? '✅ DANS ZONE' : '❌ HORS ZONE'} [${pos.source || 'db'}]`);
+ */    }
     
     for (let i = 0; i < positions.length; i++) {
       const pos = positions[i];
@@ -266,20 +265,20 @@ class AutoFalconAnalyzer {
       
       if (etat === null) {
         etat = estDansZone ? 'DANS_ZONE' : 'HORS_ZONE';
-        console.log(`📍 État initial à ${pos.time}: ${etat}`);
-        continue;
+/*         console.log(`📍 État initial à ${pos.time}: ${etat}`);
+ */        continue;
       }
       
       if (etat === 'DANS_ZONE' && !estDansZone) {
         debutSortie = pos.time;
         positionSortie = pos;
         etat = 'HORS_ZONE';
-        console.log(`  🚪 SORTIE à ${debutSortie}`);
-      }
+/*         console.log(`  🚪 SORTIE à ${debutSortie}`);
+ */      }
       else if (etat === 'HORS_ZONE' && estDansZone) {
         const duree = moment(pos.time).diff(moment(debutSortie), 'minutes');
-        console.log(`  🔄 RETOUR à ${pos.time} - durée: ${duree} min`);
-        
+/*         console.log(`  🔄 RETOUR à ${pos.time} - durée: ${duree} min`);
+ */        
         if (duree >= 5) {
           const sortieDate = moment(debutSortie).format('YYYY-MM-DD');
           if (sortieDate === targetDate) {
@@ -289,13 +288,13 @@ class AutoFalconAnalyzer {
               temps_retour: pos.time,
               duree_minutes: duree
             });
-            console.log(`  ✅ SORTIE CONFIRMÉE (${duree} min) - ${sortieDate}`);
-          } else {
-            console.log(`  ⏭️ Sortie ignorée (date ${sortieDate} ≠ ${targetDate})`);
-          }
+/*             console.log(`  ✅ SORTIE CONFIRMÉE (${duree} min) - ${sortieDate}`);
+ */          } else {
+/*             console.log(`  ⏭️ Sortie ignorée (date ${sortieDate} ≠ ${targetDate})`);
+ */          }
         } else {
-          console.log(`  ⚠️ Sortie courte ignorée (${duree} min < 5 min)`);
-        }
+/*           console.log(`  ⚠️ Sortie courte ignorée (${duree} min < 5 min)`);
+ */        }
         
         etat = 'DANS_ZONE';
         debutSortie = null;
@@ -333,8 +332,8 @@ class AutoFalconAnalyzer {
       }
     }
     
-    console.log(`📊 Total sorties confirmées pour ${targetDate}: ${sortiesUniques.length}`);
-    return sortiesUniques;
+/*     console.log(`📊 Total sorties confirmées pour ${targetDate}: ${sortiesUniques.length}`);
+ */    return sortiesUniques;
   }
 
   // Chercher un BS pour une sortie
@@ -410,8 +409,8 @@ class AutoFalconAnalyzer {
     `, [id_vehicule, gpsHeureFormatted, gpsHeureFormatted]);
     
     if (existe.length > 0) {
-        console.log(`⚠️ Doublon ignoré pour ${immatriculation} à ${gpsHeureFormatted}`);
-        return existe[0].id;
+/*         console.log(`⚠️ Doublon ignoré pour ${immatriculation} à ${gpsHeureFormatted}`);
+ */        return existe[0].id;
     }
     
     // Vérification 2: MÊME BS ne doit pas être associé à plusieurs sorties
@@ -454,16 +453,16 @@ class AutoFalconAnalyzer {
     }
 
   async analyserVehicule(vehicule, date) {
-    console.log(`\n🔍 Analyse ${vehicule.immatriculation} (device_id: ${vehicule.id_capteur})`);
-    
+/*     console.log(`\n🔍 Analyse ${vehicule.immatriculation} (device_id: ${vehicule.id_capteur})`);
+ */    
     const zoneBase = await this.getZoneBaseVehiculeById(vehicule.id_vehicule);
     if (!zoneBase) {
       console.log(`⚠️ ${vehicule.immatriculation} pas de zone de base`);
       return null;
     }
     
-    console.log(`🗺️ Zone: ${zoneBase.zone_nom}`);
-    
+/*     console.log(`🗺️ Zone: ${zoneBase.zone_nom}`);
+ */    
     const positions = await this.fusionnerPositions(vehicule.name_capteur, vehicule.id_capteur, date);
     
     if (positions.length === 0) {
@@ -474,8 +473,8 @@ class AutoFalconAnalyzer {
     const sorties = this.analyserSorties(positions, zoneBase.coordinates, zoneBase.zone_nom, date);
     if (sorties.length === 0) return null;
     
-    console.log(`🚪 ${sorties.length} sortie(s) détectée(s)`);
-    
+/*     console.log(`🚪 ${sorties.length} sortie(s) détectée(s)`);
+ */    
     const results = [];
     for (const sortie of sorties) {
       const bon = await this.chercherBon(vehicule.id_vehicule, sortie.temps_sortie);
@@ -524,8 +523,8 @@ class AutoFalconAnalyzer {
   // Analyser tous les véhicules
   async analyserTousVehicules(date) {
     if (this.isAnalyzing) {
-      console.log('⏳ Analyse déjà en cours, ignorée');
-      return null;
+/*       console.log('⏳ Analyse déjà en cours, ignorée');
+ */      return null;
     }
     
     this.isAnalyzing = true;
@@ -534,9 +533,9 @@ class AutoFalconAnalyzer {
     const today = moment().format('YYYY-MM-DD');
     const dateFilter = date || today;
     
-    console.log(`\n${'='.repeat(60)}`);
+/*     console.log(`\n${'='.repeat(60)}`);
     console.log(`🚀 DÉBUT ANALYSE AUTOMATIQUE - ${dateFilter}`);
-    console.log(`${'='.repeat(60)}\n`);
+    console.log(`${'='.repeat(60)}\n`); */
     
     try {
       const vehicules = await this.getVehiculesActifs();
@@ -560,14 +559,14 @@ class AutoFalconAnalyzer {
       
       const duration = Date.now() - startTime;
       
-      console.log(`\n${'='.repeat(60)}`);
+/*       console.log(`\n${'='.repeat(60)}`);
       console.log(`📊 RAPPORT FINAL - ${dateFilter}`);
       console.log(`${'='.repeat(60)}`);
       console.log(`📋 Véhicules analysés: ${this.stats.processedToday}/${this.stats.totalVehicles}`);
       console.log(`🚪 Sorties détectées: ${this.stats.sortiesDetected}`);
       console.log(`❌ Erreurs: ${this.stats.errors}`);
       console.log(`⏱️ Durée: ${Math.round(duration / 1000)} secondes`);
-      console.log(`${'='.repeat(60)}\n`);
+      console.log(`${'='.repeat(60)}\n`); */
       
       this.lastAnalysisRun = new Date();
       return this.stats;
@@ -582,15 +581,15 @@ class AutoFalconAnalyzer {
 
   // === MÉTHODE AVEC setTimeout RÉCURSIF ===
   startContinuousAnalysis(intervalMinutes = 15) {
-    console.log(`🚀 Démarrage analyse continue toutes les ${intervalMinutes} minutes`);
-    
+/*     console.log(`🚀 Démarrage analyse continue toutes les ${intervalMinutes} minutes`);
+ */    
     const scheduleNext = async () => {
       if (!this.isRunning) return;
       
       try {
         const currentDate = moment().format('YYYY-MM-DD');
-        console.log(`\n⏰ [SCHEDULER] Début analyse à ${moment().format('HH:mm:ss')}`);
-        await this.analyserTousVehicules(currentDate);
+/*         console.log(`\n⏰ [SCHEDULER] Début analyse à ${moment().format('HH:mm:ss')}`);
+ */        await this.analyserTousVehicules(currentDate);
       } catch (error) {
         console.error('❌ Erreur analyse:', error.message);
       }
