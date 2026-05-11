@@ -36,6 +36,10 @@ const hikvisionRoutes = require('./routes/hikvision.routes');
 const notificationsRoutes = require('./routes/notification.routes');
 const controleGpsRoutes = require('./routes/controleSortieGps.routes');
 const autoFalconAnalyzer = require('./services/autoFalconAnalyzer.service');
+const missionRoutes = require('./routes/missions.routes');
+const { syncFalcon } = require('./jobs/syncFalcon');
+const DIX_MINUTES_MS = 10 * 60 * 1000;
+
 
 const https = require('https');
 const http = require('http');
@@ -119,6 +123,7 @@ app.use('/api/presence', presenceRoutes)
 app.use('/api/hikvision', hikvisionRoutes)
 app.use('/api/notifications', notificationsRoutes)
 app.use('/api/controleGps', controleGpsRoutes)
+app.use('/api/missions', missionRoutes);
 
 app.get("/api/falcon", (req, res) => {
   const options = {
@@ -379,6 +384,13 @@ app.listen(port, () => {
     console.log(
       `Le serveur est connecté au port ${port}`.bgCyan.white
     );
+
+  setTimeout(() => {
+    console.log('🔄 Première synchronisation Falcon');
+    syncFalcon();
+  }, 5000);
+  
+  setInterval(syncFalcon, DIX_MINUTES_MS);
   });
 
 
