@@ -52,7 +52,6 @@ exports.missionComplet = async (req, res) => {
 exports.getMission = async (req, res) => {
   try {
     const { id } = req.params;
-    const { queryAsync } = require('../config/database');
     
     const mission = await queryAsync(`
       SELECT bs.*, v.immatriculation, v.consommation
