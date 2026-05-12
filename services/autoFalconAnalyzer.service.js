@@ -316,8 +316,8 @@ class AutoFalconAnalyzer {
         });
         console.log(`  ✅ SORTIE CONFIRMÉE (toujours dehors, ${duree} min) - ${sortieDate}`);
       } else if (sortieDate !== targetDate) {
-        console.log(`  ⏭️ Sortie ignorée (date ${sortieDate} ≠ ${targetDate})`);
-      }
+/*         console.log(`  ⏭️ Sortie ignorée (date ${sortieDate} ≠ ${targetDate})`);
+ */      }
     }
     
     // Éviter les doublons
@@ -594,11 +594,11 @@ class AutoFalconAnalyzer {
         console.error('❌ Erreur analyse:', error.message);
       }
       
-      if (this.isRunning) {
+/*       if (this.isRunning) {
         this.timeoutId = setTimeout(() => {
           scheduleNext();
         }, intervalMinutes * 60 * 1000);
-      }
+      } */
     };
     
     scheduleNext();

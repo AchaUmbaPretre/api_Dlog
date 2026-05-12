@@ -5,6 +5,7 @@ class MissionService {
   
   // Démarrer une mission
   async demarrer(id_bande_sortie) {
+    console.log('bs', id_bande_sortie)
     const result = await queryAsync(`
       UPDATE bande_sortie 
       SET sortie_time = NOW(), statut_mission = 'en_cours'

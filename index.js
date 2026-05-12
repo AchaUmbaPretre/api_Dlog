@@ -39,7 +39,7 @@ const autoFalconAnalyzer = require('./services/autoFalconAnalyzer.service');
 const missionRoutes = require('./routes/missions.routes');
 const { syncFalcon } = require('./jobs/syncFalcon');
 const DIX_MINUTES_MS = 10 * 60 * 1000;
-
+const chauffeurRoutes = require('./routes/chauffeur.routes');
 
 const https = require('https');
 const http = require('http');
@@ -79,8 +79,8 @@ const corsOptions = {
   optionsSuccessStatus: 204,
 };
 
-autoFalconAnalyzer.startContinuousAnalysis(15);
-
+/* autoFalconAnalyzer.startContinuousAnalysis(15);
+ */
 app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
@@ -124,7 +124,7 @@ app.use('/api/hikvision', hikvisionRoutes)
 app.use('/api/notifications', notificationsRoutes)
 app.use('/api/controleGps', controleGpsRoutes)
 app.use('/api/missions', missionRoutes);
-
+app.use('/api/chauffeur', chauffeurRoutes);
 app.get("/api/falcon", (req, res) => {
   const options = {
     hostname: "31.207.34.171",
