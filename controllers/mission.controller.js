@@ -70,3 +70,39 @@ exports.getMission = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// Démarrer l'approche client
+exports.startApproche = async (req, res) => {
+  try {
+    const { id_bande_sortie } = req.body;
+    
+    if (!id_bande_sortie) {
+      return res.status(400).json({ error: 'id_bande_sortie requis' });
+    }
+    
+    const result = await missionService.startApproche(id_bande_sortie);
+    res.json({ message: 'Approche démarrée', data: result });
+    
+  } catch (error) {
+    console.error('Erreur startApproche:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Terminer l'approche client et calculer distance
+exports.endApproche = async (req, res) => {
+  try {
+    const { id_bande_sortie } = req.body;
+    
+    if (!id_bande_sortie) {
+      return res.status(400).json({ error: 'id_bande_sortie requis' });
+    }
+    
+    const result = await missionService.endApproche(id_bande_sortie);
+    res.json({ message: 'Approche terminée', data: result });
+    
+  } catch (error) {
+    console.error('Erreur endApproche:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
