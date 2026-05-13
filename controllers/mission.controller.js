@@ -75,6 +75,8 @@ exports.getMission = async (req, res) => {
 exports.startApproche = async (req, res) => {
   try {
     const { id_bande_sortie } = req.body;
+
+    console.log(req.body)
     
     if (!id_bande_sortie) {
       return res.status(400).json({ error: 'id_bande_sortie requis' });

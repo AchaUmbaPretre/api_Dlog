@@ -93,12 +93,19 @@ exports.missionChauffeurById = async (req, res) => {
         bs.id_vehicule,
         bs.id_chauffeur,
         bs.date_prevue,
+        bs.approche_start_time,
+        bs.approche_end_time,
+        bs.distance_approche_km,
+        bs.carburant_approche_litres,
         d.nom_destination AS destination,
         bs.statut_mission,
         bs.distance_km,
         bs.carburant_litres,
+        bs.sortie_time,
+        bs.retour_time,
         v.immatriculation,
-        v.consommation_carburant
+        v.consommation_carburant,
+        v.id_capteur
       FROM bande_sortie bs
       LEFT JOIN vehicules v ON bs.id_vehicule = v.id_vehicule
       LEFT JOIN destination d ON bs.id_destination = d.id_destination
