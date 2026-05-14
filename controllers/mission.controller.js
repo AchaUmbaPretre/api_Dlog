@@ -1,4 +1,25 @@
 const missionService = require('../services/mission.service');
+const { queryAsync } = require('./../config/database');
+
+//TYPE Mission
+exports.getTypeMission = async (req, res) => {
+  try {
+    
+    const mission = await queryAsync(`
+      SELECT tm.*
+      FROM type_mission tm
+    `,);
+    
+    if (mission.length === 0) {
+      return res.status(404).json({ error: 'Aucun type de Mission trouvé' });
+    }
+    
+    res.json(mission);
+    
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
 // DÉMARRER
 exports.demarrer = async (req, res) => {
@@ -76,7 +97,6 @@ exports.startApproche = async (req, res) => {
   try {
     const { id_bande_sortie } = req.body;
 
-    console.log(req.body)
     
     if (!id_bande_sortie) {
       return res.status(400).json({ error: 'id_bande_sortie requis' });
@@ -86,6 +106,7 @@ exports.startApproche = async (req, res) => {
     res.json({ message: 'Approche démarrée', data: result });
     
   } catch (error) {
+    console.log(error.message)
     console.error('Erreur startApproche:', error);
     res.status(500).json({ error: error.message });
   }

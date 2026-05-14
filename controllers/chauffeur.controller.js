@@ -83,9 +83,9 @@ exports.profilChauffeur = async (req, res) => {
   });
 }
 
+// controllers/chauffeur.controller.js
 exports.missionChauffeurById = async (req, res) => {
   try {
-    
     const missions = await queryAsync(`
       SELECT 
         bs.id_bande_sortie,
@@ -105,10 +105,16 @@ exports.missionChauffeurById = async (req, res) => {
         bs.retour_time,
         v.immatriculation,
         v.consommation_carburant,
-        v.id_capteur
+        v.id_capteur,
+        -- ✅ Ajouter les infos du chauffeur
+        c.nom AS chauffeur_nom,
+        c.prenom AS chauffeur_prenom,
+        c.telephone AS chauffeur_telephone,
+        c.matricule AS chauffeur_matricule
       FROM bande_sortie bs
       LEFT JOIN vehicules v ON bs.id_vehicule = v.id_vehicule
       LEFT JOIN destination d ON bs.id_destination = d.id_destination
+      LEFT JOIN chauffeurs c ON bs.id_chauffeur = c.id_chauffeur
       WHERE bs.id_chauffeur = ?
         AND DATE(bs.date_prevue) = CURDATE()
         AND bs.statut_mission != 'terminee'

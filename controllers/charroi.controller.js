@@ -4869,7 +4869,7 @@ exports.postAffectationDemande = (req, res) => {
         connection.release();
         console.error('Erreur lors de l’ouverture de la transaction :', trxErr);
         return res.status(500).json({ error: "Échec de l’initiation de la transaction." });
-      }
+      }       
 
       try {
         const { 
@@ -4886,6 +4886,7 @@ exports.postAffectationDemande = (req, res) => {
           personne_bord,
           commentaire,
           user_cr, 
+          id_type_mission = 1
         } = req.body;
 
         if (!id_vehicule || !id_chauffeur || !user_cr) {
@@ -4910,8 +4911,9 @@ exports.postAffectationDemande = (req, res) => {
             statut,
             personne_bord,
             commentaire,
-            user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            user_cr,
+            id_type_mission
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const valuesDemande = [
@@ -4928,7 +4930,8 @@ exports.postAffectationDemande = (req, res) => {
             2,
             personne_bord,
             commentaire,
-            user_cr
+            user_cr,
+            id_type_mission = 1
           ]
 
         const insertResult = await queryPromise(connection, insertSql, valuesDemande);
@@ -5028,6 +5031,11 @@ exports.getBandeSortie = (req, res) => {
           ad.sortie_time,
           ad.retour_time,
           ad.id_vehicule,
+          ad.distance_km,
+          ad.carburant_litres,
+          ad.distance_approche_km,
+          ad.carburant_approche_litres,
+          ad.statut_mission,
           mfd.nom_motif_demande,
           bs.nom_statut_bs,
           cv.nom_cat,
@@ -5196,7 +5204,8 @@ exports.postBandeSortie = (req, res) => {
           personne_bord,
           commentaire,
           id_societe,
-          user_cr
+          user_cr,
+          id_type_mission = 1
         } = req.body;
 
         if (!id_vehicule || !id_chauffeur || !user_cr || !date_prevue || !id_societe) {
@@ -5215,8 +5224,8 @@ exports.postBandeSortie = (req, res) => {
           INSERT INTO bande_sortie (
             id_affectation_demande, id_vehicule, id_chauffeur, date_prevue, date_retour,
             id_type_vehicule, id_motif_demande, id_demandeur, id_client, id_destination,
-            statut, personne_bord, commentaire, id_societe, user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            statut, personne_bord, commentaire, id_societe, user_cr, id_type_mission
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         const bonValues = [
           id_affectation_demande || null,
@@ -5233,7 +5242,8 @@ exports.postBandeSortie = (req, res) => {
           personne_bord || '',
           commentaire || '',
           id_societe,
-          user_cr
+          user_cr,
+          id_type_mission
         ];
         const [insertResult] = await queryPromise(connection, insertBonSql, bonValues);
         const id_bande_sortie = insertResult.insertId;

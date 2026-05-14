@@ -452,8 +452,8 @@ const createAlert = async ({
        WHERE id = ?`,
       [alert_time, alert_message, alert_level, existing[0].id]
     );
-    console.log(`⚠️ Alerte mise à jour pour ${device_name} (${alert_type})`);
-    return { updated: true, alertId: existing[0].id };
+/*     console.log(`⚠️ Alerte mise à jour pour ${device_name} (${alert_type})`);
+ */    return { updated: true, alertId: existing[0].id };
   }
 
   // 🚨 Sinon insérer une nouvelle alerte
@@ -472,8 +472,8 @@ const createAlert = async ({
     alert_time
   ]);
 
-  console.log(`🚨 Nouvelle alerte créée pour ${device_name} (${alert_type})`);
-  return { created: true, alertId: result.insertId };
+/*   console.log(`🚨 Nouvelle alerte créée pour ${device_name} (${alert_type})`);
+ */  return { created: true, alertId: result.insertId };
 };
 
 //Fonction pour vérifier si un véhicule est autorisé ou non via device_name
