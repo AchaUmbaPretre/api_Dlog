@@ -4794,6 +4794,7 @@ exports.getAffectationDemande = (req, res) => {
           ad.personne_bord,
           ad.commentaire, 
           ad.statut,
+          ad.id_type_mission,
           mfd.nom_motif_demande,
           sd.nom_service,
           l.nom_destination,
@@ -4886,7 +4887,7 @@ exports.postAffectationDemande = (req, res) => {
           personne_bord,
           commentaire,
           user_cr, 
-          id_type_mission = 1
+          id_type_mission
         } = req.body;
 
         if (!id_vehicule || !id_chauffeur || !user_cr) {
@@ -4931,7 +4932,7 @@ exports.postAffectationDemande = (req, res) => {
             personne_bord,
             commentaire,
             user_cr,
-            id_type_mission = 1
+            id_type_mission || 1 
           ]
 
         const insertResult = await queryPromise(connection, insertSql, valuesDemande);
@@ -5036,6 +5037,7 @@ exports.getBandeSortie = (req, res) => {
           ad.distance_approche_km,
           ad.carburant_approche_litres,
           ad.statut_mission,
+          ad.id_type_mission,
           mfd.nom_motif_demande,
           bs.nom_statut_bs,
           cv.nom_cat,
@@ -5082,42 +5084,41 @@ exports.getBandeSortieUnique = (req, res) => {
   const { userId } = req.query;
 
   const q = `
-  SELECT 
-    ad.id_bande_sortie, 
-    DATE_FORMAT(ad.date_prevue, '%Y-%m-%d %H:%i:%s') AS date_prevue,
-    DATE_FORMAT(ad.date_retour, '%Y-%m-%d %H:%i:%s') AS date_retour,
-    ad.personne_bord,
-    ad.commentaire, 
-    DATE_FORMAT(ad.sortie_time, '%Y-%m-%d %H:%i:%s') AS sortie_time,
-    DATE_FORMAT(ad.retour_time, '%Y-%m-%d %H:%i:%s') AS retour_time,
-    mfd.nom_motif_demande,
-    bs.nom_statut_bs,
-    cv.nom_cat,
-    sd.nom_service,
-    l.nom_destination,
-    c.nom AS nom_chauffeur, 
-    c.prenom AS prenom_chauffeur,
-    v.immatriculation, 
-    m.nom_marque,
-    us.nom AS user_cr
-  FROM bande_sortie ad
-    INNER JOIN chauffeurs c ON ad.id_chauffeur = c.id_chauffeur
-    INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
-    INNER JOIN marque m ON m.id_marque = v.id_marque
-    LEFT JOIN modeles md ON v.id_modele = md.id_modele
-    INNER JOIN statut_bs bs ON ad.statut = bs.id_statut_bs
-    LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
-    LEFT JOIN motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
-    LEFT JOIN service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
-    LEFT JOIN destination l ON ad.id_destination = l.id_destination
-    LEFT JOIN utilisateur us ON ad.user_cr = us.id_utilisateur
-    LEFT JOIN validation_demande vd 
-      ON ad.id_bande_sortie = vd.id_bande_sortie AND vd.validateur_id = ?
-  WHERE vd.id_bande_sortie IS NULL AND ad.est_supprime = 0
-  GROUP BY ad.id_bande_sortie
-  ORDER BY ad.created_at DESC
-`;
-
+    SELECT 
+      ad.id_bande_sortie, 
+      DATE_FORMAT(ad.date_prevue, '%Y-%m-%d %H:%i:%s') AS date_prevue,
+      DATE_FORMAT(ad.date_retour, '%Y-%m-%d %H:%i:%s') AS date_retour,
+      ad.personne_bord,
+      ad.commentaire, 
+      DATE_FORMAT(ad.sortie_time, '%Y-%m-%d %H:%i:%s') AS sortie_time,
+      DATE_FORMAT(ad.retour_time, '%Y-%m-%d %H:%i:%s') AS retour_time,
+      mfd.nom_motif_demande,
+      bs.nom_statut_bs,
+      cv.nom_cat,
+      sd.nom_service,
+      l.nom_destination,
+      c.nom AS nom_chauffeur, 
+      c.prenom AS prenom_chauffeur,
+      v.immatriculation, 
+      m.nom_marque,
+      us.nom AS user_cr
+    FROM bande_sortie ad
+      INNER JOIN chauffeurs c ON ad.id_chauffeur = c.id_chauffeur
+      INNER JOIN vehicules v ON ad.id_vehicule = v.id_vehicule
+      INNER JOIN marque m ON m.id_marque = v.id_marque
+      LEFT JOIN modeles md ON v.id_modele = md.id_modele
+      INNER JOIN statut_bs bs ON ad.statut = bs.id_statut_bs
+      LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+      LEFT JOIN motif_demande mfd ON ad.id_motif_demande = mfd.id_motif_demande
+      LEFT JOIN service_demandeur sd ON ad.id_demandeur = sd.id_service_demandeur
+      LEFT JOIN destination l ON ad.id_destination = l.id_destination
+      LEFT JOIN utilisateur us ON ad.user_cr = us.id_utilisateur
+      LEFT JOIN validation_demande vd 
+        ON ad.id_bande_sortie = vd.id_bande_sortie AND vd.validateur_id = ?
+    WHERE vd.id_bande_sortie IS NULL AND ad.est_supprime = 0
+    GROUP BY ad.id_bande_sortie
+    ORDER BY ad.created_at DESC
+  `;
 
   db.query(q, [userId], (error, data) => {
     if (error) {
@@ -5205,7 +5206,7 @@ exports.postBandeSortie = (req, res) => {
           commentaire,
           id_societe,
           user_cr,
-          id_type_mission = 1
+          id_type_mission
         } = req.body;
 
         if (!id_vehicule || !id_chauffeur || !user_cr || !date_prevue || !id_societe) {
@@ -5243,7 +5244,7 @@ exports.postBandeSortie = (req, res) => {
           commentaire || '',
           id_societe,
           user_cr,
-          id_type_mission
+          id_type_mission || 1 
         ];
         const [insertResult] = await queryPromise(connection, insertBonSql, bonValues);
         const id_bande_sortie = insertResult.insertId;
