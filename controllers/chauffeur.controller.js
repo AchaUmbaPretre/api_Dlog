@@ -110,11 +110,13 @@ exports.missionChauffeurById = async (req, res) => {
         c.nom AS chauffeur_nom,
         c.prenom AS chauffeur_prenom,
         c.telephone AS chauffeur_telephone,
-        c.matricule AS chauffeur_matricule
+        c.matricule AS chauffeur_matricule,
+        cl.telephone AS numero_client
       FROM bande_sortie bs
       LEFT JOIN vehicules v ON bs.id_vehicule = v.id_vehicule
       LEFT JOIN destination d ON bs.id_destination = d.id_destination
       LEFT JOIN chauffeurs c ON bs.id_chauffeur = c.id_chauffeur
+      LEFT JOIN client cl ON cl.id_client = bs.id_client
       WHERE bs.id_chauffeur = ?
         AND DATE(bs.date_prevue) = CURDATE()
         AND bs.statut_mission != 'terminee'
