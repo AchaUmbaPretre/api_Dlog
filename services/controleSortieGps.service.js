@@ -107,7 +107,6 @@ class RapprochementService {
     `, [deviceName, eventTime, cinqMinutesApres]);
     
     if (positions.length < 2) {
-      console.log(`⚠️ Pas assez de positions pour analyser la sortie`);
       return { isValid: false, distance: 0, temps: 0 };
     }
     
