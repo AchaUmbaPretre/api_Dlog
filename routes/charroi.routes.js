@@ -34,7 +34,6 @@ router.get('/lubrifiant', charroiController.getLubrifiant)
 
 //Vehicule
 router.get('/vehicule_count', charroiController.getVehiculeCount)
-router.get('/vehicule', charroiController.getVehicule)
 router.get('/vehicule_dispo', charroiController.getVehiculeDispo)
 router.get('/vehicule_occupe', charroiController.getVehiculeOccupe)
 

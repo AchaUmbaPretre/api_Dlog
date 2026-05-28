@@ -239,28 +239,6 @@ exports.getVehiculeCount = async (req, res) => {
     }
 };
 
-exports.getVehicule = async (req, res) => {
-    try {
-        const query = `SELECT v.*, marque.nom_marque, modeles.modele, cv.nom_cat FROM vehicules v
-                            INNER JOIN marque ON v.id_marque = marque.id_marque
-                            LEFT JOIN modeles ON v.id_modele = modeles.id_modele
-                            INNER JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule`;
-
-            const chauffeurs = await queryAsync(query);
-    
-            return res.status(200).json({
-                message: 'Liste des véhicules récupérés avec succès',
-                data: chauffeurs,
-            });
-        } catch (error) {
-            console.error('Erreur lors de la récupération des chauffeurs :', error);
-    
-            return res.status(500).json({
-                error: "Une erreur s'est produite lors de la récupération des chauffeurs.",
-            });
-        }
-};
-
 exports.getVehiculeDispo = (req, res) => {
 
     const q = `

@@ -190,7 +190,6 @@ exports.loginController = async (req, res) => {
   const match = await bcrypt.compare(password, user.mot_de_passe);
 
   if (!match) {
-    // Mot de passe incorrect
     return res.status(401).json({ message: "Le mot de passe est incorrect. Veuillez réessayer." });
   }
 
@@ -217,8 +216,29 @@ exports.loginController = async (req, res) => {
 
   await query('DELETE FROM refresh_tokens WHERE user_id = ?', [user.id_utilisateur]);
 
-  // JWT
-  const payload = { id: user.id_utilisateur, role: user.role, permissions, scope_sites, scope_departments, scope_terminals };
+  // 🔥 NOUVEAU : Calculer tenant_id pour le payload
+  let tenantId = null;
+  if (user.is_super_admin === 1) {
+    tenantId = null; // Super Admin voit tout
+  } else if (user.role === 'Admin') {
+    tenantId = user.id_utilisateur; // Admin voit ses propres données
+  } else {
+    tenantId = user.tenant_id; // User voit les données de son admin
+  }
+
+  // 🔥 JWT avec les nouvelles données
+  const payload = { 
+    id: user.id_utilisateur,
+    email: user.email,
+    role: user.role,
+    is_super_admin: user.is_super_admin || 0,  // ← AJOUTÉ
+    tenant_id: tenantId,                       // ← AJOUTÉ
+    permissions, 
+    scope_sites, 
+    scope_departments, 
+    scope_terminals 
+  };
+  
   const accessToken = jwt.sign(payload, process.env.JWT, { expiresIn: '3d' });
 
   const refreshToken = uuidv4();
@@ -243,6 +263,8 @@ exports.loginController = async (req, res) => {
     scope_sites,
     scope_departments,
     scope_terminals,
+    tenant_id: tenantId,        // ← AJOUTÉ
+    is_super_admin: user.is_super_admin, // ← AJOUTÉ
     accessToken
   });
 };

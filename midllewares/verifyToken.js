@@ -1,3 +1,4 @@
+// middlewares/verifyToken.js
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 
@@ -15,8 +16,19 @@ const verifyToken = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT);
     req.user = decoded;
+    
+    console.log('🔐 Token décodé:', {
+      id: decoded.id,
+      role: decoded.role,
+      is_super_admin: decoded.is_super_admin,
+      tenant_id: decoded.tenant_id
+    });
+    
     next();
   } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Token expiré' });
+    }
     res.status(403).json({ message: 'Token invalide.' });
   }
 };
