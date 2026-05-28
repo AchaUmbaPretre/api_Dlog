@@ -36,118 +36,134 @@ const sendEmail = async (options) => {
 };
 
 exports.menusAllOne = (req, res) => {
-  const { userId } = req.query;
+    const { userId } = req.query;
 
-  // Vérifier le rôle de l'utilisateur
-  const roleQuery = `SELECT role FROM utilisateur WHERE id_utilisateur = ?`;
-
-  db.query(roleQuery, [userId], (roleErr, roleResults) => {
-    if (roleErr) {
-      console.error("Erreur lors de la récupération du rôle :", roleErr);
-      return res.status(500).json({ error: "Erreur lors de la récupération du rôle" });
-    }
-
-    if (roleResults.length === 0) {
-      return res.status(404).json({ error: "Utilisateur non trouvé" });
-    }
-
-    const userRole = roleResults[0].role;
+    const userQuery = `
+        SELECT u.*, 
+               CASE WHEN u.is_super_admin = 1 THEN 'SuperAdmin' ELSE u.role END as user_role,
+               u.created_by,
+               u.niveau
+        FROM utilisateur u
+        WHERE u.id_utilisateur = ?
+    `;
     
-    // Si l'utilisateur est Admin, il peut voir tous les menus et sous-menus sans restriction
-    let query;
-    if (userRole === "Admin") {
-      query = `
-        SELECT 
-            menus.id AS menu_id, 
-            menus.title AS menu_title, 
-            menus.url AS menu_url, 
-            menus.icon AS menu_icon, 
-            submenus.id AS submenu_id, 
-            submenus.title AS submenu_title, 
-            submenus.url AS submenu_url, 
-            submenus.icon AS submenu_icon
-        FROM menus
-        LEFT JOIN submenus ON menus.id = submenus.menu_id
-        ORDER BY menus.index ASC
-      `;
-    } else {
-      // Pour les autres utilisateurs, filtrer en fonction des permissions
-      query = `
-        SELECT 
-            menus.id AS menu_id, 
-            menus.title AS menu_title, 
-            menus.url AS menu_url, 
-            menus.icon AS menu_icon, 
-            submenus.id AS submenu_id, 
-            submenus.title AS submenu_title, 
-            submenus.url AS submenu_url, 
-            submenus.icon AS submenu_icon,
-            permission.can_read AS menu_can_read,
-            submenu_permission.can_read AS submenu_can_read,
-            permission.can_edit,
-            permission.can_comment,
-            permission.can_delete
-        FROM menus 
-        LEFT JOIN submenus ON menus.id = submenus.menu_id
-        LEFT JOIN permission ON menus.id = permission.menus_id AND permission.user_id = ?
-        LEFT JOIN permission AS submenu_permission ON submenus.id = submenu_permission.submenu_id AND submenu_permission.user_id = ?
-        WHERE permission.can_read = 1
-        GROUP BY menus.id, submenus.id, permission.can_read, submenu_permission.can_read, permission.can_edit, permission.can_delete
-        ORDER BY menus.id, submenus.id
-      `;
-    }
-
-    db.query(query, userRole !== "Admin" ? [userId, userId] : [], (err, results) => {
-      if (err) {
-        console.error("Erreur lors de la récupération des menus:", err);
-        return res.status(500).json({ error: "Erreur lors de la récupération des menus" });
-      }
-
-      // Traiter les résultats pour structurer les données comme attendu dans le frontend
-      const menus = [];
-      let currentMenu = null;
-
-      results.forEach(row => {
-        // Si c'est un nouveau menu
-        if (!currentMenu || currentMenu.menu_id !== row.menu_id) {
-          currentMenu = {
-            menu_id: row.menu_id,
-            menu_title: row.menu_title,
-            menu_url: row.menu_url,
-            menu_icon: row.menu_icon,
-            subMenus: [],
-            can_read: userRole === "Admin" ? 1 : row.menu_can_read,
-            can_edit: userRole === "Admin" ? 1 : row.can_edit,
-            can_comment: userRole === "Admin" ? 1 : row.can_comment,
-            can_delete: userRole === "Admin" ? 1 : row.can_delete
-          };
-          menus.push(currentMenu);
+    db.query(userQuery, [userId], (roleErr, roleResults) => {
+        if (roleErr || roleResults.length === 0) {
+            return res.status(500).json({ error: "Erreur lors de la récupération" });
         }
 
-        // Ajouter un sous-menu si l'utilisateur y a accès
+        const user = roleResults[0];
+        // ✅ CORRECTION : Vérifier aussi is_super_admin directement
+        const isSuperAdmin = user.is_super_admin === 1 || user.user_role === "SuperAdmin";
+        
+        // Super Admin voit TOUS les menus sans restriction
+        if (isSuperAdmin) {
+            const query = `
+                SELECT 
+                    menus.id AS menu_id, 
+                    menus.title AS menu_title, 
+                    menus.url AS menu_url, 
+                    menus.icon AS menu_icon, 
+                    submenus.id AS submenu_id, 
+                    submenus.title AS submenu_title, 
+                    submenus.url AS submenu_url, 
+                    submenus.icon AS submenu_icon
+                FROM menus
+                LEFT JOIN submenus ON menus.id = submenus.menu_id
+                ORDER BY menus.index ASC, submenus.id ASC
+            `;
+            
+            db.query(query, [], (err, results) => {
+                if (err) return res.status(500).json({ error: err.message });
+                const menus = buildMenuTree(results, true);
+                res.json(menus);
+            });
+            return;
+        }
+        
+        // Pour Admin et utilisateurs normaux
+        const query = `
+            SELECT 
+                menus.id AS menu_id, 
+                menus.title AS menu_title, 
+                menus.url AS menu_url, 
+                menus.icon AS menu_icon, 
+                submenus.id AS submenu_id, 
+                submenus.title AS submenu_title, 
+                submenus.url AS submenu_url, 
+                submenus.icon AS submenu_icon,
+                COALESCE(permission.can_read, 0) AS menu_can_read,
+                COALESCE(submenu_permission.can_read, 0) AS submenu_can_read,
+                COALESCE(permission.can_edit, 0) AS can_edit,
+                COALESCE(permission.can_comment, 0) AS can_comment,
+                COALESCE(permission.can_delete, 0) AS can_delete
+            FROM menus 
+            LEFT JOIN submenus ON menus.id = submenus.menu_id
+            LEFT JOIN permission ON menus.id = permission.menus_id 
+                AND permission.user_id = ? 
+                AND (permission.submenu_id IS NULL OR permission.submenu_id = 0)
+            LEFT JOIN permission AS submenu_permission ON submenus.id = submenu_permission.submenu_id 
+                AND submenu_permission.user_id = ?
+            ORDER BY menus.index ASC, submenus.id ASC
+        `;
+        
+        // Dans votre requête "Accès normal - avec permissions"
+      db.query(query, [userId, userId], (err, results) => {
+          if (err) return res.status(500).json({ error: err.message });
+          
+          
+          const menus = buildMenuTree(results, false);
+          res.json(menus);
+      });
+    });
+};
+
+// Fonction utilitaire pour construire l'arbre des menus
+function buildMenuTree(results, isAdmin = false) {
+    const menus = [];
+    let currentMenu = null;
+
+    results.forEach(row => {
+        // 🔥 CORRECTION : Pour les non-admins, on ignore les menus sans permission
+        if (!isAdmin && row.menu_can_read !== 1) {
+            return; // Ne pas ajouter ce menu
+        }
+        
+        // Si nouveau menu
+        if (!currentMenu || currentMenu.menu_id !== row.menu_id) {
+            currentMenu = {
+                menu_id: row.menu_id,
+                menu_title: row.menu_title,
+                menu_url: row.menu_url,
+                menu_icon: row.menu_icon,
+                can_read: isAdmin ? 1 : (row.menu_can_read || 0),
+                can_edit: isAdmin ? 1 : (row.can_edit || 0),
+                can_comment: isAdmin ? 1 : (row.can_comment || 0),
+                can_delete: isAdmin ? 1 : (row.can_delete || 0),
+                subMenus: []
+            };
+            menus.push(currentMenu);
+        }
+
         if (row.submenu_id) {
-          if (userRole === "Admin" || row.submenu_can_read === 1) {
-            const submenuExists = currentMenu.subMenus.some(submenu => submenu.submenu_id === row.submenu_id);
-            if (!submenuExists) {
-              currentMenu.subMenus.push({
+            if (!isAdmin && row.submenu_can_read !== 1) {
+                return;
+            }
+            
+            currentMenu.subMenus.push({
                 submenu_id: row.submenu_id,
                 submenu_title: row.submenu_title,
                 submenu_url: row.submenu_url,
                 submenu_icon: row.submenu_icon,
-                can_read: userRole === "Admin" ? 1 : row.submenu_can_read,
-                can_edit: userRole === "Admin" ? 1 : row.can_edit,
-                can_comment: userRole === "Admin" ? 1 : row.can_comment,
-                can_delete: userRole === "Admin" ? 1 : row.can_delete
-              });
-            }
-          }
+                can_read: isAdmin ? 1 : (row.submenu_can_read || 0),
+                can_edit: isAdmin ? 1 : (row.can_edit || 0),
+                can_comment: isAdmin ? 1 : (row.can_comment || 0),
+                can_delete: isAdmin ? 1 : (row.can_delete || 0)
+            });
         }
-      });
-
-      res.json(menus);
     });
-  });
-};
+    return menus;
+}
 
 exports.menusAll = (req, res) => {
     const {userId} = req.query;
