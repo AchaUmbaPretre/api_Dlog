@@ -2,7 +2,6 @@ const { queryAsync } = require("./../config/database");
 const moment = require('moment');
 
 exports.getVehicule = async (req, res) => {
-  // Maintenant ces valeurs viennent directement du token
   const { tenantId, isSuperAdmin } = req;
   const user = req.user;
   
@@ -43,9 +42,7 @@ exports.getVehicule = async (req, res) => {
     }
     
     const vehicules = await queryAsync(query, params);
-    
-    console.log(`📊 ${vehicules.length} véhicules trouvés`);
-    
+        
     return res.status(200).json({
       message: 'Liste des véhicules récupérés avec succès',
       data: vehicules,
