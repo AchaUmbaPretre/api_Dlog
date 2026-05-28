@@ -1,6 +1,7 @@
 const { db } = require("./../config/database");
 const dotenv = require('dotenv');
 const nodemailer = require('nodemailer');
+const bcrypt = require('bcryptjs');
 
 
 dotenv.config();
@@ -841,3 +842,106 @@ exports.postPermissionProjet = (req, res) => {
     res.status(500).send({ error: "Erreur interne du serveur." });
   }
 };
+
+
+exports.postPermissionUserVehicule = (req, res) => {
+    const { utilisateur, vehicules } = req.body;
+    console.log(req.body)
+
+    const checkUserQuery = 'SELECT id_utilisateur FROM utilisateur WHERE email = ?';
+    db.query(checkUserQuery, [utilisateur.email], async (err, userResults) => {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+
+        let userId;
+
+        if (userResults.length === 0) {
+            const defaultPassword = '1234';
+            const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+
+            const insertUserQuery = 'INSERT INTO utilisateur (nom, prenom, email, mot_de_passe, role, id_admin) VALUES (?, ?, ?, ?, ?, ?)';
+            db.query(insertUserQuery, [
+                utilisateur.nom || '',
+                utilisateur.prenom || '',
+                utilisateur.email,
+                hashedPassword,  // 🔥 Mot de passe hashé (1234)
+                utilisateur.role || 'Owner',
+                utilisateur.id_admin || null
+            ], (err, result) => {
+                if (err) return res.status(500).json({ success: false, error: err.message });
+                userId = result.insertId;
+                console.log('✅ Utilisateur créé avec mot de passe par défaut: 1234');
+                processVehicules(userId, vehicules, res);
+            });
+        } else {
+            userId = userResults[0].id_utilisateur;
+            console.log('✅ Utilisateur existant, conservation du mot de passe actuel');
+            processVehicules(userId, vehicules, res);
+        }
+    });
+};
+
+function processVehicules(userId, vehicules, res) {
+    let completed = 0;
+    const total = vehicules.length;
+
+    if (total === 0) {
+        return res.json({ 
+            success: true, 
+            message: 'Aucun véhicule à synchroniser', 
+            data: { utilisateur_id: userId, vehicules_count: 0 } 
+        });
+    }
+
+    for (const vehicule of vehicules) {
+        const checkVehiculeQuery = 'SELECT id_vehicule FROM vehicules WHERE immatriculation = ?';
+        db.query(checkVehiculeQuery, [vehicule.immatriculation], (err, results) => {
+            if (err) {
+                console.error('❌ Erreur vérification véhicule:', err);
+                checkComplete();
+                return;
+            }
+
+            if (results.length === 0) {
+                const insertVehiculeQuery = 'INSERT INTO vehicules (immatriculation, id_admin) VALUES (?, ?)';
+                db.query(insertVehiculeQuery, [vehicule.immatriculation, vehicule.id_admin || null], (err, result) => {
+                    if (err) {
+                        console.error('❌ Erreur création véhicule:', err);
+                        checkComplete();
+                        return;
+                    }
+                    console.log('✅ Véhicule créé:', vehicule.immatriculation);
+                    createPermission(userId, result.insertId, () => checkComplete());
+                });
+            } else {
+                console.log('✅ Véhicule existant:', vehicule.immatriculation);
+                createPermission(userId, results[0].id_vehicule, () => checkComplete());
+            }
+        });
+    }
+
+    function createPermission(userId, vehiculeId, callback) {
+        const query = 'INSERT IGNORE INTO utilisateur_vehicule (id_utilisateur, id_vehicule, created_at) VALUES (?, ?, NOW())';
+        db.query(query, [userId, vehiculeId], (err) => {
+            if (err) {
+                console.error('❌ Erreur création permission:', err);
+            } else {
+                console.log('✅ Permission créée:', { userId, vehiculeId });
+            }
+            callback();
+        });
+    }
+
+    function checkComplete() {
+        completed++;
+        if (completed === total) {
+            res.json({ 
+                success: true, 
+                message: 'Permissions synchronisées avec succès', 
+                data: { 
+                    utilisateur_id: userId, 
+                    vehicules_count: total 
+                } 
+            });
+        }
+    }
+}

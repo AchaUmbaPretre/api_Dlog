@@ -450,6 +450,7 @@ exports.postVehicule = async (req, res) => {
             valeur_acquisition,
             lubrifiant_moteur,
             id_etat,
+            id_client,
             user_cr
         } = req.body;
 
@@ -461,8 +462,8 @@ exports.postVehicule = async (req, res) => {
                 longueur, largeur, hauteur, poids, id_couleur, capacite_carburant, capacite_radiateur,
                 capacite_carter, nbre_place, nbre_portes, nbre_moteur, cylindre, nbre_cylindre, disposition_cylindre,
                 id_type_carburant, regime_moteur_vehicule, consommation_carburant, turbo, date_service, km_initial, nbre_chev,
-                id_transmission, id_climatisation, pneus, valeur_acquisition, lubrifiant_moteur, id_etat, user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                id_transmission, id_climatisation, pneus, valeur_acquisition, lubrifiant_moteur, id_etat, id_client, user_cr
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         // Préparation des valeurs à insérer
@@ -472,7 +473,7 @@ exports.postVehicule = async (req, res) => {
             longueur, largeur, hauteur, poids, id_couleur, capacite_carburant, capacite_radiateur,
             capacite_carter, nbre_place, nbre_portes, nbre_moteur, cylindre, nbre_cylindre, disposition_cylindre, 
             id_type_carburant, regime_moteur_vehicule, consommation_carburant, turbo, date_service, km_initial, nbre_chev,
-            id_transmission, id_climatisation, pneus, valeur_acquisition, lubrifiant_moteur, id_etat, user_cr
+            id_transmission, id_climatisation, pneus, valeur_acquisition, lubrifiant_moteur, id_etat, id_client, user_cr
         ];
 
         // Exécution de la requête d'insertion
