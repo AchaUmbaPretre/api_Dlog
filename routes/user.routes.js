@@ -4,7 +4,6 @@ const  userController = require('./../controllers/user.controller');
 const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
-const verifyToken = require("../midllewares/verifyToken");
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
