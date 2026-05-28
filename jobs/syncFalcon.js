@@ -1,12 +1,10 @@
 const missionService = require('../services/mission.service');
 
 async function syncFalcon() {
-  console.log('🔄 Début synchronisation Falcon...', new Date().toISOString());
   
   try {
     const result = await missionService.traiterMissionsSansDistance();
     
-    console.log(`✅ Synchronisé: ${result.traitees} missions, ${result.erreurs} erreurs`);
     
     if (result.details && result.details.length > 0) {
       result.details.forEach(detail => {
@@ -22,7 +20,6 @@ async function syncFalcon() {
     console.error('❌ Erreur synchronisation:', error);
   }
   
-  console.log('🏁 Fin synchronisation\n');
 }
 
 // Le plus simple : juste ça dans app.js
