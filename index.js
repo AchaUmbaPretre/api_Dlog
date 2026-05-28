@@ -40,6 +40,7 @@ const missionRoutes = require('./routes/missions.routes');
 const { syncFalcon } = require('./jobs/syncFalcon');
 const DIX_MINUTES_MS = 10 * 60 * 1000;
 const chauffeurRoutes = require('./routes/chauffeur.routes');
+const superRoutes = require('./routes/superadmin.routes');
 
 const https = require('https');
 const http = require('http');
@@ -125,6 +126,7 @@ app.use('/api/notifications', notificationsRoutes)
 app.use('/api/controleGps', controleGpsRoutes)
 app.use('/api/missions', missionRoutes);
 app.use('/api/chauffeur', chauffeurRoutes);
+app.use('/api/superAdmin', chauffeurRoutes);
 app.get("/api/falcon", (req, res) => {
   const options = {
     hostname: "31.207.34.171",
