@@ -48,11 +48,6 @@ router.put('/vehicule_falcon', charroiController.putRelierVehiculeFalcon)
 //Site vehicule
 router.post('/site_vehicule', charroiController.postSiteVehicule)
 
-//Chauffeur
-router.get('/chauffeur_count', charroiController.getChauffeurCount)
-router.get('/chauffeur', charroiController.getChauffeur)
-router.post('/chauffeur', upload.array('profil', 10), charroiController.postChauffeur)
-
 //Permis
 router.get('/permis', charroiController.getCatPermis)
 

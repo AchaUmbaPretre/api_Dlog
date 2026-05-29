@@ -1,5 +1,6 @@
 const { queryAsync } = require('./../config/database');
 
+
 exports.loginChauffeur = async (req, res) => {
   try {
     const { nom, telephone } = req.body;
@@ -83,7 +84,156 @@ exports.profilChauffeur = async (req, res) => {
   });
 }
 
-// controllers/chauffeur.controller.js
+//Chauffeur
+exports.getChauffeurCount = async (req, res) => {
+    const { tenantId, isSuperAdmin } = req;
+    
+    if (!isSuperAdmin && !tenantId) {
+        return res.status(200).json({
+            message: 'Le count est récupéré avec succès',
+            data: [{ nbre_chauffeur: 0 }]
+        });
+    }
+    
+    try {
+        let query = `SELECT COUNT(id) AS nbre_chauffeur FROM chauffeurs`;
+        let params = [];
+        
+        if (!isSuperAdmin) {
+            query += ` WHERE tenant_id = ?`;
+            params.push(tenantId);
+        }
+        
+        const chauffeurs = await queryAsync(query, params);
+        
+        return res.status(200).json({
+            message: 'Le count est récupéré avec succès',
+            data: chauffeurs,
+        });
+    } catch (error) {
+        console.error('Erreur lors de la récupération des chauffeurs :', error);
+        
+        return res.status(500).json({
+            error: "Une erreur s'est produite lors de la récupération des chauffeurs.",
+        });
+    }
+};
+
+exports.getChauffeur = (req, res) => {
+    const { tenantId, isSuperAdmin } = req;
+    
+    if (!isSuperAdmin && !tenantId) {
+        return res.status(200).json([]);
+    }
+    
+    let q = `
+        SELECT 
+            c.*,
+            v.immatriculation,
+            v.nom_vehicule,
+            p.capital as province_nom
+        FROM chauffeur c
+        LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+        LEFT JOIN provinces p ON c.id_ville = p.id
+    `;
+    
+    let params = [];
+    
+    if (!isSuperAdmin) {
+        q += ` WHERE c.tenant_id = ?`;
+        params.push(tenantId);
+    }
+    
+    q += ` ORDER BY c.nom_chauffeur ASC`;
+    
+    db.query(q, params, (error, data) => {
+        if (error) {
+            console.error('Erreur getChauffeur:', error);
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postChauffeur = async (req, res) => {
+    const { tenantId, isSuperAdmin } = req;
+    const currentUserId = req.user?.id;
+    
+    if (!isSuperAdmin && !tenantId) {
+        return res.status(403).json({ error: 'Non autorisé à ajouter un chauffeur' });
+    }
+    
+    const checkTenantQuery = 'SELECT id_utilisateur FROM utilisateur WHERE tenant_id = ? OR id_utilisateur = ?';
+    const tenantExists = await queryAsync(checkTenantQuery, [tenantId, tenantId]);
+    
+    if (!isSuperAdmin && (!tenantExists || tenantExists.length === 0)) {
+        return res.status(404).json({ error: 'Tenant non trouvé' });
+    }
+    
+    try {
+        const profil = req?.files?.map((file) => file.path.replace(/\\/g, '/')).join(',') || null;
+
+        const {
+            matricule,
+            nom,
+            prenom,
+            telephone,
+            adresse,
+            id_etat_civil,
+            statut,
+            sexe,
+            id_type_contrat,
+            type_travail,
+            id_permis,
+            id_ville,
+            date_naissance,
+            date_engagement,
+            user_cr,
+            tel_service,
+        } = req.body;
+
+        const query = `
+            INSERT INTO chauffeurs (
+                matricule, nom, prenom, telephone, adresse, id_etat_civil,
+                statut, profil, sexe, id_type_contrat, type_travail,
+                id_permis, id_ville, date_naissance, date_engagement, 
+                user_cr, tel_service, tenant_id, created_by, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        `;
+
+        const values = [
+            matricule, nom, prenom, telephone, adresse, id_etat_civil,
+            statut, profil, sexe, id_type_contrat, type_travail,
+            id_permis, id_ville, date_naissance, date_engagement, 
+            user_cr, tel_service,
+            tenantId,
+            currentUserId
+        ];
+
+        const result = await queryAsync(query, values);
+
+        return res.status(201).json({
+            message: 'Chauffeur ajouté avec succès',
+            data: { 
+                id: result.insertId, 
+                nom, 
+                prenom,
+                tenant_id: tenantId
+            },
+        });
+    } catch (error) {
+        console.error('Erreur lors de l’ajout du chauffeur :', error);
+
+        const statusCode = error.code === 'ER_DUP_ENTRY' ? 409 : 500;
+        const errorMessage =
+            error.code === 'ER_DUP_ENTRY'
+                ? "Un chauffeur avec ces informations existe déjà."
+                : "Une erreur s'est produite lors de l'ajout du chauffeur.";
+
+        return res.status(statusCode).json({ error: errorMessage });
+    }
+};
+
 exports.missionChauffeurById = async (req, res) => {
   try {
     const missions = await queryAsync(`
