@@ -1892,83 +1892,89 @@ exports.getCarburantAnnee = (req, res) => {
 }
 
 //Rapport par periode cat
-exports.getRapportCatPeriode = (req, res) => {
-  const { month, id_vehicule, id_site, date_start, date_end, cat } = req.query;
+exports.getRapportCatPeriode = async (req, res) => {
+    const { tenantId, isSuperAdmin } = req;
+    const { month, id_vehicule, id_site, date_start, date_end, cat } = req.query;
 
-  if (!month && !(date_start && date_end)) {
-    return res.status(400).json({
-      message: "Vous devez fournir 'month' ou bien 'date_start' et 'date_end'.",
-    });
-  }
-
-  const where = [];
-  const params = [];
-
-  if (month && !(date_start && date_end)) {
-    where.push("DATE_FORMAT(c.date_operation, '%Y-%m') = ?");
-    params.push(month);
-  }
-
-  if (date_start && date_end) {
-    where.push("DATE(c.date_operation) BETWEEN ? AND ?");
-    params.push(date_start, date_end);
-  }
-
-  if (cat) {
-    where.push("cat.id_cat_vehicule = ?");
-    params.push(cat);
-  }
-
-  if (id_vehicule) {
-    where.push("c.id_vehicule = ?");
-    params.push(id_vehicule);
-  }
-
-  if (id_site) {
-    where.push("s.id_site = ?");
-    params.push(id_site);
-  }
-
-  const whereClause = where.length ? "WHERE " + where.join(" AND ") : "";
-
-  const q = `
-    SELECT 
-      DATE(c.date_operation) AS date_jour,
-      COUNT(c.id_carburant) AS total_pleins,
-      SUM(c.compteur_km) AS total_kilometrage,
-      SUM(c.quantite_litres) AS total_litres,
-      SUM(c.consommation) AS total_consom,
-      SUM(c.distance) AS total_distance,
-      SUM(c.montant_total_cdf) AS total_total_cdf,
-      SUM(c.montant_total_usd) AS total_total_usd
-    FROM carburant c
-      LEFT JOIN vehicule_carburant vc ON vc.id_enregistrement = c.id_vehicule
-      LEFT JOIN vehicules v ON v.id_carburant_vehicule = vc.id_enregistrement
-      LEFT JOIN cat_vehicule cat ON cat.id_cat_vehicule = v.id_cat_vehicule
-      LEFT JOIN sites_vehicule sv ON sv.id_vehicule = v.id_vehicule
-      LEFT JOIN sites s ON s.id_site = sv.id_site
-      LEFT JOIN type_carburant tc ON tc.id_type_carburant = v.id_type_carburant
-    ${whereClause}
-    GROUP BY date_jour
-    ORDER BY date_jour
-  `;
-
-  db.query(q, params, (error, data) => {
-    if (error) {
-      return res.status(500).json({
-        message: "Erreur SQL lors de la récupération",
-        error: error.sqlMessage,
-      });
+    if (!month && !(date_start && date_end)) {
+        return res.status(400).json({
+            message: "Vous devez fournir 'month' ou bien 'date_start' et 'date_end'.",
+        });
     }
 
-    if (!data || !data.length) {
-      return res.status(404).json({
-        message: "Aucune donnée trouvée pour les paramètres fournis.",
-      });
-    }
+    try {
+        const where = [];
+        const params = [];
 
-    res.status(200).json(data);
-  });
+        if (month && !(date_start && date_end)) {
+            where.push("DATE_FORMAT(c.date_operation, '%Y-%m') = ?");
+            params.push(month);
+        }
+        if (date_start && date_end) {
+            where.push("DATE(c.date_operation) BETWEEN ? AND ?");
+            params.push(date_start, date_end);
+        }
+        if (cat) {
+            where.push("cat.id_cat_vehicule = ?");
+            params.push(cat);
+        }
+        if (id_vehicule) {
+            where.push("c.id_vehicule = ?");
+            params.push(id_vehicule);
+        }
+        if (id_site) {
+            where.push("s.id_site = ?");
+            params.push(id_site);
+        }
+        if (!isSuperAdmin && tenantId) {
+            where.push("v.tenant_id = ?");
+            params.push(tenantId);
+        }
+
+        const whereClause = where.length ? "WHERE " + where.join(" AND ") : "";
+
+        const q = `
+            SELECT 
+                DATE(c.date_operation) AS date_jour,
+                COUNT(c.id_carburant) AS total_pleins,
+                SUM(c.quantite_litres) AS total_litres,
+                SUM(c.montant_total_cdf) AS total_cdf,
+                SUM(c.montant_total_usd) AS total_usd,
+                ROUND(AVG(c.consommation), 2) AS conso_moyenne,
+                cat.nom_cat AS categorie_nom
+            FROM carburant c
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            LEFT JOIN cat_vehicule cat ON cat.id_cat_vehicule = v.id_cat_vehicule
+            LEFT JOIN sites_vehicule sv ON sv.id_vehicule = v.id_vehicule
+            LEFT JOIN sites s ON s.id_site = sv.id_site
+            ${whereClause}
+            GROUP BY date_jour, cat.id_cat_vehicule
+            ORDER BY date_jour ASC
+        `;
+
+        const data = await queryAsync(q, params);
+
+        if (!data || !data.length) {
+            return res.status(404).json({
+                message: "Aucune donnée trouvée pour les paramètres fournis.",
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: data,
+            meta: {
+                tenant_id: !isSuperAdmin ? tenantId : null,
+                is_super_admin: isSuperAdmin
+            }
+        });
+    } catch (error) {
+        console.error("Erreur getRapportCatPeriode:", error);
+        res.status(500).json({
+            message: "Erreur lors de la récupération",
+            error: error.message
+        });
+    }
 };
 
 exports.getRapportVehiculePeriode = (req, res) => {
