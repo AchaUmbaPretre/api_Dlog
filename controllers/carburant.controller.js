@@ -355,61 +355,75 @@ exports.getCarburantLimitThree = async (req, res) => {
     }
 };
 
-exports.getCarburantLimitTen = (req, res) => {
-  const { id_vehicule } = req.query;
+exports.getCarburantLimitTen = async (req, res) => {
+    const { tenantId, isSuperAdmin } = req;
+    const { id_vehicule } = req.query;
 
-  const where = ["c.est_supprime = 0"];
-  const params = [];
+    try {
+        const where = ["c.est_supprime = 0"];
+        const params = [];
 
-  if (id_vehicule) {
-    where.push("c.id_vehicule = ?");
-    params.push(id_vehicule);
-  }
+        if (id_vehicule) {
+            // Vérifier l'accès au véhicule
+            if (!isSuperAdmin && tenantId) {
+                const checkQuery = `SELECT id_vehicule FROM vehicules WHERE id_vehicule = ? AND tenant_id = ?`;
+                const vehicule = await queryAsync(checkQuery, [id_vehicule, tenantId]);
+                if (vehicule.length === 0) {
+                    return res.status(403).json({ message: "Vous n'avez pas accès à ce véhicule" });
+                }
+            }
+            where.push("c.id_vehicule = ?");
+            params.push(id_vehicule);
+        }
 
-  const whereClause = "WHERE " + where.join(" AND ");
+        if (!isSuperAdmin && tenantId) {
+            where.push("v.tenant_id = ?");
+            params.push(tenantId);
+        }
 
-  const q = `
-    SELECT 
-        c.id_carburant, 
-        c.num_pc, 
-        c.num_facture, 
-        c.date_operation, 
-        c.quantite_litres,
-        c.compteur_km, 
-        c.distance, 
-        c.consommation,
-        c.prix_cdf,
-        c.prix_usd,
-        c.montant_total_cdf,
-        c.montant_total_usd,
-        c.commentaire,
-        v.id_vehicule,
-        mar.nom_marque,
-        modl.modele AS nom_modele,
-        v.immatriculation,
-        ch.nom AS nom_chauffeur,
-        ch.prenom AS prenom,
-        f.nom_fournisseur,
-        c.id_vehicule,
-        u.nom AS createur
-    FROM carburant c
-    LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
-    LEFT JOIN marque mar ON v.id_marque = mar.id_marque
-    LEFT JOIN modeles modl ON v.id_modele = modl.id_modele
-    LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
-    LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
-    LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur
-    ${whereClause}
-    ORDER BY c.id_carburant DESC
-    LIMIT 5
-  `;
+        const whereClause = "WHERE " + where.join(" AND ");
 
-  db.query(q, params, (error, data) => {
-    if (error) {
-      return res.status(500).json({ message: "Erreur SQL", error: error.sqlMessage });
+        const q = `
+            SELECT 
+                c.id_carburant, 
+                c.num_pc, 
+                c.num_facture, 
+                c.date_operation, 
+                c.quantite_litres,
+                c.compteur_km, 
+                c.distance, 
+                c.consommation,
+                c.prix_cdf,
+                c.prix_usd,
+                c.montant_total_cdf,
+                c.montant_total_usd,
+                c.commentaire,
+                v.id_vehicule,
+                mar.nom_marque,
+                modl.modele AS nom_modele,
+                v.immatriculation,
+                ch.nom AS nom_chauffeur,
+                ch.prenom AS prenom,
+                f.nom_fournisseur,
+                u.nom AS createur
+            FROM carburant c
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            LEFT JOIN marque mar ON v.id_marque = mar.id_marque
+            LEFT JOIN modeles modl ON v.id_modele = modl.id_modele
+            LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
+            LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
+            LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur
+            ${whereClause}
+            ORDER BY c.id_carburant DESC
+            LIMIT 5
+        `;
+
+        const data = await queryAsync(q, params);
+        return res.status(200).json(data);
+    } catch (error) {
+        console.error("Erreur getCarburantLimitTen:", error);
+        return res.status(500).json({ message: "Erreur SQL", error: error.message });
     }
-    return res.status(200).json(data);
-  });
 };
 
 exports.getCarburantOne = (req, res) => {
@@ -1532,285 +1546,310 @@ exports.putAlertCarburantIsRead = (req, res) => {
 
 // Rapport global carburant
 exports.rapportCarburantAll = async (req, res) => {
-  try {
+    const { tenantId, isSuperAdmin } = req;
     const { date_debut, date_fin } = req.query;
+    
     if (!date_debut || !date_fin) {
-      return res.status(400).json({ message: "Période requise" });
+        return res.status(400).json({ message: "Période requise" });
     }
 
-    // === 1️⃣ Résumé global ===
-    const resume = await query(`
-      SELECT 
-        COUNT(*) AS total_pleins,
-        SUM(quantite_litres) AS total_litres,
-        SUM(montant_total_cdf) AS total_cdf,
-        SUM(montant_total_usd) AS total_usd,
-        ROUND(AVG(consommation), 2) AS conso_moyenne
-      FROM carburant
-      WHERE date_operation BETWEEN ? AND ?
-    `, [date_debut, date_fin]);
+    try {
+        // 🔥 Condition tenant pour toutes les requêtes
+        let tenantCondition = "";
+        let params = [date_debut, date_fin];
+        
+        if (!isSuperAdmin && tenantId) {
+            tenantCondition = ` AND v.tenant_id = ?`;
+            params.push(tenantId);
+        }
 
-    // === 2️⃣ Détails par véhicule ===
-    const parVehicule = await query(`
-      SELECT 
-        vc.immatriculation,
-        vc.nom_marque,
-        SUM(c.quantite_litres) AS total_litres,
-        SUM(c.montant_total_cdf) AS total_cdf,
-        SUM(c.montant_total_usd) AS total_usd,
-        ROUND(AVG(c.consommation), 2) AS conso_moyenne
-      FROM carburant c
-      JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement
-      WHERE c.date_operation BETWEEN ? AND ?
-      GROUP BY vc.id_enregistrement
-      ORDER BY MAX(c.date_operation) DESC
-    `, [date_debut, date_fin]);
+        // === 1️⃣ Résumé global ===
+        const resumeQuery = `
+            SELECT 
+                COUNT(*) AS total_pleins,
+                SUM(quantite_litres) AS total_litres,
+                SUM(montant_total_cdf) AS total_cdf,
+                SUM(montant_total_usd) AS total_usd,
+                ROUND(AVG(consommation), 2) AS conso_moyenne
+            FROM carburant c
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            WHERE c.date_operation BETWEEN ? AND ? ${!isSuperAdmin ? 'AND v.tenant_id = ?' : ''}
+        `;
+        const resumeParams = !isSuperAdmin ? [date_debut, date_fin, tenantId] : [date_debut, date_fin];
+        const resume = await query(resumeQuery, resumeParams);
 
-    // === 3️⃣ Coût hebdomadaire ===
-    const coutHebdo = await query(`
-      SELECT 
-          YEARWEEK(date_operation, 1) AS semaine,
-          COALESCE(SUM(montant_total_cdf), 0) AS total_cdf,
-          COALESCE(SUM(montant_total_usd), 0) AS total_usd,
-          COALESCE(SUM(consommation), 0) AS total_consom
-      FROM carburant
-      WHERE date_operation BETWEEN ? AND ?
-      GROUP BY YEARWEEK(date_operation, 1)
-      ORDER BY semaine ASC
-    `, [date_debut, date_fin]);
+        // === 2️⃣ Détails par véhicule ===
+        const parVehiculeQuery = `
+            SELECT 
+                v.immatriculation,
+                mar.nom_marque,
+                modl.modele AS nom_modele,
+                SUM(c.quantite_litres) AS total_litres,
+                SUM(c.montant_total_cdf) AS total_cdf,
+                SUM(c.montant_total_usd) AS total_usd,
+                ROUND(AVG(c.consommation), 2) AS conso_moyenne
+            FROM carburant c
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            LEFT JOIN marque mar ON v.id_marque = mar.id_marque
+            LEFT JOIN modeles modl ON v.id_modele = modl.id_modele
+            WHERE c.date_operation BETWEEN ? AND ? ${!isSuperAdmin ? 'AND v.tenant_id = ?' : ''}
+            GROUP BY v.id_vehicule
+            ORDER BY MAX(c.date_operation) DESC
+        `;
+        const parVehiculeParams = !isSuperAdmin ? [date_debut, date_fin, tenantId] : [date_debut, date_fin];
+        const parVehicule = await query(parVehiculeQuery, parVehiculeParams);
 
-    // === 4️⃣ Répartition par catégorie de véhicule ===
-    const repartition = await query(`
-      SELECT 
-        cat.abreviation,
-        SUM(c.quantite_litres) AS total_litres
-      FROM carburant c
-      JOIN vehicule_carburant vc ON vc.id_enregistrement = c.id_vehicule
-      JOIN vehicules v ON v.id_carburant_vehicule = vc.id_enregistrement
-      JOIN cat_vehicule cat ON cat.id_cat_vehicule = v.id_cat_vehicule
-      GROUP BY cat.id_cat_vehicule
-    `, [date_debut, date_fin]);
+        // === 3️⃣ Coût hebdomadaire ===
+        const coutHebdoQuery = `
+            SELECT 
+                YEARWEEK(c.date_operation, 1) AS semaine,
+                COALESCE(SUM(c.montant_total_cdf), 0) AS total_cdf,
+                COALESCE(SUM(c.montant_total_usd), 0) AS total_usd,
+                COALESCE(SUM(c.consommation), 0) AS total_consom
+            FROM carburant c
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            WHERE c.date_operation BETWEEN ? AND ? ${!isSuperAdmin ? 'AND v.tenant_id = ?' : ''}
+            GROUP BY YEARWEEK(c.date_operation, 1)
+            ORDER BY semaine ASC
+        `;
+        const coutHebdoParams = !isSuperAdmin ? [date_debut, date_fin, tenantId] : [date_debut, date_fin];
+        const coutHebdo = await query(coutHebdoQuery, coutHebdoParams);
 
-    // === 5️⃣ Alertes depuis alertes_charroi ===
-    const alertes = await query(`
-      SELECT 
-        a.id_alerte,
-        vc.immatriculation,
-        a.type_alerte,
-        a.message,
-        a.niveau,
-        a.status,
-        a.created_at
-      FROM alertes_charroi a
-      JOIN vehicule_carburant vc ON vc.id_enregistrement = a.vehicule_id
-      WHERE a.created_at BETWEEN ? AND ?
-      ORDER BY a.created_at DESC
-      LIMIT 10
-    `, [date_debut, date_fin]);
+        // === 4️⃣ Répartition par catégorie de véhicule ===
+        const repartitionQuery = `
+            SELECT 
+                cat.abreviation,
+                cat.nom_cat,
+                SUM(c.quantite_litres) AS total_litres
+            FROM carburant c
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            LEFT JOIN cat_vehicule cat ON v.id_cat_vehicule = cat.id_cat_vehicule
+            WHERE c.date_operation BETWEEN ? AND ? ${!isSuperAdmin ? 'AND v.tenant_id = ?' : ''}
+            GROUP BY cat.id_cat_vehicule
+        `;
+        const repartitionParams = !isSuperAdmin ? [date_debut, date_fin, tenantId] : [date_debut, date_fin];
+        const repartition = await query(repartitionQuery, repartitionParams);
 
-    // === 6️⃣ Retour JSON complet ===
-    return res.status(200).json({
-      periode: { date_debut, date_fin },
-      resume: resume[0],
-      graphiques: { parVehicule, coutHebdo, repartition },
-      detailVehicules: parVehicule,
-      alertes
-    });
+        // === 5️⃣ Alertes depuis alertes_charroi ===
+        const alertesQuery = `
+            SELECT 
+                a.id_alerte,
+                v.immatriculation,
+                a.type_alerte,
+                a.message,
+                a.niveau,
+                a.status,
+                a.created_at
+            FROM alertes_charroi a
+            LEFT JOIN vehicules v ON a.vehicule_id = v.id_vehicule
+            WHERE a.created_at BETWEEN ? AND ? ${!isSuperAdmin ? 'AND a.tenant_id = ?' : ''}
+            ORDER BY a.created_at DESC
+            LIMIT 10
+        `;
+        const alertesParams = !isSuperAdmin ? [date_debut, date_fin, tenantId] : [date_debut, date_fin];
+        const alertes = await query(alertesQuery, alertesParams);
 
-  } catch (error) {
-    console.error("Erreur rapportCarburantAll :", error);
-    res.status(500).json(error);
-  }
+        return res.status(200).json({
+            periode: { date_debut, date_fin },
+            resume: resume[0] || { total_pleins: 0, total_litres: 0, total_cdf: 0, total_usd: 0, conso_moyenne: 0 },
+            graphiques: { parVehicule, coutHebdo, repartition },
+            detailVehicules: parVehicule,
+            alertes
+        });
+
+    } catch (error) {
+        console.error("Erreur rapportCarburantAll :", error);
+        res.status(500).json({ error: error.message });
+    }
 };
 
 exports.rapportCarburantConsomGen = async (req, res) => {
-  try {
+    const { tenantId, isSuperAdmin } = req;
     const { period } = req.query;
 
     const daysMap = {
-      "7jours": 7,
-      "30jours": 30,
-      "90jours": 90,
-      "180jours": 180,
-      "360jours": 360,
+        "7jours": 7,
+        "30jours": 30,
+        "90jours": 90,
+        "180jours": 180,
+        "360jours": 360,
     };
 
     const days = daysMap[period] || 360;
-
     const periodFilter = `c.date_operation >= DATE_SUB(NOW(), INTERVAL ${days} DAY)`;
+    
+    // 🔥 Condition tenant pour filtrer les données
+    const tenantCondition = !isSuperAdmin && tenantId ? ` AND v.tenant_id = ${tenantId}` : "";
 
-    // 1. MES DETAILS SIEGE KIN
-    const sqlDetailSiegeKin = await query(`
-      SELECT 
-        c.id_carburant,
-        vc.immatriculation, 
-        vc.id_enregistrement, 
-        vc.nom_marque, 
-        vc.nom_modele, 
-        ch.nom AS chauffeur_nom, 
-        ch.prenom AS chauffeur_prenom, 
-        s.nom_site, 
-        s.id_site, 
-        tc.nom_type_carburant,
-        COUNT(DISTINCT vc.id_enregistrement) AS nbre_vehicule,
-        COUNT(c.id_carburant) AS total_pleins,
-        SUM(c.compteur_km) AS total_kilometrage, 
-        SUM(c.quantite_litres) AS total_litres 
-      FROM carburant c 
-        LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement 
-        LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur 
-        LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
-        LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
-        LEFT JOIN sites s ON sv.id_site = s.id_site 
-        LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
-      WHERE s.id_site = 1
-      AND ${periodFilter}
-      GROUP BY vc.id_enregistrement
-    `);
+    try {
+        // 1. DETAILS SIEGE KIN (site_id = 1)
+        const sqlDetailSiegeKin = await query(`
+            SELECT 
+                c.id_carburant,
+                v.immatriculation, 
+                v.id_vehicule AS id_enregistrement, 
+                mar.nom_marque, 
+                modl.modele AS nom_modele, 
+                ch.nom AS chauffeur_nom, 
+                ch.prenom AS chauffeur_prenom, 
+                s.nom_site, 
+                s.id_site, 
+                tc.nom_type_carburant,
+                COUNT(DISTINCT v.id_vehicule) AS nbre_vehicule,
+                COUNT(c.id_carburant) AS total_pleins,
+                SUM(c.compteur_km) AS total_kilometrage, 
+                SUM(c.quantite_litres) AS total_litres 
+            FROM carburant c 
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            LEFT JOIN marque mar ON v.id_marque = mar.id_marque
+            LEFT JOIN modeles modl ON v.id_modele = modl.id_modele
+            LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur 
+            LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
+            LEFT JOIN sites s ON sv.id_site = s.id_site 
+            LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
+            WHERE s.id_site = 1 
+            AND ${periodFilter}
+            ${tenantCondition}
+            GROUP BY v.id_vehicule
+        `);
 
-    //2. VEHICULE INFO
-      const sqlVehiculeInfo = await query(`
-      SELECT 
-        c.id_carburant,
-        vc.immatriculation, 
-        vc.id_enregistrement, 
-        vc.nom_marque, 
-        vc.nom_modele, 
-        ch.nom AS chauffeur_nom, 
-        ch.prenom AS chauffeur_prenom, 
-        s.nom_site, 
-        s.id_site, 
-        tc.nom_type_carburant,
-        COUNT(DISTINCT vc.id_enregistrement) AS nbre_vehicule,
-        COUNT(c.id_carburant) AS total_pleins,
-        SUM(c.compteur_km) AS total_kilometrage, 
-        SUM(c.quantite_litres) AS total_litres 
-      FROM carburant c 
-        LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement 
-        LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur 
-        LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
-        LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
-        LEFT JOIN sites s ON sv.id_site = s.id_site 
-        LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
-        WHERE ${periodFilter}
-      GROUP BY vc.id_enregistrement
-    `);
+        // 2. VEHICULE INFO (tous véhicules)
+        const sqlVehiculeInfo = await query(`
+            SELECT 
+                c.id_carburant,
+                v.immatriculation, 
+                v.id_vehicule AS id_enregistrement, 
+                mar.nom_marque, 
+                modl.modele AS nom_modele, 
+                ch.nom AS chauffeur_nom, 
+                ch.prenom AS chauffeur_prenom, 
+                s.nom_site, 
+                s.id_site, 
+                tc.nom_type_carburant,
+                COUNT(DISTINCT v.id_vehicule) AS nbre_vehicule,
+                COUNT(c.id_carburant) AS total_pleins,
+                SUM(c.compteur_km) AS total_kilometrage, 
+                SUM(c.quantite_litres) AS total_litres 
+            FROM carburant c 
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            LEFT JOIN marque mar ON v.id_marque = mar.id_marque
+            LEFT JOIN modeles modl ON v.id_modele = modl.id_modele
+            LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur 
+            LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
+            LEFT JOIN sites s ON sv.id_site = s.id_site 
+            LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
+            WHERE ${periodFilter}
+            ${tenantCondition}
+            GROUP BY v.id_vehicule
+        `);
 
-    // 3. MES SIETES KIN TYPE CARBURANT 
-    const sqlSiegeKinTypeCarburant = await query(`
-      SELECT 
-        tc.nom_type_carburant,
-        COUNT(DISTINCT vc.id_enregistrement) AS nbre_vehicule,
-        COUNT(c.id_carburant) AS total_pleins,
-        SUM(c.compteur_km) AS total_kilometrage, 
-        SUM(c.quantite_litres) AS total_litres 
-      FROM carburant c 
-        LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement 
-        LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur 
-        LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
-        LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
-        LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
-        LEFT JOIN sites s ON sv.id_site = s.id_site 
-      WHERE s.id_site = 1 AND ${periodFilter}
-      GROUP BY s.id_site, v.id_type_carburant
-    `);
+        // 3. SIEGE KIN PAR TYPE CARBURANT
+        const sqlSiegeKinTypeCarburant = await query(`
+            SELECT 
+                tc.nom_type_carburant,
+                COUNT(DISTINCT v.id_vehicule) AS nbre_vehicule,
+                COUNT(c.id_carburant) AS total_pleins,
+                SUM(c.compteur_km) AS total_kilometrage, 
+                SUM(c.quantite_litres) AS total_litres 
+            FROM carburant c 
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
+            LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
+            LEFT JOIN sites s ON sv.id_site = s.id_site 
+            WHERE s.id_site = 1 
+            AND ${periodFilter}
+            ${tenantCondition}
+            GROUP BY s.id_site, v.id_type_carburant
+        `);
 
-    // 4. MES SITES (GROUP BY SITE)
-    const sqlMesSites = await query(`
-      SELECT 
-        s.nom_site, 
-        s.id_site, 
-        COUNT(DISTINCT vc.id_enregistrement) AS nbre_vehicule,
-        COUNT(c.id_carburant) AS total_pleins,
-        SUM(c.compteur_km) AS total_kilometrage, 
-        SUM(c.quantite_litres) AS total_litres 
-      FROM carburant c 
-        LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement 
-        LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur 
-        LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
-        LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
-        INNER JOIN sites s ON sv.id_site = s.id_site 
-      WHERE ${periodFilter}
-      GROUP BY s.id_site
-    `);
+        // 4. TOUS SITES
+        const sqlMesSites = await query(`
+            SELECT 
+                s.nom_site, 
+                s.id_site, 
+                COUNT(DISTINCT v.id_vehicule) AS nbre_vehicule,
+                COUNT(c.id_carburant) AS total_pleins,
+                SUM(c.compteur_km) AS total_kilometrage, 
+                SUM(c.quantite_litres) AS total_litres 
+            FROM carburant c 
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
+            INNER JOIN sites s ON sv.id_site = s.id_site 
+            WHERE ${periodFilter}
+            ${tenantCondition}
+            GROUP BY s.id_site
+        `);
 
-    const sqlSitesAll = await query(`
-      SELECT 
-        s.nom_site, 
-        s.id_site,
-        p.name AS province,
-        z.NomZone AS zone,
-        COUNT(DISTINCT vc.id_enregistrement) AS nbre_vehicule,
-        COUNT(c.id_carburant) AS total_pleins,
-        SUM(c.compteur_km) AS total_kilometrage, 
-        SUM(c.quantite_litres) AS total_litres 
-      FROM carburant c 
-        LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement 
-        LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
-        LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
-        INNER JOIN sites s ON sv.id_site = s.id_site 
-        LEFT JOIN zones z ON s.IdZone = z.id
-        LEFT JOIN provinces p ON s.IdVille = p.id
-      WHERE ${periodFilter}
-      GROUP BY s.id_site
-    `);
+        // 5. SITES AVEC PROVINCES ET ZONES
+        const sqlSitesAll = await query(`
+            SELECT 
+                s.nom_site, 
+                s.id_site,
+                p.name AS province,
+                z.NomZone AS zone,
+                COUNT(DISTINCT v.id_vehicule) AS nbre_vehicule,
+                COUNT(c.id_carburant) AS total_pleins,
+                SUM(c.compteur_km) AS total_kilometrage, 
+                SUM(c.quantite_litres) AS total_litres 
+            FROM carburant c 
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
+            INNER JOIN sites s ON sv.id_site = s.id_site 
+            LEFT JOIN zones z ON s.IdZone = z.id
+            LEFT JOIN provinces p ON s.IdVille = p.id
+            WHERE ${periodFilter}
+            ${tenantCondition}
+            GROUP BY s.id_site
+        `);
 
-    const sqlConsomTypeCarburant = await query(`
-      SELECT
-        YEAR(c.date_operation) AS annee,
-        MONTH(c.date_operation) AS mois,
-        SUM(c.quantite_litres) AS total_conso,
-        tc.nom_type_carburant
-      FROM
-          carburant c
-          LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement
-          LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule
-          INNER JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
-        WHERE
-          YEAR(c.date_operation) = YEAR(CURDATE()) AND ${periodFilter}  -- Filtre pour l'année en cours
-        GROUP BY
-          YEAR(c.date_operation),
-          MONTH(c.date_operation),
-          v.id_type_carburant,
-          tc.nom_type_carburant
-        ORDER BY
-          annee DESC, mois DESC
-      `);
+        // 6. CONSO PAR MOIS ET TYPE CARBURANT
+        const sqlConsomTypeCarburant = await query(`
+            SELECT
+                YEAR(c.date_operation) AS annee,
+                MONTH(c.date_operation) AS mois,
+                SUM(c.quantite_litres) AS total_conso,
+                tc.nom_type_carburant
+            FROM carburant c
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
+            WHERE YEAR(c.date_operation) = YEAR(CURDATE()) 
+            AND ${periodFilter}
+            ${tenantCondition}
+            GROUP BY YEAR(c.date_operation), MONTH(c.date_operation), v.id_type_carburant, tc.nom_type_carburant
+            ORDER BY annee DESC, mois DESC
+        `);
 
-    const sqlConsomYearTypeCarburant = await query(`
-      SELECT
-          YEAR(c.date_operation) AS annee,
-          SUM(c.quantite_litres) AS total_conso,
-          tc.nom_type_carburant
-        FROM
-            carburant c
-            LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement
-            LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule
-            INNER JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
-          WHERE
-            YEAR(c.date_operation) = YEAR(CURDATE()) AND ${periodFilter}  -- Filtre pour l'année en cours
-          GROUP BY
-            YEAR(c.date_operation),
-            v.id_type_carburant,
-            tc.nom_type_carburant
-          ORDER BY
-            annee DESC
-    `);
+        // 7. CONSO PAR ANNEE ET TYPE CARBURANT
+        const sqlConsomYearTypeCarburant = await query(`
+            SELECT
+                YEAR(c.date_operation) AS annee,
+                SUM(c.quantite_litres) AS total_conso,
+                tc.nom_type_carburant
+            FROM carburant c
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
+            WHERE YEAR(c.date_operation) = YEAR(CURDATE()) 
+            AND ${periodFilter}
+            ${tenantCondition}
+            GROUP BY YEAR(c.date_operation), v.id_type_carburant, tc.nom_type_carburant
+            ORDER BY annee DESC
+        `);
 
-    return res.status(200).json({
-      sqlDetailSiegeKin,
-      sqlVehiculeInfo,
-      sqlMesSites,
-      sqlSitesAll,
-      sqlSiegeKinTypeCarburant,
-      sqlConsomTypeCarburant,
-      sqlConsomYearTypeCarburant
-    });
+        return res.status(200).json({
+            periode: { jours: days, filtre: period },
+            sqlDetailSiegeKin,
+            sqlVehiculeInfo,
+            sqlMesSites,
+            sqlSitesAll,
+            sqlSiegeKinTypeCarburant,
+            sqlConsomTypeCarburant,
+            sqlConsomYearTypeCarburant
+        });
 
-  } catch (error) {
-    console.error("Erreur rapportCarburant :", error);
-    res.status(500).json(error);
-  }
+    } catch (error) {
+        console.error("Erreur rapportCarburantConsomGen :", error);
+        res.status(500).json({ error: error.message });
+    }
 };
 
 //ANNEE ET MOIS

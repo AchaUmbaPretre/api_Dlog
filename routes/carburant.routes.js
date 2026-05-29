@@ -31,8 +31,8 @@ router.put('/relier_vehiculeCarburant', carburantController.putRelierVehiculeCar
 
 //Carburant
 router.post('/',verifyToken, tenantFilter, carburantController.getCarburant);
-router.get('/limit_three', carburantController.getCarburantLimitThree);
-router.get('/limit_ten', carburantController.getCarburantLimitTen);
+router.get('/limit_three',verifyToken, tenantFilter, carburantController.getCarburantLimitThree);
+router.get('/limit_ten',verifyToken, tenantFilter, carburantController.getCarburantLimitTen);
 router.get('/one', carburantController.getCarburantOne);
 router.post('/post_carburant', verifyToken, tenantFilter, carburantController.postCarburant);
 router.put('/', carburantController.updateCarburant)
@@ -54,8 +54,8 @@ router.get('/alert_carburant', carburantController.getAlertCarburant);
 router.put('/alert_carburant', carburantController.putAlertCarburantIsRead)
 
 //Rapport carburant
-router.get('/rapport_carburant', carburantController.rapportCarburantAll);
-router.get('/rapport_consom_gen', carburantController.rapportCarburantConsomGen);
+router.get('/rapport_carburant',verifyToken, tenantFilter, carburantController.rapportCarburantAll);
+router.get('/rapport_consom_gen',verifyToken, tenantFilter, carburantController.rapportCarburantConsomGen);
 
 router.get('/mois', carburantController.getCarburantMois);
 router.get('/annee', carburantController.getCarburantAnnee)
