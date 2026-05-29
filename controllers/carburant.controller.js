@@ -194,18 +194,19 @@ exports.getCarburant = (req, res) => {
       c.montant_total_cdf,
       c.montant_total_usd,
       c.commentaire,
-      v.id_enregistrement,
-      v.nom_marque,
-      v.nom_modele,
-      v.immatriculation,
+      ve.id_vehicule,
+      mar.nom_marque,
+      modl.modele AS nom_modele,
+      ve.immatriculation,
       ch.nom AS nom_chauffeur,
       ch.prenom AS prenom,
       f.nom_fournisseur,
       cv.abreviation,
       u.nom AS createur
     FROM carburant c
-    LEFT JOIN vehicule_carburant v ON c.id_vehicule = v.id_enregistrement
     LEFT JOIN vehicules ve ON c.id_vehicule = ve.id_carburant_vehicule
+    LEFT JOIN marque mar ON ve.id_marque = mar.id_marque
+    LEFT JOIN modeles modl ON ve.id_modele = modl.id_modele
     LEFT JOIN cat_vehicule cv ON ve.id_cat_vehicule = cv.id_cat_vehicule
     LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
     LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
@@ -245,9 +246,9 @@ exports.getCarburantLimitThree = (req, res) => {
         c.montant_total_cdf,
         c.montant_total_usd,
         c.commentaire,
-        v.id_enregistrement,
-        v.nom_marque,
-        v.nom_modele,
+        v.id_vehicule,
+        mar.nom_marque,
+        modl.modele AS nom_modele,
         v.immatriculation,
         ch.nom AS nom_chauffeur,
         ch.prenom AS prenom,
@@ -255,7 +256,9 @@ exports.getCarburantLimitThree = (req, res) => {
         c.id_vehicule,
         u.nom AS createur
     FROM carburant c
-    LEFT JOIN vehicule_carburant v ON c.id_vehicule = v.id_enregistrement
+    LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+    LEFT JOIN marque mar ON v.id_marque = mar.id_marque
+    LEFT JOIN modeles modl ON v.id_modele = modl.id_modele
     LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
     LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
     LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur
@@ -303,9 +306,9 @@ exports.getCarburantLimitTen = (req, res) => {
         c.montant_total_cdf,
         c.montant_total_usd,
         c.commentaire,
-        v.id_enregistrement,
-        v.nom_marque,
-        v.nom_modele,
+        v.id_vehicule,
+        mar.nom_marque,
+        modl.modele AS nom_modele,
         v.immatriculation,
         ch.nom AS nom_chauffeur,
         ch.prenom AS prenom,
@@ -313,7 +316,9 @@ exports.getCarburantLimitTen = (req, res) => {
         c.id_vehicule,
         u.nom AS createur
     FROM carburant c
-    LEFT JOIN vehicule_carburant v ON c.id_vehicule = v.id_enregistrement
+    LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+    LEFT JOIN marque mar ON v.id_marque = mar.id_marque
+    LEFT JOIN modeles modl ON v.id_modele = modl.id_modele
     LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
     LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
     LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur
@@ -354,29 +359,30 @@ exports.getCarburantOne = (req, res) => {
     const whereClause = "WHERE " + where.join(" AND ");
 
     const q = `SELECT c.*, ch.nom AS nom_chauffeur, 
-                f.nom_fournisseur, tc.nom_type_carburant, 
-                vc.nom_marque, vc.nom_modele, 
-                u.nom AS user_createur,
-                cat.abreviation
-              FROM carburant c
-                LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
-                LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
-                LEFT JOIN type_carburant tc ON c.id_type_carburant = tc.id_type_carburant
-                LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement
-                LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule
-                LEFT JOIN cat_vehicule cat ON v.id_cat_vehicule
-                LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur ${whereClause}`;
+                  f.nom_fournisseur, tc.nom_type_carburant, 
+                  mar.nom_marque, modl.modele AS nom_modele, 
+                  u.nom AS user_createur,
+                  cat.abreviation
+                FROM carburant c
+                  LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
+                  LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
+                  LEFT JOIN type_carburant tc ON c.id_type_carburant = tc.id_type_carburant
+                  LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule
+                  LEFT JOIN marque mar ON v.id_marque = mar.id_marque
+                  LEFT JOIN modeles modl ON v.id_modele = modl.id_modele
+                  LEFT JOIN cat_vehicule cat ON v.id_cat_vehicule
+                  LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur ${whereClause}`;
 
-    db.query(q, params, (error, data) => {
-        if (error) {
-            return res.status(500).json({ message: "Erreur SQL", error: error.sqlMessage });
-        }
-        if (!data.length) {
-            return res.status(404).json({ message: "Aucune donnée trouvée." });
-        }
-        return res.status(200).json(data);
-    });
-};
+      db.query(q, params, (error, data) => {
+          if (error) {
+              return res.status(500).json({ message: "Erreur SQL", error: error.sqlMessage });
+          }
+          if (!data.length) {
+              return res.status(404).json({ message: "Aucune donnée trouvée." });
+          }
+          return res.status(200).json(data);
+      });
+  };
 
 exports.postCarburant = async (req, res) => {
   const {
