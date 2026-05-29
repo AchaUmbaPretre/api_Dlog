@@ -20,7 +20,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 router.get('/count', userController.getUserCount)
-router.get('/', userController.getUsers)
+router.get('/', verifyToken, userController.getUsers)
 router.get('/one', userController.getUserOne)
 router.post('/',verifyToken, userController.registerUser)
 router.put('/', userController.putUser)

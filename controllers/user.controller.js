@@ -28,16 +28,107 @@ exports.getUserCount = (req, res) => {
 };
 
 exports.getUsers = (req, res) => {
-
-    const q = `
-    SELECT 
-        utilisateur.*, d.nom_departement, p.name
-    FROM utilisateur
-    LEFT JOIN departement d ON utilisateur.id_departement = d.id_departement
-    LEFT JOIN provinces p ON utilisateur.id_ville = p.id
-    `;
-
-    db.query(q, (error, data) => {
+    const currentUserId = req.user?.id || req.query.currentUserId;
+    const isSuperAdmin = req.user?.is_super_admin === 1;
+    
+    if (!currentUserId) {
+        return res.status(401).json({ error: 'Non authentifié' });
+    }
+    
+    // 🔥 Déterminer quels utilisateurs afficher selon le rôle
+    let q;
+    let params = [];
+    
+    if (isSuperAdmin) {
+        // Super Admin voit TOUS les utilisateurs
+        q = `
+            SELECT 
+                u.id_utilisateur,
+                u.nom,
+                u.prenom,
+                u.email,
+                u.role,
+                u.tenant_id,
+                u.created_by,
+                u.niveau,
+                u.is_active,
+                d.nom_departement,
+                p.name as province_nom,
+                (SELECT nom FROM utilisateur WHERE id_utilisateur = u.created_by) as created_by_nom
+            FROM utilisateur u
+            LEFT JOIN departement d ON u.id_departement = d.id_departement
+            LEFT JOIN provinces p ON u.id_ville = p.id
+            ORDER BY u.date_creation DESC
+        `;
+    } else {
+        // 🔥 Récupérer le tenant_id de l'utilisateur connecté
+        const tenantQuery = `
+            SELECT tenant_id, role FROM utilisateur WHERE id_utilisateur = ?
+        `;
+        
+        db.query(tenantQuery, [currentUserId], (err, userResults) => {
+            if (err || userResults.length === 0) {
+                return res.status(500).json({ error: 'Erreur lors de la récupération' });
+            }
+            
+            const user = userResults[0];
+            const tenantId = user.tenant_id;
+            const isAdmin = user.role === 'Admin';
+            
+            if (isAdmin) {
+                // Admin voit ses utilisateurs (ceux qu'il a créés)
+                q = `
+                    SELECT 
+                        u.id_utilisateur,
+                        u.nom,
+                        u.prenom,
+                        u.email,
+                        u.role,
+                        u.tenant_id,
+                        u.created_by,
+                        u.niveau,
+                        u.is_active,
+                        d.nom_departement,
+                        p.name as province_nom,
+                        (SELECT nom FROM utilisateur WHERE id_utilisateur = u.created_by) as created_by_nom
+                    FROM utilisateur u
+                    LEFT JOIN departement d ON u.id_departement = d.id_departement
+                    LEFT JOIN provinces p ON u.id_ville = p.id
+                    WHERE u.created_by = ? OR u.id_utilisateur = ?
+                    ORDER BY u.date_creation DESC
+                `;
+                params = [currentUserId, currentUserId];
+            } else {
+                // User voit uniquement ses propres infos
+                q = `
+                    SELECT 
+                        u.id_utilisateur,
+                        u.nom,
+                        u.prenom,
+                        u.email,
+                        u.role,
+                        u.tenant_id,
+                        d.nom_departement,
+                        p.name as province_nom
+                    FROM utilisateur u
+                    LEFT JOIN departement d ON u.id_departement = d.id_departement
+                    LEFT JOIN provinces p ON u.id_ville = p.id
+                    WHERE u.id_utilisateur = ?
+                `;
+                params = [currentUserId];
+            }
+            
+            db.query(q, params, (error, data) => {
+                if (error) {
+                  return res.status(500).send(error);
+                }
+                return res.status(200).json(data);
+            });
+        });
+        return;
+    }
+    
+    db.query(q, params, (error, data) => {
         if (error) {
             return res.status(500).send(error);
         }

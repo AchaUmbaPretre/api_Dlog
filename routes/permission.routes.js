@@ -1,9 +1,10 @@
 const express = require("express");
 const { menusAll, permissions, putPermission, menusAllOne, getPermissionTache, postPermissionTache, getPermissionVille, getPermissionVilleOne, postPermissionVille, getPermissionDepartementOne, postPermissionDepartement, getPermissionDeclarationVilleOne, postPermissionDeclarationVille, getPermissionDeclaration, postPermissionDeclaration, getPermissionDeclarationClientOne, postPermissionDeclarationClient, getPermissionProjet, postPermissionProjet, postPermissionUserVehicule} = require("../controllers/permission.controller");
+const verifyToken = require("../midllewares/verifyToken");
 const router = express.Router();
 
 router.get('/addOne', menusAllOne)
-router.get('/add', menusAll)
+router.get('/add', verifyToken, menusAll)
 router.get('/one', permissions)
 router.put('/update/:userId/permissions/add/:optionId', putPermission)
 

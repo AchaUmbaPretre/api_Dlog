@@ -166,39 +166,101 @@ function buildMenuTree(results, isAdmin = false) {
 }
 
 exports.menusAll = (req, res) => {
-    const {userId} = req.query;
+    const { userId } = req.query;
+    const currentUserId = req.user?.id || req.query.currentUserId;
+    
+    // 🔥 Vérifier si l'utilisateur qui appelle a le droit de voir tous les menus
+    if (currentUserId) {
+        const checkQuery = 'SELECT role, is_super_admin FROM utilisateur WHERE id_utilisateur = ?';
+        db.query(checkQuery, [currentUserId], (err, results) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            
+            if (results.length === 0) {
+                return res.status(401).json({ error: 'Utilisateur non trouvé' });
+            }
+            
+            const user = results[0];
+            const isSuperAdmin = user.is_super_admin === 1;
+            const isAdmin = user.role === 'Admin';
+            
+            // Seul Super Admin ou Admin peut voir tous les menus
+            if (!isSuperAdmin && !isAdmin) {
+                return res.status(403).json({ error: 'Accès non autorisé' });
+            }
+            
+          if (userId && !isSuperAdmin) {
+              const checkTargetQuery = 'SELECT created_by FROM utilisateur WHERE id_utilisateur = ?';
+              db.query(checkTargetQuery, [userId], (err, targetResults) => {
+                  if (err || targetResults.length === 0 || targetResults[0].created_by !== currentUserId) {
+                      return res.status(403).json({ error: 'Vous ne pouvez pas gérer cet utilisateur' });
+                  }
+                  getAllMenusData(res, currentUserId, isSuperAdmin);
+              });
+          } else {
+              getAllMenusData(res, currentUserId, isSuperAdmin);
+          } 
+        });
+    } else {
+        getAllMenusData(res);
+    }
+};
 
-    const query = `
-        SELECT 
-            menus.id AS menu_id, 
-            menus.title AS menu_title, 
-            menus.url AS menu_url, 
-            menus.icon AS menu_icon, 
-            submenus.id AS submenu_id, 
-            submenus.title AS submenu_title, 
-            submenus.url AS submenu_url, 
-            submenus.icon AS submenu_icon
-        FROM menus 
-        LEFT JOIN submenus ON menus.id = submenus.menu_id
-        LEFT JOIN permission ON menus.id = permission.menus_id
-        ${userId ? `WHERE permission.user_id = ${userId}` : ''}
-        GROUP BY menus.id, submenus.id
-        ORDER BY menus.id, submenus.id
-    `;
+function getAllMenusData(res, currentUserId = null, isSuperAdmin = false) {
+    let query;
+    let params = [];
+    
+    if (!isSuperAdmin && currentUserId) {
+        // 🔥 Admin : ne voit que les menus où il a can_read=1
+        query = `
+            SELECT DISTINCT
+                menus.id AS menu_id, 
+                menus.title AS menu_title, 
+                menus.url AS menu_url, 
+                menus.icon AS menu_icon, 
+                submenus.id AS submenu_id, 
+                submenus.title AS submenu_title, 
+                submenus.url AS submenu_url, 
+                submenus.icon AS submenu_icon
+            FROM menus 
+            LEFT JOIN submenus ON menus.id = submenus.menu_id
+            INNER JOIN permission ON menus.id = permission.menus_id 
+                AND permission.user_id = ?
+                AND permission.can_read = 1
+                AND (permission.submenu_id IS NULL OR permission.submenu_id = 0)
+            ORDER BY menus.index ASC, submenus.id ASC
+        `;
+        params = [currentUserId];
+    } else {
+        // Super Admin : voit TOUS les menus
+        query = `
+            SELECT 
+                menus.id AS menu_id, 
+                menus.title AS menu_title, 
+                menus.url AS menu_url, 
+                menus.icon AS menu_icon, 
+                submenus.id AS submenu_id, 
+                submenus.title AS submenu_title, 
+                submenus.url AS submenu_url, 
+                submenus.icon AS submenu_icon
+            FROM menus 
+            LEFT JOIN submenus ON menus.id = submenus.menu_id
+            ORDER BY menus.index ASC, submenus.id ASC
+        `;
+    }
 
-    db.query(query,(err, results) => {
+    db.query(query, params, (err, results) => {
         if (err) {
-            console.error('Erreur lors de la récupération des menus:', err);
-            return res.status(500).json({ error: 'Erreur lors de la récupération des menus' });
+            console.error('Erreur:', err);
+            return res.status(500).json({ error: err.message });
         }
 
-        // Traiter les résultats pour structurer les données comme attendu dans le frontend
         const menus = [];
         let currentMenu = null;
 
         results.forEach(row => {
             if (!currentMenu || currentMenu.menu_id !== row.menu_id) {
-                // Nouveau menu rencontré, créer un nouvel objet menu
                 currentMenu = {
                     menu_id: row.menu_id,
                     menu_title: row.menu_title,
@@ -209,18 +271,19 @@ exports.menusAll = (req, res) => {
                 menus.push(currentMenu);
             }
 
-            // Ajouter le sous-menu au menu courant
-            currentMenu.subMenus.push({
-                submenu_id: row.submenu_id,
-                submenu_title: row.submenu_title,
-                submenu_url: row.submenu_url,
-                submenu_icon: row.submenu_icon
-            });
+            if (row.submenu_id) {
+                currentMenu.subMenus.push({
+                    submenu_id: row.submenu_id,
+                    submenu_title: row.submenu_title,
+                    submenu_url: row.submenu_url,
+                    submenu_icon: row.submenu_icon
+                });
+            }
         });
 
         res.json(menus);
     });
-};
+}
 
 exports.permissions = (req, res) => {
   const { userId } = req.query;
@@ -240,6 +303,108 @@ exports.permissions = (req, res) => {
 };
 
 exports.putPermission = (req, res) => {
+    const userId = req.params.userId;           // Utilisateur cible (qui reçoit les permissions)
+    const optionId = req.params.optionId;       // Menu ID
+    const submenuId = req.query.submenuId;      // Sous-menu ID (optionnel)
+    const { can_read, can_edit, can_comment, can_delete } = req.body;
+    
+    // 🔥 Récupérer l'utilisateur qui fait la demande
+    const currentUserId = req.user?.id || req.query.currentUserId;
+    const isSuperAdmin = req.user?.is_super_admin === 1;
+    
+    if (!currentUserId) {
+        return res.status(401).json({ error: 'Non authentifié' });
+    }
+    
+    // 🔥 VÉRIFICATION DES DROITS (AJOUT)
+    const checkRightsQuery = `
+        SELECT 
+            u.id_utilisateur,
+            u.created_by,
+            u.role,
+            (SELECT is_super_admin FROM utilisateur WHERE id_utilisateur = ?) as current_is_super_admin
+        FROM utilisateur u
+        WHERE u.id_utilisateur = ?
+    `;
+    
+    db.query(checkRightsQuery, [currentUserId, userId], (err, results) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        }
+        
+        const targetUser = results[0];
+        const currentIsSuperAdmin = targetUser.current_is_super_admin === 1;
+        
+        let hasRight = false;
+        
+        if (currentIsSuperAdmin) {
+            hasRight = true;  // Super Admin peut tout modifier
+        } else if (targetUser.created_by === currentUserId) {
+            hasRight = true;  // Admin peut modifier ses utilisateurs
+        } else if (currentUserId === parseInt(userId)) {
+            hasRight = false; // Un utilisateur ne peut pas modifier ses propres permissions
+        }
+        
+        if (!hasRight) {
+            return res.status(403).json({ 
+                error: 'Vous n\'avez pas le droit de modifier les permissions de cet utilisateur' 
+            });
+        }
+        
+        // ✅ Suite du code original (inchangé)
+        let query;
+        let queryParams;
+      
+        if (submenuId) {
+            query = `
+                UPDATE permission 
+                SET can_read = ?, can_edit = ?, can_comment = ?, can_delete = ? 
+                WHERE user_id = ? AND menus_id = ? AND submenu_id = ?
+            `;
+            queryParams = [can_read, can_edit, can_comment, can_delete, userId, optionId, submenuId];
+        } else {
+            query = `
+                UPDATE permission 
+                SET can_read = ?, can_edit = ?, can_comment = ?, can_delete = ? 
+                WHERE user_id = ? AND menus_id = ? AND (submenu_id IS NULL OR submenu_id = 0)
+            `;
+            queryParams = [can_read, can_edit, can_comment, can_delete, userId, optionId];
+        }
+      
+        db.query(query, queryParams, (err, results) => {
+            if (err) {
+                console.error('Erreur lors de la mise à jour des permissions:', err);
+                return res.status(500).json({ error: 'Erreur lors de la mise à jour des permissions' });
+            }
+      
+            if (results.affectedRows === 0) {
+                const insertQuery = `
+                    INSERT INTO permission (user_id, menus_id, submenu_id, can_read, can_edit, can_comment, can_delete) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                `;
+                const insertParams = submenuId
+                    ? [userId, optionId, submenuId, can_read, can_edit, can_comment, can_delete]
+                    : [userId, optionId, 0, can_read, can_edit, can_comment, can_delete];
+      
+                db.query(insertQuery, insertParams, (insertErr) => {
+                    if (insertErr) {
+                        console.error('Erreur lors de l\'insertion des permissions:', insertErr);
+                        return res.status(500).json({ error: 'Erreur lors de l\'insertion des permissions' });
+                    }
+                    res.json({ message: 'Permissions updated successfully!' });
+                });
+            } else {
+                res.json({ message: 'Permissions updated successfully!' });
+            }
+        });
+    });
+};
+
+/* exports.putPermission = (req, res) => {
     const userId = req.params.userId;
     const optionId = req.params.optionId;
     const submenuId = req.query.submenuId;
@@ -293,7 +458,7 @@ exports.putPermission = (req, res) => {
         res.json({ message: 'Permissions updated successfully!' });
       }
     });
-  };
+  }; */
 
 //Permission Tache
 exports.getPermissionTache = (req, res) => {
