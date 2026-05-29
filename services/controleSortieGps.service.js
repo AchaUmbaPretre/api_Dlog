@@ -172,7 +172,6 @@ class RapprochementService {
     `, [deviceName, eventTime, deuxMinutesApres]);
     
     if (positions.length < 2) {
-      console.log(`⚠️ Délai: pas assez de données`);
       return false;
     }
     
@@ -217,10 +216,8 @@ class RapprochementService {
     
     // ÉTAPE 4: Si la distance/temps est insuffisante, utiliser la confirmation par délai
     if (!verification.distanceOk && verification.temps < 120) {
-      console.log(`⚠️ Distance/temps insuffisants, tentative de confirmation par délai`);
       const delaiOk = await this.confirmerParDelai(device_name, event_time, zoneCoordinates);
       if (delaiOk) {
-        console.log(`✅ Sortie confirmée par délai`);
         return true;
       }
     }
@@ -526,25 +523,17 @@ class RapprochementService {
       return { ignore: true, raison: 'aucune_zone_base' };
     }
     
-    console.log(`🚗 Véhicule: ${vehicule.immatriculation}`);
-    console.log(`🗺️ Zone de base: ${zoneBase.zone_nom}`);
-    console.log(`📌 Position: ${latitude}, ${longitude}`);
-    
     // 4. Vérifier si c'est une SORTIE de zone
     const estDansSaZone = this.pointDansPolygone(latitude, longitude, zoneBase.coordinates);
     if (estDansSaZone) {
-      console.log(`ℹ️ ${vehicule.immatriculation} est encore dans sa zone`);
       return { ignore: true, raison: 'toujours_dans_zone' };
     }
-    
-    console.log(`🚪 SORTIE DÉTECTÉE: ${vehicule.immatriculation} a quitté ${zoneBase.zone_nom}`);
-    
+        
     // 5. Vérifier que c'est une vraie sortie (STRATÉGIE 5)
     const eventDataAvecGPS = { ...eventData, device_name, event_time, latitude, longitude, speed };
     const isReal = await this.isRealExit(eventDataAvecGPS, zoneBase.coordinates);
     
     if (!isReal) {
-      console.log(`⚠️ Faux positif: ${vehicule.immatriculation}`);
       return { ignore: true, raison: 'faux_positif' };
     }
     
