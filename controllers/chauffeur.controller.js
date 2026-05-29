@@ -146,7 +146,7 @@ exports.getChauffeur = (req, res) => {
     
     q += ` ORDER BY c.nom_chauffeur ASC`;
     
-    db.query(q, params, (error, data) => {
+    queryAsync(q, params, (error, data) => {
         if (error) {
             console.error('Erreur getChauffeur:', error);
             return res.status(500).send(error);
