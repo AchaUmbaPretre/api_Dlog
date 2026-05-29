@@ -44,18 +44,56 @@ exports.getClientCount = (req, res) => {
     });
 }
 
+// Version simplifiée utilisant le middleware tenantFilter
 exports.getClients = (req, res) => {
-
-    const q = `
-    SELECT 
-        client.id_client, client.nom, client.adresse, client.telephone, client.email, provinces.capital, type_client.nom_type
-    FROM client
-    LEFT JOIN provinces ON client.ville = provinces.id
-    LEFT JOIN type_client ON client.id_type_client = type_client.id_type_client
-    `;
-
-    db.query(q, (error, data) => {
+    const { tenantId, isSuperAdmin } = req;
+    
+    let q;
+    let params = [];
+    
+    if (isSuperAdmin) {
+        // Super Admin voit TOUS les clients
+        q = `
+            SELECT 
+                c.id_client, 
+                c.nom, 
+                c.adresse, 
+                c.telephone, 
+                c.email, 
+                c.tenant_id,
+                p.capital as province_nom,
+                tc.nom_type as type_client_nom
+            FROM client c
+            LEFT JOIN provinces p ON c.ville = p.id
+            LEFT JOIN type_client tc ON c.id_type_client = tc.id_type_client
+            ORDER BY c.nom ASC
+        `;
+    } else if (tenantId) {
+        // Admin ou User voit uniquement les clients de son tenant
+        q = `
+            SELECT 
+                c.id_client, 
+                c.nom, 
+                c.adresse, 
+                c.telephone, 
+                c.email, 
+                c.tenant_id,
+                p.capital as province_nom,
+                tc.nom_type as type_client_nom
+            FROM client c
+            LEFT JOIN provinces p ON c.ville = p.id
+            LEFT JOIN type_client tc ON c.id_type_client = tc.id_type_client
+            WHERE c.tenant_id = ?
+            ORDER BY c.nom ASC
+        `;
+        params = [tenantId];
+    } else {
+        return res.status(200).json([]);
+    }
+    
+    db.query(q, params, (error, data) => {
         if (error) {
+            console.error('Erreur getClients:', error);
             return res.status(500).send(error);
         }
         return res.status(200).json(data);

@@ -1,10 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const  clientController = require('./../controllers/client.controller.js');
+const verifyToken = require("../midllewares/verifyToken.js");
+const { tenantFilter } = require("../midllewares/tenant.middleware.js");
 
 router.get('/clientId', clientController.getClientId)
 router.get('/count', clientController.getClientCount)
-router.get('/', clientController.getClients)
+router.get('/', verifyToken, tenantFilter, clientController.getClients)
 router.get('/client_permission', clientController.getClientPermission)
 router.get('/client_resume', clientController.getClientResume)
 router.get('/clientOne', clientController.getClientOne)
