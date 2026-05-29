@@ -490,11 +490,9 @@ class RapprochementService {
           'BS validé sans sortie GPS détectée'
         ]);
         created++;
-        console.log(`✅ BON_NON_EXECUTE créé pour BS ID ${bon.id_bande_sortie}`);
       }
     }
     
-    console.log(`📊 Résultat: ${created} créés, ${updated} mis à jour`);
     return { created, updated, total: bons.length };
   }
   
