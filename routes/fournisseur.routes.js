@@ -8,7 +8,7 @@ router.get('/count', fournisseurController.getFournisseurCount)
 router.get('/',verifyToken, tenantFilter, fournisseurController.getFournisseur)
 router.get('/fournisseur_activite', fournisseurController.getFournisseurActivite)
 router.get('/fournisseur_activite/one', fournisseurController.getFournisseurActiviteOne)
-router.post('/', fournisseurController.postFournisseur)
+router.post('/', verifyToken, tenantFilter, fournisseurController.postFournisseur)
 router.delete('/:id', fournisseurController.deleteFournisseur)
- 
+
 module.exports = router;

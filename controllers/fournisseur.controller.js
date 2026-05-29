@@ -133,51 +133,70 @@ exports.getFournisseurActiviteOne = async (req, res) => {
 
 exports.postFournisseur = async (req, res) => {
     const { nom_activite } = req.body;
-
-    try {
-        const q = 'INSERT INTO fournisseur(`nom_fournisseur`, `telephone`, `email`, `adresse`, `ville`, `pays`, `tenant_id`) VALUES(?,?,?,?,?,?,?)';
-        const qActivite = 'INSERT INTO activite_fournisseur(`id_fournisseur`, `id_activite`) VALUES(?,?)';
-
-        const values = [
-            req.body.nom_fournisseur,
-            req.body.telephone,
-            req.body.email,
-            req.body.adresse,
-            req.body.ville,
-            req.body.pays
-        ];
-
-        db.query(q, values, (error, data) => {
-            if (error) {
-                return res.status(500).send(error);
-            }
-
-            const fournisseurId = data.insertId;
-
-            const insertFournisseurQueries = nom_activite.map(item => {
+    const { tenantId, isSuperAdmin } = req;
+    const currentUserId = req.user?.id;
+    
+    if (!tenantId && !isSuperAdmin) {
+        return res.status(403).json({ error: 'Non autorisé à créer un fournisseur' });
+    }
+    
+    const finalTenantId = tenantId;
+    
+    const q = `
+        INSERT INTO fournisseur 
+        (nom_fournisseur, telephone, email, adresse, ville, pays, tenant_id, created_by, created_at) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    `;
+    
+    const values = [
+        req.body.nom_fournisseur,
+        req.body.telephone,
+        req.body.email,
+        req.body.adresse,
+        req.body.ville,
+        req.body.pays,
+        finalTenantId,
+        currentUserId
+    ];
+    
+    db.query(q, values, (error, data) => {
+        if (error) {
+            console.error('Erreur insertion fournisseur:', error);
+            return res.status(500).send(error);
+        }
+        
+        const fournisseurId = data.insertId;
+        
+        if (nom_activite && nom_activite.length > 0) {
+            const qActivite = 'INSERT INTO activite_fournisseur (id_fournisseur, id_activite) VALUES (?, ?)';
+            
+            const promises = nom_activite.map(item => {
                 return new Promise((resolve, reject) => {
                     db.query(qActivite, [fournisseurId, item], (error, result) => {
-                        if (error) {
-                            return reject(error);
-                        }
-                        resolve(result);
+                        if (error) reject(error);
+                        else resolve(result);
                     });
                 });
             });
-
-            Promise.all(insertFournisseurQueries)
+            
+            Promise.all(promises)
                 .then(() => {
-                    return res.status(201).json({ message: 'Fournisseur et activités ajoutés avec succès' });
+                    res.status(201).json({ 
+                        message: 'Fournisseur et activités ajoutés avec succès',
+                        data: { id_fournisseur: fournisseurId, tenant_id: finalTenantId }
+                    });
                 })
                 .catch(err => {
-                    console.error('Erreur lors de l\'ajout des activités:', err);
-                    return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout des activités." });
+                    console.error('Erreur activités:', err);
+                    res.status(500).json({ error: "Erreur lors de l'ajout des activités." });
                 });
-        });
-    } catch (error) {
-        console.error('Erreur lors de l\'ajout du nouveau fournisseur:', error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du fournisseur." });
-    }
+        } else {
+            res.status(201).json({ 
+                message: 'Fournisseur ajouté avec succès',
+                data: { id_fournisseur: fournisseurId, tenant_id: finalTenantId }
+            });
+        }
+    });
 };
 
 exports.deleteFournisseur = (req, res) => {
