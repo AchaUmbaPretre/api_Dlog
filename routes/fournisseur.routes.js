@@ -6,7 +6,7 @@ const { tenantFilter } = require("../midllewares/tenant.middleware");
 
 router.get('/count', fournisseurController.getFournisseurCount)
 router.get('/',verifyToken, tenantFilter, fournisseurController.getFournisseur)
-router.get('/fournisseur_activite', fournisseurController.getFournisseurActivite)
+router.get('/fournisseur_activite', verifyToken, tenantFilter, fournisseurController.getFournisseurActivite)
 router.get('/fournisseur_activite/one', fournisseurController.getFournisseurActiviteOne)
 router.post('/', verifyToken, tenantFilter, fournisseurController.postFournisseur)
 router.delete('/:id', fournisseurController.deleteFournisseur)

@@ -54,19 +54,70 @@ exports.getFournisseur = (req, res) => {
 };
 
 exports.getFournisseurActivite = (req, res) => {
-
-    const q = `
-            SELECT fournisseur.id_fournisseur, activite.nom_activite, fournisseur.nom_fournisseur, fournisseur.telephone, fournisseur.email, fournisseur.adresse, fournisseur.pays FROM activite_fournisseur
-        LEFT JOIN fournisseur ON activite_fournisseur.id_fournisseur = fournisseur.id_fournisseur
-        LEFT JOIN provinces ON fournisseur.ville = provinces.id
-        LEFT JOIN activite ON activite_fournisseur.id_activite = activite.id_activite
-            `;
-
-    db.query(q, (error, data) => {
+    const { tenantId, isSuperAdmin } = req;
+    
+    let q;
+    let params = [];
+    
+    if (isSuperAdmin) {
+        q = `
+            SELECT 
+                f.id_fournisseur,
+                f.nom_fournisseur,
+                f.telephone,
+                f.email,
+                f.adresse,
+                f.ville,
+                f.pays,
+                f.tenant_id,
+                a.nom_activite,
+                a.id_activite,
+                p.capital as province_nom
+            FROM fournisseur f
+            LEFT JOIN provinces p ON f.ville = p.id
+            LEFT JOIN activite_fournisseur af ON f.id_fournisseur = af.id_fournisseur
+            LEFT JOIN activite a ON af.id_activite = a.id_activite
+            ORDER BY f.nom_fournisseur ASC
+        `;
+    } else if (tenantId) {
+        q = `
+            SELECT 
+                f.id_fournisseur,
+                f.nom_fournisseur,
+                f.telephone,
+                f.email,
+                f.adresse,
+                f.ville,
+                f.pays,
+                f.tenant_id,
+                a.nom_activite,
+                a.id_activite,
+                p.capital as province_nom
+            FROM fournisseur f
+            LEFT JOIN provinces p ON f.ville = p.id
+            LEFT JOIN activite_fournisseur af ON f.id_fournisseur = af.id_fournisseur
+            LEFT JOIN activite a ON af.id_activite = a.id_activite
+            WHERE f.tenant_id = ?
+            ORDER BY f.nom_fournisseur ASC
+        `;
+        params = [tenantId];
+    } else {
+        return res.status(200).json([]);
+    }
+    
+    db.query(q, params, (error, data) => {
         if (error) {
+            console.error('Erreur getFournisseurActivite:', error);
             return res.status(500).send(error);
         }
-        return res.status(200).json(data);
+        
+        const formattedData = data.map(row => ({
+            ...row,
+            activites: row.nom_activite ? [row.nom_activite] : [],
+            a_activites: row.nom_activite ? true : false
+        }));
+        
+        return res.status(200).json(formattedData);
     });
 };
 
