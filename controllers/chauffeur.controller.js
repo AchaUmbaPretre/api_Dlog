@@ -1,6 +1,5 @@
 const { queryAsync } = require('./../config/database');
 
-
 exports.loginChauffeur = async (req, res) => {
   try {
     const { nom, telephone } = req.body;
@@ -119,46 +118,54 @@ exports.getChauffeurCount = async (req, res) => {
     }
 };
 
-exports.getChauffeur = (req, res) => {
+exports.getChauffeur = async (req, res) => {
     const { tenantId, isSuperAdmin } = req;
     
     if (!isSuperAdmin && !tenantId) {
-        return res.status(200).json([]);
+        return res.status(200).json({
+            message: 'Liste des chauffeurs récupérée avec succès',
+            data: []
+        });
     }
     
-    let q = `
-        SELECT 
-            c.*,
-            v.immatriculation,
-            v.nom_vehicule,
-            p.capital as province_nom
-        FROM chauffeur c
-        LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
-        LEFT JOIN provinces p ON c.id_ville = p.id
-    `;
-    
-    let params = [];
-    
-    if (!isSuperAdmin) {
-        q += ` WHERE c.tenant_id = ?`;
-        params.push(tenantId);
-    }
-    
-    q += ` ORDER BY c.nom_chauffeur ASC`;
-    
-    queryAsync(q, params, (error, data) => {
-        if (error) {
-            console.error('Erreur getChauffeur:', error);
-            return res.status(500).send(error);
+    try {
+        let query = `
+            SELECT 
+                ch.*, 
+                s.nom_site,
+            FROM chauffeurs ch
+            LEFT JOIN affectations a ON ch.id_chauffeur = a.id_chauffeur
+            LEFT JOIN sites s ON a.id_site = s.id_site
+        `;
+        let params = [];
+        
+        if (!isSuperAdmin) {
+            query += ` WHERE ch.tenant_id = ?`;
+            params.push(tenantId);
         }
-        return res.status(200).json(data);
-    });
+        
+        query += ` ORDER BY ch.nom ASC`;
+        
+        const chauffeurs = await queryAsync(query, params);
+        
+        return res.status(200).json({
+            message: 'Liste des chauffeurs récupérée avec succès',
+            data: chauffeurs,
+        });
+    } catch (error) {
+        console.error('Erreur lors de la récupération des chauffeurs :', error);
+        
+        return res.status(500).json({
+            error: "Une erreur s'est produite lors de la récupération des chauffeurs.",
+        });
+    }
 };
 
 exports.postChauffeur = async (req, res) => {
     const { tenantId, isSuperAdmin } = req;
     const currentUserId = req.user?.id;
     
+    // Vérifier les droits
     if (!isSuperAdmin && !tenantId) {
         return res.status(403).json({ error: 'Non autorisé à ajouter un chauffeur' });
     }
@@ -234,6 +241,7 @@ exports.postChauffeur = async (req, res) => {
     }
 };
 
+//Version mobile
 exports.missionChauffeurById = async (req, res) => {
   try {
     const missions = await queryAsync(`
