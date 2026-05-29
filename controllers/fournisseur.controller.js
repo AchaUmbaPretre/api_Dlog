@@ -15,13 +15,38 @@ exports.getFournisseurCount = (req, res) => {
 }
 
 exports.getFournisseur = (req, res) => {
-
-    const q = `
-            SELECT * FROM fournisseur
-            `;
-
-    db.query(q, (error, data) => {
+    const { tenantId, isSuperAdmin } = req;
+    
+    let q;
+    let params = [];
+    
+    if (isSuperAdmin) {
+        q = `
+            SELECT 
+                f.*,
+                p.capital as province_nom
+            FROM fournisseur f
+            LEFT JOIN provinces p ON f.id_ville = p.id
+            ORDER BY f.nom ASC
+        `;
+    } else if (tenantId) {
+        q = `
+            SELECT 
+                f.*,
+                p.capital as province_nom
+            FROM fournisseur f
+            LEFT JOIN provinces p ON f.id_ville = p.id
+            WHERE f.tenant_id = ?
+            ORDER BY f.nom ASC
+        `;
+        params = [tenantId];
+    } else {
+        return res.status(200).json([]);
+    }
+    
+    db.query(q, params, (error, data) => {
         if (error) {
+            console.error('Erreur getFournisseur:', error);
             return res.status(500).send(error);
         }
         return res.status(200).json(data);
@@ -110,7 +135,7 @@ exports.postFournisseur = async (req, res) => {
     const { nom_activite } = req.body;
 
     try {
-        const q = 'INSERT INTO fournisseur(`nom_fournisseur`, `telephone`, `email`, `adresse`, `ville`, `pays`) VALUES(?,?,?,?,?,?)';
+        const q = 'INSERT INTO fournisseur(`nom_fournisseur`, `telephone`, `email`, `adresse`, `ville`, `pays`, `tenant_id`) VALUES(?,?,?,?,?,?,?)';
         const qActivite = 'INSERT INTO activite_fournisseur(`id_fournisseur`, `id_activite`) VALUES(?,?)';
 
         const values = [
