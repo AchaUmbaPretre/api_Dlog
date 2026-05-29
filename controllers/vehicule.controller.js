@@ -93,7 +93,6 @@ exports.getVehiculeDispo = (req, res) => {
     });
 };
 
-
 exports.getVehiculeOccupe = (req, res) => {
 
     const q = `
@@ -160,7 +159,6 @@ exports.rendreVehiculeDispo = (req, res) => {
     return res.status(500).json({ error: 'Erreur serveur lors de la mise à jour' });
   }
 };
-
 
 exports.getVehiculeOne = async (req, res) => {
     const { id_vehicule } = req.query;
