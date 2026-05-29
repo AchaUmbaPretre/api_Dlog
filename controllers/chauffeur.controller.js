@@ -132,7 +132,7 @@ exports.getChauffeur = async (req, res) => {
         let query = `
             SELECT 
                 ch.*, 
-                s.nom_site,
+                s.nom_site
             FROM chauffeurs ch
             LEFT JOIN affectations a ON ch.id_chauffeur = a.id_chauffeur
             LEFT JOIN sites s ON a.id_site = s.id_site
