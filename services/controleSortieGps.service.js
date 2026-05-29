@@ -423,9 +423,7 @@ class RapprochementService {
   // === BONS NON EXÉCUTÉS ===
   async genererBonsNonExecutes(date) {
     const dateFilter = date || moment().format('YYYY-MM-DD');
-    
-    console.log(`🔍 Recherche des BS validés sans sortie GPS pour le ${dateFilter}`);
-    
+        
     const bons = await queryAsync(`
       SELECT 
         bs.id_bande_sortie,
