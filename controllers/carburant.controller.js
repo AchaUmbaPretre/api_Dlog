@@ -162,7 +162,7 @@ exports.putRelierVehiculeCarburant = async (req, res) => {
 };
 
 //Carburant 
-exports.getCarburant = (req, res) => {
+/* exports.getCarburant = (req, res) => {
   const { vehicules = [], dateRange = [] } = req.body;
 
   let where = "WHERE c.est_supprime = 0";
@@ -221,67 +221,144 @@ exports.getCarburant = (req, res) => {
     }
     return res.status(200).json(data);
   });
+}; */
+
+exports.getCarburant = (req, res) => {
+    const { tenantId, isSuperAdmin } = req;
+    const { vehicules = [], dateRange = [] } = req.body;
+    
+    let where = "WHERE c.est_supprime = 0";
+    const params = [];
+    
+    if (!isSuperAdmin && tenantId) {
+        where += ` AND ve.tenant_id = ?`;
+        params.push(tenantId);
+    }
+    
+    if (vehicules.length > 0) {
+        const placeholders = vehicules.map(() => "?").join(",");
+        where += ` AND c.id_vehicule IN (${placeholders})`;
+        params.push(...vehicules);
+    }
+    
+    // Filtre par date
+    if (dateRange.length === 2) {
+        where += ` AND c.date_operation BETWEEN ? AND ?`;
+        params.push(dateRange[0], dateRange[1]);
+    }
+    
+    const q = `
+        SELECT 
+            c.id_carburant, 
+            c.num_pc, 
+            c.num_facture, 
+            c.date_operation, 
+            c.quantite_litres, 
+            c.compteur_km, 
+            c.distance, 
+            c.consommation,
+            c.prix_cdf,
+            c.prix_usd,
+            c.montant_total_cdf,
+            c.montant_total_usd,
+            c.commentaire,
+            ve.id_vehicule,
+            mar.nom_marque,
+            modl.modele AS nom_modele,
+            ve.immatriculation,
+            ch.nom AS nom_chauffeur,
+            ch.prenom AS prenom,
+            f.nom_fournisseur,
+            cv.abreviation,
+            u.nom AS createur
+        FROM carburant c
+        LEFT JOIN vehicules ve ON c.id_vehicule = ve.id_vehicule
+        LEFT JOIN marque mar ON ve.id_marque = mar.id_marque
+        LEFT JOIN modeles modl ON ve.id_modele = modl.id_modele
+        LEFT JOIN cat_vehicule cv ON ve.id_cat_vehicule = cv.id_cat_vehicule
+        LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
+        LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
+        LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur
+        ${where}
+        ORDER BY c.date_operation DESC
+    `;
+    
+    db.query(q, params, (error, data) => {
+        if (error) {
+            console.error('Erreur getCarburant:', error);
+            return res.status(500).json(error);
+        }
+        return res.status(200).json(data);
+    });
 };
 
-exports.getCarburantLimitThree = (req, res) => {
-  const { id_vehicule } = req.query;
+exports.getCarburantLimitThree = async (req, res) => {
+    const { tenantId, isSuperAdmin } = req;
+    const { id_vehicule } = req.query;
 
-  // Vérification du paramètre
-  if (!id_vehicule) {
-    return res.status(400).json({ message: "Paramètre manquant : id_vehicule." });
-  }
-
-  const query = `
-    SELECT 
-        c.id_carburant, 
-        c.num_pc, 
-        c.num_facture, 
-        c.date_operation, 
-        c.quantite_litres,
-        c.compteur_km, 
-        c.distance, 
-        c.consommation,
-        c.prix_cdf,
-        c.prix_usd,
-        c.montant_total_cdf,
-        c.montant_total_usd,
-        c.commentaire,
-        v.id_vehicule,
-        mar.nom_marque,
-        modl.modele AS nom_modele,
-        v.immatriculation,
-        ch.nom AS nom_chauffeur,
-        ch.prenom AS prenom,
-        f.nom_fournisseur,
-        c.id_vehicule,
-        u.nom AS createur
-    FROM carburant c
-    LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
-    LEFT JOIN marque mar ON v.id_marque = mar.id_marque
-    LEFT JOIN modeles modl ON v.id_modele = modl.id_modele
-    LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
-    LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
-    LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur
-    WHERE c.est_supprime = 0 AND c.id_vehicule = ?
-    ORDER BY c.id_carburant DESC
-    LIMIT 3
-  `;
-
-  db.query(query, [id_vehicule], (err, results) => {
-    if (err) {
-      console.error("Erreur SQL:", err);
-      return res.status(500).json({ message: "Erreur lors de la récupération des carburants.", error: err.sqlMessage });
+    if (!id_vehicule) {
+        return res.status(400).json({ message: "Paramètre manquant : id_vehicule." });
     }
 
-    // Retourne le résultat sous forme d'objet
-    return res.status(200).json({ success: true, data: results });
-  });
+    try {
+        // Vérifier l'accès au véhicule si non Super Admin
+        if (!isSuperAdmin && tenantId) {
+            const checkQuery = `SELECT id_vehicule FROM vehicules WHERE id_vehicule = ? AND tenant_id = ?`;
+            const vehicule = await queryAsync(checkQuery, [id_vehicule, tenantId]);
+            
+            if (vehicule.length === 0) {
+                return res.status(403).json({ message: "Vous n'avez pas accès à ce véhicule." });
+            }
+        }
+        
+        const query = `
+            SELECT 
+                c.id_carburant, 
+                c.num_pc, 
+                c.num_facture, 
+                c.date_operation, 
+                c.quantite_litres,
+                c.compteur_km, 
+                c.distance, 
+                c.consommation,
+                c.prix_cdf,
+                c.prix_usd,
+                c.montant_total_cdf,
+                c.montant_total_usd,
+                c.commentaire,
+                v.id_vehicule,
+                mar.nom_marque,
+                modl.modele AS nom_modele,
+                v.immatriculation,
+                ch.nom AS nom_chauffeur,
+                ch.prenom AS prenom,
+                f.nom_fournisseur,
+                u.nom AS createur
+            FROM carburant c
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            LEFT JOIN marque mar ON v.id_marque = mar.id_marque
+            LEFT JOIN modeles modl ON v.id_modele = modl.id_modele
+            LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
+            LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
+            LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur
+            WHERE c.est_supprime = 0 AND c.id_vehicule = ?
+            ORDER BY c.id_carburant DESC
+            LIMIT 3
+        `;
+        
+        const results = await queryAsync(query, [id_vehicule]);
+        
+        return res.status(200).json({ success: true, data: results });
+    } catch (error) {
+        console.error("Erreur SQL:", error);
+        return res.status(500).json({ message: "Erreur lors de la récupération des carburants.", error: error.message });
+    }
 };
 
 exports.getCarburantLimitTen = (req, res) => {
   const { id_vehicule } = req.query;
 
-  const where = ["c.est_supprime = 0"]; // toujours présent
+  const where = ["c.est_supprime = 0"];
   const params = [];
 
   if (id_vehicule) {
@@ -384,7 +461,7 @@ exports.getCarburantOne = (req, res) => {
       });
   };
 
-exports.postCarburant = async (req, res) => {
+/* exports.postCarburant = async (req, res) => {
   const {
     num_pc,
     num_facture,
@@ -624,6 +701,242 @@ exports.postCarburant = async (req, res) => {
       error: `Une erreur s'est produite lors de l'enregistrement du plein de carburant.`
     });
   }
+}; */
+
+exports.postCarburant = async (req, res) => {
+    const { tenantId, isSuperAdmin } = req;
+    const currentUserId = req.user?.id;
+    
+    if (!isSuperAdmin && !tenantId) {
+      return res.status(403).json({ error: 'Non autorisé à ajouter un plein carburant' });
+    }
+    
+    const {
+        num_pc,
+        num_facture,
+        date_operation,
+        id_vehicule,
+        id_chauffeur,
+        quantite_litres,
+        id_fournisseur,
+        id_type_carburant,
+        compteur_km,
+        commentaire,
+        user_cr,
+        force
+    } = req.body;
+
+    try {
+        // 1. VALIDATION DES CHAMPS OBLIGATOIRES
+        if (!id_vehicule || !compteur_km || !quantite_litres || !id_type_carburant) {
+            return res.status(400).json({
+                error: "Les champs 'id_vehicule', 'id_type_carburant', 'quantite_litres' et 'compteur_km' sont obligatoires."
+            });
+        }
+
+        // 🔥 Vérifier que le véhicule appartient au tenant
+        const vehiculeCheck = await query(
+            `SELECT v.capacite_reservoir, v.id_cat_vehicule, v.tenant_id, c.nom_cat, c.abreviation
+             FROM vehicules v
+             LEFT JOIN cat_vehicule c ON v.id_cat_vehicule = c.id_cat_vehicule
+             WHERE v.id_vehicule = ? ${!isSuperAdmin ? 'AND v.tenant_id = ?' : ''}`,
+            !isSuperAdmin ? [id_vehicule, tenantId] : [id_vehicule]
+        );
+
+        if (!vehiculeCheck.length) {
+            return res.status(404).json({ error: "Véhicule non trouvé ou n'appartient pas à votre société" });
+        }
+
+        const vehicule = vehiculeCheck[0];
+        const capacite_max = vehicule?.capacite_reservoir || 0;
+        const cat_nom = vehicule?.nom_cat || "Inconnu";
+        const cat_abrev = vehicule?.abreviation || "N/A";
+
+        // 2. PRIX CARBURANT
+        const priceResult = await query(
+            `SELECT prix_cdf, taux_usd
+             FROM prix_carburant
+             WHERE id_type_carburant = ?
+             ORDER BY date_effective DESC, id_prix_carburant DESC
+             LIMIT 1`,
+            [id_type_carburant]
+        );
+
+        if (!priceResult.length) {
+            return res.status(400).json({ error: "Aucun prix carburant défini." });
+        }
+
+        let { prix_cdf, taux_usd } = priceResult[0];
+
+        if (!taux_usd || taux_usd <= 1) {
+            const tauxResult = await query(`
+                SELECT taux_usd
+                FROM prix_carburant
+                WHERE taux_usd > 1
+                ORDER BY date_effective DESC, id_prix_carburant DESC
+                LIMIT 1
+            `);
+            taux_usd = tauxResult?.[0]?.taux_usd || 2200;
+        }
+
+        // 3. DERNIER COMPTEUR
+        const [lastCarburant] = await query(
+            `SELECT compteur_km, date_operation
+             FROM carburant
+             WHERE id_vehicule = ?
+             ORDER BY date_operation DESC, id_carburant DESC
+             LIMIT 1`,
+            [id_vehicule]
+        );
+
+        const compteur_precedent = lastCarburant?.compteur_km || 0;
+
+        // 4. CALCULS
+        const distance_parcourue = compteur_km - compteur_precedent;
+        const consommation_100km = distance_parcourue > 0
+            ? parseFloat(((quantite_litres * 100) / distance_parcourue).toFixed(2))
+            : 0;
+
+        const montant_total_cdf = parseFloat((quantite_litres * prix_cdf).toFixed(2));
+        const montant_total_usd = parseFloat((montant_total_cdf / taux_usd).toFixed(2));
+        const prix_usd = parseFloat((prix_cdf / taux_usd).toFixed(2));
+
+        // 5. ALERTES
+        const alertes = [];
+
+        if (compteur_precedent > 0 && compteur_km < compteur_precedent && !force) {
+            return res.status(409).json({
+                askConfirmation: true,
+                message: `Le nouveau kilométrage (${compteur_km}) est inférieur au dernier (${compteur_precedent}). Voulez-vous enregistrer quand même ?`
+            });
+        }
+
+        if (quantite_litres > capacite_max && capacite_max > 0) {
+            alertes.push({
+                type_alerte: "Capacité dépassée",
+                message: `Quantité (${quantite_litres} L) > capacité (${capacite_max} L).`,
+                niveau: "Critical"
+            });
+        }
+
+        if (lastCarburant && new Date(date_operation) < new Date(lastCarburant.date_operation)) {
+            alertes.push({
+                type_alerte: "Date incohérente",
+                message: `Date plein (${date_operation}) < dernier plein (${lastCarburant.date_operation}).`,
+                niveau: "Warning"
+            });
+        }
+
+        if (distance_parcourue <= 0) {
+            alertes.push({
+                type_alerte: "Distance incohérente",
+                message: `Distance (${distance_parcourue} km) invalide.`,
+                niveau: "Critical"
+            });
+        }
+
+        if (distance_parcourue > 1000) {
+            alertes.push({
+                type_alerte: "Distance excessive",
+                message: `Distance inhabituelle (${distance_parcourue} km).`,
+                niveau: "Warning"
+            });
+        }
+
+        // 6. SEUILS CONSOMMATION
+        let minConso = 5, maxConso = 50;
+
+        switch (cat_abrev) {
+            case "SUV": [minConso, maxConso] = [5, 15]; break;
+            case "< 7,5 T":
+            case "> 7,5 T":
+            case "> 20T": [minConso, maxConso] = [20, 45]; break;
+            case "Bus": [minConso, maxConso] = [25, 60]; break;
+            case "2Roues": [minConso, maxConso] = [2, 8]; break;
+            case "Agri":
+            case "Engin": [minConso, maxConso] = [10, 80]; break;
+        }
+
+        if (consommation_100km < minConso || consommation_100km > maxConso) {
+            alertes.push({
+                type_alerte: "Consommation anormale",
+                message: `Consommation ${consommation_100km} L/100km hors norme (${minConso}-${maxConso}).`,
+                niveau: "Warning"
+            });
+        }
+
+        const alerteCritique = alertes.find(a => a.niveau === "Critical");
+        if (alerteCritique && !(compteur_precedent > 0 && compteur_km < compteur_precedent && force)) {
+            return res.status(400).json({
+                error: "Données incohérentes détectées.",
+                alertes
+            });
+        }
+
+        // 7. INSERTION EN BD avec tenant_id
+        const insertResult = await query(
+            `INSERT INTO carburant (
+                num_pc, num_facture, date_operation, id_vehicule, id_chauffeur,
+                quantite_litres, prix_cdf, prix_usd, montant_total_cdf, montant_total_usd,
+                id_fournisseur, id_type_carburant, compteur_km, distance, consommation,
+                commentaire, user_cr, tenant_id, created_by, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+            [
+                num_pc || null,
+                num_facture || null,
+                moment(date_operation).format("YYYY-MM-DD"),
+                id_vehicule,
+                id_chauffeur || null,
+                quantite_litres,
+                prix_cdf,
+                prix_usd,
+                montant_total_cdf,
+                montant_total_usd,
+                id_fournisseur || null,
+                id_type_carburant,
+                compteur_km,
+                distance_parcourue,
+                consommation_100km,
+                commentaire || null,
+                user_cr || currentUserId,
+                tenantId,           // 🔥 tenant_id automatique
+                currentUserId       // 🔥 created_by
+            ]
+        );
+
+        // 8. ENREGISTREMENT DES ALERTES
+        for (const a of alertes) {
+            await query(
+                `INSERT INTO alertes_charroi
+                 (vehicule_id, type_alerte, message, niveau, status, tenant_id, created_at)
+                 VALUES (?, ?, ?, ?, 'Ouverte', ?, NOW())`,
+                [id_vehicule, a.type_alerte, a.message, a.niveau, tenantId]
+            );
+        }
+
+        return res.status(201).json({
+            message: "Plein carburant enregistré avec succès.",
+            data: {
+                id: insertResult.insertId,
+                prix_cdf,
+                prix_usd,
+                taux_usd,
+                distance_parcourue,
+                consommation_100km,
+                montant_total_cdf,
+                montant_total_usd,
+                categorie: cat_nom,
+                tenant_id: tenantId,
+                alertes_detectees: alertes.length,
+                details_alertes: alertes
+            }
+        });
+    } catch (error) {
+        console.error("Erreur lors de l'ajout de carburant :", error);
+        return res.status(500).json({
+            error: `Une erreur s'est produite lors de l'enregistrement du plein de carburant.`
+        });
+    }
 };
 
 exports.updateCarburant = async (req, res) => {

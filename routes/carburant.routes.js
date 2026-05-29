@@ -6,6 +6,8 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const verifyToken = require("../midllewares/verifyToken");
+const { tenantFilter } = require("../midllewares/tenant.middleware");
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -27,11 +29,12 @@ router.post('/vehicule_carburant', carburantController.postVehiculeCarburant);
 router.put('/vehicule_carburant', carburantController.putVehiculeCarburant);
 router.put('/relier_vehiculeCarburant', carburantController.putRelierVehiculeCarburant)
 
-router.post('/', carburantController.getCarburant);
+//Carburant
+router.post('/',verifyToken, tenantFilter, carburantController.getCarburant);
 router.get('/limit_three', carburantController.getCarburantLimitThree);
 router.get('/limit_ten', carburantController.getCarburantLimitTen);
 router.get('/one', carburantController.getCarburantOne);
-router.post('/post_carburant', carburantController.postCarburant);
+router.post('/post_carburant', verifyToken, tenantFilter, carburantController.postCarburant);
 router.put('/', carburantController.updateCarburant)
 router.put('/delete', carburantController.deleteCarburant)
 
