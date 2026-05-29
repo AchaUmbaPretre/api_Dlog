@@ -17,13 +17,6 @@ const verifyToken = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT);
     req.user = decoded;
     
-    console.log('🔐 Token décodé:', {
-      id: decoded.id,
-      role: decoded.role,
-      is_super_admin: decoded.is_super_admin,
-      tenant_id: decoded.tenant_id
-    });
-    
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
