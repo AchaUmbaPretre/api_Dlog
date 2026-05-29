@@ -1978,224 +1978,226 @@ exports.getRapportCatPeriode = async (req, res) => {
 };
 
 exports.getRapportVehiculePeriode = (req, res) => {
-  let { period, vehicule, site, cat } = req.body;
+    const { tenantId, isSuperAdmin } = req;
+    let { period, vehicule, site, cat } = req.body;
 
-  try {
-    if (typeof period === "string") {
-      period = JSON.parse(period);
+    try {
+        if (typeof period === "string") {
+            period = JSON.parse(period);
+        }
+    } catch (e) {
+        return res.status(400).json({ message: "Format 'period' invalide" });
     }
-  } catch (e) {
-    return res.status(400).json({ message: "Format 'period' invalide" });
-  }
 
-  let months = [];
-  let years = [];
+    const months = period?.mois?.map(Number) || [];
+    const years = period?.annees?.map(Number) || [];
+    const where = [];
+    const params = [];
 
-  if (period?.mois?.length) {
-    months = period.mois.map(Number);
-  }
+    if (!isSuperAdmin && tenantId) {
+        where.push("v.tenant_id = ?");
+        params.push(tenantId);
+    }
 
-  if (period?.annees?.length) {
-    years = period.annees.map(Number);
-  }
+    // Filtres
+    if (vehicule?.length) {
+        where.push(`c.id_vehicule IN (${vehicule.map(() => "?").join(",")})`);
+        params.push(...vehicule);
+    }
+    if (site?.length) {
+        where.push(`s.id_site IN (${site.map(() => "?").join(",")})`);
+        params.push(...site);
+    }
+    if (cat?.length) {
+        where.push(`cat.id_cat_vehicule IN (${cat.map(() => "?").join(",")})`);
+        params.push(...cat);
+    }
+    if (months.length) {
+        where.push(`MONTH(c.date_operation) IN (${months.map(() => "?").join(",")})`);
+        params.push(...months);
+    }
+    if (years.length) {
+        where.push(`YEAR(c.date_operation) IN (${years.map(() => "?").join(",")})`);
+        params.push(...years);
+    }
 
-  // Base WHERE
-  let where = "WHERE 1=1";
-  let params = [];
+    const whereClause = where.length ? "WHERE " + where.join(" AND ") : "";
 
-  if (vehicule && Array.isArray(vehicule) && vehicule.length > 0 ) {
-    const escapedVehicules = vehicule.map(c => db.escape(c)).join(',');
-    where += ` AND c.id_vehicule IN (${escapedVehicules})`;
-    params.push(escapedVehicules);
-  }
-
-  if (site && Array.isArray(site) && site.length > 0) {
-      const escapedSites = site.map(s => db.escape(s)).join(',');
-      where += ` AND s.id_site IN (${escapedSites})`;
-  }
-
-  if (cat && Array.isArray(cat) && cat.length > 0) {
-      const escapedCat = cat.map(s => db.escape(s)).join(',');
-      where += ` AND cat.id_cat_vehicule IN (${escapedCat})`;
-  }
-
-  // Filtres mois
-  if (Array.isArray(months) && months.length > 0) {
-    const escapedMonths = months.map(m => db.escape(m)).join(",");
-    where += ` AND MONTH(c.date_operation) IN (${escapedMonths})`;
-  }
-
-  // Filtres années
-  if (Array.isArray(years) && years.length > 0) {
-    const escapedYears = years.map(y => db.escape(y)).join(",");
-    where += ` AND YEAR(c.date_operation) IN (${escapedYears})`;
-  }
-
-  // Requête finale
-  const q = `
-SELECT 
-        vc.nom_marque,
-        vc.immatriculation,
-        c.id_vehicule,
-        cat.nom_cat,
-        MONTH(c.date_operation) AS Mois,
-        YEAR(c.date_operation) AS Année,
-        COUNT(c.id_carburant) AS total_pleins, 
-        SUM(c.compteur_km) AS total_kilometrage, 
-        SUM(c.quantite_litres) AS total_litres, 
-        SUM(c.consommation) AS total_consom, 
-        SUM(c.distance) AS total_distance, 
-        SUM(c.montant_total_cdf) AS total_total_cdf, 
-        SUM(c.montant_total_usd) AS total_total_usd 
-      FROM carburant c 
-        LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement 
-        LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule 
+    const q = `
+        SELECT 
+            v.immatriculation,
+            mar.nom_marque,
+            modl.modele AS nom_modele,
+            c.id_vehicule,
+            cat.nom_cat,
+            MONTH(c.date_operation) AS mois,
+            YEAR(c.date_operation) AS annee,
+            COUNT(c.id_carburant) AS total_pleins,
+            SUM(c.quantite_litres) AS total_litres,
+            SUM(c.montant_total_cdf) AS total_cdf,
+            SUM(c.montant_total_usd) AS total_usd,
+            ROUND(AVG(c.consommation), 2) AS conso_moyenne
+        FROM carburant c 
+        LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+        LEFT JOIN marque mar ON v.id_marque = mar.id_marque
+        LEFT JOIN modeles modl ON v.id_modele = modl.id_modele
         LEFT JOIN cat_vehicule cat ON v.id_cat_vehicule = cat.id_cat_vehicule
         LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule 
         LEFT JOIN sites s ON sv.id_site = s.id_site 
-        LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant 
-        ${where}
-      GROUP BY c.id_vehicule, cat.id_cat_vehicule, MONTH(c.date_operation), YEAR(c.date_operation)
-      ORDER BY MONTH(c.date_operation);
+        ${whereClause}
+        GROUP BY c.id_vehicule, cat.id_cat_vehicule, MONTH(c.date_operation), YEAR(c.date_operation)
+        ORDER BY annee DESC, mois DESC
     `;
 
-  db.query(q, params, (error, data) => {
-    if (error) {
-      console.error("Erreur SQL", error);
-      return res.status(500).json({
-        message: "Erreur lors de la récupération",
-        error: error.sqlMessage,
-      });
-    }
-
-    if (!data.length) {
-      return res.status(404).json({
-        message: "Aucune donnée trouvée pour les paramètres fournis.",
-      });
-    }
-
-    return res.status(200).json(data);
-  });
+    db.query(q, params, (error, data) => {
+        if (error) {
+            console.error("Erreur SQL:", error);
+            return res.status(500).json({ message: "Erreur lors de la récupération", error: error.sqlMessage });
+        }
+        return res.status(200).json({ success: true, data: data });
+    });
 };
 
-exports.getRapportCarbMonth = (req, res) => {
-  let { period, vehicule, cat, type_carb, site } = req.body;
+exports.getRapportCarbMonth = async (req, res) => {
+    const { tenantId, isSuperAdmin } = req;
+    let { period, vehicule, cat, type_carb, site } = req.body;
 
-  if (typeof period === "string") {
     try {
-      period = JSON.parse(period);
+        if (typeof period === "string") {
+            period = JSON.parse(period);
+        }
     } catch (e) {
-      return res.status(400).json({ message: "Format 'period' invalide" });
-    }
-  }
-
-  const months = Array.isArray(period?.mois) ? period.mois.map(Number) : [];
-  const years = Array.isArray(period?.annees) ? period.annees.map(Number) : [];
-
-  let where = "WHERE 1=1";
-
-  if (Array.isArray(vehicule) && vehicule.length > 0) {
-    const escapedVehicules = vehicule.map(v => db.escape(v)).join(',');
-    where += ` AND c.id_vehicule IN (${escapedVehicules})`;
-  }
-
-  if (site && Array.isArray(site) && site.length > 0) {
-    const escapedSites = site.map(s => db.escape(s)).join(',');
-    where += ` AND sv.id_site IN (${escapedSites})`;
-  }
-
-  if (Array.isArray(cat) && cat.length > 0) {
-    const escapedCat = cat.map(c => db.escape(c)).join(',');
-    where += ` AND cat.id_cat_vehicule IN (${escapedCat})`;
-  }
-
-  if (Array.isArray(type_carb) && type_carb.length > 0) {
-    const escapedTypeCarb = type_carb.map(t => db.escape(t)).join(',');
-    where += ` AND vc.id_type_carburant IN (${escapedTypeCarb})`;
-  }
-
-  if (months.length > 0) {
-    const escapedMonths = months.map(m => db.escape(m)).join(',');
-    where += ` AND MONTH(c.date_operation) IN (${escapedMonths})`;
-  }
-
-  if (years.length > 0) {
-    const escapedYears = years.map(y => db.escape(y)).join(',');
-    where += ` AND YEAR(c.date_operation) IN (${escapedYears})`;
-  }
-
-  const q = `
-    SELECT 
-      YEAR(c.date_operation) AS annee,
-      MONTH(c.date_operation) AS mois,
-      SUM(c.consommation) AS consommation_totale
-    FROM carburant c
-    LEFT JOIN type_carburant tc ON tc.id_type_carburant = c.id_type_carburant
-    LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement
-    LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_carburant_vehicule
-    LEFT JOIN cat_vehicule cat ON v.id_cat_vehicule = cat.id_cat_vehicule
-    LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule
-    ${where}
-    GROUP BY YEAR(c.date_operation), MONTH(c.date_operation)
-    ORDER BY YEAR(c.date_operation) DESC, MONTH(c.date_operation) DESC;
-  `;
-
-  db.query(q, (error, data) => {
-    if (error) {
-      console.error("Erreur SQL", error);
-      return res.status(500).json({
-        message: "Erreur lors de la récupération",
-        error: error.sqlMessage,
-      });
+        return res.status(400).json({ message: "Format 'period' invalide" });
     }
 
-    if (!data.length) {
-      return res.status(404).json({
-        message: "Aucune donnée trouvée pour les paramètres fournis.",
-      });
+    const months = period?.mois?.map(Number) || [];
+    const years = period?.annees?.map(Number) || [];
+    const where = [];
+    const params = [];
+
+    if (!isSuperAdmin && tenantId) {
+        where.push("v.tenant_id = ?");
+        params.push(tenantId);
     }
 
-    return res.status(200).json(data);
-  });
-};
+    if (vehicule?.length) {
+        where.push(`c.id_vehicule IN (${vehicule.map(() => "?").join(",")})`);
+        params.push(...vehicule);
+    }
+    if (site?.length) {
+        where.push(`sv.id_site IN (${site.map(() => "?").join(",")})`);
+        params.push(...site);
+    }
+    if (cat?.length) {
+        where.push(`cat.id_cat_vehicule IN (${cat.map(() => "?").join(",")})`);
+        params.push(...cat);
+    }
+    if (type_carb?.length) {
+        where.push(`v.id_type_carburant IN (${type_carb.map(() => "?").join(",")})`);
+        params.push(...type_carb);
+    }
+    if (months.length) {
+        where.push(`MONTH(c.date_operation) IN (${months.map(() => "?").join(",")})`);
+        params.push(...months);
+    }
+    if (years.length) {
+        where.push(`YEAR(c.date_operation) IN (${years.map(() => "?").join(",")})`);
+        params.push(...years);
+    }
 
-exports.getCarburantByMonthYear = (req, res) => {
-  const { mois, annee } = req.query;
+    const whereClause = where.length ? "WHERE " + where.join(" AND ") : "";
 
-  if (!mois || !annee) {
-    return res.status(400).json({ message: "Paramètres mois et année requis." });
-  }
-
-  const q = `
-      SELECT 
-          c.id_carburant, 
-          c.quantite_litres, 
-          c.date_operation, 
-          c.distance, 
-          c.consommation, 
-          c.montant_total_cdf, 
-          c.montant_total_usd,
-          chau.nom AS nom_chauffeur,
-          u.nom AS createur,
-          vc.nom_marque,
-          vc.immatriculation,
-          tc.nom_type_carburant,
-          cat.abreviation
-      FROM carburant c
-          LEFT JOIN chauffeurs chau ON c.id_chauffeur = chau.id_chauffeur
-          LEFT JOIN  utilisateur u ON c.user_cr = u.id_utilisateur
-          LEFT JOIN vehicule_carburant vc ON c.id_vehicule = vc.id_enregistrement
-          LEFT JOIN vehicules v ON vc.id_enregistrement = v.id_vehicule
-          LEFT JOIN cat_vehicule cat ON v.id_cat_vehicule = cat.id_cat_vehicule
-          LEFT JOIN type_carburant tc ON vc.id_type_carburant = tc.id_type_carburant
-      WHERE MONTH(c.date_operation) = ?
-          AND YEAR(c.date_operation) = ?
-          AND c.est_supprime = 0
-          ORDER BY c.date_operation ASC
+    const q = `
+        SELECT 
+            YEAR(c.date_operation) AS annee,
+            MONTH(c.date_operation) AS mois,
+            DATE_FORMAT(c.date_operation, '%M %Y') AS periode,
+            SUM(c.consommation) AS consommation_totale,
+            SUM(c.quantite_litres) AS total_litres,
+            SUM(c.montant_total_cdf) AS total_cdf,
+            SUM(c.montant_total_usd) AS total_usd,
+            COUNT(c.id_carburant) AS total_pleins
+        FROM carburant c
+        LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+        LEFT JOIN cat_vehicule cat ON v.id_cat_vehicule = cat.id_cat_vehicule
+        LEFT JOIN sites_vehicule sv ON v.id_vehicule = sv.id_vehicule
+        LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
+        ${whereClause}
+        GROUP BY annee, mois
+        ORDER BY annee DESC, mois DESC
     `;
 
-  db.query(q, [mois, annee], (err, result) => {
-    if (err) return res.status(500).json({ message: err.message });
-    res.json(result);
-  });
+    const data = await queryAsync(q, params);
+
+    if (!data.length) {
+        return res.status(404).json({ message: "Aucune donnée trouvée" });
+    }
+
+    return res.status(200).json({
+        success: true,
+        data: data,
+        meta: { tenant_id: !isSuperAdmin ? tenantId : null }
+    });
+};
+
+exports.getCarburantByMonthYear = async (req, res) => {
+    const { tenantId, isSuperAdmin } = req;
+    const { mois, annee } = req.query;
+
+    if (!mois || !annee) {
+        return res.status(400).json({ message: "Paramètres mois et année requis." });
+    }
+
+    const moisNum = parseInt(mois);
+    const anneeNum = parseInt(annee);
+
+    try {
+        let q = `
+            SELECT 
+                c.id_carburant, 
+                c.quantite_litres, 
+                c.date_operation, 
+                c.distance, 
+                c.consommation, 
+                c.montant_total_cdf, 
+                c.montant_total_usd,
+                c.compteur_km,
+                mar.nom_marque,
+                v.immatriculation,
+                tc.nom_type_carburant,
+                cat.abreviation
+            FROM carburant c
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            LEFT JOIN marque mar ON v.id_marque = mar.id_marque
+            LEFT JOIN cat_vehicule cat ON v.id_cat_vehicule = cat.id_cat_vehicule
+            LEFT JOIN type_carburant tc ON v.id_type_carburant = tc.id_type_carburant
+            WHERE MONTH(c.date_operation) = ?
+            AND YEAR(c.date_operation) = ?
+            AND c.est_supprime = 0
+        `;
+        
+        let params = [moisNum, anneeNum];
+
+        if (!isSuperAdmin && tenantId) {
+            q += ` AND v.tenant_id = ?`;
+            params.push(tenantId);
+        }
+
+        q += ` ORDER BY c.date_operation ASC`;
+
+        const result = await queryAsync(q, params);
+
+        return res.status(200).json({
+            success: true,
+            data: result,
+            meta: {
+                mois: moisNum,
+                annee: anneeNum,
+                tenant_id: !isSuperAdmin ? tenantId : null
+            }
+        });
+    } catch (err) {
+        console.error("Erreur getCarburantByMonthYear:", err);
+        return res.status(500).json({ message: err.message });
+    }
 };
