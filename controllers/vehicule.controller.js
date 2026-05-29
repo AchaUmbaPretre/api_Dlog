@@ -30,7 +30,7 @@ exports.getVehicule = async (req, res) => {
         FROM vehicules v
         INNER JOIN marque ON v.id_marque = marque.id_marque
         LEFT JOIN modeles ON v.id_modele = modeles.id_modele
-        INNER JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
+        LEFT JOIN cat_vehicule cv ON v.id_cat_vehicule = cv.id_cat_vehicule
         WHERE v.est_supprime = 0 AND v.tenant_id = ?
       `;
       params = [tenantId];

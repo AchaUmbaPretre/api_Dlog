@@ -70,40 +70,96 @@ exports.getUserOne = (req, res) => {
 };
 
 exports.registerUser = async (req, res) => {
-    const { nom, prenom, email, mot_de_passe, role, id_ville, id_departement  } = req.body;
-  
-    try {
-      const query = 'SELECT * FROM utilisateur WHERE email = ?';
-      const values = [email];
-  
-      db.query(query, values, async (err, results) => {
-        if (err) {
-          return res.status(500).json({ error: err.message });
-        }
-  
-        if (results.length > 0) {
-          return res.status(200).json({ message: 'Utilisateur existe déjà', success: false });
-        }
-  
-        const defaultPassword = mot_de_passe || '1234';
-        const hashedPassword = await bcrypt.hash(defaultPassword, 10);
-  
-        const insertQuery = 'INSERT INTO utilisateur (nom, prenom, email, mot_de_passe, role, id_ville, id_departement ) VALUES (?, ?, ?, ?, ?, ?, ?)';
-        const insertValues = [nom, prenom, email, hashedPassword,role, id_ville, id_departement];
-  
-        db.query(insertQuery, insertValues, (err, insertResult) => {
-          if (err) {
-            console.log(err)
-            return res.status(500).json({ error: err.message });
-          }
-          res.status(201).json({ message: 'Enregistré avec succès', success: true });
+    const adminId = req.user?.id;
+    const adminTenantId = req.user?.tenant_id || adminId;
+    const adminRole = req.user?.role;
+    
+    const { nom, prenom, email, mot_de_passe, role, id_ville, id_departement } = req.body;
+    
+    // Vérifier que c'est bien un admin qui crée
+    if (!adminId || (adminRole !== 'Admin' && adminRole !== 'SuperAdmin')) {
+        return res.status(403).json({ 
+            success: false, 
+            message: 'Seul un administrateur peut créer des utilisateurs' 
         });
-      });
+    }
+    
+    console.log('👤 Admin connecté:', {
+        id: adminId,
+        role: adminRole,
+        tenant_id: adminTenantId
+    });
+    
+    try {
+        // Vérifier si l'utilisateur existe déjà
+        const checkUserQuery = 'SELECT * FROM utilisateur WHERE email = ?';
+        db.query(checkUserQuery, [email], async (err, results) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            
+            if (results.length > 0) {
+                return res.status(200).json({ 
+                    message: 'Utilisateur existe déjà', 
+                    success: false 
+                });
+            }
+            
+            const defaultPassword = mot_de_passe || '1234';
+            const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+            
+            // 🔥 INSERTION avec tenant_id hérité de l'admin
+            const insertQuery = `
+                INSERT INTO utilisateur 
+                (nom, prenom, email, mot_de_passe, role, id_ville, id_departement, 
+                 tenant_id, created_by, niveau, date_creation) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            `;
+            
+            const insertValues = [
+                nom, 
+                prenom, 
+                email, 
+                hashedPassword,
+                role || 'User',
+                id_ville || null, 
+                id_departement || null,
+                adminTenantId,   // 🔥 Hérite du tenant de l'admin
+                adminId,         // 🔥 Qui a créé (l'admin connecté)
+                2                // 🔥 niveau = 2 (utilisateur standard)
+            ];
+            
+            db.query(insertQuery, insertValues, (err, insertResult) => {
+                if (err) {
+                    console.error('❌ Erreur insertion:', err);
+                    return res.status(500).json({ error: err.message });
+                }
+                
+                console.log('✅ Utilisateur créé:', {
+                    id: insertResult.insertId,
+                    email,
+                    role: role || 'User',
+                    tenant_id: adminTenantId,
+                    created_by: adminId
+                });
+                
+                res.status(201).json({ 
+                    message: 'Enregistré avec succès', 
+                    success: true,
+                    data: {
+                        id: insertResult.insertId,
+                        email,
+                        role: role || 'User',
+                        tenant_id: adminTenantId
+                    }
+                });
+            });
+        });
     } catch (err) {
-      res.status(500).json({
-        success: false,
-        message: `Erreur dans le contrôleur de registre : ${err.message}`,
-      });
+        res.status(500).json({
+            success: false,
+            message: `Erreur dans le contrôleur de registre : ${err.message}`,
+        });
     }
 };
 

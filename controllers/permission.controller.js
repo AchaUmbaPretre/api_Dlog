@@ -861,7 +861,6 @@ exports.postPermissionProjet = (req, res) => {
 
 exports.postPermissionUserVehicule = (req, res) => {
     const { utilisateur, vehicules } = req.body;
-    console.log('📥 Création admin/client:', { utilisateur, vehiculesCount: vehicules?.length });
 
     const checkUserQuery = 'SELECT id_utilisateur FROM utilisateur WHERE email = ?';
     db.query(checkUserQuery, [utilisateur.email], async (err, userResults) => {
@@ -873,30 +872,25 @@ exports.postPermissionUserVehicule = (req, res) => {
             const defaultPassword = '1234';
             const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
-            // 🔥 Insertion avec tenant_id et is_super_admin
+            // 🔥 tenant_id est géré ICI par le backend
             const insertUserQuery = `
                 INSERT INTO utilisateur 
-                (nom, prenom, email, mot_de_passe, role, id_admin, tenant_id, is_super_admin, created_by, niveau, date_creation) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                (nom, prenom, email, mot_de_passe, role, id_admin, tenant_id, is_super_admin, date_creation) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
             `;
             
-            // Pour un admin (client) :
-            // - tenant_id sera son propre ID (mis à jour après insertion)
-            // - is_super_admin = 0
-            // - niveau = 1 (admin)
-            // - created_by = ID du super admin qui crée (ou NULL)
+            // 🔥 LOGIQUE: tenant_id = son propre ID (sera mis à jour après insertion)
+            // 🔥 is_super_admin = 0 (par défaut)
             
             db.query(insertUserQuery, [
                 utilisateur.nom || '',
                 utilisateur.prenom || '',
                 utilisateur.email,
                 hashedPassword,
-                utilisateur.role || 'Admin',  // Role Admin par défaut
+                utilisateur.role || 'Admin',
                 utilisateur.id_admin || null,
                 null,  // tenant_id temporaire
-                0,     // is_super_admin = 0
-                utilisateur.created_by || null,  // ID du super admin
-                1      // niveau = 1 (admin)
+                0,     // is_super_admin
             ], (err, result) => {
                 if (err) {
                     console.error('❌ Erreur insertion:', err);
@@ -904,7 +898,7 @@ exports.postPermissionUserVehicule = (req, res) => {
                 }
                 
                 userId = result.insertId;
-                console.log('✅ Admin créé avec ID:', userId);
+                console.log('✅ Utilisateur créé avec ID:', userId);
                 
                 // 🔥 Mettre à jour tenant_id avec son propre ID
                 const updateTenantQuery = 'UPDATE utilisateur SET tenant_id = ? WHERE id_utilisateur = ?';
@@ -921,15 +915,14 @@ exports.postPermissionUserVehicule = (req, res) => {
             });
         } else {
             userId = userResults[0].id_utilisateur;
-            console.log('✅ Admin existant, mise à jour:', userId);
+            console.log('✅ Utilisateur existant:', userId);
             
-            // Mettre à jour l'admin existant
+            // Mettre à jour si nécessaire
             const updateUserQuery = `
                 UPDATE utilisateur 
                 SET nom = ?, prenom = ?, role = ?, date_modification = NOW()
                 WHERE id_utilisateur = ?
             `;
-            
             db.query(updateUserQuery, [
                 utilisateur.nom || '',
                 utilisateur.prenom || '',
@@ -959,7 +952,6 @@ function processVehicules(userId, vehicules, res) {
     }
 
     for (const vehicule of vehicules) {
-        // Vérifier si le véhicule existe déjà
         const checkVehiculeQuery = 'SELECT id_vehicule FROM vehicules WHERE immatriculation = ?';
         db.query(checkVehiculeQuery, [vehicule.immatriculation], (err, results) => {
             if (err) {
@@ -970,7 +962,7 @@ function processVehicules(userId, vehicules, res) {
             }
 
             if (results.length === 0) {
-                // 🔥 Créer le véhicule avec tenant_id = userId (l'admin)
+                // 🔥 tenant_id = userId (l'utilisateur qui possède le véhicule)
                 const insertVehiculeQuery = `
                     INSERT INTO vehicules 
                     (immatriculation, numero_ordre, id_marque, id_modele, id_admin, tenant_id, created_at) 
@@ -982,7 +974,7 @@ function processVehicules(userId, vehicules, res) {
                     vehicule.id_marque || null,
                     vehicule.id_modele || null,
                     vehicule.id_admin || null,
-                    userId  // 🔥 tenant_id = l'admin qui possède le véhicule
+                    userId  // 🔥 tenant_id = l'ID de l'utilisateur
                 ], (err, result) => {
                     if (err) {
                         console.error('❌ Erreur création véhicule:', err);
@@ -990,7 +982,7 @@ function processVehicules(userId, vehicules, res) {
                         checkComplete();
                         return;
                     }
-                    console.log('✅ Véhicule créé:', vehicule.immatriculation, 'tenant_id:', userId);
+                    console.log('✅ Véhicule créé, tenant_id:', userId);
                     createPermission(userId, result.insertId, () => checkComplete());
                 });
             } else {
@@ -1002,7 +994,6 @@ function processVehicules(userId, vehicules, res) {
     }
 
     function createPermission(userId, vehiculeId, callback) {
-        // Vérifier si la permission existe déjà
         const checkPermissionQuery = 'SELECT id FROM utilisateur_vehicule WHERE id_utilisateur = ? AND id_vehicule = ?';
         db.query(checkPermissionQuery, [userId, vehiculeId], (checkErr, checkResults) => {
             if (checkErr) {
@@ -1017,7 +1008,7 @@ function processVehicules(userId, vehicules, res) {
                     if (err) {
                         console.error('❌ Erreur création permission:', err);
                     } else {
-                        console.log('✅ Permission créée admin-véhicule:', { userId, vehiculeId });
+                        console.log('✅ Permission créée:', { userId, vehiculeId });
                     }
                     callback();
                 });
@@ -1033,7 +1024,7 @@ function processVehicules(userId, vehicules, res) {
         if (completed === total) {
             res.json({ 
                 success: errors.length === 0,
-                message: errors.length === 0 ? 'Admin et véhicules synchronisés avec succès' : 'Synchronisation partielle',
+                message: errors.length === 0 ? 'Permissions synchronisées' : 'Synchronisation partielle',
                 data: { 
                     utilisateur_id: userId, 
                     vehicules_count: total,
@@ -1043,105 +1034,3 @@ function processVehicules(userId, vehicules, res) {
         }
     }
 }
-
-/* exports.postPermissionUserVehicule = (req, res) => {
-    const { utilisateur, vehicules } = req.body;
-    console.log(req.body)
-
-    const checkUserQuery = 'SELECT id_utilisateur FROM utilisateur WHERE email = ?';
-    db.query(checkUserQuery, [utilisateur.email], async (err, userResults) => {
-        if (err) return res.status(500).json({ success: false, error: err.message });
-
-        let userId;
-
-        if (userResults.length === 0) {
-            const defaultPassword = '1234';
-            const hashedPassword = await bcrypt.hash(defaultPassword, 10);
-
-            const insertUserQuery = 'INSERT INTO utilisateur (nom, prenom, email, mot_de_passe, role, id_admin) VALUES (?, ?, ?, ?, ?, ?)';
-            db.query(insertUserQuery, [
-                utilisateur.nom || '',
-                utilisateur.prenom || '',
-                utilisateur.email,
-                hashedPassword,  // 🔥 Mot de passe hashé (1234)
-                utilisateur.role || 'Owner',
-                utilisateur.id_admin || null
-            ], (err, result) => {
-                if (err) return res.status(500).json({ success: false, error: err.message });
-                userId = result.insertId;
-                console.log('✅ Utilisateur créé avec mot de passe par défaut: 1234');
-                processVehicules(userId, vehicules, res);
-            });
-        } else {
-            userId = userResults[0].id_utilisateur;
-            console.log('✅ Utilisateur existant, conservation du mot de passe actuel');
-            processVehicules(userId, vehicules, res);
-        }
-    });
-};
-
-function processVehicules(userId, vehicules, res) {
-    let completed = 0;
-    const total = vehicules.length;
-
-    if (total === 0) {
-        return res.json({ 
-            success: true, 
-            message: 'Aucun véhicule à synchroniser', 
-            data: { utilisateur_id: userId, vehicules_count: 0 } 
-        });
-    }
-
-    for (const vehicule of vehicules) {
-        const checkVehiculeQuery = 'SELECT id_vehicule FROM vehicules WHERE immatriculation = ?';
-        db.query(checkVehiculeQuery, [vehicule.immatriculation], (err, results) => {
-            if (err) {
-                console.error('❌ Erreur vérification véhicule:', err);
-                checkComplete();
-                return;
-            }
-
-            if (results.length === 0) {
-                const insertVehiculeQuery = 'INSERT INTO vehicules (immatriculation, id_admin) VALUES (?, ?)';
-                db.query(insertVehiculeQuery, [vehicule.immatriculation, vehicule.id_admin || null], (err, result) => {
-                    if (err) {
-                        console.error('❌ Erreur création véhicule:', err);
-                        checkComplete();
-                        return;
-                    }
-                    console.log('✅ Véhicule créé:', vehicule.immatriculation);
-                    createPermission(userId, result.insertId, () => checkComplete());
-                });
-            } else {
-                console.log('✅ Véhicule existant:', vehicule.immatriculation);
-                createPermission(userId, results[0].id_vehicule, () => checkComplete());
-            }
-        });
-    }
-
-    function createPermission(userId, vehiculeId, callback) {
-        const query = 'INSERT IGNORE INTO utilisateur_vehicule (id_utilisateur, id_vehicule, created_at) VALUES (?, ?, NOW())';
-        db.query(query, [userId, vehiculeId], (err) => {
-            if (err) {
-                console.error('❌ Erreur création permission:', err);
-            } else {
-                console.log('✅ Permission créée:', { userId, vehiculeId });
-            }
-            callback();
-        });
-    }
-
-    function checkComplete() {
-        completed++;
-        if (completed === total) {
-            res.json({ 
-                success: true, 
-                message: 'Permissions synchronisées avec succès', 
-                data: { 
-                    utilisateur_id: userId, 
-                    vehicules_count: total 
-                } 
-            });
-        }
-    }
-} */
