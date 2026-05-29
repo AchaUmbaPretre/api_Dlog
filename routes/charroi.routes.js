@@ -32,19 +32,6 @@ router.get('/type_carburant', charroiController.getTypeCarburant)
 router.get('/pneus', charroiController.getTypePneus)
 router.get('/lubrifiant', charroiController.getLubrifiant)
 
-//Vehicule
-router.get('/vehicule_count', charroiController.getVehiculeCount)
-router.get('/vehicule_dispo', charroiController.getVehiculeDispo)
-router.get('/vehicule_occupe', charroiController.getVehiculeOccupe)
-
-router.put('/vehicule/rend_dispo', charroiController.rendreVehiculeDispo)
-
-router.get('/vehicule/one', charroiController.getVehiculeOne)
-router.post('/vehicule', upload.array('img', 10), charroiController.postVehicule)
-router.put('/vehicule', charroiController.putVehicule);
-router.put('/vehicule_estSupprime', charroiController.deleteVehicule);
-router.put('/vehicule_falcon', charroiController.putRelierVehiculeFalcon)
-
 //Site vehicule
 router.post('/site_vehicule', charroiController.postSiteVehicule)
 
