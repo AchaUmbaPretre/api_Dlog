@@ -89,8 +89,8 @@ router.put('/sub_inspection_gen', upload.any(), verifyToken, tenantFilter, charr
 router.post('/delete_inspection', verifyToken, tenantFilter, charroiController.deleteInspectionGen)
 
 //Validation inspection
-router.get('/inspection_validation', charroiController.getValidationInspection)
-router.post('/inspection_validation', charroiController.postValidationInspection)
+router.get('/inspection_validation', verifyToken, tenantFilter, charroiController.getValidationInspection)
+router.post('/inspection_validation', verifyToken, tenantFilter, charroiController.postValidationInspection)
 
 //Suivi inspection
 router.get('/suivi_inspections', charroiController.getSuiviInspection)

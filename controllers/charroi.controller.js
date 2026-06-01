@@ -1845,6 +1845,14 @@ function executeQuery(id_sub_inspection_gen, tenantId, isSuperAdmin, res) {
 }
 
 exports.postValidationInspection = async (req, res) => {
+    const { tenantId, isSuperAdmin } = req;
+    const currentUserId = req.user?.id;
+
+    // Vérification des droits
+    if (!isSuperAdmin && !tenantId) {
+        return res.status(403).json({ error: 'Non autorisé à valider des inspections' });
+    }
+
     try {
         const inspections = req.body;
 
@@ -1865,6 +1873,23 @@ exports.postValidationInspection = async (req, res) => {
 
             const cout = montant;
 
+            // 🔥 Vérifier que la sous-inspection appartient au tenant
+            if (!isSuperAdmin && tenantId) {
+                const checkSubQuery = `
+                    SELECT sig.id_sub_inspection_gen, sig.tenant_id, ig.tenant_id as inspection_tenant_id
+                    FROM sub_inspection_gen sig
+                    INNER JOIN inspection_gen ig ON sig.id_inspection_gen = ig.id_inspection_gen
+                    WHERE sig.id_sub_inspection_gen = ? AND (sig.tenant_id = ? OR ig.tenant_id = ?)
+                `;
+                const [subResult] = await queryAsync(checkSubQuery, [id_sub_inspection_gen, tenantId, tenantId]);
+                
+                if (!subResult || subResult.length === 0) {
+                    return res.status(403).json({ 
+                        error: `Sous-inspection #${id_sub_inspection_gen} non trouvée ou n'appartient pas à votre société` 
+                    });
+                }
+            }
+
             // Vérifie si cette réparation a déjà été validée pour cette sous-inspection
             const checkQuery = `
                 SELECT COUNT(*) AS count 
@@ -1874,86 +1899,260 @@ exports.postValidationInspection = async (req, res) => {
             const [checkResult] = await queryAsync(checkQuery, [id_sub_inspection_gen, id_type_reparation]);
 
             if (checkResult.count > 0) {
-                // On ignore ou on peut aussi renvoyer une erreur
                 return res.status(400).json({
-                    error: `Le type de réparation a déjà été validé pour la sous-inspection).`
+                    error: `Le type de réparation a déjà été validé pour la sous-inspection #${id_sub_inspection_gen}.`
                 });
             }
 
-            // Si pas encore validé, on insère
+            // Insertion avec tenant_id
             const insertQuery = `
                 INSERT INTO inspection_valide 
-                (id_sub_inspection_gen, id_type_reparation, id_cat_inspection, cout, budget_valide, manoeuvre, user_cr)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                (id_sub_inspection_gen, id_type_reparation, id_cat_inspection, cout, budget_valide, manoeuvre, user_cr, tenant_id, created_by, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             `;
 
             const insertValues = [
                 id_sub_inspection_gen,
                 id_type_reparation,
-                id_cat_inspection,
-                cout,
-                budget_valide,
-                manoeuvre,
-                user_cr
+                id_cat_inspection || null,
+                cout || 0,
+                budget_valide || 0,
+                manoeuvre || null,
+                user_cr || currentUserId,
+                tenantId,
+                currentUserId
             ];
 
             await queryAsync(insertQuery, insertValues);
 
+            // Mise à jour du statut de la sous-inspection
             const updateQuery = `
                 UPDATE sub_inspection_gen 
-                SET date_validation = ?, statut = ?
+                SET date_validation = ?, statut = ?, tenant_id = ?, updated_at = NOW()
                 WHERE id_sub_inspection_gen = ?
             `;
-
-            const updateValues = [moment().format('YYYY-MM-DD'), 8, id_sub_inspection_gen];
-
+            const updateValues = [moment().format('YYYY-MM-DD'), 8, tenantId, id_sub_inspection_gen];
             await queryAsync(updateQuery, updateValues);
+
+            // Journalisation
+            const logQuery = `
+                INSERT INTO log_inspection (table_name, action, record_id, user_id, description, tenant_id, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, NOW())
+            `;
+            await queryAsync(logQuery, [
+                'inspection_valide',
+                'Création',
+                id_sub_inspection_gen,
+                user_cr || currentUserId,
+                `Validation de l'inspection #${id_sub_inspection_gen} pour le type réparation ${id_type_reparation} avec budget ${budget_valide}`,
+                tenantId
+            ]);
+
+            // Récupération des infos pour notification
+            const getInfoQuery = `
+                SELECT v.immatriculation, m.nom_marque, tr.type_rep
+                FROM sub_inspection_gen sig
+                INNER JOIN inspection_gen ig ON sig.id_inspection_gen = ig.id_inspection_gen
+                INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
+                INNER JOIN marque m ON v.id_marque = m.id_marque
+                INNER JOIN type_reparations tr ON sig.id_type_reparation = tr.id_type_reparation
+                WHERE sig.id_sub_inspection_gen = ?
+            `;
+            const [infoResult] = await queryAsync(getInfoQuery, [id_sub_inspection_gen]);
+
+            // Notification
+            const notifMessage = `L'inspection #${id_sub_inspection_gen} du véhicule ${infoResult?.[0]?.immatriculation || ''} (${infoResult?.[0]?.nom_marque || ''}) a été validée avec un budget de ${budget_valide} FC.`;
+            await queryAsync(`
+                INSERT INTO notifications (user_id, message, target_type, target_id, tenant_id, created_at)
+                VALUES (?, ?, ?, ?, ?, NOW())
+            `, [user_cr || currentUserId, notifMessage, 'inspection_valide', id_sub_inspection_gen, tenantId]);
+
+            // Envoi d'emails aux utilisateurs autorisés (même tenant)
+            const getUserEmailSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ? AND tenant_id = ?`;
+            const [userResult] = await queryAsync(getUserEmailSQL, [user_cr || currentUserId, tenantId]);
+            const userEmail = userResult?.[0]?.email;
+
+            const permissionSQL = `
+                SELECT DISTINCT u.email 
+                FROM permission p 
+                INNER JOIN utilisateur u ON p.user_id = u.id_utilisateur
+                WHERE p.menus_id = 14 AND p.can_read = 1 AND u.tenant_id = ?
+            `;
+            const [perResult] = await queryAsync(permissionSQL, [tenantId]);
+
+            const emailMessage = `
+                Bonjour,
+
+                Une inspection a été validée :
+
+                - Véhicule : ${infoResult?.[0]?.nom_marque || 'N/A'} ${infoResult?.[0]?.immatriculation || ''}
+                - Type de réparation : ${infoResult?.[0]?.type_rep || 'N/A'}
+                - Budget validé : ${budget_valide} FC
+                - Inspection N° : ${id_sub_inspection_gen}
+
+                Cordialement,
+                L'équipe Maintenance
+            `;
+
+            perResult
+                .filter(({ email }) => email !== userEmail)
+                .forEach(({ email }) => {
+                    sendEmail({
+                        email,
+                        subject: `✅ Inspection validée - Véhicule ${infoResult?.[0]?.immatriculation || ''}`,
+                        message: emailMessage
+                    });
+                });
         }
 
-        return res.status(201).json({ message: 'Les inspections ont été validées avec succès.' });
+        return res.status(201).json({ 
+            success: true,
+            message: 'Les inspections ont été validées avec succès.',
+            meta: {
+                tenant_id: !isSuperAdmin ? tenantId : null,
+                is_super_admin: isSuperAdmin
+            }
+        });
 
     } catch (error) {
         console.error('Erreur lors de la validation des inspections :', error);
         return res.status(500).json({
+            success: false,
             error: "Une erreur s'est produite lors de la validation des inspections.",
+            details: error.message
         });
     }
 };
 
 //Suivi d'inspection
 exports.getSuiviInspection = (req, res) => {
+    const { tenantId, isSuperAdmin } = req;
     const { id_sub_inspection_gen } = req.query;
 
-    const q = `
-                SELECT 
-                    si.*, 
-                    type_statut_suivi.nom_type_statut,
-                    CASE 
-                        WHEN si.est_termine = 0 THEN 'Non' 
-                        ELSE 'Oui' 
-                    END AS est_termine,
-                    utilisateur.nom, 
-                    -- Récupération de la date du dernier suivi
-                    (SELECT MAX(date_suivi) 
-                    FROM suivi_inspection si 
-                    WHERE si.id_sub_inspection_gen = sug.id_sub_inspection_gen
-                    ) AS date_dernier_suivi
-                FROM 
-                    suivi_inspection si
-                INNER JOIN 
-                    utilisateur ON si.effectue_par = utilisateur.id_utilisateur
-                INNER JOIN 
-                    sub_inspection_gen sug ON si.id_sub_inspection_gen = sug.id_sub_inspection_gen
-                INNER JOIN 
-                    type_statut_suivi ON si.status = type_statut_suivi.id_type_statut_suivi
-                WHERE si.id_sub_inspection_gen = ? AND si.est_supprime = 0
-            `;
+    if (!id_sub_inspection_gen) {
+        return res.status(400).json({ error: "L'identifiant de la sous-inspection est requis." });
+    }
 
-    db.query(q, [id_sub_inspection_gen], (error, data) => {
-        if (error) res.status(500).send(error);
-        return res.status(200).json(data);
-    });
+    // 🔥 Vérifier que la sous-inspection appartient au tenant
+    if (!isSuperAdmin && tenantId) {
+        const checkQuery = `
+            SELECT sig.id_sub_inspection_gen, sig.tenant_id, ig.tenant_id as inspection_tenant_id
+            FROM sub_inspection_gen sig
+            INNER JOIN inspection_gen ig ON sig.id_inspection_gen = ig.id_inspection_gen
+            WHERE sig.id_sub_inspection_gen = ? AND (sig.tenant_id = ? OR ig.tenant_id = ?)
+        `;
+        
+        db.query(checkQuery, [id_sub_inspection_gen, tenantId, tenantId], (checkErr, checkResult) => {
+            if (checkErr) {
+                console.error("Erreur vérification accès:", checkErr);
+                return res.status(500).json({ error: "Erreur lors de la vérification des droits." });
+            }
+            
+            if (!checkResult || checkResult.length === 0) {
+                return res.status(403).json({ 
+                    error: "Vous n'avez pas accès aux suivis de cette inspection." 
+                });
+            }
+            
+            executeQuery(id_sub_inspection_gen, tenantId, isSuperAdmin, res);
+        });
+    } else {
+        executeQuery(id_sub_inspection_gen, tenantId, isSuperAdmin, res);
+    }
 };
+
+function executeQuery(id_sub_inspection_gen, tenantId, isSuperAdmin, res) {
+    let q = `
+        SELECT 
+            si.id_suivi_inspection,
+            si.id_sub_inspection_gen,
+            si.commentaire,
+            si.date_suivi,
+            si.status,
+            si.est_termine,
+            si.effectue_par,
+            si.created_at,
+            DATE_FORMAT(si.date_suivi, '%d/%m/%Y %H:%i') AS date_suivi_formatee,
+            tss.nom_type_statut,
+            u.nom AS effectue_par_nom,
+            u.prenom AS effectue_par_prenom,
+            CASE 
+                WHEN si.est_termine = 0 THEN 'Non' 
+                ELSE 'Oui' 
+            END AS est_termine_libelle,
+            (SELECT MAX(date_suivi) 
+             FROM suivi_inspection si2 
+             WHERE si2.id_sub_inspection_gen = si.id_sub_inspection_gen AND si2.est_supprime = 0
+            ) AS date_dernier_suivi,
+            (SELECT COUNT(*) 
+             FROM suivi_inspection si2 
+             WHERE si2.id_sub_inspection_gen = si.id_sub_inspection_gen AND si2.est_supprime = 0
+            ) AS nombre_suivis
+        FROM suivi_inspection si
+        INNER JOIN utilisateur u ON si.effectue_par = u.id_utilisateur
+        INNER JOIN sub_inspection_gen sug ON si.id_sub_inspection_gen = sug.id_sub_inspection_gen
+        INNER JOIN type_statut_suivi tss ON si.status = tss.id_type_statut_suivi
+        WHERE si.id_sub_inspection_gen = ? AND si.est_supprime = 0
+    `;
+
+    const params = [id_sub_inspection_gen];
+
+    // 🔥 Filtre par tenant
+    if (!isSuperAdmin && tenantId) {
+        q += ` AND (sug.tenant_id = ?)`;
+        params.push(tenantId);
+    }
+
+    q += ` ORDER BY si.date_suivi DESC`;
+
+    db.query(q, params, (error, data) => {
+        if (error) {
+            console.error("Erreur getSuiviInspection:", error);
+            return res.status(500).json({ 
+                error: "Erreur lors de la récupération des suivis",
+                details: error.message 
+            });
+        }
+
+        // Regroupement par statut
+        const groupedByStatus = data.reduce((acc, item) => {
+            const status = item.nom_type_statut || 'Inconnu';
+            if (!acc[status]) {
+                acc[status] = {
+                    status: status,
+                    count: 0,
+                    suivis: []
+                };
+            }
+            acc[status].count++;
+            acc[status].suivis.push(item);
+            return acc;
+        }, {});
+
+        // Dernier suivi
+        const dernierSuivi = data.length > 0 ? data[0] : null;
+
+        return res.status(200).json({
+            success: true,
+            data: data,
+            stats: {
+                total: data.length,
+                par_statut: Object.values(groupedByStatus),
+                dernier_suivi: dernierSuivi ? {
+                    date: dernierSuivi.date_suivi_formatee,
+                    status: dernierSuivi.nom_type_statut,
+                    commentaire: dernierSuivi.commentaire,
+                    effectue_par: `${dernierSuivi.effectue_par_nom} ${dernierSuivi.effectue_par_prenom || ''}`
+                } : null
+            },
+            meta: {
+                tenant_id: !isSuperAdmin ? tenantId : null,
+                is_super_admin: isSuperAdmin,
+                id_sub_inspection_gen
+            }
+        });
+    });
+}
 
 exports.postSuiviInspection = async (req, res) => {
     let connection;
