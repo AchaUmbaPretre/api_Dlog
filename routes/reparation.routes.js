@@ -43,7 +43,7 @@ router.post('/reparation_image', verifyToken, tenantFilter, upload.any(), repara
 //Suivi réparation
 router.get('/suivi_reparation', verifyToken, tenantFilter, reparationController.getSuiviReparation)
 router.get('/suivi_reparationOne', reparationController.getSuiviReparationOne)
-router.post('/suivi_reparation', reparationController.postSuiviReparation)
+router.post('/suivi_reparation', verifyToken, tenantFilter, reparationController.postSuiviReparation)
 router.put('/suivi_reparation', verifyToken, tenantFilter, reparationController.putSuiviReparation)
 
 //Document réparation
