@@ -1,6 +1,47 @@
 const moment = require('moment');
 const { queryAsync } = require('../config/database');
 
+//Type de reparation
+exports.getTypeReparation = async (req, res) => {
+
+    try {
+        const query = `SELECT * FROM type_reparations`;
+    
+        const typeFonction = await queryAsync(query);
+        
+        return res.status(200).json({
+            message: 'Liste de type des réparations récupérées avec succès',
+            data: typeFonction,
+        });
+    } catch (error) {
+        console.error('Erreur lors de la récupération des dispositions:', error);
+        return res.status(500).json({
+            error: "Une erreur s'est produite lors de la récupération des dispositions.",
+        });
+    }
+};
+
+exports.postTypeReparation = async (req, res) => {
+    try {
+        const q = 'INSERT INTO type_reparations(`type_rep`) VALUES(?)';
+
+        const values = [
+            req.body.type_rep
+        ];
+
+        await db.query(q, values, (error, data) => {
+
+            if(error) {
+                console.log(error)
+            }
+            return res.json('Processus réussi');
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du type." });
+    }
+};
+
 //Controle technique
 exports.getControleTechnique = async (req, res) => {
     try {
@@ -863,4 +904,418 @@ exports.postReparationImage = (req, res) => {
       }
     });
   });
+};
+
+//Suivie reparation
+exports.getSuiviReparation = async(req, res) => {
+    const { id_reparation, id_inspection_gen } = req.query;
+
+    let id_sub_inspection_gen = null;
+
+    if (id_inspection_gen) {
+      const qI = `SELECT id_sub_inspection_gen FROM sub_inspection_gen WHERE id_inspection_gen = ?`;
+      const result = await queryAsync(qI, [id_inspection_gen]);
+
+      if (result && result.length > 0) {
+        id_sub_inspection_gen = result[0].id_sub_inspection_gen;
+      }
+    }
+
+    const q = `SELECT sr.id_suivi_reparation, 
+                    sr.budget, 
+                    sr.commentaire, 
+                     p.nom AS type_rep, 
+                     ci.nom_cat_inspection AS nom_cat_inspection,
+                    u.nom,
+                    e.nom_evaluation
+                    FROM 
+                    suivi_reparation sr 
+                    LEFT JOIN
+                         pieces p ON sr.id_piece = p.id
+                    LEFT JOIN 
+                        cat_inspection ci ON sr.id_tache_rep = ci.id_cat_inspection
+                    LEFT JOIN 
+                    	sud_reparation sud ON sr.id_sud_reparation = sud.id_sud_reparation
+                    LEFT JOIN 
+                    	utilisateur u ON sr.user_cr = u.id_utilisateur
+                    LEFT JOIN 
+            			evaluation e ON sud.id_evaluation = e.id_evaluation
+                    WHERE sud.id_reparation = ? OR sud.id_sub_inspection_gen = ?
+                `;
+
+    db.query(q, [id_reparation, id_sub_inspection_gen], (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+};
+
+exports.getSuiviReparationOne = (req, res) => {
+    const { id_sud_reparation } = req.query;
+
+    const q = `
+           SELECT sr.id_suivi_reparation, 
+                    sr.budget, 
+                    sr.commentaire, 
+                    sr.id_evaluation,
+                    sr.id_sud_reparation,
+                    sr.id_piece,
+                    sr.id_tache_rep,
+                    sr.statut_fin,
+                     p.nom AS type_rep, 
+                     ci.nom_cat_inspection AS nom_cat_inspection,
+                    u.nom,
+                    e.nom_evaluation,
+                    e.id_evaluation,
+                    v.immatriculation,
+                    m.nom_marque,
+                    v.immatriculation,
+                    tr.type_rep AS nom_type_rep
+                    FROM 
+                    suivi_reparation sr 
+                    LEFT JOIN
+                         pieces p ON sr.id_piece = p.id
+                    LEFT JOIN 
+                        cat_inspection ci ON sr.id_tache_rep = ci.id_cat_inspection
+                    LEFT JOIN 
+                    	sud_reparation sud ON sr.id_sud_reparation = sud.id_sud_reparation
+                    LEFT JOIN 
+                    	utilisateur u ON sr.user_cr = u.id_utilisateur
+                    LEFT JOIN 
+                    	reparations r ON sud.id_reparation = r.id_reparation
+                    LEFT JOIN 
+                    	vehicules v ON r.id_vehicule = v.id_vehicule
+                    LEFT JOIN 
+                    	marque m ON v.id_marque = m.id_marque
+                    LEFT JOIN 
+            			    evaluation e ON sud.id_evaluation = e.id_evaluation
+                     LEFT JOIN type_reparations tr ON sud.id_type_reparation = tr.id_type_reparation
+                    WHERE sr.id_sud_reparation = ?
+            `;
+
+    db.query(q, [id_sud_reparation], (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
+};
+
+exports.postSuiviReparation = async (req, res) => {
+      let connection;
+  
+      try {
+          const { id_evaluation, id_statut_vehicule, id_sud_reparation, user_cr, info } = req.body;
+  
+          if (!id_evaluation || !id_sud_reparation || !user_cr || !info || !Array.isArray(info)) {
+            return res.status(400).json({ error: 'Champs requis manquants ou invalides.' });
+          }
+  
+          connection = await new Promise((resolve, reject) => {
+              db.getConnection((err, conn) => {
+                  if (err) return reject(err);
+                  resolve(conn);
+              });
+          });
+  
+          const beginTransaction = util.promisify(connection.beginTransaction).bind(connection);
+          const commit = util.promisify(connection.commit).bind(connection);
+          const connQuery = util.promisify(connection.query).bind(connection);
+  
+          await beginTransaction();
+  
+          const insertQuery = `
+              INSERT INTO suivi_reparation (
+                  id_sud_reparation,
+                  id_tache_rep,
+                  id_piece,
+                  budget,
+                  commentaire,
+                  user_cr
+              ) VALUES (?, ?, ?, ?, ?, ?)
+          `;
+  
+          for (const rep of info) {
+              const repValues = [
+                  id_sud_reparation,
+                  rep.id_tache_rep,
+                  rep.id_piece,
+                  rep.budget,
+                  rep.commentaire,
+                  user_cr
+              ];
+              await connQuery(insertQuery, repValues);
+          }
+
+          const getSubQuery = `
+              SELECT sud.id_sub_inspection_gen, r.id_vehicule, r.id_statut_vehicule, r.id_reparation, gen.id_inspection_gen, sud.id_type_reparation
+              FROM sud_reparation sud
+              INNER JOIN reparations r ON sud.id_reparation = r.id_reparation
+              LEFT JOIN sub_inspection_gen sub ON sud.id_sub_inspection_gen = sub.id_sub_inspection_gen
+              LEFT JOIN inspection_gen gen ON sub.id_inspection_gen = gen.id_inspection_gen
+              WHERE id_sud_reparation = ?
+            `;
+          const [subResult] = await connQuery(getSubQuery, [id_sud_reparation]);
+
+
+          // Mise à jour de l'évaluation
+          const updateEvalQuery = `
+              UPDATE sud_reparation 
+              SET id_evaluation = ?
+              WHERE id_sud_reparation = ?
+          `;
+          await connQuery(updateEvalQuery, [id_evaluation, id_sud_reparation]);
+  
+          // Mise à jour du statut si évaluation est "OK (R)" → id_evaluation = 1
+          const now = new Date();
+          if (parseInt(id_evaluation) === 1) {
+              const updateStatusQuery = `
+                UPDATE sud_reparation
+                SET id_statut = 9, 
+                date_sortie = ?
+                WHERE id_sud_reparation = ?
+              `;
+              await connQuery(updateStatusQuery, [ now ,id_sud_reparation]);
+
+              const updateEtatQuery = `
+                UPDATE reparations
+                SET id_statut_vehicule = ?
+                WHERE id_reparation = ?
+              `;
+              await connQuery(updateEtatQuery, [id_statut_vehicule, subResult?.id_reparation]);
+
+              const updateStatusQueryInspect = `
+                UPDATE sub_inspection_gen
+                SET statut = 9
+                WHERE id_sub_inspection_gen = ?
+              `;
+              await connQuery(updateStatusQueryInspect, [subResult?.id_sub_inspection_gen]);
+
+              const updateStatusQueryInspectGen = `
+                UPDATE inspection_gen
+                SET id_statut_vehicule = ?
+                WHERE id_inspection_gen = ?
+              `;
+              await connQuery(updateStatusQueryInspectGen, [id_statut_vehicule, subResult?.id_inspection_gen, ]);
+
+              const historiqueSQL = `
+                INSERT INTO historique_vehicule (
+                  id_vehicule, id_chauffeur, id_statut_vehicule, statut, id_sud_reparation, action, commentaire, user_cr
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              `;
+    
+              const historiqueValues = [
+                subResult?.id_vehicule,
+                null,
+                id_statut_vehicule || subResult?.id_statut_vehicule,
+                9,
+                id_sud_reparation,
+                "Nouveau suivi de réparation ajouté",
+                `Un nouveau suivi a été ajouté avec succès pour le véhicule n°${subResult?.id_vehicule}.`,
+                user_cr
+              ];
+            
+              await queryPromise(connection, historiqueSQL, historiqueValues);
+
+              const getVehiculeSQL = `
+              SELECT v.id_vehicule, v.immatriculation, m.nom_marque FROM vehicules v 
+                INNER JOIN marque m ON v.id_marque = m.id_marque
+                WHERE v.id_vehicule = ?
+              `;
+              
+              const [getVehiculeResult] = await queryPromise(connection, getVehiculeSQL, subResult?.id_vehicule);
+              const getType = `SELECT tr.type_rep FROM type_reparations tr WHERE tr.id_type_reparation = ?`;
+              const [getTypeResult] = await queryPromise(connection, getType, subResult?.id_type_reparation);
+
+              // Envoi d'emails aux utilisateurs autorisés
+              const permissionSQL = `
+              SELECT u.email FROM permission p 
+                INNER JOIN utilisateur u ON p.user_id = u.id_utilisateur
+                WHERE p.menus_id = 14 AND p.can_read = 1
+                GROUP BY p.user_id
+              `;
+
+              const getUserEmailSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ?`;
+              const [userResult] = await queryPromise(connection, getUserEmailSQL, [user_cr]);
+              const userEmail = userResult?.[0]?.email;
+
+            const [perResult] = await queryPromise(connection, permissionSQL);
+            const message = 
+            `
+            Bonjour,
+
+            Le véhicule suivant a été réparé pour le type d’intervention suivant :
+
+            - Marque : ${getVehiculeResult?.[0].nom_marque}
+            - Immatriculation : ${getVehiculeResult?.[0].immatriculation}
+            - Type de réparation : ${getTypeResult?.[0].type_rep}
+            - Réparation n°${id_sud_reparation}
+
+            La réparation a été finalisée avec succès et le statut du véhicule a été mis à jour dans le système.
+
+            Cordialement,  
+            L'équipe Maintenance GTM
+            `;
+
+            perResult
+              .filter(({ email }) => email !== userEmail)
+              .forEach(({ email }) => {
+                sendEmail({
+                  email,
+                  subject: `🔧 Réparation mise à jour`,
+                  message
+                  });
+                });
+          }
+  
+          await commit();
+          connection.release();
+  
+          return res.status(201).json({ message: 'Suivi de réparation ajouté avec succès.' });
+  
+      } catch (error) {
+          console.error("Erreur pendant le traitement :", error);
+          if (connection) {
+              try {
+                  await connection.rollback();
+                  connection.release();
+              } catch (rollbackError) {
+                  console.error('Erreur pendant le rollback :', rollbackError);
+              }
+          }
+          return res.status(500).json({ error: 'Erreur interne du serveur.' });
+      }
+};
+  
+exports.putSuiviReparation = async (req, res) => {
+    let connection;
+
+    try {
+        const { id_suivi_reparation } = req.query;
+        const { id_tache_rep, id_piece, budget, commentaire, id_evaluation, id_sud_reparation } = req.body;
+
+        if (!id_suivi_reparation || !id_evaluation || !id_sud_reparation) {
+            return res.status(400).json({ error: 'Certains champs requis sont manquants.' });
+        }
+
+        connection = await new Promise((resolve, reject) => {
+            db.getConnection((err, conn) => {
+                if (err) return reject(err);
+                resolve(conn);
+            });
+        });
+
+        const connQuery = util.promisify(connection.query).bind(connection);
+
+        // Mise à jour du suivi
+        const updateQuery = `
+            UPDATE suivi_reparation
+            SET 
+                id_tache_rep = ?,
+                id_piece = ?,
+                budget = ?,
+                commentaire = ?
+            WHERE id_suivi_reparation = ?
+        `;
+
+        const values = [
+            id_tache_rep || null,
+            id_piece || null,
+            budget || 0,
+            commentaire || '',
+            id_suivi_reparation
+        ];
+
+        const result = await connQuery(updateQuery, values);
+
+        if (result.affectedRows === 0) {
+            connection.release();
+            return res.status(404).json({ error: 'Aucun suivi trouvé avec cet ID.' });
+        }
+
+        // Mise à jour de l’évaluation
+        const updateEvalQuery = `
+            UPDATE sud_reparation 
+            SET id_evaluation = ?
+            WHERE id_sud_reparation = ?
+        `;
+        await connQuery(updateEvalQuery, [id_evaluation, id_sud_reparation]);
+
+        // Mise à jour du statut si l’évaluation est "OK (R)" (id = 1)
+        if (parseInt(id_evaluation) === 1) {
+            const updateStatusQuery = `
+                UPDATE sud_reparation
+                SET id_statut = 9
+                WHERE id_sud_reparation = ?
+            `;
+            await connQuery(updateStatusQuery, [id_sud_reparation]);
+        }
+
+        connection.release();
+
+        return res.status(200).json({ message: 'Suivi de réparation et évaluation mis à jour avec succès.' });
+
+    } catch (error) {
+        console.error("Erreur lors de la mise à jour :", error);
+        if (connection) connection.release();
+        return res.status(500).json({ error: 'Erreur interne du serveur.' });
+    }
+};
+
+//Document réparation
+exports.getDocumentReparation = (req, res) => {
+    const {id_sud_reparation} = req.query;
+    const q = `
+                SELECT 
+                    dr.nom_document, 
+                    dr.type_document, 
+                    dr.chemin_document, 
+                    dr.created_at
+                FROM 
+                    document_reparation dr
+                WHERE dr.id_sud_reparation = ?
+            `;
+
+    db.query(q, [id_sud_reparation], (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
+exports.postDocumentReparation = async (req, res) => {
+    const { id_sud_reparation, id_sub_inspection, nom_document, type_document, chemin_document } = req.body;
+    
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ message: 'Aucun fichier téléchargé' });
+    }
+
+    const documents = req.files.map(file => ({
+        chemin_document: file.path.replace(/\\/g, '/'),
+        id_sud_reparation,
+        id_sub_inspection,
+        nom_document,
+        type_document
+    }));
+    
+
+    try {
+        await Promise.all(
+            documents.map((doc) => {
+                return new Promise((resolve, reject) => {
+                    const query = 'INSERT INTO document_reparation(`id_sud_reparation`, `id_sub_inspection`, `nom_document`, `type_document`, `chemin_document`) VALUES(?,?,?,?,?)';
+                    db.query(query, [doc.id_sud_reparation, doc.id_sub_inspection, doc.nom_document, doc.type_document, doc.chemin_document], (err, result) => {
+                        if (err) {
+                            console.error('Erreur lors de l\'insertion du document:', err);
+                            reject(err);
+                        } else {
+                            resolve(result); 
+                        }
+                    });
+                });
+            })
+        );
+
+        res.status(200).json({ message: 'Documents ajoutés avec succès' });
+    } catch (error) {
+        res.status(500).json({ message: 'Erreur interne du serveur', error });
+    }
 };

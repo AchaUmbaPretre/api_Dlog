@@ -61,16 +61,11 @@ router.post('/site', charroiController.postSites)
 router.get('/site_user', charroiController.getSitesUser)
 router.post('/site_user', charroiController.postSitesUser)
 
-
 //Zones
 router.get('/zone', charroiController.getZones)
 router.get('/zoneById', charroiController.getZonesById)
 router.post('/zone', charroiController.postZones)
 router.put('/zone', charroiController.updateZone)
-
-//Type de reparation
-router.get('/type_reparation', charroiController.getTypeReparation)
-router.post('/type_reparation', charroiController.postTypeReparation)
 
 //Statut véhicule
 router.get('/statut_vehicule', charroiController.getStatutVehicule)
@@ -99,18 +94,8 @@ router.post('/inspection_validation', charroiController.postValidationInspection
 router.get('/suivi_inspections', charroiController.getSuiviInspection)
 router.post('/suivi_inspections', charroiController.postSuiviInspection)
 
-//Suivi réparation
-router.get('/suivi_reparation', charroiController.getSuiviReparation)
-router.get('/suivi_reparationOne', charroiController.getSuiviReparationOne)
-router.post('/suivi_reparation', charroiController.postSuiviReparation)
-router.put('/suivi_reparation', charroiController.putSuiviReparation)
-
 //Evaluation
 router.get('/evaluation', charroiController.getEvaluation)
-
-//Document réparation
-router.get('/document_reparation', charroiController.getDocumentReparation)
-router.post('/document_reparation',upload.array('chemin_document', 10), charroiController.postDocumentReparation)
 
 //Piece
 router.get('/cat_piece', charroiController.getCatPiece)

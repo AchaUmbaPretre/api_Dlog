@@ -18,20 +18,36 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+//Type de reparation
+router.get('/type_reparation', reparationController.getTypeReparation)
+router.post('/type_reparation', reparationController.postTypeReparation)
+
 //Controle technique
 router.get('/controle_technique', reparationController.getControleTechnique)
 router.post('/controle_technique', reparationController.postControlTechnique)
 
 //Réparation
-router.get('/reparation', reparationController.getReparation)
+router.get('/', reparationController.getReparation)
 router.get('/reparationOneV', reparationController.getReparationOneV)
 router.get('/reparationOne', reparationController.getReparationOne)
-router.post('/reparation', reparationController.postReparation)
+router.post('/', reparationController.postReparation)
 router.post('/delete_reparation', reparationController.deleteReparation)
-router.put('/reparation', reparationController.putReparation)
+router.put('/', reparationController.putReparation)
 
 //Reparation image
 router.get('/reparation_image', reparationController.getReparationImage)
 router.post('/reparation_image', upload.any(), reparationController.postReparationImage)
+
+//Suivi réparation
+router.get('/suivi_reparation', reparationController.getSuiviReparation)
+router.get('/suivi_reparationOne', reparationController.getSuiviReparationOne)
+router.post('/suivi_reparation', reparationController.postSuiviReparation)
+router.put('/suivi_reparation', reparationController.putSuiviReparation)
+
+
+//Document réparation
+router.get('/document_reparation', reparationController.getDocumentReparation)
+router.post('/document_reparation',upload.array('chemin_document', 10), reparationController.postDocumentReparation)
+
 
 module.exports = router;
