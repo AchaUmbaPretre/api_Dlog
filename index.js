@@ -42,7 +42,7 @@ const DIX_MINUTES_MS = 10 * 60 * 1000;
 const chauffeurRoutes = require('./routes/chauffeur.routes');
 const superRoutes = require('./routes/superadmin.routes');
 const vehiculeRoutes = require('./routes/vehicule.routes');
-
+const reparationRoutes = require('./routes/reparation.routes');
 
 const https = require('https');
 const http = require('http');
@@ -129,7 +129,8 @@ app.use('/api/controleGps', controleGpsRoutes)
 app.use('/api/missions', missionRoutes);
 app.use('/api/chauffeur', chauffeurRoutes);
 app.use('/api/superAdmin', superRoutes);
-app.use('/api/vehicule', vehiculeRoutes)
+app.use('/api/vehicule', vehiculeRoutes);
+app.use('/api/reparation', reparationRoutes);
 app.get("/api/falcon", (req, res) => {
   const options = {
     hostname: "31.207.34.171",

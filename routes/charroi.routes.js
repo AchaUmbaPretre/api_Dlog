@@ -68,10 +68,6 @@ router.get('/zoneById', charroiController.getZonesById)
 router.post('/zone', charroiController.postZones)
 router.put('/zone', charroiController.updateZone)
 
-//Controle technique
-router.get('/controle_technique', charroiController.getControleTechnique)
-router.post('/controle_technique', charroiController.postControlTechnique)
-
 //Type de reparation
 router.get('/type_reparation', charroiController.getTypeReparation)
 router.post('/type_reparation', charroiController.postTypeReparation)
