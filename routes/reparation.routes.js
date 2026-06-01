@@ -44,11 +44,10 @@ router.post('/reparation_image', verifyToken, tenantFilter, upload.any(), repara
 router.get('/suivi_reparation', verifyToken, tenantFilter, reparationController.getSuiviReparation)
 router.get('/suivi_reparationOne', reparationController.getSuiviReparationOne)
 router.post('/suivi_reparation', reparationController.postSuiviReparation)
-router.put('/suivi_reparation', reparationController.putSuiviReparation)
-
+router.put('/suivi_reparation', verifyToken, tenantFilter, reparationController.putSuiviReparation)
 
 //Document réparation
-router.get('/document_reparation', reparationController.getDocumentReparation)
-router.post('/document_reparation',upload.array('chemin_document', 10), reparationController.postDocumentReparation)
+router.get('/document_reparation', verifyToken, tenantFilter, reparationController.getDocumentReparation)
+router.post('/document_reparation',upload.array('chemin_document', 10), verifyToken, tenantFilter, reparationController.postDocumentReparation)
 
 module.exports = router;
