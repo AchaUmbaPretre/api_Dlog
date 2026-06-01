@@ -1130,46 +1130,86 @@ exports.postReparationImage = (req, res) => {
 };
 
 //Suivie reparation
-exports.getSuiviReparation = async(req, res) => {
+exports.getSuiviReparation = async (req, res) => {
+    const { tenantId, isSuperAdmin } = req;
     const { id_reparation, id_inspection_gen } = req.query;
 
-    let id_sub_inspection_gen = null;
-
-    if (id_inspection_gen) {
-      const qI = `SELECT id_sub_inspection_gen FROM sub_inspection_gen WHERE id_inspection_gen = ?`;
-      const result = await queryAsync(qI, [id_inspection_gen]);
-
-      if (result && result.length > 0) {
-        id_sub_inspection_gen = result[0].id_sub_inspection_gen;
-      }
+    if (!id_reparation && !id_inspection_gen) {
+        return res.status(400).json({ 
+            error: "L'ID de la réparation ou de l'inspection est requis." 
+        });
     }
 
-    const q = `SELECT sr.id_suivi_reparation, 
-                    sr.budget, 
-                    sr.commentaire, 
-                     p.nom AS type_rep, 
-                     ci.nom_cat_inspection AS nom_cat_inspection,
-                    u.nom,
-                    e.nom_evaluation
-                    FROM 
-                    suivi_reparation sr 
-                    LEFT JOIN
-                         pieces p ON sr.id_piece = p.id
-                    LEFT JOIN 
-                        cat_inspection ci ON sr.id_tache_rep = ci.id_cat_inspection
-                    LEFT JOIN 
-                    	sud_reparation sud ON sr.id_sud_reparation = sud.id_sud_reparation
-                    LEFT JOIN 
-                    	utilisateur u ON sr.user_cr = u.id_utilisateur
-                    LEFT JOIN 
-            			evaluation e ON sud.id_evaluation = e.id_evaluation
-                    WHERE sud.id_reparation = ? OR sud.id_sub_inspection_gen = ?
-                `;
+    try {
+        let id_sub_inspection_gen = null;
 
-    db.query(q, [id_reparation, id_sub_inspection_gen], (error, data) => {
-        if (error) res.status(500).send(error);
-        return res.status(200).json(data);
-    });
+        if (id_inspection_gen) {
+            const qI = `SELECT id_sub_inspection_gen FROM sub_inspection_gen WHERE id_inspection_gen = ?`;
+            const result = await queryAsync(qI, [id_inspection_gen]);
+
+            if (result && result.length > 0) {
+                id_sub_inspection_gen = result[0].id_sub_inspection_gen;
+            }
+        }
+
+        let q = `
+            SELECT 
+                sr.id_suivi_reparation, 
+                sr.budget, 
+                sr.commentaire, 
+                p.nom AS type_rep, 
+                ci.nom_cat_inspection AS nom_cat_inspection,
+                u.nom AS user_nom,
+                u.prenom AS user_prenom,
+                e.nom_evaluation,
+                sud.id_reparation,
+                sud.id_sub_inspection_gen,
+                sud.tenant_id AS sud_tenant_id,
+                r.tenant_id AS reparation_tenant_id
+            FROM suivi_reparation sr 
+            LEFT JOIN pieces p ON sr.id_piece = p.id
+            LEFT JOIN cat_inspection ci ON sr.id_tache_rep = ci.id_cat_inspection
+            LEFT JOIN sud_reparation sud ON sr.id_sud_reparation = sud.id_sud_reparation
+            LEFT JOIN reparations r ON sud.id_reparation = r.id_reparation
+            LEFT JOIN utilisateur u ON sr.user_cr = u.id_utilisateur
+            LEFT JOIN evaluation e ON sud.id_evaluation = e.id_evaluation
+            WHERE (sud.id_reparation = ? OR sud.id_sub_inspection_gen = ?)
+        `;
+
+        const params = [id_reparation, id_sub_inspection_gen];
+
+        if (!isSuperAdmin && tenantId) {
+            q += ` AND (sud.tenant_id = ? OR r.tenant_id = ?)`;
+            params.push(tenantId, tenantId);
+        }
+
+        q += ` ORDER BY sr.created_at DESC`;
+
+        db.query(q, params, (error, data) => {
+            if (error) {
+                console.error("Erreur getSuiviReparation:", error);
+                return res.status(500).json({ 
+                    error: "Erreur lors de la récupération des suivis",
+                    details: error.message 
+                });
+            }
+            
+            return res.status(200).json({
+                success: true,
+                data: data,
+                meta: {
+                    tenant_id: !isSuperAdmin ? tenantId : null,
+                    is_super_admin: isSuperAdmin,
+                    total: data.length
+                }
+            });
+        });
+    } catch (error) {
+        console.error("Erreur getSuiviReparation:", error);
+        return res.status(500).json({ 
+            error: "Une erreur s'est produite lors de la récupération des suivis." 
+        });
+    }
 };
 
 exports.getSuiviReparationOne = (req, res) => {

@@ -41,7 +41,7 @@ router.get('/reparation_image', verifyToken, tenantFilter, reparationController.
 router.post('/reparation_image', verifyToken, tenantFilter, upload.any(), reparationController.postReparationImage)
 
 //Suivi réparation
-router.get('/suivi_reparation', reparationController.getSuiviReparation)
+router.get('/suivi_reparation', verifyToken, tenantFilter, reparationController.getSuiviReparation)
 router.get('/suivi_reparationOne', reparationController.getSuiviReparationOne)
 router.post('/suivi_reparation', reparationController.postSuiviReparation)
 router.put('/suivi_reparation', reparationController.putSuiviReparation)
