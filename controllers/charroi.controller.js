@@ -1,4 +1,4 @@
-const { db } = require("./../config/database");
+const { db, queryAsync } = require("./../config/database");
 const moment = require('moment');
 const util = require('util');
 const nodemailer = require('nodemailer');
@@ -12,16 +12,6 @@ function queryPromise(connection, sql, params) {
       }); 
     });
   }
-
-const queryAsync = (query, values = []) =>
-    new Promise((resolve, reject) => {
-        db.query(query, values, (error, results) => {
-            if (error) {
-                return reject(error);
-        }
-        resolve(results);
-    });
-});
 
 // Créer le transporteur avec les informations SMTP
 const transporter = nodemailer.createTransport({
@@ -90,7 +80,7 @@ exports.postMarque = async (req, res) => {
         console.error(error);
         return res.status(500).json({ error: "Une erreur s'est produite lors de l'ajout du vehicule." });
   }
-}
+};
 
 exports.deleteMarque = (req, res) => {
   const id_marque = req.params.id;
