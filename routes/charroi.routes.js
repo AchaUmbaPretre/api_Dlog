@@ -4,6 +4,8 @@ const charroiController = require('./../controllers/charroi.controller');
 const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');     
+const { tenantFilter } = require("../midllewares/tenant.middleware");
+const verifyToken = require("../midllewares/verifyToken");
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -74,16 +76,16 @@ router.get('/statut_vehicule', charroiController.getStatutVehicule)
 router.get('/carateristique_rep', charroiController.getCarateristiqueRep)
 
 //Inspection generale
-router.post('/inspection_gens', charroiController.getInspectionGen)
-router.get('/inspection_gen_resume', charroiController.getInspectionResume)
-router.post('/inspection_gen', upload.any(), charroiController.postInspectionGen)
-router.post('/put_inspection_gen_image', upload.any(), charroiController.putInspectionImage)
+router.post('/inspection_gens', verifyToken, tenantFilter, charroiController.getInspectionGen)
+router.get('/inspection_gen_resume', verifyToken, tenantFilter, charroiController.getInspectionResume)
+router.post('/inspection_gen', upload.any(), verifyToken, tenantFilter, charroiController.postInspectionGen)
+router.post('/put_inspection_gen_image', upload.any(), verifyToken, tenantFilter, charroiController.putInspectionImage)
 
 //Sub Inspection
-router.get('/sub_inspection_gen', charroiController.getSubInspection)
+router.get('/sub_inspection_gen', verifyToken, tenantFilter, charroiController.getSubInspection)
 router.get('/sub_inspection_genOneV', charroiController.getSubInspectionOneV)
 router.get('/sub_inspection_genOne', charroiController.getSubInspectionOne)
-router.put('/sub_inspection_gen', upload.any(), charroiController.putInspectionGen)
+router.put('/sub_inspection_gen', upload.any(), verifyToken, tenantFilter, charroiController.putInspectionGen)
 router.post('/delete_inspection', charroiController.deleteInspectionGen)
 
 //Validation inspection
