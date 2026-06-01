@@ -4,6 +4,8 @@ const reparationController = require('./../controllers/reparation.controller');
 const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');     
+const { tenantFilter } = require("../midllewares/tenant.middleware");
+const verifyToken = require("../midllewares/verifyToken");
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -23,8 +25,8 @@ router.get('/type_reparation', reparationController.getTypeReparation)
 router.post('/type_reparation', reparationController.postTypeReparation)
 
 //Controle technique
-router.get('/controle_technique', reparationController.getControleTechnique)
-router.post('/controle_technique', reparationController.postControlTechnique)
+router.get('/controle_technique', verifyToken, tenantFilter, reparationController.getControleTechnique)
+router.post('/controle_technique', verifyToken, tenantFilter, reparationController.postControlTechnique)
 
 //Réparation
 router.get('/', reparationController.getReparation)
@@ -48,6 +50,5 @@ router.put('/suivi_reparation', reparationController.putSuiviReparation)
 //Document réparation
 router.get('/document_reparation', reparationController.getDocumentReparation)
 router.post('/document_reparation',upload.array('chemin_document', 10), reparationController.postDocumentReparation)
-
 
 module.exports = router;

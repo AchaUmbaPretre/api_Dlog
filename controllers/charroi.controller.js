@@ -649,7 +649,7 @@ exports.getCarateristiqueRep = (req, res) => {
 };
 
 //Inspection generale
-exports.getInspectionGen = (req, res) => {
+exports.getInspectionGen = (req, res) => {   
     const { searchValue } = req.query;
     const { id_vehicule, id_statut_vehicule, id_type_reparation } = req.body;
 
