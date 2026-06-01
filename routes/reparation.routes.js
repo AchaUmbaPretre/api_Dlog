@@ -29,16 +29,16 @@ router.get('/controle_technique', verifyToken, tenantFilter, reparationControlle
 router.post('/controle_technique', verifyToken, tenantFilter, reparationController.postControlTechnique)
 
 //Réparation
-router.get('/', reparationController.getReparation)
+router.get('/', verifyToken, tenantFilter, reparationController.getReparation)
 router.get('/reparationOneV', reparationController.getReparationOneV)
 router.get('/reparationOne', reparationController.getReparationOne)
-router.post('/', reparationController.postReparation)
-router.post('/delete_reparation', reparationController.deleteReparation)
+router.post('/', verifyToken, tenantFilter, reparationController.postReparation)
+router.post('/delete_reparation', verifyToken, tenantFilter, reparationController.deleteReparation)
 router.put('/', reparationController.putReparation)
 
 //Reparation image
-router.get('/reparation_image', reparationController.getReparationImage)
-router.post('/reparation_image', upload.any(), reparationController.postReparationImage)
+router.get('/reparation_image', verifyToken, tenantFilter, reparationController.getReparationImage)
+router.post('/reparation_image', verifyToken, tenantFilter, upload.any(), reparationController.postReparationImage)
 
 //Suivi réparation
 router.get('/suivi_reparation', reparationController.getSuiviReparation)

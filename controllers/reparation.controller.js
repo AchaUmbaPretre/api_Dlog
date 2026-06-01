@@ -955,76 +955,178 @@ exports.putReparation = (req, res) => {
 };
 
 exports.getReparationImage = (req, res) => {
-  const { id_reparation, id_inspection_gen } = req.query;
+    const { tenantId, isSuperAdmin } = req;
+    const { id_reparation, id_inspection_gen } = req.query;
 
-  const query = `
-                  SELECT ir.id_image_reparation, ir.commentaire, ir.image, tp.nom_type_photo, ir.created_at FROM image_reparation ir
-                    INNER JOIN type_photo tp ON ir.id_type_photo = tp.id_type_photo
-                    INNER JOIN reparations r ON ir.id_reparation = r.id_reparation
-                    INNER JOIN sud_reparation sud ON r.id_reparation = sud.id_reparation
-                    WHERE ir.id_reparation = ? OR sud.id_sub_inspection_gen = ?
-                  `;
+    if (!id_reparation && !id_inspection_gen) {
+        return res.status(400).json({ 
+            error: "L'ID de la réparation ou de l'inspection est requis." 
+        });
+    }
 
-  db.query(query, [id_reparation, id_inspection_gen ], (err, results) => {
-      if (err) {
-        console.error("Erreur lors de la récupération des sous-inspections :", err);
-        return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
-      }
-      return res.status(200).json(results);
-  });
+    let query = `
+        SELECT 
+            ir.id_image_reparation, 
+            ir.commentaire, 
+            ir.image, 
+            tp.nom_type_photo, 
+            ir.created_at,
+            r.id_reparation,
+            r.tenant_id AS reparation_tenant_id,
+            v.immatriculation,
+            v.tenant_id AS vehicule_tenant_id
+        FROM image_reparation ir
+        INNER JOIN type_photo tp ON ir.id_type_photo = tp.id_type_photo
+        INNER JOIN reparations r ON ir.id_reparation = r.id_reparation
+        INNER JOIN vehicules v ON r.id_vehicule = v.id_vehicule
+        LEFT JOIN sud_reparation sud ON r.id_reparation = sud.id_reparation
+        WHERE 1=1
+    `;
+
+    const params = [];
+
+    if (id_reparation) {
+        query += ` AND ir.id_reparation = ?`;
+        params.push(id_reparation);
+    }
+
+    if (id_inspection_gen) {
+        query += ` AND sud.id_sub_inspection_gen = ?`;
+        params.push(id_inspection_gen);
+    }
+
+    if (!isSuperAdmin && tenantId) {
+        query += ` AND (r.tenant_id = ? OR v.tenant_id = ?)`;
+        params.push(tenantId, tenantId);
+    }
+
+    query += ` ORDER BY ir.created_at DESC`;
+
+    db.query(query, params, (err, results) => {
+        if (err) {
+            console.error("Erreur lors de la récupération des images :", err);
+            return res.status(500).json({ 
+                error: "Erreur serveur lors de la récupération des données.",
+                details: err.message 
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: results,
+            meta: {
+                tenant_id: !isSuperAdmin ? tenantId : null,
+                is_super_admin: isSuperAdmin,
+                total: results.length
+            }
+        });
+    });
 };
 
 exports.postReparationImage = (req, res) => {
-  db.getConnection((connErr, connection) => {
-    if (connErr) {
-      console.error("Erreur de connexion DB :", connErr);
-      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    const { tenantId, isSuperAdmin } = req;
+    const currentUserId = req.user?.id;
+
+    // Vérification des droits
+    if (!isSuperAdmin && !tenantId) {
+        return res.status(403).json({ error: 'Non autorisé à ajouter des images' });
     }
 
-    connection.beginTransaction(async (trxErr) => {
-      if (trxErr) {
-        connection.release();
-        console.error("Erreur transaction :", trxErr);
-        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
-      }
-
-      try {
-        const { id_reparation, commentaire, id_type_photo } = req.body;
-
-        if (!id_reparation || !req.files || !req.files[0]) {
-          throw new Error("Champs obligatoires manquants ou fichier non fourni.");
+    db.getConnection((connErr, connection) => {
+        if (connErr) {
+            console.error("Erreur de connexion DB :", connErr);
+            return res.status(500).json({ error: "Connexion à la base de données échouée." });
         }
 
-        const file = req.files[0];
-        const imagePath = file.path.replace(/\\/g, '/');
+        connection.beginTransaction(async (trxErr) => {
+            if (trxErr) {
+                connection.release();
+                console.error("Erreur transaction :", trxErr);
+                return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+            }
 
-        const q = `INSERT INTO image_reparation (id_reparation, commentaire, id_type_photo, image) VALUES (?, ?, ?, ?)`;
-        const values = [id_reparation, commentaire, id_type_photo, imagePath];
+            try {
+                const { id_reparation, commentaire, id_type_photo } = req.body;
 
-        const result = await queryPromise(connection, q, values);
+                if (!id_reparation || !req.files || !req.files[0]) {
+                    throw new Error("Champs obligatoires manquants ou fichier non fourni.");
+                }
 
-        connection.commit((commitErr) => {
-          connection.release();
-          if (commitErr) {
-            console.error("Erreur commit :", commitErr);
-            return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
-          }
+                // 🔥 Vérifier que la réparation appartient au tenant
+                if (!isSuperAdmin && tenantId) {
+                    const checkQuery = `
+                        SELECT r.id_reparation, r.tenant_id, v.tenant_id as vehicule_tenant_id
+                        FROM reparations r
+                        INNER JOIN vehicules v ON r.id_vehicule = v.id_vehicule
+                        WHERE r.id_reparation = ? AND (r.tenant_id = ? OR v.tenant_id = ?)
+                    `;
+                    const [checkResult] = await queryPromise(connection, checkQuery, [id_reparation, tenantId, tenantId]);
+                    
+                    if (!checkResult || checkResult.length === 0) {
+                        throw new Error("Réparation non trouvée ou n'appartient pas à votre société");
+                    }
+                }
 
-          return res.status(201).json({
-            message: "Image enregistrée avec succès.",
-            data: { id: result.insertId }
-          });
+                const file = req.files[0];
+                const imagePath = file.path.replace(/\\/g, '/');
+
+                const q = `
+                    INSERT INTO image_reparation 
+                    (id_reparation, commentaire, id_type_photo, image, tenant_id, created_by, created_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, NOW())
+                `;
+                const values = [
+                    id_reparation, 
+                    commentaire || null, 
+                    id_type_photo, 
+                    imagePath,
+                    tenantId,           // 🔥 tenant_id automatique
+                    currentUserId       // 🔥 created_by
+                ];
+
+                const result = await queryPromise(connection, q, values);
+
+                // Journalisation
+                const logQuery = `
+                    INSERT INTO log_inspection (table_name, action, record_id, user_id, description, tenant_id, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, NOW())
+                `;
+                await queryPromise(connection, logQuery, [
+                    'image_reparation',
+                    'Création',
+                    result.insertId,
+                    currentUserId,
+                    `Ajout d'une image pour la réparation #${id_reparation}`,
+                    tenantId
+                ]);
+
+                connection.commit((commitErr) => {
+                    connection.release();
+                    if (commitErr) {
+                        console.error("Erreur commit :", commitErr);
+                        return res.status(500).json({ error: "Erreur lors de la validation de la transaction." });
+                    }
+
+                    return res.status(201).json({
+                        success: true,
+                        message: "Image enregistrée avec succès.",
+                        data: { 
+                            id: result.insertId,
+                            image_path: imagePath,
+                            tenant_id: tenantId
+                        }
+                    });
+                });
+
+            } catch (error) {
+                connection.rollback(() => {
+                    connection.release();
+                    console.error("Erreur pendant la transaction :", error);
+                    return res.status(400).json({ error: error.message });
+                });
+            }
         });
-
-      } catch (error) {
-        connection.rollback(() => {
-          connection.release();
-          console.error("Erreur pendant la transaction :", error);
-          return res.status(400).json({ error: error.message });
-        });
-      }
     });
-  });
 };
 
 //Suivie reparation
