@@ -77,11 +77,9 @@ const createAlert = async ({
        WHERE id = ?`,
       [alert_time, alert_message, alert_level, existing[0].id]
     );
-    console.log(`⚠️ Alerte mise à jour pour ${device_name} (${alert_type})`);
     return { updated: true, alertId: existing[0].id };
   }
 
-  // 🚨 Sinon insérer une nouvelle alerte
   const sql = `
     INSERT INTO vehicle_alerts
       (event_id, device_id, device_name, alert_type, alert_level, alert_message, alert_time, resolved, created_at)

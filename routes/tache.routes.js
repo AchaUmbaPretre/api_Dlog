@@ -5,6 +5,8 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const { tenantFilter } = require("../midllewares/tenant.middleware");
+const verifyToken = require("../midllewares/verifyToken");
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -68,7 +70,7 @@ router.put('/projet_associe', tacheController.putProjetAssocie)
 router.get('/audit_logs', tacheController.getAuditLogsTache);
 
 //Notification
-router.get('/notification', tacheController.getNotificationTache);
+router.get('/notification', verifyToken, tenantFilter, tacheController.getNotificationTache);
 router.get('/notification/one', tacheController.getNotificationTacheOne);
 router.put('/notificationUpdate', tacheController.deleteUpdateNotification)
 

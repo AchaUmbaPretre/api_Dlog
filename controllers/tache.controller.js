@@ -1864,12 +1864,25 @@ exports.getAuditLogsTache = (req, res) => {
 
 //Notifications
 exports.getNotificationTache = (req, res) => {
+    const { tenantId, isSuperAdmin } = req;
     const { user_id } = req.query;
 
-    const checkRoleQuery = `SELECT role FROM utilisateur WHERE id_utilisateur = ?`;
+    if (!user_id) {
+        return res.status(400).json({ error: "L'ID de l'utilisateur est requis." });
+    }
 
-    db.query(checkRoleQuery, [user_id], (error, result) => {
+    // 🔥 Vérifier le rôle et l'appartenance au tenant
+    let checkRoleQuery = `SELECT role FROM utilisateur WHERE id_utilisateur = ?`;
+    let queryParams = [user_id];
+
+    if (!isSuperAdmin && tenantId) {
+        checkRoleQuery += ` AND tenant_id = ?`;
+        queryParams.push(tenantId);
+    }
+
+    db.query(checkRoleQuery, queryParams, (error, result) => {
         if (error) {
+            console.error("Erreur vérification rôle:", error);
             return res.status(500).json({ error: 'Erreur serveur lors de la vérification du rôle.' });
         }
 
@@ -1880,34 +1893,44 @@ exports.getNotificationTache = (req, res) => {
         const role = result[0].role;
 
         let notificationQuery;
-        let queryParams;
+        let notificationParams = [];
+
+        // 🔥 Ajout de la condition tenant
+        let tenantCondition = '';
+        if (!isSuperAdmin && tenantId) {
+            tenantCondition = ' AND n.tenant_id = ?';
+            notificationParams.push(tenantId);
+        }
 
         if (role === 'Admin') {
             // Admin : notifications destinées à d'autres que lui, et non créées par lui
             notificationQuery = `
-                SELECT notifications.*, u.nom, u.prenom 
-                FROM notifications
-                INNER JOIN utilisateur u ON notifications.user_id = u.id_utilisateur
-                WHERE is_read = 0 
-                AND notifications.user_id != ?
-                ORDER BY notifications.timestamp DESC
+                SELECT n.*, u.nom, u.prenom 
+                FROM notifications n
+                INNER JOIN utilisateur u ON n.user_id = u.id_utilisateur
+                WHERE n.is_read = 0 
+                AND n.user_id != ?
+                ${tenantCondition}
+                ORDER BY n.timestamp DESC
             `;
-            queryParams = [user_id];
+            notificationParams = [user_id, ...notificationParams];
         } else {
             // Utilisateur normal : notifications destinées à lui
             notificationQuery = `
-                SELECT notifications.*, u.nom, u.prenom 
-                FROM notifications
-                INNER JOIN utilisateur u ON notifications.user_id = u.id_utilisateur
-                WHERE is_read = 0 
-                AND notifications.target_user_id = ?
-                ORDER BY notifications.timestamp DESC
+                SELECT n.*, u.nom, u.prenom 
+                FROM notifications n
+                INNER JOIN utilisateur u ON n.user_id = u.id_utilisateur
+                WHERE n.is_read = 0 
+                AND n.target_user_id = ?
+                ${tenantCondition}
+                ORDER BY n.timestamp DESC
             `;
-            queryParams = [user_id];
+            notificationParams = [user_id, ...notificationParams];
         }
 
-        db.query(notificationQuery, queryParams, (error, data) => {
+        db.query(notificationQuery, notificationParams, (error, data) => {
             if (error) {
+                console.error("Erreur récupération notifications:", error);
                 return res.status(500).json({ error: 'Erreur serveur lors de la récupération des notifications.' });
             }
 
