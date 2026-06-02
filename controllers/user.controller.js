@@ -27,6 +27,29 @@ exports.getUserCount = (req, res) => {
     });
 };
 
+exports.getUserAll = (req, res) => {
+
+    const q = `
+        SELECT 
+            utilisateur.id_utilisateur,
+            utilisateur.nom,
+            utilisateur.prenom,
+            utilisateur.email,
+            utilisateur.role,
+            utilisateur.mot_de_passe,
+            utilisateur.id_ville,
+            utilisateur.id_departement
+        FROM utilisateur
+    `;
+     
+    db.query(q, (error, data) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        return res.status(200).json(data);
+    });
+};
+
 exports.getUsers = (req, res) => {
     const currentUserId = req.user?.id || req.query.currentUserId;
     const isSuperAdmin = req.user?.is_super_admin === 1;
