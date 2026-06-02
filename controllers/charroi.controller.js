@@ -1753,7 +1753,6 @@ exports.getValidationInspection = (req, res) => {
     });
 };
 
-
 function executeQuery(id_sub_inspection_gen, tenantId, isSuperAdmin, res) {
     let query = `
         SELECT 

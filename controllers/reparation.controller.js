@@ -537,7 +537,7 @@ exports.postReparation = (req, res) => {
                         id_sub_inspection_gen ?? null,
                         sud.montant || 0,
                         sud.description || null,
-                        2,  // statut par défaut
+                        sud.id_statut || 2,  // statut par défaut
                         tenantId    // 🔥 tenant_id pour sud_reparation
                     ];
 
