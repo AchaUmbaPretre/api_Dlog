@@ -26,8 +26,8 @@ exports.getFournisseur = (req, res) => {
                 f.*,
                 p.capital as province_nom
             FROM fournisseur f
-            LEFT JOIN provinces p ON f.id_ville = p.id
-            ORDER BY f.nom ASC
+            LEFT JOIN provinces p ON f.ville = p.id
+            ORDER BY f.nom_fournisseur ASC
         `;
     } else if (tenantId) {
         q = `
@@ -35,9 +35,9 @@ exports.getFournisseur = (req, res) => {
                 f.*,
                 p.capital as province_nom
             FROM fournisseur f
-            LEFT JOIN provinces p ON f.id_ville = p.id
+            LEFT JOIN provinces p ON f.ville = p.id
             WHERE f.tenant_id = ?
-            ORDER BY f.nom ASC
+            ORDER BY f.nom_fournisseur ASC
         `;
         params = [tenantId];
     } else {

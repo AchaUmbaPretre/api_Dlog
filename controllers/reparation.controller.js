@@ -1,5 +1,14 @@
 const moment = require('moment');
-const { queryAsync } = require('../config/database');
+const { queryAsync, db } = require('../config/database');
+
+function queryPromise(connection, sql, params) {
+    return new Promise((resolve, reject) => {
+      connection.query(sql, params, (err, results) => {
+        if (err) return reject(err);
+        resolve([results]);
+      }); 
+    });
+  }
 
 //Type de reparation
 exports.getTypeReparation = async (req, res) => {
@@ -428,7 +437,7 @@ exports.getReparationOne = async (req, res) => {
           error: "Une erreur s'est produite lors de la récupération des réparations.",
         });
       }
-};
+    };
 
 exports.postReparation = (req, res) => {
     const { tenantId, isSuperAdmin } = req;
@@ -465,7 +474,8 @@ exports.postReparation = (req, res) => {
                     code_rep,
                     kilometrage,
                     id_statut_vehicule,
-                    id_sub_inspection_gen
+                    id_sub_inspection_gen,
+                    inspection_gen
                 } = req.body;
 
                 if (!id_vehicule || cout === null || cout === undefined || !Array.isArray(reparations)) {
@@ -485,14 +495,15 @@ exports.postReparation = (req, res) => {
                 // Insertion principale avec tenant_id
                 const insertMainQuery = `
                     INSERT INTO reparations (
-                        id_vehicule, date_entree, date_prevu, cout, id_fournisseur,
+                        id_vehicule, id_inspection_gen, date_entree, date_prevu, cout, id_fournisseur,
                         commentaire, code_rep, kilometrage, id_statut_vehicule, 
-                        user_cr, tenant_id, created_by, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                        user_cr, tenant_id, created_by
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `;
 
                 const mainValues = [
                     id_vehicule,
+                    inspection_gen,
                     date_entree,
                     date_prevu,
                     cout,
@@ -513,8 +524,8 @@ exports.postReparation = (req, res) => {
                 const insertSubQuery = `
                     INSERT INTO sud_reparation (
                         id_reparation, id_type_reparation, id_sub_inspection_gen, 
-                        montant, description, id_statut, tenant_id, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+                        montant, description, id_statut, tenant_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 `;
 
                 let sudReparationIds = [];
@@ -538,8 +549,8 @@ exports.postReparation = (req, res) => {
                     const historiqueSQL = `
                         INSERT INTO historique_vehicule (
                             id_vehicule, id_chauffeur, id_statut_vehicule, statut, 
-                            id_sud_reparation, action, commentaire, user_cr, tenant_id, created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                            id_sud_reparation, action, commentaire, user_cr, tenant_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     `;
 
                     const historiqueValues = [
@@ -608,8 +619,8 @@ exports.postReparation = (req, res) => {
 
                     // Notification
                     const notifQuery = `
-                        INSERT INTO notifications (user_id, message, target_type, target_id, tenant_id, created_at)
-                        VALUES (?, ?, ?, ?, ?, NOW())
+                        INSERT INTO notifications (user_id, message, target_type, target_id, tenant_id)
+                        VALUES (?, ?, ?, ?, ?)
                     `;
 
                     const notifMessage = `Une nouvelle réparation a été enregistrée pour le véhicule ${getVehiculeResult?.[0]?.nom_marque || ''}, immatriculé ${getVehiculeResult?.[0]?.immatriculation || ''}, de type ${getTypeResult?.[0]?.type_rep || ''}.`;
@@ -1130,86 +1141,46 @@ exports.postReparationImage = (req, res) => {
 };
 
 //Suivie reparation
-exports.getSuiviReparation = async (req, res) => {
-    const { tenantId, isSuperAdmin } = req;
+exports.getSuiviReparation = async(req, res) => {
     const { id_reparation, id_inspection_gen } = req.query;
 
-    if (!id_reparation && !id_inspection_gen) {
-        return res.status(400).json({ 
-            error: "L'ID de la réparation ou de l'inspection est requis." 
-        });
+    let id_sub_inspection_gen = null;
+
+    if (id_inspection_gen) {
+      const qI = `SELECT id_sub_inspection_gen FROM sub_inspection_gen WHERE id_inspection_gen = ?`;
+      const result = await queryAsync(qI, [id_inspection_gen]);
+
+      if (result && result.length > 0) {
+        id_sub_inspection_gen = result[0].id_sub_inspection_gen;
+      }
     }
 
-    try {
-        let id_sub_inspection_gen = null;
+    const q = `SELECT sr.id_suivi_reparation, 
+                    sr.budget, 
+                    sr.commentaire, 
+                     p.nom AS type_rep, 
+                     ci.nom_cat_inspection AS nom_cat_inspection,
+                    u.nom,
+                    e.nom_evaluation
+                    FROM 
+                    suivi_reparation sr 
+                    LEFT JOIN
+                         pieces p ON sr.id_piece = p.id
+                    LEFT JOIN 
+                        cat_inspection ci ON sr.id_tache_rep = ci.id_cat_inspection
+                    LEFT JOIN 
+                    	sud_reparation sud ON sr.id_sud_reparation = sud.id_sud_reparation
+                    LEFT JOIN 
+                    	utilisateur u ON sr.user_cr = u.id_utilisateur
+                    LEFT JOIN 
+            			evaluation e ON sud.id_evaluation = e.id_evaluation
+                    WHERE sud.id_reparation = ? OR sud.id_sub_inspection_gen = ?
+                `;
 
-        if (id_inspection_gen) {
-            const qI = `SELECT id_sub_inspection_gen FROM sub_inspection_gen WHERE id_inspection_gen = ?`;
-            const result = await queryAsync(qI, [id_inspection_gen]);
-
-            if (result && result.length > 0) {
-                id_sub_inspection_gen = result[0].id_sub_inspection_gen;
-            }
-        }
-
-        let q = `
-            SELECT 
-                sr.id_suivi_reparation, 
-                sr.budget, 
-                sr.commentaire, 
-                p.nom AS type_rep, 
-                ci.nom_cat_inspection AS nom_cat_inspection,
-                u.nom AS user_nom,
-                u.prenom AS user_prenom,
-                e.nom_evaluation,
-                sud.id_reparation,
-                sud.id_sub_inspection_gen,
-                sud.tenant_id AS sud_tenant_id,
-                r.tenant_id AS reparation_tenant_id
-            FROM suivi_reparation sr 
-            LEFT JOIN pieces p ON sr.id_piece = p.id
-            LEFT JOIN cat_inspection ci ON sr.id_tache_rep = ci.id_cat_inspection
-            LEFT JOIN sud_reparation sud ON sr.id_sud_reparation = sud.id_sud_reparation
-            LEFT JOIN reparations r ON sud.id_reparation = r.id_reparation
-            LEFT JOIN utilisateur u ON sr.user_cr = u.id_utilisateur
-            LEFT JOIN evaluation e ON sud.id_evaluation = e.id_evaluation
-            WHERE (sud.id_reparation = ? OR sud.id_sub_inspection_gen = ?)
-        `;
-
-        const params = [id_reparation, id_sub_inspection_gen];
-
-        if (!isSuperAdmin && tenantId) {
-            q += ` AND (sud.tenant_id = ? OR r.tenant_id = ?)`;
-            params.push(tenantId, tenantId);
-        }
-
-        q += ` ORDER BY sr.created_at DESC`;
-
-        db.query(q, params, (error, data) => {
-            if (error) {
-                console.error("Erreur getSuiviReparation:", error);
-                return res.status(500).json({ 
-                    error: "Erreur lors de la récupération des suivis",
-                    details: error.message 
-                });
-            }
-            
-            return res.status(200).json({
-                success: true,
-                data: data,
-                meta: {
-                    tenant_id: !isSuperAdmin ? tenantId : null,
-                    is_super_admin: isSuperAdmin,
-                    total: data.length
-                }
-            });
-        });
-    } catch (error) {
-        console.error("Erreur getSuiviReparation:", error);
-        return res.status(500).json({ 
-            error: "Une erreur s'est produite lors de la récupération des suivis." 
-        });
-    }
+    db.query(q, [id_reparation, id_sub_inspection_gen], (error, data) => {
+        if (error) res.status(500).send(error);
+        return res.status(200).json(data);
+    });
 };
 
 exports.getSuiviReparationOne = (req, res) => {

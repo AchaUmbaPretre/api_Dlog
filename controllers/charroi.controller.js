@@ -704,6 +704,7 @@ exports.getInspectionGen = (req, res) => {
             sug.avis, 
             iv.budget_valide,
             ig.date_inspection, 
+            ig.id_vehicule,
             v.immatriculation, 
             c.nom AS nom_chauffeur, 
             c.prenom AS prenom_chauffeur,
@@ -1009,8 +1010,8 @@ exports.postInspectionGen = (req, res) => {
 
                     // Notification
                     const notifSQL = `
-                        INSERT INTO notifications (user_id, message, target_type, target_id, tenant_id, created_at)
-                        VALUES (?, ?, ?, ?, ?, NOW())
+                        INSERT INTO notifications (user_id, message, target_type, target_id, tenant_id)
+                        VALUES (?, ?, ?, ?, ?)
                     `;
                     const notifMsg = `Une nouvelle inspection a été ajoutée pour le véhicule ${getVehiculeResult?.[0]?.nom_marque || ''}, immatriculé ${getVehiculeResult?.[0]?.immatriculation || ''}, de type ${getTypeResult?.[0]?.type_rep || ''}.`;
                     await queryPromise(connection, notifSQL, [currentUserId, notifMsg, 'Inspection', subInspectionId, tenantId]);
@@ -1224,38 +1225,31 @@ exports.putInspectionImage = (req, res) => {
 
 //Sub Inspection
 exports.getSubInspection = (req, res) => {
-    const { tenantId, isSuperAdmin } = req;
     const { idInspection } = req.query;
 
     if (!idInspection) {
-        return res.status(400).json({ error: "L'identifiant de l'inspection est requis." });
+      return res.status(400).json({ error: "L'identifiant de l'inspection est requis." });
     }
 
-    if (!isSuperAdmin && tenantId) {
-        const checkQuery = `
-            SELECT ig.id_inspection_gen, ig.tenant_id
-            FROM inspection_gen ig
-            INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
-            WHERE ig.id_inspection_gen = ? AND (ig.tenant_id = ? OR v.tenant_id = ?)
-        `;
-        
-        db.query(checkQuery, [idInspection, tenantId, tenantId], (checkErr, checkResult) => {
-            if (checkErr) {
-                console.error("Erreur vérification accès:", checkErr);
-                return res.status(500).json({ error: "Erreur lors de la vérification des droits." });
-            }
-            
-            if (!checkResult || checkResult.length === 0) {
-                return res.status(403).json({ 
-                    error: "Vous n'avez pas accès aux sous-inspections de cette inspection." 
-                });
-            }
-            
-            executeQuery(idInspection, tenantId, isSuperAdmin, res);
-        });
-    } else {
-        executeQuery(idInspection, tenantId, isSuperAdmin, res);
-    }
+    const query = `
+                SELECT sig.id_sub_inspection_gen, sig.montant, tr.type_rep, ci.nom_cat_inspection, ig.date_inspection, v.immatriculation, m.nom_marque, sig.id_type_reparation, sig.id_cat_inspection, sig.img, sig.commentaire, sig.avis, sig.img, sig.created_at, tss.nom_type_statut, sig.update_at FROM sub_inspection_gen sig
+                    INNER JOIN type_reparations tr ON sig.id_type_reparation = tr.id_type_reparation
+                    INNER JOIN cat_inspection ci ON sig.id_cat_inspection = ci.id_cat_inspection
+                    INNER JOIN inspection_gen ig ON sig.id_inspection_gen = ig.id_inspection_gen
+                    INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
+                    INNER JOIN marque m ON v.id_marque = m.id_marque
+                    INNER JOIN type_statut_suivi tss ON sig.statut = tss.id_type_statut_suivi
+                WHERE sig.id_inspection_gen = ? AND sig.est_supprime = 0
+              `;
+
+    db.query(query, [idInspection], (err, results) => {
+        if (err) {
+            console.error("Erreur lors de la récupération des sous-inspections :", err);
+            return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+        }
+
+        return res.status(200).json(results);
+    });
 };
 
 function executeQuery(idInspection, tenantId, isSuperAdmin, res) {
@@ -1455,7 +1449,7 @@ exports.putInspectionGen = (req, res) => {
                 await queryPromise(connection, `
                     UPDATE inspection_gen
                     SET id_vehicule = ?, id_chauffeur = ?, date_inspection = ?, date_prevu = ?, 
-                        id_statut_vehicule = ?, kilometrage = ?, user_cr = ?, tenant_id = ?, updated_at = NOW()
+                        id_statut_vehicule = ?, kilometrage = ?, user_cr = ?, tenant_id = ?
                     WHERE id_inspection_gen = ?
                 `, [
                     id_vehicule,
@@ -1473,8 +1467,8 @@ exports.putInspectionGen = (req, res) => {
                 const historiqueSQL = `
                     INSERT INTO historique_vehicule (
                         id_vehicule, id_chauffeur, id_statut_vehicule, statut, 
-                        id_sub_inspection_gen, action, commentaire, user_cr, tenant_id, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                        id_sub_inspection_gen, action, commentaire, user_cr, tenant_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `;
                 const historiqueValues = [
                     id_vehicule,
@@ -1489,13 +1483,12 @@ exports.putInspectionGen = (req, res) => {
                 ];
                 await queryPromise(connection, historiqueSQL, historiqueValues);
 
-                // Traitement de la sous-inspection
                 const rep = Array.isArray(reparations) ? reparations[0] : reparations;
 
                 await queryPromise(connection, `
                     UPDATE sub_inspection_gen
                     SET id_type_reparation = ?, id_cat_inspection = ?, montant = ?, 
-                        commentaire = ?, avis = ?, statut = 1, tenant_id = ?, updated_at = NOW()
+                        commentaire = ?, avis = ?, statut = 1, tenant_id = ?
                     WHERE id_sub_inspection_gen = ? AND id_inspection_gen = ?
                 `, [
                     rep.id_type_reparation,
@@ -1522,8 +1515,8 @@ exports.putInspectionGen = (req, res) => {
 
                 // Journalisation
                 await queryPromise(connection, `
-                    INSERT INTO log_inspection (table_name, action, record_id, user_id, description, tenant_id, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, NOW())
+                    INSERT INTO log_inspection (table_name, action, record_id, user_id, description, tenant_id )
+                    VALUES (?, ?, ?, ?, ?, ?)
                 `, [
                     'sub_inspection_gen',
                     'Modification',
@@ -1537,8 +1530,8 @@ exports.putInspectionGen = (req, res) => {
                 const notifMessage = `L'inspection n°${idInspection} du véhicule ${getVehiculeResult?.[0]?.nom_marque || ''}, immatriculé ${getVehiculeResult?.[0]?.immatriculation || ''}, de type ${getTypeResult?.[0]?.type_rep || ''}, a été mise à jour.`;
 
                 await queryPromise(connection, `
-                    INSERT INTO notifications (user_id, message, target_type, target_id, tenant_id, created_at)
-                    VALUES (?, ?, ?, ?, ?, NOW())
+                    INSERT INTO notifications (user_id, message, target_type, target_id, tenant_id)
+                    VALUES (?, ?, ?, ?, ?)
                 `, [user_cr || currentUserId, notifMessage, 'Inspection', idSub, tenantId]);
 
                 // Envoi d'emails aux utilisateurs autorisés (même tenant)
@@ -1666,7 +1659,7 @@ exports.deleteInspectionGen = (req, res) => {
                 // Suppression logique
                 await queryPromise(connection, `
                     UPDATE sub_inspection_gen 
-                    SET est_supprime = 1, tenant_id = ?, updated_at = NOW()
+                    SET est_supprime = 1, tenant_id = ?
                     WHERE id_sub_inspection_gen = ?
                 `, [tenantId, id_sub_inspection_gen]);
 
@@ -1674,8 +1667,8 @@ exports.deleteInspectionGen = (req, res) => {
                 if (inspectionInfo && inspectionInfo.length > 0) {
                     const historiqueSQL = `
                         INSERT INTO historique_vehicule (
-                            id_vehicule, id_sub_inspection_gen, action, commentaire, user_cr, tenant_id, created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, NOW())
+                            id_vehicule, id_sub_inspection_gen, action, commentaire, user_cr, tenant_id
+                        ) VALUES (?, ?, ?, ?, ?, ?)
                     `;
                     await queryPromise(connection, historiqueSQL, [
                         inspectionInfo[0].id_vehicule,
@@ -1690,13 +1683,13 @@ exports.deleteInspectionGen = (req, res) => {
                 // Notification avec tenant_id
                 const notifMessage = `L'inspection N° #${id_sub_inspection_gen} a été supprimée par l'utilisateur ${currentUserId}.`;
                 await queryPromise(connection, `
-                    INSERT INTO notifications (user_id, message, target_type, target_id, tenant_id, created_at)
-                    VALUES (?, ?, ?, ?, ?, NOW())
+                    INSERT INTO notifications (user_id, message, target_type, target_id, tenant_id)
+                    VALUES (?, ?, ?, ?, ?)
                 `, [currentUserId, notifMessage, 'inspection', id_sub_inspection_gen, tenantId]);
 
                 // Journalisation
                 await queryPromise(connection, `
-                    INSERT INTO log_inspection (table_name, action, record_id, user_id, description, tenant_id, created_at)
+                    INSERT INTO log_inspection (table_name, action, record_id, user_id, description, tenant_id)
                     VALUES (?, ?, ?, ?, ?, ?, NOW())
                 `, [
                     'sub_inspection_gen',
@@ -1737,40 +1730,29 @@ exports.deleteInspectionGen = (req, res) => {
 
 //Validation inspection
 exports.getValidationInspection = (req, res) => {
-    const { tenantId, isSuperAdmin } = req;
     const { id_sub_inspection_gen } = req.query;
 
     if (!id_sub_inspection_gen) {
         return res.status(400).json({ error: "L'identifiant de l'inspection est requis." });
     }
 
-    // 🔥 Vérifier que l'inspection appartient au tenant
-    if (!isSuperAdmin && tenantId) {
-        const checkQuery = `
-            SELECT sig.id_sub_inspection_gen, sig.tenant_id, ig.tenant_id as inspection_tenant_id
-            FROM sub_inspection_gen sig
-            INNER JOIN inspection_gen ig ON sig.id_inspection_gen = ig.id_inspection_gen
-            WHERE sig.id_sub_inspection_gen = ? AND (sig.tenant_id = ? OR ig.tenant_id = ?)
-        `;
-        
-        db.query(checkQuery, [id_sub_inspection_gen, tenantId, tenantId], (checkErr, checkResult) => {
-            if (checkErr) {
-                console.error("Erreur vérification accès:", checkErr);
-                return res.status(500).json({ error: "Erreur lors de la vérification des droits." });
-            }
-            
-            if (!checkResult || checkResult.length === 0) {
-                return res.status(403).json({ 
-                    error: "Vous n'avez pas accès à cette validation d'inspection." 
-                });
-            }
-            
-            executeQuery(id_sub_inspection_gen, tenantId, isSuperAdmin, res);
-        });
-    } else {
-        executeQuery(id_sub_inspection_gen, tenantId, isSuperAdmin, res);
-    }
+    const query = `
+                    SELECT iv.id_sub_inspection_gen, iv.id_type_reparation, iv.manoeuvre, iv.cout, ig.id_vehicule, iv.budget_valide, sub.avis, sub.commentaire as description, ig.kilometrage, ig.id_statut_vehicule FROM inspection_valide iv
+                        INNER JOIN sub_inspection_gen sub ON iv.id_sub_inspection_gen = sub.id_sub_inspection_gen
+                        INNER JOIN inspection_gen ig ON sub.id_inspection_gen = ig.id_inspection_gen
+                        WHERE iv.id_sub_inspection_gen =  ? AND sub.est_supprime = 0
+                    `;
+
+    db.query(query, [id_sub_inspection_gen], (err, results) => {
+        if (err) {
+            console.error("Erreur lors de la récupération des sous-inspections :", err);
+            return res.status(500).json({ error: "Erreur serveur lors de la récupération des données." });
+        }
+
+        return res.status(200).json(results);
+    });
 };
+
 
 function executeQuery(id_sub_inspection_gen, tenantId, isSuperAdmin, res) {
     let query = `
@@ -1876,7 +1858,7 @@ exports.postValidationInspection = async (req, res) => {
             // 🔥 Vérifier que la sous-inspection appartient au tenant
             if (!isSuperAdmin && tenantId) {
                 const checkSubQuery = `
-                    SELECT sig.id_sub_inspection_gen, sig.tenant_id, ig.tenant_id as inspection_tenant_id
+                    SELECT sig.id_sub_inspection_gen 
                     FROM sub_inspection_gen sig
                     INNER JOIN inspection_gen ig ON sig.id_inspection_gen = ig.id_inspection_gen
                     WHERE sig.id_sub_inspection_gen = ? AND (sig.tenant_id = ? OR ig.tenant_id = ?)
@@ -1907,8 +1889,8 @@ exports.postValidationInspection = async (req, res) => {
             // Insertion avec tenant_id
             const insertQuery = `
                 INSERT INTO inspection_valide 
-                (id_sub_inspection_gen, id_type_reparation, id_cat_inspection, cout, budget_valide, manoeuvre, user_cr, tenant_id, created_by, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                (id_sub_inspection_gen, id_type_reparation, id_cat_inspection, cout, budget_valide, manoeuvre, user_cr, tenant_id, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
             const insertValues = [
@@ -1928,81 +1910,13 @@ exports.postValidationInspection = async (req, res) => {
             // Mise à jour du statut de la sous-inspection
             const updateQuery = `
                 UPDATE sub_inspection_gen 
-                SET date_validation = ?, statut = ?, tenant_id = ?, updated_at = NOW()
+                SET date_validation = ?, statut = ?, tenant_id = ?
                 WHERE id_sub_inspection_gen = ?
             `;
+
             const updateValues = [moment().format('YYYY-MM-DD'), 8, tenantId, id_sub_inspection_gen];
+
             await queryAsync(updateQuery, updateValues);
-
-            // Journalisation
-            const logQuery = `
-                INSERT INTO log_inspection (table_name, action, record_id, user_id, description, tenant_id, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, NOW())
-            `;
-            await queryAsync(logQuery, [
-                'inspection_valide',
-                'Création',
-                id_sub_inspection_gen,
-                user_cr || currentUserId,
-                `Validation de l'inspection #${id_sub_inspection_gen} pour le type réparation ${id_type_reparation} avec budget ${budget_valide}`,
-                tenantId
-            ]);
-
-            // Récupération des infos pour notification
-            const getInfoQuery = `
-                SELECT v.immatriculation, m.nom_marque, tr.type_rep
-                FROM sub_inspection_gen sig
-                INNER JOIN inspection_gen ig ON sig.id_inspection_gen = ig.id_inspection_gen
-                INNER JOIN vehicules v ON ig.id_vehicule = v.id_vehicule
-                INNER JOIN marque m ON v.id_marque = m.id_marque
-                INNER JOIN type_reparations tr ON sig.id_type_reparation = tr.id_type_reparation
-                WHERE sig.id_sub_inspection_gen = ?
-            `;
-            const [infoResult] = await queryAsync(getInfoQuery, [id_sub_inspection_gen]);
-
-            // Notification
-            const notifMessage = `L'inspection #${id_sub_inspection_gen} du véhicule ${infoResult?.[0]?.immatriculation || ''} (${infoResult?.[0]?.nom_marque || ''}) a été validée avec un budget de ${budget_valide} FC.`;
-            await queryAsync(`
-                INSERT INTO notifications (user_id, message, target_type, target_id, tenant_id, created_at)
-                VALUES (?, ?, ?, ?, ?, NOW())
-            `, [user_cr || currentUserId, notifMessage, 'inspection_valide', id_sub_inspection_gen, tenantId]);
-
-            // Envoi d'emails aux utilisateurs autorisés (même tenant)
-            const getUserEmailSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ? AND tenant_id = ?`;
-            const [userResult] = await queryAsync(getUserEmailSQL, [user_cr || currentUserId, tenantId]);
-            const userEmail = userResult?.[0]?.email;
-
-            const permissionSQL = `
-                SELECT DISTINCT u.email 
-                FROM permission p 
-                INNER JOIN utilisateur u ON p.user_id = u.id_utilisateur
-                WHERE p.menus_id = 14 AND p.can_read = 1 AND u.tenant_id = ?
-            `;
-            const [perResult] = await queryAsync(permissionSQL, [tenantId]);
-
-            const emailMessage = `
-                Bonjour,
-
-                Une inspection a été validée :
-
-                - Véhicule : ${infoResult?.[0]?.nom_marque || 'N/A'} ${infoResult?.[0]?.immatriculation || ''}
-                - Type de réparation : ${infoResult?.[0]?.type_rep || 'N/A'}
-                - Budget validé : ${budget_valide} FC
-                - Inspection N° : ${id_sub_inspection_gen}
-
-                Cordialement,
-                L'équipe Maintenance
-            `;
-
-            perResult
-                .filter(({ email }) => email !== userEmail)
-                .forEach(({ email }) => {
-                    sendEmail({
-                        email,
-                        subject: `✅ Inspection validée - Véhicule ${infoResult?.[0]?.immatriculation || ''}`,
-                        message: emailMessage
-                    });
-                });
         }
 
         return res.status(201).json({ 
@@ -2129,7 +2043,6 @@ function executeQuery(id_sub_inspection_gen, tenantId, isSuperAdmin, res) {
             return acc;
         }, {});
 
-        // Dernier suivi
         const dernierSuivi = data.length > 0 ? data[0] : null;
 
         return res.status(200).json({
@@ -2155,7 +2068,14 @@ function executeQuery(id_sub_inspection_gen, tenantId, isSuperAdmin, res) {
 }
 
 exports.postSuiviInspection = async (req, res) => {
+    const { tenantId, isSuperAdmin } = req;
+    const currentUserId = req.user?.id || req.body.user_cr;
     let connection;
+
+    // Vérification des droits
+    if (!isSuperAdmin && !tenantId) {
+        return res.status(403).json({ error: 'Non autorisé à ajouter un suivi d\'inspection' });
+    }
 
     try {
         const {
@@ -2185,63 +2105,155 @@ exports.postSuiviInspection = async (req, res) => {
 
         await beginTransaction();
 
+        // 🔥 Vérifier que la sous-inspection appartient au tenant
+        if (!isSuperAdmin && tenantId) {
+            const checkQuery = `
+                SELECT sig.id_sub_inspection_gen, sig.tenant_id, ig.tenant_id as inspection_tenant_id
+                FROM sub_inspection_gen sig
+                INNER JOIN inspection_gen ig ON sig.id_inspection_gen = ig.id_inspection_gen
+                WHERE sig.id_sub_inspection_gen = ? AND (sig.tenant_id = ? OR ig.tenant_id = ?)
+            `;
+            const [checkResult] = await connQuery(checkQuery, [id_sub_inspection_gen, tenantId, tenantId]);
+            
+            if (!checkResult || checkResult.length === 0) {
+                throw new Error("Sous-inspection non trouvée ou n'appartient pas à votre société");
+            }
+        }
+
+        // Insertion du suivi avec tenant_id
         const insertQuery = `
             INSERT INTO suivi_inspection (
-                id_sub_inspection_gen, status, commentaire, pourcentage_avancement, effectue_par, est_termine
-            ) VALUES (?, ?, ?, ?, ?, ?)
+                id_sub_inspection_gen, status, commentaire, pourcentage_avancement, 
+                effectue_par, est_termine, tenant_id, created_by, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
         `;
 
-        await connQuery(insertQuery, [
+        const insertResult = await connQuery(insertQuery, [
             id_sub_inspection_gen,
             status,
-            commentaire,
-            pourcentage_avancement,
+            commentaire || null,
+            pourcentage_avancement || 0,
             effectue_par,
-            est_termine ? 1 : 0
+            est_termine ? 1 : 0,
+            tenantId,
+            currentUserId
         ]);
 
+        // Mise à jour du statut de la sous-inspection
         const updateQuery = `
             UPDATE sub_inspection_gen
-            SET statut = ?
+            SET statut = ?, tenant_id = ?, updated_at = NOW()
             WHERE id_sub_inspection_gen = ?
         `;
+        await connQuery(updateQuery, [status, tenantId, id_sub_inspection_gen]);
 
-        await connQuery(updateQuery, [status, id_sub_inspection_gen]);
-
+        // Récupération des infos pour historique et notifications
         const getSubQuery = `
-        SELECT sub.id_sub_inspection_gen, i.id_vehicule, i.id_statut_vehicule FROM 
-        sub_inspection_gen sub 
-        INNER JOIN inspection_gen i ON sub.id_inspection_gen = i.id_inspection_gen
-        WHERE sub.id_sub_inspection_gen = ?
-      `;
+            SELECT sub.id_sub_inspection_gen, i.id_vehicule, i.id_statut_vehicule, 
+                   v.immatriculation, m.nom_marque, tr.type_rep
+            FROM sub_inspection_gen sub 
+            INNER JOIN inspection_gen i ON sub.id_inspection_gen = i.id_inspection_gen
+            INNER JOIN vehicules v ON i.id_vehicule = v.id_vehicule
+            INNER JOIN marque m ON v.id_marque = m.id_marque
+            INNER JOIN type_reparations tr ON sub.id_type_reparation = tr.id_type_reparation
+            WHERE sub.id_sub_inspection_gen = ?
+        `;
         const [subResult] = await connQuery(getSubQuery, [id_sub_inspection_gen]);
 
+        // Insertion dans l'historique véhicule
         const historiqueSQL = `
-          INSERT INTO historique_vehicule (
-            id_vehicule, id_chauffeur, id_statut_vehicule, statut, id_sub_inspection_gen, action, commentaire, user_cr
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO historique_vehicule (
+                id_vehicule, id_chauffeur, id_statut_vehicule, statut, 
+                id_sub_inspection_gen, action, commentaire, user_cr, tenant_id, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         `;
 
         const historiqueValues = [
-          subResult?.id_vehicule,
-          null,
-          subResult?.id_statut_vehicule,
-          status,
-          subResult?.id_sub_inspection_gen,
-          "Nouveau suivi d'inspection ajouté",
-          `Un nouveau suivi a été ajouté avec succès pour le véhicule n°${subResult?.id_vehicule}.`,
-          user_cr
+            subResult?.id_vehicule,
+            null,
+            subResult?.id_statut_vehicule,
+            status,
+            subResult?.id_sub_inspection_gen,
+            "Nouveau suivi d'inspection ajouté",
+            commentaire || `Nouveau suivi ajouté pour l'inspection #${id_sub_inspection_gen}`,
+            user_cr || currentUserId,
+            tenantId
         ];
         
-        await queryPromise(connection, historiqueSQL, historiqueValues);
+        await connQuery(historiqueSQL, historiqueValues);
+
+        // Journalisation
+        const logSQL = `
+            INSERT INTO log_inspection (table_name, action, record_id, user_id, description, tenant_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, NOW())
+        `;
+        await connQuery(logSQL, [
+            'suivi_inspection',
+            'Création',
+            insertResult.insertId,
+            currentUserId,
+            `Ajout d'un suivi pour l'inspection #${id_sub_inspection_gen} - Statut: ${status}`,
+            tenantId
+        ]);
+
+        // Notification
+        const notifMessage = `Nouveau suivi pour l'inspection du véhicule ${subResult?.immatriculation || ''} (${subResult?.nom_marque || ''}): ${commentaire || 'Statut mis à jour'}`;
+        await connQuery(`
+            INSERT INTO notifications (user_id, message, target_type, target_id, tenant_id, created_at)
+            VALUES (?, ?, ?, ?, ?, NOW())
+        `, [user_cr || currentUserId, notifMessage, 'suivi_inspection', insertResult.insertId, tenantId]);
+
+        // Envoi d'emails aux utilisateurs autorisés (même tenant)
+        const getUserEmailSQL = `SELECT email FROM utilisateur WHERE id_utilisateur = ? AND tenant_id = ?`;
+        const [userResult] = await connQuery(getUserEmailSQL, [user_cr || currentUserId, tenantId]);
+        const userEmail = userResult?.[0]?.email;
+
+        const permissionSQL = `
+            SELECT DISTINCT u.email 
+            FROM permission p 
+            INNER JOIN utilisateur u ON p.user_id = u.id_utilisateur
+            WHERE p.menus_id = 14 AND p.can_read = 1 AND u.tenant_id = ?
+        `;
+        const [perResult] = await connQuery(permissionSQL, [tenantId]);
+
+        const emailMessage = `
+            Bonjour,
+
+            Un nouveau suivi a été ajouté pour l'inspection :
+
+            - Véhicule : ${subResult?.nom_marque || 'N/A'} ${subResult?.immatriculation || ''}
+            - Type de réparation : ${subResult?.type_rep || 'N/A'}
+            - Statut : ${status}
+            - Commentaire : ${commentaire || 'Aucun commentaire'}
+
+            Cordialement,
+            L'équipe Maintenance
+        `;
+
+        perResult
+            .filter(({ email }) => email !== userEmail)
+            .forEach(({ email }) => {
+                sendEmail({
+                    email,
+                    subject: `📌 Nouveau suivi - ${subResult?.immatriculation || 'Véhicule'}`,
+                    message: emailMessage
+                });
+            });
 
         await commit();
         connection.release();
 
-        return res.status(201).json({ message: 'Suivi d’inspection ajouté avec succès.' });
+        return res.status(201).json({ 
+            success: true,
+            message: 'Suivi d\'inspection ajouté avec succès.',
+            data: {
+                id_suivi: insertResult.insertId,
+                id_sub_inspection_gen,
+                tenant_id: tenantId
+            }
+        });
 
     } catch (error) {
-        // 🔥 connection est maintenant bien définie même ici
         if (connection) {
             try {
                 await connection.rollback();
@@ -2253,7 +2265,8 @@ exports.postSuiviInspection = async (req, res) => {
 
         console.error('[postSuiviInspection] Erreur :', error);
         return res.status(500).json({
-            error: "Une erreur s’est produite lors de l’ajout du suivi.",
+            success: false,
+            error: "Une erreur s'est produite lors de l'ajout du suivi.",
             details: error.message
         });
     }

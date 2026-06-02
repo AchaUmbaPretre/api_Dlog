@@ -82,7 +82,7 @@ router.post('/inspection_gen', upload.any(), verifyToken, tenantFilter, charroiC
 router.post('/put_inspection_gen_image', upload.any(), verifyToken, tenantFilter, charroiController.putInspectionImage)
 
 //Sub Inspection
-router.get('/sub_inspection_gen', verifyToken, tenantFilter, charroiController.getSubInspection)
+router.get('/sub_inspection_gen', charroiController.getSubInspection)
 router.get('/sub_inspection_genOneV', charroiController.getSubInspectionOneV)
 router.get('/sub_inspection_genOne', charroiController.getSubInspectionOne)
 router.put('/sub_inspection_gen', upload.any(), verifyToken, tenantFilter, charroiController.putInspectionGen)
