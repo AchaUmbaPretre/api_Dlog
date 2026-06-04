@@ -65,5 +65,7 @@ router.get('/rapport_periode_cat', verifyToken, tenantFilter, carburantControlle
 router.post('/rapport_periode_vehicule', verifyToken, tenantFilter, carburantController.getRapportVehiculePeriode);
 router.post('/rapport_Carburant_Month', verifyToken, tenantFilter, carburantController.getRapportCarbMonth);
 router.get('/by-month',verifyToken, tenantFilter, carburantController.getCarburantByMonthYear);
+router.get('/dashboard_carburant', carburantController.getDashboardCarburant);
+
 
 module.exports = router;
