@@ -165,6 +165,63 @@ function buildMenuTree(results, isAdmin = false) {
     return menus;
 }
 
+exports.menusAllTrue = (req, res) => {
+    const {userId} = req.query;
+
+    const query = `
+        SELECT 
+            menus.id AS menu_id, 
+            menus.title AS menu_title, 
+            menus.url AS menu_url, 
+            menus.icon AS menu_icon, 
+            submenus.id AS submenu_id, 
+            submenus.title AS submenu_title, 
+            submenus.url AS submenu_url, 
+            submenus.icon AS submenu_icon
+        FROM menus 
+        LEFT JOIN submenus ON menus.id = submenus.menu_id
+        LEFT JOIN permission ON menus.id = permission.menus_id
+        ${userId ? `WHERE permission.user_id = ${userId}` : ''}
+        GROUP BY menus.id, submenus.id
+        ORDER BY menus.id, submenus.id
+    `;
+
+    db.query(query,(err, results) => {
+        if (err) {
+            console.error('Erreur lors de la récupération des menus:', err);
+            return res.status(500).json({ error: 'Erreur lors de la récupération des menus' });
+        }
+
+        // Traiter les résultats pour structurer les données comme attendu dans le frontend
+        const menus = [];
+        let currentMenu = null;
+
+        results.forEach(row => {
+            if (!currentMenu || currentMenu.menu_id !== row.menu_id) {
+                // Nouveau menu rencontré, créer un nouvel objet menu
+                currentMenu = {
+                    menu_id: row.menu_id,
+                    menu_title: row.menu_title,
+                    menu_url: row.menu_url,
+                    menu_icon: row.menu_icon,
+                    subMenus: []
+                };
+                menus.push(currentMenu);
+            }
+
+            // Ajouter le sous-menu au menu courant
+            currentMenu.subMenus.push({
+                submenu_id: row.submenu_id,
+                submenu_title: row.submenu_title,
+                submenu_url: row.submenu_url,
+                submenu_icon: row.submenu_icon
+            });
+        });
+
+        res.json(menus);
+    });
+};
+
 exports.menusAll = (req, res) => {
     const { userId } = req.query;
     const currentUserId = req.user?.id || req.query.currentUserId;
