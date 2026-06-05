@@ -204,8 +204,8 @@ exports.postChauffeur = async (req, res) => {
                 matricule, nom, prenom, telephone, adresse, id_etat_civil,
                 statut, profil, sexe, id_type_contrat, type_travail,
                 id_permis, id_ville, date_naissance, date_engagement, 
-                user_cr, tel_service, tenant_id, created_by, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                user_cr, tel_service, tenant_id, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const values = [
