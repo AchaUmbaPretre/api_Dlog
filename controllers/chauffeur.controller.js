@@ -194,6 +194,8 @@ exports.postChauffeur = async (req, res) => {
             type_travail,
             id_permis,
             id_ville,
+            date_naissance,
+            date_engagement,
             user_cr,
             tel_service,
         } = req.body;
