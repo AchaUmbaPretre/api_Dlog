@@ -361,9 +361,15 @@ exports.permissions = (req, res) => {
 exports.putPermission = (req, res) => {
     const userId = req.params.userId;
     const optionId = req.params.optionId;
-    const submenuId = req.query.submenuId;
-    const { can_read, can_edit, can_comment, can_delete } = req.body;
+/*     const submenuIds = req.query.submenuId;
+ */    const { can_read, can_edit, can_comment, can_delete } = req.body;
   
+    const submenuId =
+    req.query.submenuId &&
+    req.query.submenuId !== "null"
+      ? Number(req.query.submenuId)
+      : null;
+      
     let query;
     let queryParams;
   
@@ -414,7 +420,7 @@ exports.putPermission = (req, res) => {
     });
   };
 
-  
+
 /* exports.putPermission = (req, res) => {
     const userId = req.params.userId;           // Utilisateur cible (qui reçoit les permissions)
     const optionId = req.params.optionId;       // Menu ID
