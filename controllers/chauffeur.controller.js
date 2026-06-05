@@ -194,11 +194,17 @@ exports.postChauffeur = async (req, res) => {
             type_travail,
             id_permis,
             id_ville,
-            date_naissance,
-            date_engagement,
             user_cr,
             tel_service,
         } = req.body;
+
+        const formattedDateNaissance = date_naissance
+            ? new Date(date_naissance).toISOString().split('T')[0]
+            : null;
+
+        const formattedDateEngagement = date_engagement
+            ? new Date(date_engagement).toISOString().split('T')[0]
+            : null;
 
         const query = `
             INSERT INTO chauffeurs (
@@ -212,7 +218,7 @@ exports.postChauffeur = async (req, res) => {
         const values = [
             matricule, nom, prenom, telephone, adresse, id_etat_civil,
             statut, profil, sexe, id_type_contrat, id_fonction, type_travail,
-            id_permis, id_ville, date_naissance, date_engagement, 
+            id_permis, id_ville, formattedDateNaissance, formattedDateEngagement, 
             user_cr, tel_service,
             tenantId,
             currentUserId
