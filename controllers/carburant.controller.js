@@ -2475,6 +2475,46 @@ exports.getDashboardCarburant = async (req, res) => {
         
         const statsFournisseurResult = await queryAsync(statsFournisseurQuery, statsFournisseurParams);
         
+                const ravaillementsRecentsQuery = `
+            SELECT 
+                c.id_carburant,
+                c.date_operation,
+                DATE_FORMAT(c.date_operation, '%d/%m/%Y %H:%i') AS date_formatee,
+                c.quantite_litres,
+                c.montant_total_cdf,
+                c.montant_total_usd,
+                c.prix_cdf,
+                c.prix_usd,
+                c.compteur_km,
+                c.consommation,
+                v.immatriculation,
+                m.nom_marque,
+                model.modele AS nom_modele,
+                ch.nom AS nom_chauffeur,
+                ch.prenom AS prenom_chauffeur,
+                f.nom_fournisseur,
+                tc.nom_type_carburant,
+                u.nom AS createur_nom,
+                u.prenom AS createur_prenom
+            FROM carburant c
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            LEFT JOIN marque m ON v.id_marque = m.id_marque
+            LEFT JOIN modeles model ON v.id_modele = model.id_modele
+            LEFT JOIN chauffeurs ch ON c.id_chauffeur = ch.id_chauffeur
+            LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
+            LEFT JOIN type_carburant tc ON c.id_type_carburant = tc.id_type_carburant
+            LEFT JOIN utilisateur u ON c.user_cr = u.id_utilisateur
+            WHERE c.est_supprime = 0
+                AND c.date_operation BETWEEN ? AND ?
+                ${tenantCondition}
+            ORDER BY c.date_operation DESC
+            LIMIT 20
+        `;
+        
+        const ravaillementsRecentsParams = [startDate.format('YYYY-MM-DD HH:mm:ss'), endDate.format('YYYY-MM-DD HH:mm:ss')];
+        if (!isSuperAdmin && tenantId) ravaillementsRecentsParams.push(tenantId);
+        
+        const ravaillementsRecentsResult = await queryAsync(ravaillementsRecentsQuery, ravaillementsRecentsParams);
         // Construction de la réponse (identique à l'originale)
         const response = {
             success: true,
@@ -2576,7 +2616,38 @@ exports.getDashboardCarburant = async (req, res) => {
                     cout_moyen_litre_formate: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(kpi.depenses_actuelles / kpi.volume_actuel) + '/L',
                     jours_analyse: endDate.diff(startDate, 'days') + 1,
                     operations_par_jour: parseFloat((kpi.ravitaillements_actuels / (endDate.diff(startDate, 'days') + 1)).toFixed(1))
-                }
+                },
+                ravaillementsRecents: ravaillementsRecentsResult.map(item => ({
+                    id: item.id_carburant,
+                    date: item.date_formatee,
+                    date_iso: item.date_operation,
+                    vehicule: {
+                        immatriculation: item.immatriculation,
+                        marque: item.nom_marque,
+                        modele: item.nom_modele
+                    },
+                    quantite: {
+                        valeur: item.quantite_litres,
+                        formate: new Intl.NumberFormat('fr-FR').format(item.quantite_litres) + ' L'
+                    },
+                    montant: {
+                        cdf: item.montant_total_cdf,
+                        cdf_formate: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'CDF' }).format(item.montant_total_cdf),
+                        usd: item.montant_total_usd,
+                        usd_formate: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(item.montant_total_usd)
+                    },
+                    prix: {
+                        cdf_par_litre: item.prix_cdf,
+                        usd_par_litre: item.prix_usd,
+                        usd_par_litre_formate: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(item.prix_usd) + '/L'
+                    },
+                    kilometrage: item.compteur_km,
+                    consommation: item.consommation ? item.consommation.toFixed(2) + ' L/100km' : 'N/A',
+                    chauffeur: item.nom_chauffeur ? `${item.nom_chauffeur} ${item.prenom_chauffeur || ''}`.trim() : 'Non assigné',
+                    fournisseur: item.nom_fournisseur || 'Non spécifié',
+                    type_carburant: item.nom_type_carburant || 'Non spécifié',
+                    createur: item.createur_nom ? `${item.createur_nom} ${item.createur_prenom || ''}`.trim() : 'Inconnu'
+                }))
             },
             meta: {
                 tenant_id: !isSuperAdmin ? tenantId : null,
