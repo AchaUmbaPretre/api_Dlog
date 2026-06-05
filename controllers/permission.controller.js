@@ -3,7 +3,6 @@ const dotenv = require('dotenv');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 
-
 dotenv.config();
 
 // Créer le transporteur avec les informations SMTP
