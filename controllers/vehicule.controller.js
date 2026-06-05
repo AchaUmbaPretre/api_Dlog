@@ -1,4 +1,4 @@
-const { queryAsync } = require("./../config/database");
+const { queryAsync, db } = require("./../config/database");
 const moment = require('moment');
 
 exports.getVehicule = async (req, res) => {
