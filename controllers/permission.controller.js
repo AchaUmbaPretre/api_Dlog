@@ -359,6 +359,63 @@ exports.permissions = (req, res) => {
 };
 
 exports.putPermission = (req, res) => {
+    const userId = req.params.userId;
+    const optionId = req.params.optionId;
+    const submenuId = req.query.submenuId;
+    const { can_read, can_edit, can_comment, can_delete } = req.body;
+  
+    let query;
+    let queryParams;
+  
+    if (submenuId) {
+      // Si submenuId est fourni, mettez à jour les permissions pour le sous-menu
+      query = `
+        UPDATE permission 
+        SET can_read = ?, can_edit = ?, can_comment = ?, can_delete = ? 
+        WHERE user_id = ? AND menus_id = ? AND submenu_id = ?
+      `;
+      queryParams = [can_read, can_edit, can_comment, can_delete, userId, optionId, submenuId];
+    } else {
+      // Si aucun submenuId, mettez à jour les permissions pour le menu principal
+      query = `
+        UPDATE permission 
+        SET can_read = ?, can_edit = ?, can_comment = ?, can_delete = ? 
+        WHERE user_id = ? AND menus_id = ? AND (submenu_id IS NULL OR submenu_id = 0)
+      `;
+      queryParams = [can_read, can_edit, can_comment, can_delete, userId, optionId];
+    }
+  
+    db.query(query, queryParams, (err, results) => {
+      if (err) {
+        console.error('Erreur lors de la mise à jour des permissions:', err);
+        return res.status(500).json({ error: 'Erreur lors de la mise à jour des permissions' });
+      }
+  
+      if (results.affectedRows === 0) {
+        // Si aucune ligne n'a été mise à jour, ajoutez une nouvelle ligne
+        const insertQuery = `
+          INSERT INTO permission (user_id, menus_id, submenu_id, can_read, can_edit, can_comment, can_delete) 
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `;
+        const insertParams = submenuId
+          ? [userId, optionId, submenuId, can_read, can_edit, can_comment, can_delete]
+          : [userId, optionId, 0, can_read, can_edit, can_comment, can_delete]; // Utiliser 0 pour submenu_id si aucun sous-menu n'est fourni
+  
+        db.query(insertQuery, insertParams, (insertErr, insertResults) => {
+          if (insertErr) {
+            console.error('Erreur lors de l\'insertion des permissions:', insertErr);
+            return res.status(500).json({ error: 'Erreur lors de l\'insertion des permissions' });
+          }
+          res.json({ message: 'Permissions updated successfully!' });
+        });
+      } else {
+        res.json({ message: 'Permissions updated successfully!' });
+      }
+    });
+  };
+
+  
+/* exports.putPermission = (req, res) => {
     const userId = req.params.userId;           // Utilisateur cible (qui reçoit les permissions)
     const optionId = req.params.optionId;       // Menu ID
     const submenuId = req.query.submenuId;      // Sous-menu ID (optionnel)
@@ -458,7 +515,7 @@ exports.putPermission = (req, res) => {
             }
         });
     });
-};
+}; */
 
 /* exports.putPermission = (req, res) => {
     const userId = req.params.userId;
