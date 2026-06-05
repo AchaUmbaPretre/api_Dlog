@@ -513,8 +513,8 @@ exports.postReparation = (req, res) => {
                     kilometrage,
                     id_statut_vehicule,
                     currentUserId,
-                    tenantId,           // 🔥 tenant_id automatique
-                    currentUserId       // 🔥 created_by
+                    tenantId,
+                    currentUserId 
                 ];
 
                 const [mainResult] = await queryPromise(connection, insertMainQuery, mainValues);

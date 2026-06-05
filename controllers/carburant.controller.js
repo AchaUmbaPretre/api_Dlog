@@ -2248,358 +2248,367 @@ exports.getCarburantByMonthYear = async (req, res) => {
 };
 
 exports.getDashboardCarburant = async (req, res) => {
-  try {
+    const { tenantId, isSuperAdmin } = req;
     const { periode = '30j', date_debut, date_fin } = req.query;
-    
-    let startDate, endDate, previousStartDate, previousEndDate;
-    
-    endDate = moment().endOf('day');
-    
-    // Définir la période actuelle
-    switch(periode) {
-      case '7j':
-        startDate = moment().subtract(7, 'days').startOf('day');
-        previousStartDate = moment(startDate).subtract(7, 'days');
-        break;
+
+    try {
+        let startDate, endDate, previousStartDate, previousEndDate;
         
-      case '90j':
-        startDate = moment().subtract(90, 'days').startOf('day');
-        previousStartDate = moment(startDate).subtract(90, 'days');
-        break;
+        endDate = moment().endOf('day');
         
-      case '1y':
-        startDate = moment().subtract(1, 'year').startOf('day');
-        previousStartDate = moment(startDate).subtract(1, 'year');
-        break;
-        
-      case '30j':
-      default:
-        startDate = moment().subtract(30, 'days').startOf('day');
-        previousStartDate = moment(startDate).subtract(30, 'days');
-        break;
-    }
-    
-    // Dates personnalisées
-    if (date_debut && date_fin) {
-      startDate = moment(date_debut).startOf('day');
-      endDate = moment(date_fin).endOf('day');
-      
-      const diffDays = endDate.diff(startDate, 'days');
-      previousStartDate = moment(startDate).subtract(diffDays, 'days');
-      previousEndDate = moment(startDate).subtract(1, 'days').endOf('day');
-    } else {
-      previousEndDate = moment(startDate).subtract(1, 'seconds');
-    }
-    
-    // 1. Requête des KPI principaux
-    const kpiQuery = `
-      SELECT 
-        -- Période actuelle
-        COALESCE(SUM(CASE WHEN date_operation BETWEEN ? AND ? THEN montant_total_usd END), 0) AS depenses_actuelles,
-        COALESCE(SUM(CASE WHEN date_operation BETWEEN ? AND ? THEN quantite_litres END), 0) AS volume_actuel,
-        COUNT(CASE WHEN date_operation BETWEEN ? AND ? THEN 1 END) AS ravitaillements_actuels,
-        COALESCE(AVG(CASE WHEN date_operation BETWEEN ? AND ? THEN prix_usd END), 0) AS prix_moyen_actuel,
-        COALESCE(SUM(CASE WHEN date_operation BETWEEN ? AND ? THEN montant_total_usd END), 0) / 
-          NULLIF(COUNT(CASE WHEN date_operation BETWEEN ? AND ? THEN 1 END), 0) AS cout_moyen_actuel,
-        
-        -- Période précédente
-        COALESCE(SUM(CASE WHEN date_operation BETWEEN ? AND ? THEN montant_total_usd END), 0) AS depenses_precedentes,
-        COALESCE(SUM(CASE WHEN date_operation BETWEEN ? AND ? THEN quantite_litres END), 0) AS volume_precedent,
-        COUNT(CASE WHEN date_operation BETWEEN ? AND ? THEN 1 END) AS ravitaillements_precedents,
-        COALESCE(AVG(CASE WHEN date_operation BETWEEN ? AND ? THEN prix_usd END), 0) AS prix_moyen_precedent,
-        COALESCE(SUM(CASE WHEN date_operation BETWEEN ? AND ? THEN montant_total_usd END), 0) / 
-          NULLIF(COUNT(CASE WHEN date_operation BETWEEN ? AND ? THEN 1 END), 0) AS cout_moyen_precedent
-      FROM carburant
-      WHERE est_supprime = 0
-    `;
-    
-    const kpiParams = [
-      startDate.format('YYYY-MM-DD HH:mm:ss'), endDate.format('YYYY-MM-DD HH:mm:ss'),
-      startDate.format('YYYY-MM-DD HH:mm:ss'), endDate.format('YYYY-MM-DD HH:mm:ss'),
-      startDate.format('YYYY-MM-DD HH:mm:ss'), endDate.format('YYYY-MM-DD HH:mm:ss'),
-      startDate.format('YYYY-MM-DD HH:mm:ss'), endDate.format('YYYY-MM-DD HH:mm:ss'),
-      startDate.format('YYYY-MM-DD HH:mm:ss'), endDate.format('YYYY-MM-DD HH:mm:ss'),
-      startDate.format('YYYY-MM-DD HH:mm:ss'), endDate.format('YYYY-MM-DD HH:mm:ss'),
-      previousStartDate.format('YYYY-MM-DD HH:mm:ss'), previousEndDate.format('YYYY-MM-DD HH:mm:ss'),
-      previousStartDate.format('YYYY-MM-DD HH:mm:ss'), previousEndDate.format('YYYY-MM-DD HH:mm:ss'),
-      previousStartDate.format('YYYY-MM-DD HH:mm:ss'), previousEndDate.format('YYYY-MM-DD HH:mm:ss'),
-      previousStartDate.format('YYYY-MM-DD HH:mm:ss'), previousEndDate.format('YYYY-MM-DD HH:mm:ss'),
-      previousStartDate.format('YYYY-MM-DD HH:mm:ss'), previousEndDate.format('YYYY-MM-DD HH:mm:ss'),
-      previousStartDate.format('YYYY-MM-DD HH:mm:ss'), previousEndDate.format('YYYY-MM-DD HH:mm:ss')
-    ];
-    
-    const kpiResult = await queryAsync(kpiQuery, kpiParams);
-    const kpi = kpiResult[0];
-    
-    // Calcul des variations
-    const calculateVariation = (current, previous) => {
-      if (!previous || previous == 0) return 0;
-      return parseFloat(((current - previous) / previous * 100).toFixed(1));
-    };
-    
-    // 2. Évolution des dépenses (12 derniers mois)
-    const evolutionQuery = `
-      SELECT 
-        DATE_FORMAT(date_operation, '%Y-%m') AS mois,
-        DATE_FORMAT(date_operation, '%b') AS mois_label,
-        ROUND(COALESCE(SUM(montant_total_usd), 0), 2) AS depenses_mois,
-        ROUND(COALESCE(SUM(quantite_litres), 0), 2) AS volume_mois,
-        LAG(ROUND(COALESCE(SUM(montant_total_usd), 0), 2)) OVER (ORDER BY DATE_FORMAT(date_operation, '%Y-%m')) AS depenses_mois_prec
-      FROM carburant
-      WHERE est_supprime = 0
-        AND date_operation >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-      GROUP BY DATE_FORMAT(date_operation, '%Y-%m'), DATE_FORMAT(date_operation, '%b')
-      ORDER BY mois
-    `;
-    
-    const evolutionResult = await queryAsync(evolutionQuery);
-    
-    // 3. Répartition par type de carburant
-    const repartitionQuery = `
-      SELECT 
-        COALESCE(tc.nom_type_carburant, 'Non défini') AS type_carburant,
-        ROUND(SUM(c.quantite_litres), 0) AS volume_litres,
-        ROUND(SUM(c.montant_total_usd), 2) AS montant_usd,
-        ROUND(SUM(c.quantite_litres) * 100.0 / NULLIF(SUM(SUM(c.quantite_litres)) OVER(), 0), 1) AS pourcentage_volume,
-        COUNT(*) AS nombre_transactions,
-        -- Calcul de la tendance avec gestion des NULL
-        COALESCE(
-          ROUND(
-            CASE 
-              WHEN SUM(CASE WHEN c.date_operation >= DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN c.quantite_litres ELSE 0 END) = 0 
-                OR SUM(CASE WHEN c.date_operation BETWEEN DATE_SUB(NOW(), INTERVAL 2 MONTH) AND DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN c.quantite_litres ELSE 0 END) = 0
-              THEN 0
-              ELSE (
-                (SUM(CASE WHEN c.date_operation >= DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN c.quantite_litres ELSE 0 END) -
-                SUM(CASE WHEN c.date_operation BETWEEN DATE_SUB(NOW(), INTERVAL 2 MONTH) AND DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN c.quantite_litres ELSE 0 END)) * 100.0 /
-                NULLIF(SUM(CASE WHEN c.date_operation BETWEEN DATE_SUB(NOW(), INTERVAL 2 MONTH) AND DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN c.quantite_litres ELSE 0 END), 0)
-              )
-            END, 1
-          ), 0
-        ) AS tendance_pct
-      FROM carburant c
-      LEFT JOIN type_carburant tc ON c.id_type_carburant = tc.id_type_carburant
-      WHERE c.est_supprime = 0
-        AND c.date_operation >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-      GROUP BY tc.id_type_carburant, tc.nom_type_carburant
-      ORDER BY pourcentage_volume DESC
-    `;
-    
-    const repartitionResult = await queryAsync(repartitionQuery);
-    
-    // 4. Top 5 véhicules consommateurs
-    const topVehiculesQuery = `
-      SELECT 
-        v.immatriculation,
-        m.nom_marque AS marque,
-        model.modele AS modele,
-        ROUND(SUM(c.quantite_litres), 0) AS total_litres,
-        ROUND(SUM(c.montant_total_usd), 2) AS total_depenses,
-        COUNT(*) AS nombre_pleins,
-        ROUND(AVG(c.consommation), 2) AS consommation_moyenne,
-        ROUND(SUM(c.montant_total_usd) / NULLIF(SUM(c.quantite_litres), 0), 2) AS prix_moyen_litre
-      FROM carburant c
-      LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
-      LEFT JOIN marque m ON m.id_marque = v.id_marque
-      LEFT JOIN modeles model ON v.id_modele = model.id_modele
-      WHERE c.est_supprime = 0
-        AND c.date_operation BETWEEN ? AND ?
-      GROUP BY c.id_vehicule, v.immatriculation, v.id_marque, v.id_modele
-      ORDER BY total_litres DESC
-      LIMIT 5
-    `;
-    
-    const topVehiculesResult = await queryAsync(topVehiculesQuery, [
-      startDate.format('YYYY-MM-DD HH:mm:ss'), 
-      endDate.format('YYYY-MM-DD HH:mm:ss')
-    ]);
-    
-    // 5. Dépenses journalières
-    const depensesJournalieresQuery = `
-      SELECT 
-        DATE(date_operation) AS date,
-        DATE_FORMAT(date_operation, '%d/%m') AS date_label,
-        ROUND(COALESCE(SUM(montant_total_usd), 0), 2) AS depenses,
-        ROUND(COALESCE(SUM(quantite_litres), 0), 2) AS volume,
-        COUNT(*) AS operations,
-        ROUND(COALESCE(SUM(montant_total_usd), 0) / NULLIF(COUNT(*), 0), 2) AS moyen_par_operation
-      FROM carburant
-      WHERE est_supprime = 0
-        AND date_operation BETWEEN ? AND ?
-      GROUP BY DATE(date_operation)
-      ORDER BY date
-    `;
-    
-    const depensesJournalieresResult = await queryAsync(depensesJournalieresQuery, [
-      startDate.format('YYYY-MM-DD HH:mm:ss'),
-      endDate.format('YYYY-MM-DD HH:mm:ss')
-    ]);
-    
-    // 6. Statistiques par fournisseur
-    const statsFournisseurQuery = `
-      SELECT 
-        f.nom_fournisseur,
-        COUNT(*) AS nombre_operations,
-        ROUND(SUM(c.quantite_litres), 0) AS total_litres,
-        ROUND(SUM(c.montant_total_usd), 2) AS total_depenses,
-        ROUND(AVG(c.prix_usd), 3) AS prix_moyen_litre
-      FROM carburant c
-      LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
-      WHERE c.est_supprime = 0
-        AND c.date_operation BETWEEN ? AND ?
-      GROUP BY c.id_fournisseur, f.nom_fournisseur
-      ORDER BY total_depenses DESC
-      LIMIT 5
-    `;
-    
-    const statsFournisseurResult = await queryAsync(statsFournisseurQuery, [
-      startDate.format('YYYY-MM-DD HH:mm:ss'),
-      endDate.format('YYYY-MM-DD HH:mm:ss')
-    ]);
-    
-    const response = {
-      success: true,
-      data: {
-        periode: {
-          debut: startDate.format('YYYY-MM-DD HH:mm:ss'),
-          fin: endDate.format('YYYY-MM-DD HH:mm:ss'),
-          libelle: periode,
-          jours: endDate.diff(startDate, 'days') + 1
-        },
-        
-        // KPI principaux
-        kpi: {
-          depenses: {
-            valeur: parseFloat(kpi.depenses_actuelles),
-            valeur_formatee: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(kpi.depenses_actuelles),
-            tendance: calculateVariation(kpi.depenses_actuelles, kpi.depenses_precedentes),
-            positif: calculateVariation(kpi.depenses_actuelles, kpi.depenses_precedentes) >= 0,
-            valeur_precedente: parseFloat(kpi.depenses_precedentes),
-            valeur_precedente_formatee: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(kpi.depenses_precedentes)
-          },
-          volume: {
-            valeur: parseInt(kpi.volume_actuel),
-            valeur_formatee: new Intl.NumberFormat('fr-FR').format(kpi.volume_actuel) + ' L',
-            tendance: calculateVariation(kpi.volume_actuel, kpi.volume_precedent),
-            positif: calculateVariation(kpi.volume_actuel, kpi.volume_precedent) >= 0,
-            valeur_precedente: parseInt(kpi.volume_precedent),
-            valeur_precedente_formatee: new Intl.NumberFormat('fr-FR').format(kpi.volume_precedent) + ' L'
-          },
-          ravitaillements: {
-            valeur: parseInt(kpi.ravitaillements_actuels),
-            valeur_formatee: new Intl.NumberFormat('fr-FR').format(kpi.ravitaillements_actuels),
-            tendance: calculateVariation(kpi.ravitaillements_actuels, kpi.ravitaillements_precedents),
-            positif: calculateVariation(kpi.ravitaillements_actuels, kpi.ravitaillements_precedents) >= 0,
-            valeur_precedente: parseInt(kpi.ravitaillements_precedents),
-            valeur_precedente_formatee: new Intl.NumberFormat('fr-FR').format(kpi.ravitaillements_precedents)
-          },
-          coutMoyen: {
-            valeur: parseFloat(kpi.cout_moyen_actuel),
-            valeur_formatee: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(kpi.cout_moyen_actuel),
-            tendance: calculateVariation(kpi.cout_moyen_actuel, kpi.cout_moyen_precedent),
-            positif: calculateVariation(kpi.cout_moyen_actuel, kpi.cout_moyen_precedent) >= 0,
-            valeur_precedente: parseFloat(kpi.cout_moyen_precedent),
-            valeur_precedente_formatee: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(kpi.cout_moyen_precedent)
-          },
-          prixMoyenLitre: {
-            valeur: parseFloat(kpi.prix_moyen_actuel),
-            valeur_formatee: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(kpi.prix_moyen_actuel) + '/L',
-            tendance: calculateVariation(kpi.prix_moyen_actuel, kpi.prix_moyen_precedent),
-            positif: calculateVariation(kpi.prix_moyen_actuel, kpi.prix_moyen_precedent) <= 0,
-            valeur_precedente: parseFloat(kpi.prix_moyen_precedent),
-            valeur_precedente_formatee: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(kpi.prix_moyen_precedent) + '/L'
-          }
-        },
-        
-        // Évolution mensuelle
-        evolution: {
-          labels: evolutionResult.map(item => item.mois_label),
-          depenses: evolutionResult.map(item => parseFloat(item.depenses_mois)),
-          depenses_prec: evolutionResult.map(item => item.depenses_mois_prec ? parseFloat(item.depenses_mois_prec) : null),
-          volume: evolutionResult.map(item => parseFloat(item.volume_mois))
-        },
-        
-        // Répartition par carburant
-        repartition: repartitionResult.map(item => ({
-          id: item.type_carburant,
-          name: item.type_carburant,
-          volume: item.volume_litres,
-          volume_formate: new Intl.NumberFormat('fr-FR').format(item.volume_litres) + ' L',
-          montant: item.montant_usd,
-          montant_formate: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(item.montant_usd),
-          pourcentage: item.pourcentage_volume,
-          transactions: item.nombre_transactions,
-          tendance: item.tendance_pct,
-          tendance_formate: `${item.tendance_pct > 0 ? '+' : ''}${item.tendance_pct}%`,
-          tendance_positive: item.tendance_pct >= 0,
-          color: getCarburantColor(item.type_carburant)
-        })),
-        
-        // Top véhicules
-        topVehicules: topVehiculesResult.map(item => ({
-          immatriculation: item.immatriculation,
-          vehicule: `${item.marque || ''} ${item.modele || ''}`.trim(),
-          litres: item.total_litres,
-          litres_formate: new Intl.NumberFormat('fr-FR').format(item.total_litres) + ' L',
-          depenses: item.total_depenses,
-          depenses_formate: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(item.total_depenses),
-          nombre_pleins: item.nombre_pleins,
-          consommation: item.consommation_moyenne,
-          prix_moyen_litre: item.prix_moyen_litre
-        })),
-        
-        // Analyse journalière
-        analyseJournaliere: depensesJournalieresResult.map(item => ({
-          ...item,
-          depenses_formate: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(item.depenses),
-          volume_formate: new Intl.NumberFormat('fr-FR').format(item.volume) + ' L'
-        })),
-        
-        // Statistiques fournisseurs
-        topFournisseurs: statsFournisseurResult.map(item => ({
-          ...item,
-          total_depenses_formate: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(item.total_depenses),
-          total_litres_formate: new Intl.NumberFormat('fr-FR').format(item.total_litres) + ' L'
-        })),
-        
-        // Résumé global
-        resume: {
-          total_litres: parseInt(kpi.volume_actuel),
-          total_depenses: parseFloat(kpi.depenses_actuelles),
-          nombre_pleins: parseInt(kpi.ravitaillements_actuels),
-          cout_moyen_litre: parseFloat((kpi.depenses_actuelles / kpi.volume_actuel).toFixed(3)) || 0,
-          cout_moyen_litre_formate: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(kpi.depenses_actuelles / kpi.volume_actuel) + '/L',
-          jours_analyse: endDate.diff(startDate, 'days') + 1,
-          operations_par_jour: parseFloat((kpi.ravitaillements_actuels / (endDate.diff(startDate, 'days') + 1)).toFixed(1))
+        // Définir la période actuelle
+        switch(periode) {
+            case '7j':
+                startDate = moment().subtract(7, 'days').startOf('day');
+                previousStartDate = moment(startDate).subtract(7, 'days');
+                break;
+            case '90j':
+                startDate = moment().subtract(90, 'days').startOf('day');
+                previousStartDate = moment(startDate).subtract(90, 'days');
+                break;
+            case '1y':
+                startDate = moment().subtract(1, 'year').startOf('day');
+                previousStartDate = moment(startDate).subtract(1, 'year');
+                break;
+            case '30j':
+            default:
+                startDate = moment().subtract(30, 'days').startOf('day');
+                previousStartDate = moment(startDate).subtract(30, 'days');
+                break;
         }
-      },
-      message: "Données du dashboard carburant récupérées avec succès"
-    };
-    
-    return res.status(200).json(response);
-    
-  } catch (error) {
-    console.error("❌ Erreur lors de la récupération des données carburant :", error);
-    return res.status(500).json({
-      success: false,
-      error: "Erreur interne lors de la récupération des données",
-      message: error.message
-    });
-  }
+        
+        // Dates personnalisées
+        if (date_debut && date_fin) {
+            startDate = moment(date_debut).startOf('day');
+            endDate = moment(date_fin).endOf('day');
+            const diffDays = endDate.diff(startDate, 'days');
+            previousStartDate = moment(startDate).subtract(diffDays, 'days');
+            previousEndDate = moment(startDate).subtract(1, 'days').endOf('day');
+        } else {
+            previousEndDate = moment(startDate).subtract(1, 'seconds');
+        }
+
+        // 🔥 Condition tenant pour toutes les requêtes
+        const tenantCondition = !isSuperAdmin && tenantId ? ' AND v.tenant_id = ?' : '';
+        const tenantParam = !isSuperAdmin && tenantId ? [tenantId] : [];
+
+        // 1. Requête des KPI principaux avec tenant
+        const kpiQuery = `
+            SELECT 
+                -- Période actuelle
+                COALESCE(SUM(CASE WHEN c.date_operation BETWEEN ? AND ? THEN c.montant_total_usd END), 0) AS depenses_actuelles,
+                COALESCE(SUM(CASE WHEN c.date_operation BETWEEN ? AND ? THEN c.quantite_litres END), 0) AS volume_actuel,
+                COUNT(CASE WHEN c.date_operation BETWEEN ? AND ? THEN 1 END) AS ravitaillements_actuels,
+                COALESCE(AVG(CASE WHEN c.date_operation BETWEEN ? AND ? THEN c.prix_usd END), 0) AS prix_moyen_actuel,
+                COALESCE(SUM(CASE WHEN c.date_operation BETWEEN ? AND ? THEN c.montant_total_usd END), 0) / 
+                    NULLIF(COUNT(CASE WHEN c.date_operation BETWEEN ? AND ? THEN 1 END), 0) AS cout_moyen_actuel,
+                
+                -- Période précédente
+                COALESCE(SUM(CASE WHEN c.date_operation BETWEEN ? AND ? THEN c.montant_total_usd END), 0) AS depenses_precedentes,
+                COALESCE(SUM(CASE WHEN c.date_operation BETWEEN ? AND ? THEN c.quantite_litres END), 0) AS volume_precedent,
+                COUNT(CASE WHEN c.date_operation BETWEEN ? AND ? THEN 1 END) AS ravitaillements_precedents,
+                COALESCE(AVG(CASE WHEN c.date_operation BETWEEN ? AND ? THEN c.prix_usd END), 0) AS prix_moyen_precedent,
+                COALESCE(SUM(CASE WHEN c.date_operation BETWEEN ? AND ? THEN c.montant_total_usd END), 0) / 
+                    NULLIF(COUNT(CASE WHEN c.date_operation BETWEEN ? AND ? THEN 1 END), 0) AS cout_moyen_precedent
+            FROM carburant c
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            WHERE c.est_supprime = 0
+            ${tenantCondition}
+        `;
+        
+        const kpiParams = [
+            startDate.format('YYYY-MM-DD HH:mm:ss'), endDate.format('YYYY-MM-DD HH:mm:ss'),
+            startDate.format('YYYY-MM-DD HH:mm:ss'), endDate.format('YYYY-MM-DD HH:mm:ss'),
+            startDate.format('YYYY-MM-DD HH:mm:ss'), endDate.format('YYYY-MM-DD HH:mm:ss'),
+            startDate.format('YYYY-MM-DD HH:mm:ss'), endDate.format('YYYY-MM-DD HH:mm:ss'),
+            startDate.format('YYYY-MM-DD HH:mm:ss'), endDate.format('YYYY-MM-DD HH:mm:ss'),
+            startDate.format('YYYY-MM-DD HH:mm:ss'), endDate.format('YYYY-MM-DD HH:mm:ss'),
+            previousStartDate.format('YYYY-MM-DD HH:mm:ss'), previousEndDate.format('YYYY-MM-DD HH:mm:ss'),
+            previousStartDate.format('YYYY-MM-DD HH:mm:ss'), previousEndDate.format('YYYY-MM-DD HH:mm:ss'),
+            previousStartDate.format('YYYY-MM-DD HH:mm:ss'), previousEndDate.format('YYYY-MM-DD HH:mm:ss'),
+            previousStartDate.format('YYYY-MM-DD HH:mm:ss'), previousEndDate.format('YYYY-MM-DD HH:mm:ss'),
+            previousStartDate.format('YYYY-MM-DD HH:mm:ss'), previousEndDate.format('YYYY-MM-DD HH:mm:ss'),
+            previousStartDate.format('YYYY-MM-DD HH:mm:ss'), previousEndDate.format('YYYY-MM-DD HH:mm:ss')
+        ];
+        
+        // Ajouter tenantParam à la fin si nécessaire
+        if (!isSuperAdmin && tenantId) {
+            for (let i = 0; i < 12; i++) {
+                kpiParams.push(tenantId);
+            }
+        }
+        
+        const kpiResult = await queryAsync(kpiQuery, kpiParams);
+        const kpi = kpiResult[0];
+        
+        // Calcul des variations
+        const calculateVariation = (current, previous) => {
+            if (!previous || previous == 0) return 0;
+            return parseFloat(((current - previous) / previous * 100).toFixed(1));
+        };
+        
+        // 2. Évolution des dépenses avec tenant
+        const evolutionQuery = `
+            SELECT 
+                DATE_FORMAT(c.date_operation, '%Y-%m') AS mois,
+                DATE_FORMAT(c.date_operation, '%b') AS mois_label,
+                ROUND(COALESCE(SUM(c.montant_total_usd), 0), 2) AS depenses_mois,
+                ROUND(COALESCE(SUM(c.quantite_litres), 0), 2) AS volume_mois,
+                LAG(ROUND(COALESCE(SUM(c.montant_total_usd), 0), 2)) OVER (ORDER BY DATE_FORMAT(c.date_operation, '%Y-%m')) AS depenses_mois_prec
+            FROM carburant c
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            WHERE c.est_supprime = 0
+                AND c.date_operation >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+                ${tenantCondition}
+            GROUP BY DATE_FORMAT(c.date_operation, '%Y-%m'), DATE_FORMAT(c.date_operation, '%b')
+            ORDER BY mois
+        `;
+        
+        const evolutionResult = await queryAsync(evolutionQuery, tenantParam);
+        
+        // 3. Répartition par type de carburant avec tenant
+        const repartitionQuery = `
+            SELECT 
+                COALESCE(tc.nom_type_carburant, 'Non défini') AS type_carburant,
+                ROUND(SUM(c.quantite_litres), 0) AS volume_litres,
+                ROUND(SUM(c.montant_total_usd), 2) AS montant_usd,
+                ROUND(SUM(c.quantite_litres) * 100.0 / NULLIF(SUM(SUM(c.quantite_litres)) OVER(), 0), 1) AS pourcentage_volume,
+                COUNT(*) AS nombre_transactions,
+                COALESCE(
+                    ROUND(
+                        CASE 
+                            WHEN SUM(CASE WHEN c.date_operation >= DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN c.quantite_litres ELSE 0 END) = 0 
+                                OR SUM(CASE WHEN c.date_operation BETWEEN DATE_SUB(NOW(), INTERVAL 2 MONTH) AND DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN c.quantite_litres ELSE 0 END) = 0
+                            THEN 0
+                            ELSE (
+                                (SUM(CASE WHEN c.date_operation >= DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN c.quantite_litres ELSE 0 END) -
+                                SUM(CASE WHEN c.date_operation BETWEEN DATE_SUB(NOW(), INTERVAL 2 MONTH) AND DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN c.quantite_litres ELSE 0 END)) * 100.0 /
+                                NULLIF(SUM(CASE WHEN c.date_operation BETWEEN DATE_SUB(NOW(), INTERVAL 2 MONTH) AND DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN c.quantite_litres ELSE 0 END), 0)
+                            )
+                        END, 1
+                    ), 0
+                ) AS tendance_pct
+            FROM carburant c
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            LEFT JOIN type_carburant tc ON c.id_type_carburant = tc.id_type_carburant
+            WHERE c.est_supprime = 0
+                AND c.date_operation >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+                ${tenantCondition}
+            GROUP BY tc.id_type_carburant, tc.nom_type_carburant
+            ORDER BY pourcentage_volume DESC
+        `;
+        
+        const repartitionResult = await queryAsync(repartitionQuery, tenantParam);
+        
+        // 4. Top 5 véhicules consommateurs avec tenant
+        const topVehiculesQuery = `
+            SELECT 
+                v.immatriculation,
+                m.nom_marque AS marque,
+                model.modele AS modele,
+                ROUND(SUM(c.quantite_litres), 0) AS total_litres,
+                ROUND(SUM(c.montant_total_usd), 2) AS total_depenses,
+                COUNT(*) AS nombre_pleins,
+                ROUND(AVG(c.consommation), 2) AS consommation_moyenne,
+                ROUND(SUM(c.montant_total_usd) / NULLIF(SUM(c.quantite_litres), 0), 2) AS prix_moyen_litre
+            FROM carburant c
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            LEFT JOIN marque m ON m.id_marque = v.id_marque
+            LEFT JOIN modeles model ON v.id_modele = model.id_modele
+            WHERE c.est_supprime = 0
+                AND c.date_operation BETWEEN ? AND ?
+                ${tenantCondition}
+            GROUP BY c.id_vehicule, v.immatriculation, v.id_marque, v.id_modele
+            ORDER BY total_litres DESC
+            LIMIT 5
+        `;
+        
+        const topVehiculesParams = [startDate.format('YYYY-MM-DD HH:mm:ss'), endDate.format('YYYY-MM-DD HH:mm:ss')];
+        if (!isSuperAdmin && tenantId) topVehiculesParams.push(tenantId);
+        
+        const topVehiculesResult = await queryAsync(topVehiculesQuery, topVehiculesParams);
+        
+        // 5. Dépenses journalières avec tenant
+        const depensesJournalieresQuery = `
+            SELECT 
+                DATE(c.date_operation) AS date,
+                DATE_FORMAT(c.date_operation, '%d/%m') AS date_label,
+                ROUND(COALESCE(SUM(c.montant_total_usd), 0), 2) AS depenses,
+                ROUND(COALESCE(SUM(c.quantite_litres), 0), 2) AS volume,
+                COUNT(*) AS operations,
+                ROUND(COALESCE(SUM(c.montant_total_usd), 0) / NULLIF(COUNT(*), 0), 2) AS moyen_par_operation
+            FROM carburant c
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            WHERE c.est_supprime = 0
+                AND c.date_operation BETWEEN ? AND ?
+                ${tenantCondition}
+            GROUP BY DATE(c.date_operation)
+            ORDER BY date
+        `;
+        
+        const depensesJournalieresParams = [startDate.format('YYYY-MM-DD HH:mm:ss'), endDate.format('YYYY-MM-DD HH:mm:ss')];
+        if (!isSuperAdmin && tenantId) depensesJournalieresParams.push(tenantId);
+        
+        const depensesJournalieresResult = await queryAsync(depensesJournalieresQuery, depensesJournalieresParams);
+        
+        // 6. Statistiques par fournisseur avec tenant
+        const statsFournisseurQuery = `
+            SELECT 
+                f.nom_fournisseur,
+                COUNT(*) AS nombre_operations,
+                ROUND(SUM(c.quantite_litres), 0) AS total_litres,
+                ROUND(SUM(c.montant_total_usd), 2) AS total_depenses,
+                ROUND(AVG(c.prix_usd), 3) AS prix_moyen_litre
+            FROM carburant c
+            LEFT JOIN vehicules v ON c.id_vehicule = v.id_vehicule
+            LEFT JOIN fournisseur f ON c.id_fournisseur = f.id_fournisseur
+            WHERE c.est_supprime = 0
+                AND c.date_operation BETWEEN ? AND ?
+                ${tenantCondition}
+            GROUP BY c.id_fournisseur, f.nom_fournisseur
+            ORDER BY total_depenses DESC
+            LIMIT 5
+        `;
+        
+        const statsFournisseurParams = [startDate.format('YYYY-MM-DD HH:mm:ss'), endDate.format('YYYY-MM-DD HH:mm:ss')];
+        if (!isSuperAdmin && tenantId) statsFournisseurParams.push(tenantId);
+        
+        const statsFournisseurResult = await queryAsync(statsFournisseurQuery, statsFournisseurParams);
+        
+        // Construction de la réponse (identique à l'originale)
+        const response = {
+            success: true,
+            data: {
+                periode: {
+                    debut: startDate.format('YYYY-MM-DD HH:mm:ss'),
+                    fin: endDate.format('YYYY-MM-DD HH:mm:ss'),
+                    libelle: periode,
+                    jours: endDate.diff(startDate, 'days') + 1
+                },
+                kpi: {
+                    depenses: {
+                        valeur: parseFloat(kpi.depenses_actuelles),
+                        valeur_formatee: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(kpi.depenses_actuelles),
+                        tendance: calculateVariation(kpi.depenses_actuelles, kpi.depenses_precedentes),
+                        positif: calculateVariation(kpi.depenses_actuelles, kpi.depenses_precedentes) >= 0,
+                        valeur_precedente: parseFloat(kpi.depenses_precedentes),
+                        valeur_precedente_formatee: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(kpi.depenses_precedentes)
+                    },
+                    volume: {
+                        valeur: parseInt(kpi.volume_actuel),
+                        valeur_formatee: new Intl.NumberFormat('fr-FR').format(kpi.volume_actuel) + ' L',
+                        tendance: calculateVariation(kpi.volume_actuel, kpi.volume_precedent),
+                        positif: calculateVariation(kpi.volume_actuel, kpi.volume_precedent) >= 0,
+                        valeur_precedente: parseInt(kpi.volume_precedent),
+                        valeur_precedente_formatee: new Intl.NumberFormat('fr-FR').format(kpi.volume_precedent) + ' L'
+                    },
+                    ravitaillements: {
+                        valeur: parseInt(kpi.ravitaillements_actuels),
+                        valeur_formatee: new Intl.NumberFormat('fr-FR').format(kpi.ravitaillements_actuels),
+                        tendance: calculateVariation(kpi.ravitaillements_actuels, kpi.ravitaillements_precedents),
+                        positif: calculateVariation(kpi.ravitaillements_actuels, kpi.ravitaillements_precedents) >= 0,
+                        valeur_precedente: parseInt(kpi.ravitaillements_precedents),
+                        valeur_precedente_formatee: new Intl.NumberFormat('fr-FR').format(kpi.ravitaillements_precedents)
+                    },
+                    coutMoyen: {
+                        valeur: parseFloat(kpi.cout_moyen_actuel),
+                        valeur_formatee: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(kpi.cout_moyen_actuel),
+                        tendance: calculateVariation(kpi.cout_moyen_actuel, kpi.cout_moyen_precedent),
+                        positif: calculateVariation(kpi.cout_moyen_actuel, kpi.cout_moyen_precedent) >= 0,
+                        valeur_precedente: parseFloat(kpi.cout_moyen_precedent),
+                        valeur_precedente_formatee: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(kpi.cout_moyen_precedent)
+                    },
+                    prixMoyenLitre: {
+                        valeur: parseFloat(kpi.prix_moyen_actuel),
+                        valeur_formatee: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(kpi.prix_moyen_actuel) + '/L',
+                        tendance: calculateVariation(kpi.prix_moyen_actuel, kpi.prix_moyen_precedent),
+                        positif: calculateVariation(kpi.prix_moyen_actuel, kpi.prix_moyen_precedent) <= 0,
+                        valeur_precedente: parseFloat(kpi.prix_moyen_precedent),
+                        valeur_precedente_formatee: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(kpi.prix_moyen_precedent) + '/L'
+                    }
+                },
+                evolution: {
+                    labels: evolutionResult.map(item => item.mois_label),
+                    depenses: evolutionResult.map(item => parseFloat(item.depenses_mois)),
+                    depenses_prec: evolutionResult.map(item => item.depenses_mois_prec ? parseFloat(item.depenses_mois_prec) : null),
+                    volume: evolutionResult.map(item => parseFloat(item.volume_mois))
+                },
+                repartition: repartitionResult.map(item => ({
+                    id: item.type_carburant,
+                    name: item.type_carburant,
+                    volume: item.volume_litres,
+                    volume_formate: new Intl.NumberFormat('fr-FR').format(item.volume_litres) + ' L',
+                    montant: item.montant_usd,
+                    montant_formate: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(item.montant_usd),
+                    pourcentage: item.pourcentage_volume,
+                    transactions: item.nombre_transactions,
+                    tendance: item.tendance_pct,
+                    tendance_formate: `${item.tendance_pct > 0 ? '+' : ''}${item.tendance_pct}%`,
+                    tendance_positive: item.tendance_pct >= 0,
+                    color: getCarburantColor(item.type_carburant)
+                })),
+                topVehicules: topVehiculesResult.map(item => ({
+                    immatriculation: item.immatriculation,
+                    vehicule: `${item.marque || ''} ${item.modele || ''}`.trim(),
+                    litres: item.total_litres,
+                    litres_formate: new Intl.NumberFormat('fr-FR').format(item.total_litres) + ' L',
+                    depenses: item.total_depenses,
+                    depenses_formate: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(item.total_depenses),
+                    nombre_pleins: item.nombre_pleins,
+                    consommation: item.consommation_moyenne,
+                    prix_moyen_litre: item.prix_moyen_litre
+                })),
+                analyseJournaliere: depensesJournalieresResult.map(item => ({
+                    ...item,
+                    depenses_formate: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(item.depenses),
+                    volume_formate: new Intl.NumberFormat('fr-FR').format(item.volume) + ' L'
+                })),
+                topFournisseurs: statsFournisseurResult.map(item => ({
+                    ...item,
+                    total_depenses_formate: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(item.total_depenses),
+                    total_litres_formate: new Intl.NumberFormat('fr-FR').format(item.total_litres) + ' L'
+                })),
+                resume: {
+                    total_litres: parseInt(kpi.volume_actuel),
+                    total_depenses: parseFloat(kpi.depenses_actuelles),
+                    nombre_pleins: parseInt(kpi.ravitaillements_actuels),
+                    cout_moyen_litre: parseFloat((kpi.depenses_actuelles / kpi.volume_actuel).toFixed(3)) || 0,
+                    cout_moyen_litre_formate: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(kpi.depenses_actuelles / kpi.volume_actuel) + '/L',
+                    jours_analyse: endDate.diff(startDate, 'days') + 1,
+                    operations_par_jour: parseFloat((kpi.ravitaillements_actuels / (endDate.diff(startDate, 'days') + 1)).toFixed(1))
+                }
+            },
+            meta: {
+                tenant_id: !isSuperAdmin ? tenantId : null,
+                is_super_admin: isSuperAdmin
+            },
+            message: "Données du dashboard carburant récupérées avec succès"
+        };
+        
+        return res.status(200).json(response);
+        
+    } catch (error) {
+        console.error("❌ Erreur lors de la récupération des données carburant :", error);
+        return res.status(500).json({
+            success: false,
+            error: "Erreur interne lors de la récupération des données",
+            message: error.message
+        });
+    }
 };
 
 function getCarburantColor(type) {
-  const colors = {
-    'Diesel': '#3A5FCD',
-    'Essence': '#2BA4C6',
-    'Sans Plomb': '#FF8C42',
-    'Super': '#FF8C42',
-    'Gazole': '#3A5FCD',
-    'GPL': '#8B5CF6',
-    'Gaz': '#8B5CF6',
-    'Éthanol': '#10B981',
-    'E85': '#10B981',
-    'Non défini': '#9CA3AF'
-  };
-  return colors[type] || '#6B7280';
+    const colors = {
+        'Diesel': '#3A5FCD',
+        'Essence': '#2BA4C6',
+        'Sans Plomb': '#FF8C42',
+        'Super': '#FF8C42',
+        'Gazole': '#3A5FCD',
+        'GPL': '#8B5CF6',
+        'Gaz': '#8B5CF6',
+        'Éthanol': '#10B981',
+        'E85': '#10B981',
+        'Non défini': '#9CA3AF'
+    };
+    return colors[type] || '#6B7280';
 }
