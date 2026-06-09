@@ -1258,7 +1258,7 @@ function processVehicules(userId, vehicules, res) {
                     vehicule.id_marque || null,
                     vehicule.id_modele || null,
                     vehicule.id_admin || null,
-                    userId  // 🔥 tenant_id = l'ID de l'utilisateur
+                    userId
                 ], (err, result) => {
                     if (err) {
                         console.error('❌ Erreur création véhicule:', err);
