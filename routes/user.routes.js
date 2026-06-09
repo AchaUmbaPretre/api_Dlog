@@ -36,7 +36,7 @@ router.get('/signature', userController.getSignature);
 router.post('/signature', upload.any(),userController.postSignature);
 
 //Limiter
-router.put('/limit_vehicule', userController.putLimiteVehicule);
+router.post('/limit_vehicule', userController.putLimiteVehicule);
 
 //Société
 router.get('/societe', userController.getSociete);
