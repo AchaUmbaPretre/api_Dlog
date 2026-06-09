@@ -216,14 +216,44 @@ exports.getVehiculeOne = async (req, res) => {
 };
 
 exports.postVehicule = async (req, res) => {
+    const { tenantId, isSuperAdmin } = req;
+    const currentUserId = req.user?.id || req.body.user_cr;
+
+    // Vérification des droits
+    if (!isSuperAdmin && !tenantId) {
+        return res.status(403).json({ error: 'Non autorisé à ajouter un véhicule' });
+    }
 
     try {
+        // 🔥 Vérification de la limite AVANT insertion (pour éviter de compter un véhicule qui pourrait échouer)
+        if (!isSuperAdmin && tenantId) {
+            const checkLimitQuery = `
+                SELECT u.limite_vehicules, COUNT(v.id_vehicule) AS nb_actuel
+                FROM utilisateur u
+                LEFT JOIN vehicules v ON u.id_utilisateur = v.created_by AND v.est_supprime = 0
+                WHERE u.id_utilisateur = ? AND u.tenant_id = ?
+                GROUP BY u.id_utilisateur
+            `;
+            
+            const userInfo = await queryAsync(checkLimitQuery, [currentUserId, tenantId]);
+
+            if (userInfo && userInfo.limite_vehicules !== null) {
+                if (userInfo.nb_actuel >= userInfo.limite_vehicules) {
+                    return res.status(403).json({
+                        success: false,
+                        message: `Vous avez atteint votre limite de ${userInfo.limite_vehicules} véhicules`,
+                        limite: userInfo.limite_vehicules,
+                        actuel: userInfo.nb_actuel
+                    });
+                }
+            }
+        }
+
         let img = null;
         if (req.files && req.files.length > 0) {
             img = req.files.map((file) => file.path.replace(/\\/g, '/')).join(',');
         }
 
-        // Déstructuration des champs du corps de la requête
         const {
             immatriculation,
             numero_ordre,
@@ -262,51 +292,71 @@ exports.postVehicule = async (req, res) => {
             valeur_acquisition,
             lubrifiant_moteur,
             id_etat,
-            id_client,
             user_cr
         } = req.body;
 
-        // Préparation de la requête SQL
+        // 🔥 Insertion avec tenant_id et created_by
         const query = `
             INSERT INTO vehicules (
                 immatriculation, numero_ordre, id_marque, id_modele, variante, num_chassis,
                 annee_fabrication, annee_circulation, id_cat_vehicule, id_type_permis_vehicule, img,
                 longueur, largeur, hauteur, poids, id_couleur, capacite_carburant, capacite_radiateur,
                 capacite_carter, nbre_place, nbre_portes, nbre_moteur, cylindre, nbre_cylindre, disposition_cylindre,
-                id_type_carburant, regime_moteur_vehicule, consommation_carburant, turbo, date_service, km_initial, nbre_chev,
-                id_transmission, id_climatisation, pneus, valeur_acquisition, lubrifiant_moteur, id_etat, id_client, user_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                id_type_carburant, regime_moteur_vehicule, consommation_carburant, turbo, date_service, 
+                km_initial, nbre_chev, id_transmission, id_climatisation, pneus, valeur_acquisition, 
+                lubrifiant_moteur, id_etat, tenant_id, created_by, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         `;
 
-        // Préparation des valeurs à insérer
         const values = [
-            immatriculation, numero_ordre, id_marque, id_modele, variante, num_chassis,  
+            immatriculation, numero_ordre, id_marque, id_modele, variante, num_chassis,
             annee_fabrication, annee_circulation, id_cat_vehicule, id_type_permis_vehicule, img,
             longueur, largeur, hauteur, poids, id_couleur, capacite_carburant, capacite_radiateur,
-            capacite_carter, nbre_place, nbre_portes, nbre_moteur, cylindre, nbre_cylindre, disposition_cylindre, 
-            id_type_carburant, regime_moteur_vehicule, consommation_carburant, turbo, date_service, km_initial, nbre_chev,
-            id_transmission, id_climatisation, pneus, valeur_acquisition, lubrifiant_moteur, id_etat, id_client, user_cr
+            capacite_carter, nbre_place, nbre_portes, nbre_moteur, cylindre, nbre_cylindre, disposition_cylindre,
+            id_type_carburant, regime_moteur_vehicule, consommation_carburant, turbo, date_service,
+            km_initial, nbre_chev, id_transmission, id_climatisation, pneus, valeur_acquisition,
+            lubrifiant_moteur, id_etat,
+            tenantId,           // 🔥 tenant_id automatique
+            currentUserId       // 🔥 created_by
         ];
 
-        // Exécution de la requête d'insertion
         const result = await queryAsync(query, values);
 
+        // 🔥 Mettre à jour le compteur de l'utilisateur
+        if (!isSuperAdmin && tenantId) {
+            await queryAsync(`
+                UPDATE utilisateur 
+                SET nb_vehicules_utilises = (
+                    SELECT COUNT(*) FROM vehicules 
+                    WHERE tenant_id = ? AND est_supprime = 0
+                )
+                WHERE id_utilisateur = ?
+            `, [tenantId, currentUserId]);
+        }
+
         return res.status(201).json({
+            success: true,
             message: 'Véhicule ajouté avec succès',
-            data: { id: result.insertId, immatriculation, numero_ordre },
+            data: { 
+                id: result.insertId, 
+                immatriculation, 
+                numero_ordre,
+                tenant_id: tenantId
+            },
         });
 
     } catch (error) {
         console.error('Erreur lors de l’ajout du véhicule :', error);
 
-        // Gestion des erreurs SQL
         const statusCode = error.code === 'ER_DUP_ENTRY' ? 409 : 500;
-        const errorMessage =
-            error.code === 'ER_DUP_ENTRY'
-                ? "Un véhicule avec ces informations existe déjà."
-                : "Une erreur s'est produite lors de l'ajout du véhicule.";
+        const errorMessage = error.code === 'ER_DUP_ENTRY'
+            ? "Un véhicule avec ces informations existe déjà."
+            : "Une erreur s'est produite lors de l'ajout du véhicule.";
 
-        return res.status(statusCode).json({ error: errorMessage });
+        return res.status(statusCode).json({ 
+            success: false,
+            error: errorMessage 
+        });
     }
 };
 

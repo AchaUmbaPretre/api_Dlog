@@ -6,6 +6,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');     
+const { verifierLimiteVehicules } = require("../midllewares/limiteVehicule.middleware");
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -29,7 +30,7 @@ router.get('/vehicule_occupe', vehiculeController.getVehiculeOccupe)
 router.put('/vehicule/rend_dispo', vehiculeController.rendreVehiculeDispo)
 
 router.get('/vehicule/one', vehiculeController.getVehiculeOne)
-router.post('/vehicule', upload.array('img', 10), vehiculeController.postVehicule)
+router.post('/vehicule', verifyToken, tenantFilter, verifierLimiteVehicules, upload.array('img', 10), vehiculeController.postVehicule)
 router.put('/vehicule', vehiculeController.putVehicule);
 router.put('/vehicule_estSupprime', vehiculeController.deleteVehicule);
 router.put('/vehicule_falcon', vehiculeController.putRelierVehiculeFalcon)
