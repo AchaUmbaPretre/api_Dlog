@@ -469,9 +469,9 @@ exports.postSignature = async (req, res) => {
 
 //Limiter le nombre de vehicule
 exports.putLimiteVehicule = async (req, res) => {
-  const { id_utilisateur, limite_vehicules } = req.query; // attendre 0 ou 1
+  const { id_utilisateur, limite_vehicules } = req.body; // Récupérer du body
 
-  if (!id_utilisateur || !limite_vehicules) {
+  if (!id_utilisateur || limite_vehicules === undefined) {
     return res.status(400).json({ error: "Champs requis manquants ou invalides." });
   }
 
