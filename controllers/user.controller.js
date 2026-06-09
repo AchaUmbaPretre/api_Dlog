@@ -38,7 +38,8 @@ exports.getUserAll = (req, res) => {
             utilisateur.role,
             utilisateur.mot_de_passe,
             utilisateur.id_ville,
-            utilisateur.id_departement
+            utilisateur.id_departement,
+            utilisateur.limite_vehicules
         FROM utilisateur
     `;
      
@@ -464,6 +465,59 @@ exports.postSignature = async (req, res) => {
             details: error?.message || null,
         });
     }
+};
+
+//Limiter le nombre de vehicule
+exports.putLimiteVehicule = async (req, res) => {
+  const { id_utilisateur, limite_vehicules } = req.query; // attendre 0 ou 1
+
+  if (!id_utilisateur || !limite_vehicules) {
+    return res.status(400).json({ error: "Champs requis manquants ou invalides." });
+  }
+
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error("Erreur de connexion DB :", connErr);
+      return res.status(500).json({ error: "Connexion à la base de données échouée." });
+    }
+
+    connection.beginTransaction(async (trxErr) => {
+      if (trxErr) {
+        connection.release();
+        console.error("Erreur de début de transaction :", trxErr);
+        return res.status(500).json({ error: "Impossible de démarrer la transaction." });
+      }
+
+      try {
+        const sql = `
+          UPDATE utilisateur 
+          SET limite_vehicules = ?
+          WHERE id_utilisateur = ?
+        `;
+
+        const params = [limite_vehicules, id_utilisateur];
+
+        await queryPromise(connection, sql, params);
+
+        connection.commit((commitErr) => {
+          connection.release();
+          if (commitErr) {
+            console.error("Erreur lors du commit :", commitErr);
+            return res.status(500).json({ error: "Erreur lors du commit." });
+          }
+
+          const msg = limite_vehicules ? "Utilisateur activé avec succès." : "Utilisateur désactivé avec succès.";
+          return res.status(200).json({ message: msg });
+        });
+      } catch (error) {
+        connection.rollback(() => {
+          connection.release();
+          console.error("Erreur lors de la mise à jour :", error);
+          return res.status(500).json({ error: error.message || "Erreur inattendue." });
+        });
+      }
+    });
+  });
 };
 
 //Société
