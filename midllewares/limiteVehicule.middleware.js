@@ -1,4 +1,4 @@
-const db = require('../config/database');
+const { queryAsync, db } = require("./../config/database");
 
 const verifierLimiteVehicules = async (req, res, next) => {
     const { tenantId, isSuperAdmin } = req;

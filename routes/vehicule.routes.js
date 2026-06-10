@@ -30,7 +30,7 @@ router.get('/vehicule_occupe', vehiculeController.getVehiculeOccupe)
 router.put('/vehicule/rend_dispo', vehiculeController.rendreVehiculeDispo)
 
 router.get('/vehicule/one', vehiculeController.getVehiculeOne)
-router.post('/vehicule', verifyToken, tenantFilter, verifierLimiteVehicules, upload.array('img', 10), vehiculeController.postVehicule)
+router.post('/', verifyToken, tenantFilter, verifierLimiteVehicules, upload.array('img', 10), vehiculeController.postVehicule)
 router.put('/vehicule', vehiculeController.putVehicule);
 router.put('/vehicule_estSupprime', vehiculeController.deleteVehicule);
 router.put('/vehicule_falcon', vehiculeController.putRelierVehiculeFalcon)

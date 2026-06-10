@@ -219,13 +219,11 @@ exports.postVehicule = async (req, res) => {
     const { tenantId, isSuperAdmin } = req;
     const currentUserId = req.user?.id || req.body.user_cr;
 
-    // Vérification des droits
     if (!isSuperAdmin && !tenantId) {
         return res.status(403).json({ error: 'Non autorisé à ajouter un véhicule' });
-    }
+    } 
 
     try {
-        // 🔥 Vérification de la limite AVANT insertion (pour éviter de compter un véhicule qui pourrait échouer)
         if (!isSuperAdmin && tenantId) {
             const checkLimitQuery = `
                 SELECT u.limite_vehicules, COUNT(v.id_vehicule) AS nb_actuel
@@ -295,7 +293,6 @@ exports.postVehicule = async (req, res) => {
             user_cr
         } = req.body;
 
-        // 🔥 Insertion avec tenant_id et created_by
         const query = `
             INSERT INTO vehicules (
                 immatriculation, numero_ordre, id_marque, id_modele, variante, num_chassis,
@@ -304,8 +301,8 @@ exports.postVehicule = async (req, res) => {
                 capacite_carter, nbre_place, nbre_portes, nbre_moteur, cylindre, nbre_cylindre, disposition_cylindre,
                 id_type_carburant, regime_moteur_vehicule, consommation_carburant, turbo, date_service, 
                 km_initial, nbre_chev, id_transmission, id_climatisation, pneus, valeur_acquisition, 
-                lubrifiant_moteur, id_etat, tenant_id, created_by, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                lubrifiant_moteur, id_etat, tenant_id, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const values = [
@@ -316,8 +313,8 @@ exports.postVehicule = async (req, res) => {
             id_type_carburant, regime_moteur_vehicule, consommation_carburant, turbo, date_service,
             km_initial, nbre_chev, id_transmission, id_climatisation, pneus, valeur_acquisition,
             lubrifiant_moteur, id_etat,
-            tenantId,           // 🔥 tenant_id automatique
-            currentUserId       // 🔥 created_by
+            tenantId,
+            currentUserId
         ];
 
         const result = await queryAsync(query, values);
