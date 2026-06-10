@@ -498,15 +498,14 @@ exports.putVehicule = async (req, res) => {
 exports.deleteVehicule = async (req, res) => {
     const { tenantId, isSuperAdmin } = req;
     const currentUserId = req.user?.id;
-    const { id_vehicule } = req.query;
+    const { id_vehicule } = req.query;       
 
-    // Vérification des droits
     if (!isSuperAdmin && !tenantId) {
       return res.status(403).json({ error: 'Non autorisé à supprimer ce véhicule' });
     }
 
     if (!id_vehicule) {
-      return res.status(400).json({ message: "Paramètre 'id_vehicule' manquant." });
+      return res.status(400).json({ message: "P   aramètre 'id_vehicule' manquant." });
     }
 
     try {
@@ -516,13 +515,14 @@ exports.deleteVehicule = async (req, res) => {
               FROM vehicules 
             WHERE id_vehicule = ? AND tenant_id = ? AND est_supprime = 0
           `;
-            const vehicule = await queryAsync(checkQuery, [id_vehicule, tenantId]);
+
+          const vehicule = await queryAsync(checkQuery, [id_vehicule, tenantId]);
             
-            if (!vehicule || vehicule.length === 0) {
-              return res.status(404).json({ 
-                error: "Véhicule non trouvé ou n'appartient pas à votre société" 
-              });
-            }
+          if (!vehicule || vehicule.length === 0) {
+            return res.status(404).json({ 
+              error: "Véhicule non trouvé ou n'appartient pas à votre société" 
+            });
+          }
         }
 
         let q = "UPDATE vehicules SET est_supprime = 1, updated_by = ?, updated_at = NOW() WHERE id_vehicule = ?";
