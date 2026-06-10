@@ -31,9 +31,8 @@ router.put('/vehicule/rend_dispo', vehiculeController.rendreVehiculeDispo)
 
 router.get('/vehicule/one', vehiculeController.getVehiculeOne)
 router.post('/', verifyToken, tenantFilter, verifierLimiteVehicules, upload.array('img', 10), vehiculeController.postVehicule)
-router.put('/vehicule', vehiculeController.putVehicule);
-router.put('/vehicule_estSupprime', vehiculeController.deleteVehicule);
+router.put('/', verifyToken, tenantFilter,upload.array('img', 10), vehiculeController.putVehicule);
+router.put('/vehicule_estSupprime', verifyToken, tenantFilter, vehiculeController.deleteVehicule);
 router.put('/vehicule_falcon', vehiculeController.putRelierVehiculeFalcon)
-
 
 module.exports = router;

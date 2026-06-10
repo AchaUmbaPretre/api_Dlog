@@ -358,7 +358,34 @@ exports.postVehicule = async (req, res) => {
 };
 
 exports.putVehicule = async (req, res) => {
+    const { tenantId, isSuperAdmin } = req;
+    const currentUserId = req.user?.id || req.body.user_cr;
+    const { id_vehicule } = req.body;
+
+    if (!isSuperAdmin && !tenantId) {
+        return res.status(403).json({ error: 'Non autorisé à modifier ce véhicule' });
+    }
+
+    if (!id_vehicule) {
+        return res.status(400).json({ error: "L'identifiant du véhicule est requis." });
+    }
+
     try {
+        if (!isSuperAdmin && tenantId) {
+            const checkQuery = `
+                SELECT id_vehicule, tenant_id, created_by
+                FROM vehicules 
+                WHERE id_vehicule = ? AND tenant_id = ? AND est_supprime = 0
+            `;
+            const vehicule = await queryAsync(checkQuery, [id_vehicule, tenantId]);
+            
+            if (!vehicule || vehicule.length === 0) {
+                return res.status(404).json({ 
+                    error: "Véhicule non trouvé ou n'appartient pas à votre société" 
+                });
+            }
+        }
+
         let img = null;
         if (req.files && Array.isArray(req.files) && req.files.length > 0) {
             img = req.files.map(file => file.path.replace(/\\/g, '/')).join(',');
@@ -369,73 +396,195 @@ exports.putVehicule = async (req, res) => {
             annee_fabrication, annee_circulation, id_cat_vehicule, id_type_permis_vehicule,
             longueur, largeur, hauteur, poids, id_couleur, capacite_carburant, capacite_radiateur,
             capacite_carter, nbre_place, nbre_portes, nbre_moteur, cylindre, nbre_cylindre, disposition_cylindre, 
-            id_type_carburant, regime_moteur_vehicule, consommation_carburant, turbo, date_service, km_initial, nbre_chev,
-            id_transmission, id_climatisation, pneus, valeur_acquisition, lubrifiant_moteur, id_etat, user_cr, id_vehicule
+            id_type_carburant, regime_moteur_vehicule, consommation_carburant, turbo, date_service, 
+            km_initial, nbre_chev, id_transmission, id_climatisation, pneus, valeur_acquisition, 
+            lubrifiant_moteur, capacite_reservoir, id_etat, id_capteur, name_capteur, 
+            id_carburant_vehicule, id_client, user_cr
         } = req.body;
 
-        if (!id_vehicule) {
-            return res.status(400).json({ error: "L'identifiant du véhicule est requis." });
-        }
-
-        const query = `
+        let query = `
             UPDATE vehicules
-            SET immatriculation = ?, numero_ordre = ?, id_marque = ?, id_modele = ?,
-                variante = ?, num_chassis = ?, annee_fabrication = ?, annee_circulation = ?, id_cat_vehicule = ?, id_type_permis_vehicule = ?, 
-                img = ?, longueur = ?, largeur = ?, hauteur = ?, poids = ?, id_couleur = ?, capacite_carburant = ?, capacite_radiateur = ?, capacite_carter = ?,
-                nbre_place = ?, nbre_portes = ?, nbre_moteur = ?, cylindre = ?, nbre_cylindre = ?, disposition_cylindre = ?, id_type_carburant = ?,
-                regime_moteur_vehicule = ?, consommation_carburant = ?, turbo = ?, date_service = ?, km_initial = ?, nbre_chev = ?,
-                id_transmission = ?, id_climatisation = ?, pneus = ?, valeur_acquisition = ?, lubrifiant_moteur = ?, id_etat = ?, user_cr = ?
-            WHERE id_vehicule = ?
+            SET 
+                immatriculation = ?, numero_ordre = ?, id_marque = ?, id_modele = ?,
+                variante = ?, num_chassis = ?, annee_fabrication = ?, annee_circulation = ?, 
+                id_cat_vehicule = ?, id_type_permis_vehicule = ?, img = COALESCE(?, img),
+                longueur = ?, largeur = ?, hauteur = ?, poids = ?, id_couleur = ?, 
+                capacite_carburant = ?, capacite_radiateur = ?, capacite_carter = ?,
+                nbre_place = ?, nbre_portes = ?, nbre_moteur = ?, cylindre = ?, 
+                nbre_cylindre = ?, disposition_cylindre = ?, id_type_carburant = ?,
+                regime_moteur_vehicule = ?, consommation_carburant = ?, turbo = ?, 
+                date_service = ?, km_initial = ?, nbre_chev = ?, id_transmission = ?, 
+                id_climatisation = ?, pneus = ?, valeur_acquisition = ?, lubrifiant_moteur = ?, 
+                capacite_reservoir = ?, id_etat = ?, id_capteur = ?, name_capteur = ?,
+                id_carburant_vehicule = ?, id_client = ?, user_cr = ?, updated_by = ?, updated_at = NOW()
+            WHERE id_vehicule = ? AND est_supprime = 0
         `;
 
+        if (!isSuperAdmin && tenantId) {
+            query += ` AND tenant_id = ?`;
+        }
+
         const values = [
-            immatriculation || null, numero_ordre || null, id_marque || null, id_modele || null, variante || null, num_chassis || null,  
-            annee_fabrication || null, annee_circulation || null, id_cat_vehicule || null, id_type_permis_vehicule || null, img || null,
-            longueur || null, largeur || null, hauteur || null, poids || null, id_couleur || null, capacite_carburant || null, capacite_radiateur || null,
-            capacite_carter || null, nbre_place || null, nbre_portes || null, nbre_moteur || null, cylindre || null, nbre_cylindre || null, disposition_cylindre || null, 
-            id_type_carburant || null, regime_moteur_vehicule || null, consommation_carburant || null, turbo || null, date_service || null, km_initial || null, nbre_chev || null,
-            id_transmission || null, id_climatisation || null, pneus || null, valeur_acquisition || null, lubrifiant_moteur || null, id_etat || null, user_cr || null, id_vehicule
+            immatriculation || null, numero_ordre || null, id_marque || null, id_modele || null, 
+            variante || null, num_chassis || null, annee_fabrication || null, annee_circulation || null, 
+            id_cat_vehicule || null, id_type_permis_vehicule || null, img || null,
+            longueur || null, largeur || null, hauteur || null, poids || null, id_couleur || null, 
+            capacite_carburant || null, capacite_radiateur || null, capacite_carter || null,
+            nbre_place || null, nbre_portes || null, nbre_moteur || null, cylindre || null, 
+            nbre_cylindre || null, disposition_cylindre || null, id_type_carburant || null,
+            regime_moteur_vehicule || null, consommation_carburant || null, turbo || null, 
+            date_service || null, km_initial || null, nbre_chev || null, id_transmission || null, 
+            id_climatisation || null, pneus || null, valeur_acquisition || null, 
+            lubrifiant_moteur || null, capacite_reservoir || null, id_etat || null, 
+            id_capteur || null, name_capteur || null, id_carburant_vehicule || null, 
+            id_client || null, user_cr || currentUserId,
+            currentUserId, id_vehicule
         ];
+
+        // Ajouter tenant_id à la fin si nécessaire
+        if (!isSuperAdmin && tenantId) {
+            values.push(tenantId);
+        }
 
         const result = await queryAsync(query, values);
 
         if (result.affectedRows === 0) {
-            return res.status(404).json({ error: "Aucun véhicule trouvé avec cet identifiant." });
+            return res.status(404).json({ 
+                error: "Aucun véhicule trouvé avec cet identifiant ou vous n'avez pas les droits." 
+            });
         }
 
-        return res.status(200).json({ message: "Véhicule mis à jour avec succès." });
+        // Journalisation de la modification
+        const logQuery = `
+            INSERT INTO log_inspection (table_name, action, record_id, user_id, description, tenant_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `;
+        await queryAsync(logQuery, [
+            'vehicules',
+            'Modification',
+            id_vehicule,
+            currentUserId,
+            `Mise à jour du véhicule #${id_vehicule} - ${immatriculation}`,
+            tenantId
+        ]);
+
+        return res.status(200).json({ 
+            success: true,
+            message: "Véhicule mis à jour avec succès.",
+            data: { 
+                id_vehicule, 
+                immatriculation, 
+                tenant_id: tenantId,
+                updated_by: currentUserId,
+                updated_at: new Date()
+            }
+        });
 
     } catch (error) {
         console.error("Erreur lors de la mise à jour du véhicule :", error);
-        return res.status(500).json({ error: "Une erreur s'est produite lors de la mise à jour du véhicule." });
+        
+        const statusCode = error.code === 'ER_DUP_ENTRY' ? 409 : 500;
+        const errorMessage = error.code === 'ER_DUP_ENTRY'
+            ? "Un véhicule avec ces informations existe déjà."
+            : "Une erreur s'est produite lors de la mise à jour du véhicule.";
+
+        return res.status(statusCode).json({ 
+            success: false,
+            error: errorMessage 
+        });
     }
 };
 
 exports.deleteVehicule = async (req, res) => {
-    try {
-      const { id_vehicule } = req.query;
+    const { tenantId, isSuperAdmin } = req;
+    const currentUserId = req.user?.id;
+    const { id_vehicule } = req.query;
 
-      if (!id_vehicule) {
+    // Vérification des droits
+    if (!isSuperAdmin && !tenantId) {
+        return res.status(403).json({ error: 'Non autorisé à supprimer ce véhicule' });
+    }
+
+    if (!id_vehicule) {
         return res.status(400).json({ message: "Paramètre 'id_vehicule' manquant." });
-      }
-  
-      const q = "UPDATE vehicules SET est_supprime = 1 WHERE id_vehicule = ?";
-  
-      db.query(q, [id_vehicule], (err, result) => {
-        if (err) {
-          console.error("Erreur de requête de base de données:", err);
-          return res.status(500).json({ message: "Une erreur de base de données s'est produite." });
+    }
+
+    try {
+        if (!isSuperAdmin && tenantId) {
+            const checkQuery = `
+                SELECT id_vehicule, immatriculation, tenant_id, created_by
+                FROM vehicules 
+                WHERE id_vehicule = ? AND tenant_id = ? AND est_supprime = 0
+            `;
+            const [vehicule] = await queryAsync(checkQuery, [id_vehicule, tenantId]);
+            
+            if (!vehicule || vehicule.length === 0) {
+                return res.status(404).json({ 
+                    error: "Véhicule non trouvé ou n'appartient pas à votre société" 
+                });
+            }
         }
-  
+
+        let q = "UPDATE vehicules SET est_supprime = 1, updated_by = ?, updated_at = NOW() WHERE id_vehicule = ?";
+        let params = [currentUserId, id_vehicule];
+
+        // Ajouter condition tenant pour les non-Super Admin
+        if (!isSuperAdmin && tenantId) {
+            q += " AND tenant_id = ?";
+            params.push(tenantId);
+        }
+
+        const result = await queryAsync(q, params);
+
         if (result.affectedRows === 0) {
-          return res.status(404).json({ message: "Vehicule introuvable." });
+            return res.status(404).json({ 
+                message: "Véhicule introuvable ou déjà supprimé.",
+                code: "NOT_FOUND"
+            });
         }
-  
-        return res.status(200).json({ message: "Vehicule supprimé avec succès." });
-      });
+
+        const logQuery = `
+            INSERT INTO log_inspection (table_name, action, record_id, user_id, description, tenant_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, NOW())
+        `;
+        await queryAsync(logQuery, [
+            'vehicules',
+            'Suppression logique',
+            id_vehicule,
+            currentUserId,
+            `Suppression logique du véhicule #${id_vehicule}`,
+            tenantId
+        ]);
+
+        if (!isSuperAdmin && tenantId) {
+            await queryAsync(`
+                UPDATE utilisateur 
+                SET nb_vehicules_utilises = (
+                    SELECT COUNT(*) FROM vehicules 
+                    WHERE tenant_id = ? AND est_supprime = 0
+                )
+                WHERE id_utilisateur = ?
+            `, [tenantId, currentUserId]);
+        }
+
+        return res.status(200).json({ 
+            success: true,
+            message: "Véhicule supprimé avec succès.",
+            data: {
+                id_vehicule,
+                tenant_id: tenantId,
+                deleted_by: currentUserId,
+                deleted_at: new Date()
+            }
+        });
+
     } catch (error) {
-      console.error("Erreur inattendue:", error);
-      return res.status(500).json({ message: "Une erreur inattendue s'est produite." });
+        console.error("Erreur inattendue:", error);
+        return res.status(500).json({ 
+            success: false,
+            message: "Une erreur inattendue s'est produite.",
+            error: error.message 
+        });
     }
 };
 
