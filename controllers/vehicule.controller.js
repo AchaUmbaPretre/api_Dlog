@@ -502,26 +502,26 @@ exports.deleteVehicule = async (req, res) => {
 
     // Vérification des droits
     if (!isSuperAdmin && !tenantId) {
-        return res.status(403).json({ error: 'Non autorisé à supprimer ce véhicule' });
+      return res.status(403).json({ error: 'Non autorisé à supprimer ce véhicule' });
     }
 
     if (!id_vehicule) {
-        return res.status(400).json({ message: "Paramètre 'id_vehicule' manquant." });
+      return res.status(400).json({ message: "Paramètre 'id_vehicule' manquant." });
     }
 
     try {
         if (!isSuperAdmin && tenantId) {
-            const checkQuery = `
-                SELECT id_vehicule, immatriculation, tenant_id, created_by
-                FROM vehicules 
-                WHERE id_vehicule = ? AND tenant_id = ? AND est_supprime = 0
-            `;
-            const [vehicule] = await queryAsync(checkQuery, [id_vehicule, tenantId]);
+          const checkQuery = `
+            SELECT id_vehicule, immatriculation, tenant_id, created_by
+              FROM vehicules 
+            WHERE id_vehicule = ? AND tenant_id = ? AND est_supprime = 0
+          `;
+            const vehicule = await queryAsync(checkQuery, [id_vehicule, tenantId]);
             
             if (!vehicule || vehicule.length === 0) {
-                return res.status(404).json({ 
-                    error: "Véhicule non trouvé ou n'appartient pas à votre société" 
-                });
+              return res.status(404).json({ 
+                error: "Véhicule non trouvé ou n'appartient pas à votre société" 
+              });
             }
         }
 
@@ -537,15 +537,15 @@ exports.deleteVehicule = async (req, res) => {
         const result = await queryAsync(q, params);
 
         if (result.affectedRows === 0) {
-            return res.status(404).json({ 
-                message: "Véhicule introuvable ou déjà supprimé.",
-                code: "NOT_FOUND"
-            });
+          return res.status(404).json({ 
+            message: "Véhicule introuvable ou déjà supprimé.",
+            code: "NOT_FOUND"
+          });
         }
 
         const logQuery = `
-            INSERT INTO log_inspection (table_name, action, record_id, user_id, description, tenant_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, NOW())
+            INSERT INTO log_inspection (table_name, action, record_id, user_id, description, tenant_id)
+            VALUES (?, ?, ?, ?, ?, ?)
         `;
         await queryAsync(logQuery, [
             'vehicules',
