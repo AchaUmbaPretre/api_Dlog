@@ -2,10 +2,10 @@ const mysql = require("mysql");
 
 const db = mysql.createPool({
     connectionLimit: 10, // Limite le nombre de connexions simultanées
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'dlog',
+    host: process.env.HOST,
+    user: process.env.USER,
+    password: process.env.PASSWORD,
+    database: process.env.DATABASE,
 });
 
 db.getConnection((err, connection) => {

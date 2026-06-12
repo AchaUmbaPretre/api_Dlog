@@ -52,13 +52,6 @@ const app = express();
 
 dotenv.config();
 
-/* const { initializeSocket } = require('./socket');
-
-const server = http.createServer(app);
-
-// Initialisation de Socket.IO
-initializeSocket(server); */
-
 const environment = process.env.PORT || 'development';
 
 if (environment === 'development') {
